@@ -108,6 +108,7 @@ img {
 
 .student-mobile-topbar,
 .student-mobile-overlay,
+.student-mobile-drawer-overlay,
 .student-mobile-drawer {
   display: none !important;
 }
@@ -389,7 +390,8 @@ img {
     font-weight: 800;
   }
 
-  .student-mobile-overlay {
+  .student-mobile-overlay,
+  .student-mobile-drawer-overlay {
     background: rgba(17, 24, 39, 0.48);
     bottom: 0;
     display: block !important;
@@ -432,6 +434,18 @@ img {
     overflow-y: auto;
     padding: 24px 18px !important;
     width: 100% !important;
+  }
+
+  .student-mobile-drawer-close {
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 8px;
+    color: #ffffff;
+    cursor: pointer;
+    font-weight: 800;
+    margin: 18px 18px 0;
+    padding: 10px 14px;
+    width: calc(100% - 36px);
   }
 
   .student-desktop-sidebar {
@@ -593,5 +607,90 @@ img {
 
   .student-dashboard-access-card .student-dashboard-action-button {
     width: 100%;
+  }
+
+  .student-homework-page {
+    padding: 18px 16px 28px !important;
+    width: 100%;
+  }
+
+  .student-homework-header {
+    font-size: 2rem !important;
+    line-height: 1.15 !important;
+    margin-bottom: 8px !important;
+  }
+
+  .student-homework-subtitle {
+    line-height: 1.45;
+    margin-bottom: 24px !important;
+  }
+
+  .student-homework-weeks {
+    display: grid;
+    gap: 18px;
+    width: 100%;
+  }
+
+  .student-homework-week-card,
+  .student-homework-empty {
+    margin-bottom: 0 !important;
+    max-width: none !important;
+    padding: 18px !important;
+    width: 100%;
+  }
+
+  .student-homework-week-title {
+    font-size: 1.35rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .student-homework-item {
+    align-items: stretch !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    margin-top: 18px !important;
+    padding: 14px !important;
+  }
+
+  .student-homework-item-content {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .student-homework-item-title,
+  .student-homework-description {
+    overflow-wrap: anywhere;
+  }
+
+  .student-homework-description {
+    line-height: 1.45;
+  }
+
+  .student-homework-links {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+    width: 100%;
+  }
+
+  .student-homework-link {
+    background: #1f3c88;
+    border-radius: 8px;
+    color: #ffffff !important;
+    display: block !important;
+    font-weight: 800 !important;
+    margin: 0 !important;
+    overflow-wrap: anywhere;
+    padding: 11px 14px;
+    text-align: center;
+    text-decoration: none;
+    width: 100%;
+  }
+
+  .student-homework-due-date {
+    align-self: flex-start;
+    line-height: 1.35;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 }
