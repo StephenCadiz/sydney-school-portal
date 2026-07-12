@@ -519,6 +519,41 @@ export async function getAdminInboxMessages(adminId: string) {
   return enrichMessagesWithProfile(data || [], "sender_id", "sender");
 }
 
+export async function getAdminUnreadTeacherMessageCount(adminId: string) {
+  if (!adminId) {
+    throw new Error("Unable to identify the logged-in admin.");
+  }
+
+  const { data: candidates, error: candidatesError } = await supabase
+    .from("messages")
+    .select("id, sender_id, receiver_id, recipient_group")
+    .is("read_at", null)
+    .or(`recipient_group.eq.admin,and(receiver_id.eq.${adminId},recipient_group.is.null)`);
+
+  if (candidatesError) throw candidatesError;
+
+  const senderIds = Array.from(
+    new Set((candidates || []).map((message) => message.sender_id).filter(Boolean))
+  );
+
+  if (senderIds.length === 0) {
+    return 0;
+  }
+
+  const { data: teacherProfiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id")
+    .in("id", senderIds)
+    .eq("role", "teacher");
+
+  if (profilesError) throw profilesError;
+
+  const teacherIds = new Set((teacherProfiles || []).map((profile) => profile.id));
+
+  return (candidates || []).filter((message) => teacherIds.has(message.sender_id))
+    .length;
+}
+
 export async function getAdminSentMessages(adminId: string) {
   const { data, error } = await supabase
     .from("messages")

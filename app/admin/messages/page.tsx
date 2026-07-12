@@ -160,6 +160,7 @@ export default function AdminMessagesPage() {
             messageItem.id === item.id ? updatedMessage : messageItem
           )
         );
+        window.dispatchEvent(new Event("admin-unread-messages-changed"));
       } catch (error) {
         console.error("Unable to mark admin message as read:", error);
       }
