@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getUnreadTeacherMessages } from "../../../lib/messages";
+import { getUnreadTeacherStaffMessages } from "../../../lib/messages";
 
 type TeacherMessageNotificationsProps = {
   teacherId: string;
@@ -28,7 +28,7 @@ function getSenderName(message: any) {
     return message.sender_name || "Admin";
   }
 
-  return message.student_name || message.sender_name || "Unknown sender";
+  return message.sender_name || "Unknown sender";
 }
 
 export default function TeacherMessageNotifications({
@@ -44,7 +44,7 @@ export default function TeacherMessageNotifications({
       setLoading(true);
 
       try {
-        const data = await getUnreadTeacherMessages(teacherId);
+        const data = await getUnreadTeacherStaffMessages(teacherId);
         setMessages(data);
       } catch (error) {
         console.error("Unable to load unread teacher messages:", error);
@@ -144,11 +144,6 @@ export default function TeacherMessageNotifications({
             <div style={{ color: "#334155", fontWeight: 700, fontSize: "14px" }}>
               {message.subject || "No subject"}
             </div>
-            {message.sender_role === "student" && message.class_label && (
-              <div style={{ color: "#64748b", fontSize: "13px", marginTop: "3px" }}>
-                {message.class_label}
-              </div>
-            )}
             <p style={{ color: "#475569", fontSize: "13px", margin: "6px 0 0" }}>
               {previewText(message.message)}
             </p>

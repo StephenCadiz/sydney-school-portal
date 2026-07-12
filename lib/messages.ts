@@ -178,6 +178,40 @@ async function enrichMessagesWithProfile(
   });
 }
 
+function isStaffRole(role?: string | null) {
+  return role === "admin" || role === "teacher";
+}
+
+export const TEACHER_ADMIN_RECIPIENT_VALUE = "admin-group";
+
+type TeacherStaffMessageRecipient =
+  | {
+      type: "admin_group";
+    }
+  | {
+      type: "teacher";
+      teacherId: string;
+    };
+
+async function getStaffProfiles(excludeUserId?: string) {
+  let query = supabase
+    .from("profiles")
+    .select("id, email, first_name, last_name, role")
+    .in("role", ["admin", "teacher"])
+    .order("role")
+    .order("first_name");
+
+  if (excludeUserId) {
+    query = query.neq("id", excludeUserId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+
+  return (data || []).filter((profile) => profile?.id && isStaffRole(profile.role));
+}
+
 export async function getMessages(
   senderId: string,
   receiverId: string
@@ -195,6 +229,276 @@ export async function getMessages(
   return data || [];
 }
 
+export async function getTeacherStaffRecipients(teacherId: string) {
+  if (!teacherId) {
+    throw new Error("Unable to identify the logged-in teacher.");
+  }
+
+  try {
+    const profiles = await getStaffProfiles(teacherId);
+
+    return {
+      admins: [
+        {
+          id: TEACHER_ADMIN_RECIPIENT_VALUE,
+          first_name: "Admin",
+          last_name: "",
+          email: "",
+          role: "admin",
+        },
+      ],
+      teachers: profiles.filter((profile) => profile.role === "teacher"),
+    };
+  } catch (error) {
+    console.error("Unable to load teacher staff recipients:", error);
+    throw new Error("Unable to load staff recipients.");
+  }
+}
+
+export async function getTeacherStaffInboxMessages(teacherId: string) {
+  if (!teacherId) {
+    return [];
+  }
+
+  const staffProfiles = await getStaffProfiles(teacherId);
+  const staffIds = staffProfiles.map((profile) => profile.id);
+
+  if (staffIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("receiver_id", teacherId)
+    .in("sender_id", staffIds)
+    .is("recipient_deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return enrichMessagesWithProfile(data || [], "sender_id", "sender");
+}
+
+export async function getTeacherStaffSentMessages(teacherId: string) {
+  if (!teacherId) {
+    return [];
+  }
+
+  const staffProfiles = await getStaffProfiles(teacherId);
+  const staffIds = staffProfiles.map((profile) => profile.id);
+
+  const oneToOneQuery =
+    staffIds.length > 0
+      ? supabase
+          .from("messages")
+          .select("*")
+          .eq("sender_id", teacherId)
+          .in("receiver_id", staffIds)
+          .is("sender_deleted_at", null)
+      : Promise.resolve({ data: [], error: null });
+
+  const sharedAdminQuery = supabase
+    .from("messages")
+    .select("*")
+    .eq("sender_id", teacherId)
+    .eq("recipient_group", "admin")
+    .is("sender_deleted_at", null);
+
+  const [
+    { data: oneToOneData, error: oneToOneError },
+    { data: sharedAdminData, error: sharedAdminError },
+  ] = await Promise.all([oneToOneQuery, sharedAdminQuery]);
+
+  if (oneToOneError) throw oneToOneError;
+  if (sharedAdminError) throw sharedAdminError;
+
+  const oneToOneMessages = await enrichMessagesWithProfile(
+    oneToOneData || [],
+    "receiver_id",
+    "receiver"
+  );
+
+  const sharedAdminMessages = (sharedAdminData || []).map((message) => ({
+    ...message,
+    receiver_name: "Admin",
+    receiver_role: "admin",
+  }));
+
+  return [...oneToOneMessages, ...sharedAdminMessages].sort((first, second) => {
+    const firstTime = first.created_at ? new Date(first.created_at).getTime() : 0;
+    const secondTime = second.created_at ? new Date(second.created_at).getTime() : 0;
+
+    return secondTime - firstTime;
+  });
+}
+
+export async function getUnreadTeacherStaffMessages(teacherId: string) {
+  if (!teacherId) {
+    return [];
+  }
+
+  const staffProfiles = await getStaffProfiles(teacherId);
+  const staffIds = staffProfiles.map((profile) => profile.id);
+
+  if (staffIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("receiver_id", teacherId)
+    .in("sender_id", staffIds)
+    .is("read_at", null)
+    .is("recipient_deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return enrichMessagesWithProfile(data || [], "sender_id", "sender");
+}
+
+export async function sendTeacherStaffMessage({
+  senderId,
+  recipient,
+  subject,
+  message,
+  attachment_link,
+}: {
+  senderId: string;
+  recipient: TeacherStaffMessageRecipient;
+  subject: string;
+  message: string;
+  attachment_link?: string | null;
+}) {
+  if (!senderId) {
+    throw new Error("Unable to identify the logged-in teacher.");
+  }
+
+  if (!recipient) {
+    throw new Error("Please select a staff recipient.");
+  }
+
+  const profileIds =
+    recipient.type === "teacher" ? [senderId, recipient.teacherId] : [senderId];
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .in("id", profileIds);
+
+  if (profilesError) throw profilesError;
+
+  const senderProfile = profiles?.find((profile) => profile.id === senderId);
+
+  if (senderProfile?.role !== "teacher") {
+    throw new Error("Only teachers can send staff messages from this page.");
+  }
+
+  const payload: any = {
+    sender_id: senderId,
+    subject,
+    message,
+  };
+
+  if (recipient.type === "admin_group") {
+    payload.receiver_id = null;
+    payload.recipient_group = "admin";
+  } else {
+    if (!recipient.teacherId) {
+      throw new Error("Please select a teacher recipient.");
+    }
+
+    if (senderId === recipient.teacherId) {
+      throw new Error("You cannot send a message to yourself.");
+    }
+
+    const receiverProfile = profiles?.find(
+      (profile) => profile.id === recipient.teacherId
+    );
+
+    if (receiverProfile?.role !== "teacher") {
+      throw new Error("Please select a teacher recipient.");
+    }
+
+    payload.receiver_id = recipient.teacherId;
+    payload.recipient_group = null;
+  }
+
+  if (attachment_link) {
+    payload.attachment_link = attachment_link;
+  }
+
+  const { error } = await supabase.from("messages").insert([payload]);
+
+  if (error) throw error;
+
+  return {
+    success: true,
+  };
+}
+
+export async function markTeacherStaffMessageAsRead(
+  messageId: string,
+  teacherId: string
+) {
+  const { data: message, error: messageError } = await supabase
+    .from("messages")
+    .select("id, sender_id")
+    .eq("id", messageId)
+    .eq("receiver_id", teacherId)
+    .single();
+
+  if (messageError) throw messageError;
+
+  const { data: senderProfile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", message.sender_id)
+    .single();
+
+  if (profileError) throw profileError;
+
+  if (!isStaffRole(senderProfile?.role)) {
+    throw new Error("This is not a staff message.");
+  }
+
+  await markMessageAsRead(messageId, teacherId);
+}
+
+export async function hideTeacherReceivedStaffMessage(messageId: string) {
+  if (!messageId) {
+    throw new Error("Unable to identify the message.");
+  }
+
+  const { data, error } = await supabase.rpc("hide_received_staff_message", {
+    p_message_id: messageId,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Unable to remove message from inbox.");
+  }
+
+  return data || { success: true };
+}
+
+export async function hideTeacherSentStaffMessage(messageId: string) {
+  if (!messageId) {
+    throw new Error("Unable to identify the message.");
+  }
+
+  const { data, error } = await supabase.rpc("hide_sent_staff_message", {
+    p_message_id: messageId,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Unable to remove message from sent.");
+  }
+
+  return data || { success: true };
+}
+
 export async function sendMessage(message: any) {
   const { error } = await supabase
     .from("messages")
@@ -207,7 +511,7 @@ export async function getAdminInboxMessages(adminId: string) {
   const { data, error } = await supabase
     .from("messages")
     .select("*")
-    .eq("receiver_id", adminId)
+    .or(`receiver_id.eq.${adminId},recipient_group.eq.admin`)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -225,6 +529,22 @@ export async function getAdminSentMessages(adminId: string) {
   if (error) throw error;
 
   return enrichMessagesWithProfile(data || [], "receiver_id", "receiver");
+}
+
+export async function markSharedAdminMessageAsRead(messageId: string) {
+  if (!messageId) {
+    throw new Error("Unable to identify the message.");
+  }
+
+  const { data, error } = await supabase.rpc("mark_shared_admin_message_as_read", {
+    p_message_id: messageId,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Unable to mark admin message as read.");
+  }
+
+  return data || { success: true };
 }
 
 export async function sendAdminMessageToTeacher({

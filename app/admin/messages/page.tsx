@@ -7,6 +7,7 @@ import { getTeachers } from "../../../lib/adminTeachers";
 import {
   getAdminInboxMessages,
   getAdminSentMessages,
+  markSharedAdminMessageAsRead,
   markMessageAsRead,
   sendAdminMessageToAllTeachers,
   sendAdminMessageToTeacher,
@@ -144,7 +145,11 @@ export default function AdminMessagesPage() {
 
     if (!item.read_at && adminId) {
       try {
-        await markMessageAsRead(item.id, adminId);
+        if (item.recipient_group === "admin" && !item.receiver_id) {
+          await markSharedAdminMessageAsRead(item.id);
+        } else {
+          await markMessageAsRead(item.id, adminId);
+        }
 
         const readAt = new Date().toISOString();
         const updatedMessage = { ...item, read_at: readAt };
