@@ -1,5 +1,19 @@
 import { supabase } from "./supabase";
 
+export interface TeacherCalendarEvent {
+  id: string;
+  title: string;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  description: string | null;
+  audience: string;
+  teacher_id: string | null;
+  created_by: string | null;
+  created_at?: string;
+  completed: boolean;
+}
+
 export async function getTeacherCalendarEvents() {
   const { data, error } = await supabase
     .from("teacher_calendar_events")
@@ -38,6 +52,28 @@ export async function getUpcomingTeacherCalendarEvents() {
   }
 
   return data || [];
+}
+
+export async function getTeacherCalendarEventsForRange(
+  startDate: string,
+  endDate: string
+): Promise<TeacherCalendarEvent[]> {
+  const { data, error } = await supabase
+    .from("teacher_calendar_events")
+    .select(
+      "id, title, event_date, start_time, end_time, description, audience, teacher_id, created_by, created_at, completed"
+    )
+    .gte("event_date", startDate)
+    .lte("event_date", endDate)
+    .order("event_date", { ascending: true })
+    .order("start_time", { ascending: true });
+
+  if (error) {
+    console.error("getTeacherCalendarEventsForRange Supabase error:", error);
+    throw error;
+  }
+
+  return (data || []) as TeacherCalendarEvent[];
 }
 
 export async function createTeacherCalendarEvent(event: any) {

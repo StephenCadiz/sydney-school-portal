@@ -1,0 +1,379 @@
+.page {
+  display: grid;
+  gap: 22px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  background: #ffffff;
+  border: 1px solid #dbe7f3;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 8px 22px rgba(31, 60, 136, 0.07);
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #4090d0;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: #1f3c88;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: #667085;
+  line-height: 1.5;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.controlButton {
+  border: 1px solid #c7d7e8;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #1f3c88;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 10px 14px;
+}
+
+.controlButton:hover {
+  border-color: #2f7db8;
+  color: #2f7db8;
+}
+
+.todayButton {
+  background: #2f7db8;
+  border-color: #2f7db8;
+  color: #ffffff;
+}
+
+.todayButton:hover {
+  color: #ffffff;
+  background: #256aa0;
+}
+
+.statusPanel {
+  background: #ffffff;
+  border: 1px solid #dbe7f3;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 4px 16px rgba(31, 60, 136, 0.05);
+}
+
+.statusPanel p {
+  margin: 0;
+  color: #667085;
+}
+
+.statusPanel p + p {
+  margin-top: 8px;
+}
+
+.errorText {
+  color: #b42318 !important;
+}
+
+.desktopWeek {
+  display: grid;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.dayColumn,
+.mobileDayPanel {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #dbe7f3;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 6px 18px rgba(31, 60, 136, 0.06);
+}
+
+.dayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #edf2f7;
+  padding-bottom: 11px;
+  margin-bottom: 12px;
+}
+
+.weekday {
+  color: #1f3c88;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.date {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.itemList {
+  display: grid;
+  gap: 10px;
+}
+
+.card {
+  border-radius: 12px;
+  padding: 12px;
+  background: #ffffff;
+  min-width: 0;
+}
+
+.classCard {
+  cursor: pointer;
+  border: 1px solid #b9d8ef;
+  border-left: 5px solid #4090d0;
+  box-shadow: 0 4px 12px rgba(64, 144, 208, 0.11);
+}
+
+.classCard:hover,
+.classCard:focus {
+  outline: none;
+  border-color: #2f7db8;
+  box-shadow: 0 7px 18px rgba(64, 144, 208, 0.18);
+}
+
+.eventCard {
+  border: 1px solid #e4e9f1;
+}
+
+.schoolEventCard {
+  border-left: 5px solid #1f3c88;
+  background: #f8fafd;
+}
+
+.personalCard {
+  border-left: 5px solid #16a34a;
+  background: #fbfffc;
+}
+
+.calendarEventCard {
+  border-left: 5px solid #9aa4b2;
+  background: #fbfcfe;
+}
+
+.completed {
+  opacity: 0.7;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 6px 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.classBadge {
+  background: #eaf5fc;
+  color: #1f3c88;
+}
+
+.schoolBadge {
+  background: #e7ecf8;
+  color: #1f3c88;
+}
+
+.personalBadge {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.neutralBadge {
+  background: #eef2f7;
+  color: #475467;
+}
+
+.time {
+  color: #1f3c88;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.cardTitle {
+  margin: 0;
+  color: #1f3c88;
+  font-size: 16px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 8px;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.description {
+  color: #5f6b7a;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.meetLink {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: #2f7db8;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 8px 10px;
+  text-decoration: none;
+}
+
+.meetLink:hover {
+  background: #256aa0;
+}
+
+.completedLabel {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 8px;
+}
+
+.emptyState {
+  margin: 0;
+  border: 1px dashed #d5dfeb;
+  border-radius: 10px;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 12px;
+}
+
+.mobilePlanner {
+  display: none;
+}
+
+.daySelector {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dayButton {
+  border: 1px solid #dbe7f3;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f3c88;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  padding: 10px 6px;
+}
+
+.dayButton span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dayButton strong {
+  font-size: 18px;
+}
+
+.dayButtonActive {
+  background: #2f7db8;
+  border-color: #2f7db8;
+  color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .page {
+    gap: 16px;
+  }
+
+  .header {
+    display: grid;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .controls {
+    justify-content: stretch;
+  }
+
+  .controlButton {
+    flex: 1 1 120px;
+    min-height: 44px;
+  }
+
+  .desktopWeek {
+    display: none;
+  }
+
+  .mobilePlanner {
+    display: block;
+  }
+
+  .daySelector {
+    grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  }
+
+  .dayColumn,
+  .mobileDayPanel {
+    padding: 13px;
+  }
+
+  .card {
+    padding: 13px;
+  }
+
+  .meetLink {
+    justify-content: center;
+    min-height: 42px;
+    width: 100%;
+  }
+}
