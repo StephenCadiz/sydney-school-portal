@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import TeacherLayout from "../../components/layout/TeacherLayout";
 import { supabase } from "../../../lib/supabase";
 import {
+  formatMessageDateTime,
   getTeacherStaffInboxMessages,
   getTeacherStaffRecipients,
   getTeacherStaffSentMessages,
@@ -44,18 +45,6 @@ const deleteButtonStyle = {
   fontWeight: 700,
   cursor: "pointer",
 };
-
-function formatDate(value?: string | null) {
-  if (!value) return "";
-
-  return new Date(value).toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function previewText(value?: string | null) {
   if (!value) return "";
@@ -179,7 +168,7 @@ function MessageRow({
             whiteSpace: "nowrap",
           }}
         >
-          {formatDate(item.created_at)}
+          {formatMessageDateTime(item.created_at)}
         </span>
       </div>
     </button>
@@ -660,7 +649,7 @@ export default function TeacherMessagesPage() {
               >
                 <span>From: {selectedMessage.sender_name || "Staff member"}</span>
                 <span>Role: {roleLabel(selectedMessage.sender_role)}</span>
-                <span>Date: {formatDate(selectedMessage.created_at)}</span>
+                <span>Date: {formatMessageDateTime(selectedMessage.created_at)}</span>
               </div>
 
               <p
@@ -797,7 +786,7 @@ export default function TeacherMessagesPage() {
               >
                 <span>To: {selectedMessage.receiver_name || "Staff member"}</span>
                 <span>Role: {roleLabel(selectedMessage.receiver_role)}</span>
-                <span>Date: {formatDate(selectedMessage.created_at)}</span>
+                <span>Date: {formatMessageDateTime(selectedMessage.created_at)}</span>
               </div>
 
               {statusMessage && (

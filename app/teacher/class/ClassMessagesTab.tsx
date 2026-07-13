@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import {
+  formatMessageDateTime,
   getTeacherSentMessagesForClass,
   sendMessage,
 } from "../../../lib/messages";
@@ -21,16 +22,6 @@ const inputStyle = {
   background: "#fff",
   boxSizing: "border-box" as const,
 };
-
-function formatDate(date: string | null | undefined) {
-  if (!date) return "";
-
-  return new Date(date).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 function getPreview(message: string) {
   if (!message) return "";
@@ -315,7 +306,7 @@ export default function ClassMessagesTab({
                   </strong>
 
                   <span style={{ color: "#667085", fontSize: "13px" }}>
-                    {formatDate(item.created_at)}
+                    {formatMessageDateTime(item.created_at)}
                   </span>
                 </div>
 

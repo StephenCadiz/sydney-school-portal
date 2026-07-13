@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { getTeachers } from "../../../lib/adminTeachers";
 import {
+  formatMessageDateTime,
   getAdminInboxMessages,
   getAdminSentMessages,
   markSharedAdminMessageAsRead,
@@ -33,18 +34,6 @@ const inputStyle = {
   boxSizing: "border-box" as const,
   color: "#334155",
 };
-
-function formatDate(value?: string | null) {
-  if (!value) return "";
-
-  return new Date(value).toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function previewText(value?: string | null) {
   if (!value) return "";
@@ -369,7 +358,7 @@ export default function AdminMessagesPage() {
             >
               <span>From: {selectedMessage.sender_name}</span>
               <span>Role: {roleLabel(selectedMessage.sender_role)}</span>
-              <span>Date: {formatDate(selectedMessage.created_at)}</span>
+              <span>Date: {formatMessageDateTime(selectedMessage.created_at)}</span>
             </div>
 
             <p
@@ -729,7 +718,7 @@ function MessageRow({
           whiteSpace: "nowrap",
         }}
       >
-        {formatDate(date)}
+        {formatMessageDateTime(date)}
       </span>
     </div>
   );

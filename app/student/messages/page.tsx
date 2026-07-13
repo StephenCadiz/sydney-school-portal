@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import StudentMenu from "../StudentMenu";
 import {
+  formatMessageDateTime,
   getInboxMessages,
   getSentMessages,
   markMessageAsRead,
@@ -31,16 +32,6 @@ const cardStyle = {
   padding: "20px",
   boxShadow: "0 6px 18px rgba(31,60,136,0.06)",
 };
-
-function formatDate(date: string | null | undefined) {
-  if (!date) return "";
-
-  return new Date(date).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 function getPreview(message: string) {
   if (!message) return "";
@@ -248,7 +239,7 @@ export default function StudentMessagesPage() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {formatDate(item.created_at)}
+                {formatMessageDateTime(item.created_at)}
               </span>
             </div>
 
@@ -345,7 +336,7 @@ export default function StudentMessagesPage() {
                     teacher?.last_name || ""
                   }`}
               <br />
-              {formatDate(openMessage.created_at)}
+              {formatMessageDateTime(openMessage.created_at)}
             </p>
 
             <p

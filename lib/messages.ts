@@ -1,5 +1,27 @@
 import { supabase } from "./supabase";
 
+const messageDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Madrid",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+export function formatMessageDateTime(value?: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return messageDateTimeFormatter.format(date);
+}
+
 function formatTimeRange(startTime?: string | null, endTime?: string | null) {
   const start = startTime ? startTime.slice(0, 5) : "";
   const end = endTime ? endTime.slice(0, 5) : "";

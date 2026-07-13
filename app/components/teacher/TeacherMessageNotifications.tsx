@@ -2,20 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getUnreadTeacherStaffMessages } from "../../../lib/messages";
+import {
+  formatMessageDateTime,
+  getUnreadTeacherStaffMessages,
+} from "../../../lib/messages";
 
 type TeacherMessageNotificationsProps = {
   teacherId: string;
 };
-
-function formatDate(value?: string | null) {
-  if (!value) return "";
-
-  return new Date(value).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-  });
-}
 
 function previewText(value?: string | null) {
   if (!value) return "";
@@ -138,7 +132,7 @@ export default function TeacherMessageNotifications({
                 {getSenderName(message)}
               </strong>
               <span style={{ color: "#718096", fontSize: "12px" }}>
-                {formatDate(message.created_at)}
+                {formatMessageDateTime(message.created_at)}
               </span>
             </div>
             <div style={{ color: "#334155", fontWeight: 700, fontSize: "14px" }}>
