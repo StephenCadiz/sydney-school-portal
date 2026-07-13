@@ -1,12 +1,19 @@
 "use client";
 
-import { KeyboardEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import TeacherLayout from "../../components/layout/TeacherLayout";
 import { supabase } from "../../../lib/supabase";
 import { getTeacherClasses } from "../../../lib/teacher";
-import { getTeacherCalendarEventsForRange } from "../../../lib/teacherCalendar";
+import {
+  createTeacherPersonalReminder,
+  deleteTeacherPersonalReminder,
+  getTeacherCalendarEventsForRange,
+  setTeacherPersonalReminderCompleted,
+  updateTeacherPersonalReminder,
+} from "../../../lib/teacherCalendar";
 import type { TeacherCalendarEvent } from "../../../lib/teacherCalendar";
 import styles from "./TeacherCalendar.module.css";
 
@@ -29,6 +36,32 @@ type CalendarClass = any & {
   level_name?: string;
 };
 
+type ReminderForm = {
+  title: string;
+  event_date: string;
+  start_time: string;
+  end_time: string;
+  description: string;
+};
+
+type ReminderPayload = {
+  title: string;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  description: string | null;
+};
+
+type ReminderValidationResult =
+  | {
+      ok: false;
+      error: string;
+    }
+  | {
+      ok: true;
+      payload: ReminderPayload;
+    };
+
 type CalendarItem =
   | {
       type: "class";
@@ -47,6 +80,14 @@ type CalendarItem =
       event: TeacherCalendarEvent;
     };
 
+const emptyReminderForm: ReminderForm = {
+  title: "",
+  event_date: "",
+  start_time: "",
+  end_time: "",
+  description: "",
+};
+
 function toDateKey(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -59,6 +100,14 @@ function parseDateKey(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
 
   return new Date(year, month - 1, day);
+}
+
+function isValidDateKey(dateKey: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return false;
+
+  const date = parseDateKey(dateKey);
+
+  return toDateKey(date) === dateKey;
 }
 
 function addDays(date: Date, days: number) {
@@ -228,6 +277,16 @@ export default function TeacherCalendarPage() {
   const [selectedDateKey, setSelectedDateKey] = useState(() =>
     toDateKey(new Date())
   );
+  const [reminderModalOpen, setReminderModalOpen] = useState(false);
+  const [editingReminder, setEditingReminder] =
+    useState<TeacherCalendarEvent | null>(null);
+  const [reminderForm, setReminderForm] =
+    useState<ReminderForm>(emptyReminderForm);
+  const [reminderSaving, setReminderSaving] = useState(false);
+  const [reminderError, setReminderError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
+  const [activeActionId, setActiveActionId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -454,6 +513,22 @@ export default function TeacherCalendarPage() {
     }
   }, [selectedDateKey, visibleDays]);
 
+  useEffect(() => {
+    if (!reminderModalOpen) return;
+
+    function handleEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape" && !reminderSaving) {
+        closeReminderModal();
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [reminderModalOpen, reminderSaving]);
+
   function moveWeek(amount: number) {
     const currentStart = parseDateKey(weekStartKey);
     setWeekStartKey(toDateKey(addDays(currentStart, amount * 7)));
@@ -461,6 +536,226 @@ export default function TeacherCalendarPage() {
 
   function goToToday() {
     setWeekStartKey(toDateKey(getWeekStart(new Date())));
+  }
+
+  function getDefaultReminderDate() {
+    const selectedVisible = visibleDays.some(
+      (day) => day.dateKey === selectedDateKey
+    );
+
+    return selectedVisible ? selectedDateKey : weekStartKey;
+  }
+
+  function updateReminderForm(field: keyof ReminderForm, value: string) {
+    setReminderForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function resetReminderForm() {
+    setReminderForm(emptyReminderForm);
+    setEditingReminder(null);
+    setReminderError("");
+  }
+
+  function openAddReminder() {
+    setActionError("");
+    setActionMessage("");
+    setEditingReminder(null);
+    setReminderError("");
+    setReminderForm({
+      ...emptyReminderForm,
+      event_date: getDefaultReminderDate(),
+    });
+    setReminderModalOpen(true);
+  }
+
+  function openEditReminder(event: TeacherCalendarEvent) {
+    if (!canManagePersonalReminder(event)) return;
+
+    setActionError("");
+    setActionMessage("");
+    setEditingReminder(event);
+    setReminderError("");
+    setReminderForm({
+      title: event.title || "",
+      event_date: event.event_date || "",
+      start_time: formatTimeValue(event.start_time),
+      end_time: formatTimeValue(event.end_time),
+      description: event.description || "",
+    });
+    setReminderModalOpen(true);
+  }
+
+  function closeReminderModal() {
+    if (reminderSaving) return;
+
+    setReminderModalOpen(false);
+    resetReminderForm();
+  }
+
+  function validateReminderForm(): ReminderValidationResult {
+    const title = reminderForm.title.trim();
+    const eventDate = reminderForm.event_date.trim();
+    const startTime = reminderForm.start_time.trim();
+    const endTime = reminderForm.end_time.trim();
+    const description = reminderForm.description.trim();
+
+    if (!title) {
+      return {
+        ok: false,
+        error: "Please enter a reminder title.",
+      };
+    }
+
+    if (!isValidDateKey(eventDate)) {
+      return {
+        ok: false,
+        error: "Please choose a valid reminder date.",
+      };
+    }
+
+    if (endTime && !startTime) {
+      return {
+        ok: false,
+        error: "Please add a start time before adding an end time.",
+      };
+    }
+
+    if (startTime && endTime && endTime <= startTime) {
+      return {
+        ok: false,
+        error: "End time must be later than start time.",
+      };
+    }
+
+    return {
+      ok: true,
+      payload: {
+        title,
+        event_date: eventDate,
+        start_time: startTime || null,
+        end_time: startTime ? endTime || null : null,
+        description: description || null,
+      },
+    };
+  }
+
+  function isEventInLoadedRange(event: TeacherCalendarEvent) {
+    const rangeEnd = toDateKey(addDays(parseDateKey(weekStartKey), 5));
+
+    return event.event_date >= weekStartKey && event.event_date <= rangeEnd;
+  }
+
+  function upsertVisibleEvent(event: TeacherCalendarEvent) {
+    setEvents((current) => {
+      const withoutEvent = current.filter((item) => item.id !== event.id);
+
+      if (!isEventInLoadedRange(event)) {
+        return withoutEvent;
+      }
+
+      return [...withoutEvent, event];
+    });
+  }
+
+  async function handleReminderSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setReminderError("");
+    setActionError("");
+    setActionMessage("");
+
+    const validation = validateReminderForm();
+
+    if (!validation.ok) {
+      setReminderError(validation.error);
+      return;
+    }
+
+    setReminderSaving(true);
+
+    try {
+      const savedReminder = editingReminder
+        ? await updateTeacherPersonalReminder(
+            editingReminder.id,
+            validation.payload
+          )
+        : await createTeacherPersonalReminder(validation.payload);
+
+      upsertVisibleEvent(savedReminder);
+      setReminderModalOpen(false);
+      resetReminderForm();
+      setActionMessage(
+        editingReminder
+          ? "Reminder updated successfully."
+          : "Reminder added successfully."
+      );
+    } catch (error: any) {
+      console.error("Unable to save reminder:", error);
+      setReminderError(error.message || "Unable to save reminder.");
+    } finally {
+      setReminderSaving(false);
+    }
+  }
+
+  async function handleToggleCompleted(event: TeacherCalendarEvent) {
+    if (!canManagePersonalReminder(event)) return;
+
+    setActionError("");
+    setActionMessage("");
+    setActiveActionId(event.id);
+
+    try {
+      const updatedReminder = await setTeacherPersonalReminderCompleted(
+        event.id,
+        !event.completed
+      );
+      upsertVisibleEvent(updatedReminder);
+      setActionMessage(
+        updatedReminder.completed
+          ? "Reminder marked complete."
+          : "Reminder marked incomplete."
+      );
+    } catch (error: any) {
+      console.error("Unable to update reminder status:", error);
+      setActionError(error.message || "Unable to update reminder status.");
+    } finally {
+      setActiveActionId("");
+    }
+  }
+
+  async function handleDeleteReminder(event: TeacherCalendarEvent) {
+    if (!canManagePersonalReminder(event)) return;
+
+    const confirmed = window.confirm(
+      "Delete this reminder? This cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    setActionError("");
+    setActionMessage("");
+    setActiveActionId(event.id);
+
+    try {
+      await deleteTeacherPersonalReminder(event.id);
+      setEvents((current) => current.filter((item) => item.id !== event.id));
+      setActionMessage("Reminder deleted successfully.");
+    } catch (error: any) {
+      console.error("Unable to delete reminder:", error);
+      setActionError(error.message || "Unable to delete reminder.");
+    } finally {
+      setActiveActionId("");
+    }
+  }
+
+  function canManagePersonalReminder(event: TeacherCalendarEvent) {
+    return (
+      event.audience === "personal" &&
+      event.teacher_id === teacherId &&
+      event.created_by === teacherId
+    );
   }
 
   function openClass(classId: string) {
@@ -525,6 +820,8 @@ export default function TeacherCalendarPage() {
     const event = item.event;
     const personalCompleted =
       event.audience === "personal" && Boolean(event.completed);
+    const canManage = canManagePersonalReminder(event);
+    const actionInProgress = activeActionId === event.id;
 
     return (
       <div key={item.id} className={getEventCardClass(event)}>
@@ -545,6 +842,35 @@ export default function TeacherCalendarPage() {
 
         {personalCompleted && (
           <span className={styles.completedLabel}>Completed</span>
+        )}
+
+        {canManage && (
+          <div className={styles.cardActions}>
+            <button
+              type="button"
+              className={styles.textAction}
+              disabled={actionInProgress}
+              onClick={() => openEditReminder(event)}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className={styles.textAction}
+              disabled={actionInProgress}
+              onClick={() => handleToggleCompleted(event)}
+            >
+              {event.completed ? "Mark incomplete" : "Mark complete"}
+            </button>
+            <button
+              type="button"
+              className={`${styles.textAction} ${styles.deleteAction}`}
+              disabled={actionInProgress}
+              onClick={() => handleDeleteReminder(event)}
+            >
+              Delete
+            </button>
+          </div>
         )}
       </div>
     );
@@ -604,15 +930,31 @@ export default function TeacherCalendarPage() {
             >
               Next Week
             </button>
+            <button
+              type="button"
+              className={`${styles.controlButton} ${styles.addButton}`}
+              onClick={openAddReminder}
+            >
+              Add Reminder
+            </button>
           </div>
         </section>
 
-        {(classLoading || eventLoading || classError || eventError) && (
+        {(classLoading ||
+          eventLoading ||
+          classError ||
+          eventError ||
+          actionMessage ||
+          actionError) && (
           <section className={styles.statusPanel}>
             {classLoading && <p>Loading scheduled classes...</p>}
             {eventLoading && <p>Loading calendar events...</p>}
             {classError && <p className={styles.errorText}>{classError}</p>}
             {eventError && <p className={styles.errorText}>{eventError}</p>}
+            {actionMessage && (
+              <p className={styles.successText}>{actionMessage}</p>
+            )}
+            {actionError && <p className={styles.errorText}>{actionError}</p>}
           </section>
         )}
 
@@ -673,6 +1015,119 @@ export default function TeacherCalendarPage() {
               )}
             </section>
           </>
+        )}
+
+        {reminderModalOpen && (
+          <div className={styles.modalOverlay} onClick={closeReminderModal}>
+            <div
+              className={styles.modal}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reminder-modal-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <form onSubmit={handleReminderSubmit} className={styles.form}>
+                <div className={styles.modalHeader}>
+                  <div>
+                    <p className={styles.eyebrow}>Personal Reminder</p>
+                    <h2 id="reminder-modal-title" className={styles.modalTitle}>
+                      {editingReminder ? "Edit Reminder" : "Add Reminder"}
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.closeButton}
+                    onClick={closeReminderModal}
+                    disabled={reminderSaving}
+                    aria-label="Close reminder form"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {reminderError && (
+                  <p className={styles.formError}>{reminderError}</p>
+                )}
+
+                <label className={styles.field}>
+                  <span>Title</span>
+                  <input
+                    required
+                    value={reminderForm.title}
+                    onChange={(event) =>
+                      updateReminderForm("title", event.target.value)
+                    }
+                    placeholder="Reminder title"
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span>Date</span>
+                  <input
+                    required
+                    type="date"
+                    value={reminderForm.event_date}
+                    onChange={(event) =>
+                      updateReminderForm("event_date", event.target.value)
+                    }
+                  />
+                </label>
+
+                <div className={styles.timeFields}>
+                  <label className={styles.field}>
+                    <span>Start time</span>
+                    <input
+                      type="time"
+                      value={reminderForm.start_time}
+                      onChange={(event) =>
+                        updateReminderForm("start_time", event.target.value)
+                      }
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span>End time</span>
+                    <input
+                      type="time"
+                      value={reminderForm.end_time}
+                      onChange={(event) =>
+                        updateReminderForm("end_time", event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+
+                <label className={styles.field}>
+                  <span>Notes</span>
+                  <textarea
+                    value={reminderForm.description}
+                    onChange={(event) =>
+                      updateReminderForm("description", event.target.value)
+                    }
+                    placeholder="Optional notes"
+                  />
+                </label>
+
+                <div className={styles.formActions}>
+                  <button
+                    type="button"
+                    className={styles.cancelButton}
+                    onClick={closeReminderModal}
+                    disabled={reminderSaving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className={styles.saveButton}
+                    disabled={reminderSaving}
+                  >
+                    {reminderSaving ? "Saving..." : "Save Reminder"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </section>
     </TeacherLayout>
