@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   adjustHomeworkDatesForClassDays,
+  getCambridgeReadingSkillLabel,
   getHomework,
 } from "../../../lib/homework";
 import { supabase } from "../../../lib/supabase";
@@ -195,8 +196,7 @@ export default function ResultsTab({
     (student) => student.id === selectedStudentId
   );
 
-  const readingLabel =
-    levelName === "B1" ? "Reading" : "Reading and Use of English";
+  const readingLabel = getCambridgeReadingSkillLabel(levelName);
 
   const skillOptions = [
     { value: "reading", label: readingLabel },

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { normalizeCambridgeLevel } from "./homework";
 
 const allowedLevels = ["B1", "B2", "C1"];
 
@@ -22,7 +23,7 @@ function formatSupabaseError(action: string, error: any) {
 }
 
 function normalizeLevelName(levelName: string | null | undefined) {
-  return String(levelName || "").trim().toUpperCase();
+  return normalizeCambridgeLevel(levelName);
 }
 
 function normalizeActivityType(activityType: string | null | undefined) {

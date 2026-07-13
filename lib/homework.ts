@@ -36,12 +36,22 @@ export function getHomeworkSkillFromWeek(weekNumber: number | string) {
   return "writing";
 }
 
+export function normalizeCambridgeLevel(level: unknown) {
+  return String(level ?? "").trim().toUpperCase();
+}
+
+export function getCambridgeReadingSkillLabel(level: unknown) {
+  return normalizeCambridgeLevel(level) === "B1"
+    ? "Reading"
+    : "Reading and Use of English";
+}
+
 export function getHomeworkSkillLabel(
   level: string,
   skill: string | null | undefined
 ) {
   if (skill === "reading") {
-    return level === "B1" ? "Reading" : "Reading and Use of English";
+    return getCambridgeReadingSkillLabel(level);
   }
 
   if (skill === "listening") {
@@ -50,6 +60,10 @@ export function getHomeworkSkillLabel(
 
   if (skill === "writing") {
     return "Writing";
+  }
+
+  if (skill === "speaking") {
+    return "Speaking";
   }
 
   return "";

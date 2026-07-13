@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
+import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import {
   formatAverage,
   getClassInformation,
@@ -56,7 +57,7 @@ function getTypeLabel(type: string) {
 
 function getSkillLabel(skill: string, levelName: string) {
   if (skill === "reading") {
-    return levelName === "B1" ? "Reading" : "Reading and Use of English";
+    return getCambridgeReadingSkillLabel(levelName);
   }
 
   if (skill === "listening") return "Listening";
@@ -620,11 +621,7 @@ function LevelAveragesCard({ analysis }: { analysis: any }) {
               }}
             >
               <StatCard
-                label={
-                  analysis.level_name === "B1"
-                    ? "Reading"
-                    : "Reading and Use of English"
-                }
+                label={getCambridgeReadingSkillLabel(analysis.level_name)}
                 value={formatAverage(mock.reading_average)}
               />
               <StatCard label="Writing" value={formatAverage(mock.writing_average)} />

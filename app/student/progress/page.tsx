@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import StudentMenu from "../StudentMenu";
+import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import { getStudentResults } from "../../../lib/progress";
 import {
   getCurrentStudentCourseInfo,
@@ -131,8 +132,7 @@ export default function ProgressPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const readingLabel =
-    level === "B1" ? "Reading" : "Reading and Use of English";
+  const readingLabel = getCambridgeReadingSkillLabel(level);
 
   const weeklyResults = results.filter(
     (result) => result.result_type === "homework"
