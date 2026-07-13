@@ -85,9 +85,48 @@ export default function TeacherPage() {
   `)
   .eq("teacher_id", session.user.id);
 
+if (teacherClasses.error) {
+  console.error("Unable to load teacher classes:", teacherClasses.error);
+}
+
 console.log("Teacher Classes:", teacherClasses.data);
 
-setClasses(teacherClasses.data || []);
+const classData = teacherClasses.data || [];
+let classesWithLevels = classData;
+
+if (!teacherClasses.error && classData.length > 0) {
+  const levelIds = Array.from(
+    new Map(
+      classData
+        .map((item) => item.level_id)
+        .filter((levelId) => levelId !== null && levelId !== undefined)
+        .map((levelId) => [String(levelId), levelId])
+    ).values()
+  );
+
+  if (levelIds.length > 0) {
+    const { data: levels, error: levelsError } = await supabase
+      .from("levels")
+      .select("id, name")
+      .in("id", levelIds);
+
+    if (levelsError) {
+      console.error("Unable to load teacher class levels:", levelsError);
+    } else {
+      const levelNameById = new Map(
+        (levels || []).map((level) => [String(level.id), level.name])
+      );
+
+      classesWithLevels = classData.map((item) => ({
+        ...item,
+        level_name:
+          levelNameById.get(String(item.level_id)) || item.level_name,
+      }));
+    }
+  }
+}
+
+setClasses(classesWithLevels);
 
       try {
         const today = getLocalDateString();

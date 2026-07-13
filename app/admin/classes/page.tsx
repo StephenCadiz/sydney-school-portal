@@ -91,6 +91,20 @@ function isOnlineCourse(courseType: string) {
   return courseType === "online";
 }
 
+function isValidGoogleMeetLink(value: string) {
+  try {
+    const url = new URL(value);
+
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "meet.google.com" &&
+      url.pathname.replace(/\//g, "").length > 0
+    );
+  } catch {
+    return false;
+  }
+}
+
 function normalizeLevelName(levelName: string | null | undefined) {
   return String(levelName || "").trim().toUpperCase();
 }
@@ -158,6 +172,7 @@ export default function AdminClassesPage() {
     start_time: "",
     end_time: "",
     time_slot: "",
+    meet_link: "",
     is_cambridge: true,
   });
 
@@ -243,7 +258,9 @@ export default function AdminClassesPage() {
           ? selectedCambridgeLevel
           : current.is_cambridge,
       course_type:
-        field === "level_id" && !selectedCambridgeLevel
+        field === "course_type"
+          ? value
+          : field === "level_id" && !selectedCambridgeLevel
           ? "regular"
           : current.course_type,
       classroom_id:
@@ -290,6 +307,7 @@ export default function AdminClassesPage() {
       start_time: "",
       end_time: "",
       time_slot: "",
+      meet_link: "",
       is_cambridge: true,
     });
   }
@@ -337,6 +355,7 @@ export default function AdminClassesPage() {
         item.start_time && item.end_time
           ? `${item.start_time}-${item.end_time}`
           : "",
+      meet_link: item.meet_link || "",
       is_cambridge: isForcedCambridge ? true : Boolean(item.is_cambridge),
     });
   }
@@ -406,9 +425,16 @@ export default function AdminClassesPage() {
     setMessage("");
 
     const isOnlineClass = isOnlineCourse(form.course_type);
+    const trimmedMeetLink = form.meet_link.trim();
 
     if (!isOnlineClass && !form.classroom_id) {
       setMessage("Please select a classroom for in-person classes.");
+      setSaving(false);
+      return;
+    }
+
+    if (isOnlineClass && !isValidGoogleMeetLink(trimmedMeetLink)) {
+      setMessage("Please enter a valid Google Meet link.");
       setSaving(false);
       return;
     }
@@ -427,6 +453,7 @@ export default function AdminClassesPage() {
       days: form.days,
       start_time: form.start_time,
       end_time: form.end_time,
+      meet_link: isOnlineClass ? trimmedMeetLink : null,
       is_cambridge: isForcedCambridge ? true : form.is_cambridge,
     };
 
@@ -800,6 +827,20 @@ export default function AdminClassesPage() {
               >
                 Online classes do not use a physical classroom.
               </p>
+
+              <label style={{ ...labelStyle, marginTop: "14px" }}>
+                Google Meet link
+              </label>
+              <input
+                required
+                type="url"
+                style={inputStyle}
+                placeholder="https://meet.google.com/abc-defg-hij"
+                value={form.meet_link}
+                onChange={(event) =>
+                  updateForm("meet_link", event.target.value)
+                }
+              />
             </div>
           ) : (
             <div>

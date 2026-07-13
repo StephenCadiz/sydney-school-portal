@@ -77,6 +77,7 @@ export default function StudentDashboard() {
   const [classroomLogo, setClassroomLogo] = useState("/Emu Logo.png");
   const [classroomThemeColour, setClassroomThemeColour] =
     useState("#1f3c88");
+  const [meetLink, setMeetLink] = useState("");
   const [currentHomework, setCurrentHomework] = useState<any[]>([]);
   const [unreadHomeworkCount, setUnreadHomeworkCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
@@ -111,7 +112,8 @@ export default function StudentDashboard() {
         const classroom = courseInfo.classroom;
         const classroomDetails = courseInfo.classroomDetails;
         const isOnlineClass =
-          String(courseInfo.courseType || "").toLowerCase() === "online";
+          String(courseInfo.courseType ?? "").trim().toLowerCase() ===
+          "online";
         const timeSlot =
           classroom.start_time && classroom.end_time
             ? `${classroom.start_time}-${classroom.end_time}`
@@ -138,6 +140,7 @@ export default function StudentDashboard() {
           [classroom.days, timeSlot].filter(Boolean).join(" - ") ||
             "-"
         );
+        setMeetLink(String(classroom.meet_link ?? "").trim());
 
         const homeworkData = await getHomework(
           courseInfo.level,
@@ -173,7 +176,8 @@ export default function StudentDashboard() {
     loadDashboard();
   }, []);
 
-  const isOnlineCourse = courseType.toLowerCase() === "online";
+  const isOnlineCourse =
+    String(courseType ?? "").trim().toLowerCase() === "online";
   const hasCurrentHomework = currentHomework.length > 0;
 
   return (
@@ -757,26 +761,39 @@ export default function StudentDashboard() {
                   Connect to Online Class
                 </h3>
 
-                <p
-                  style={{
-                    color: "#667085",
-                    margin: 0,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Google Meet link will appear here when it has been added.
-                </p>
+                {meetLink ? (
+                  <>
+                    <p
+                      style={{
+                        color: "#667085",
+                        margin: 0,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Join your online class using the Google Meet link.
+                    </p>
 
-                <div
-                  style={{
-                    color: "#1f3c88",
-                    fontWeight: 700,
-                    marginTop: "18px",
-                    fontSize: "13px",
-                  }}
-                >
-                  Online class access pending
-                </div>
+                    <a
+                      className="student-dashboard-action-button"
+                      href={meetLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={actionButtonStyle}
+                    >
+                      Join Google Meet
+                    </a>
+                  </>
+                ) : (
+                  <p
+                    style={{
+                      color: "#667085",
+                      margin: 0,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    The Google Meet link has not been added yet.
+                  </p>
+                )}
               </div>
             )}
           </div>

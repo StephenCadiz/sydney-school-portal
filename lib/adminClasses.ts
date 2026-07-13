@@ -5,10 +5,14 @@ function prepareClassData(classData: any) {
     return {
       ...classData,
       classroom_id: null,
+      meet_link: String(classData.meet_link || "").trim(),
     };
   }
 
-  return classData;
+  return {
+    ...classData,
+    meet_link: null,
+  };
 }
 
 export async function getAdminClasses() {
