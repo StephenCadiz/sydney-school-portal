@@ -55,6 +55,7 @@ export async function getTeacherCalendarEvents() {
   const { data, error } = await supabase
     .from("teacher_calendar_events")
     .select("*")
+    .eq("audience", "all_teachers")
     .order("event_date", { ascending: true })
     .order("start_time", { ascending: true });
 
@@ -76,6 +77,7 @@ export async function getUpcomingTeacherCalendarEvents() {
   const { data, error } = await supabase
     .from("teacher_calendar_events")
     .select("*")
+    .eq("audience", "all_teachers")
     .gte("event_date", today)
     .order("event_date", { ascending: true })
     .order("start_time", { ascending: true });
