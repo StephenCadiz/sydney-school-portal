@@ -17,11 +17,13 @@ import {
 interface TeacherSidebarProps {
   isMobileOpen?: boolean;
   onClose?: () => void;
+  unreadMessageCount?: number;
 }
 
 export default function TeacherSidebar({
   isMobileOpen = false,
   onClose,
+  unreadMessageCount = 0,
 }: TeacherSidebarProps) {
   const pathname = usePathname();
 
@@ -112,6 +114,7 @@ export default function TeacherSidebar({
         title="Messages"
         active={isActive("/teacher/messages")}
         onClick={onClose}
+        unreadCount={unreadMessageCount}
       />
 
       <SidebarItem
@@ -141,6 +144,36 @@ interface ItemProps {
   title: string;
   active?: boolean;
   onClick?: () => void;
+  unreadCount?: number;
+}
+
+function UnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+
+  const label = count > 99 ? "99+" : String(count);
+
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        alignItems: "center",
+        background: "#dc2626",
+        border: "1px solid rgba(255,255,255,0.7)",
+        borderRadius: "999px",
+        color: "#ffffff",
+        display: "inline-flex",
+        fontSize: "11px",
+        fontWeight: 900,
+        justifyContent: "center",
+        lineHeight: 1,
+        minHeight: "22px",
+        minWidth: "22px",
+        padding: "4px 6px",
+      }}
+    >
+      {label}
+    </span>
+  );
 }
 
 function SidebarItem({
@@ -149,16 +182,22 @@ function SidebarItem({
   title,
   active = false,
   onClick,
+  unreadCount = 0,
 }: ItemProps) {
+  const ariaLabel =
+    unreadCount > 0 ? `${title}, ${unreadCount} unread` : title;
+
   return (
     <Link
       href={href}
+      aria-label={ariaLabel}
       className="ss-sidebar-link"
       onClick={onClick}
       style={{
         display: "flex",
         alignItems: "center",
         gap: "12px",
+        justifyContent: "space-between",
         color: "#fff",
         textDecoration: "none",
         padding: "12px",
@@ -168,8 +207,18 @@ function SidebarItem({
         fontWeight: active ? 700 : 500,
       }}
     >
-      {icon}
-      {title}
+      <span
+        style={{
+          alignItems: "center",
+          display: "inline-flex",
+          gap: "12px",
+          minWidth: 0,
+        }}
+      >
+        {icon}
+        <span>{title}</span>
+      </span>
+      <UnreadBadge count={unreadCount} />
     </Link>
   );
 }

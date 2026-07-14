@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import {
   formatMessageDateTime,
   getUnreadTeacherStaffMessages,
@@ -10,6 +11,8 @@ import {
 type TeacherMessageNotificationsProps = {
   teacherId: string;
 };
+
+const TEACHER_MESSAGES_CHANGED_EVENT = "teacher-unread-messages-changed";
 
 function previewText(value?: string | null) {
   if (!value) return "";
@@ -29,27 +32,53 @@ export default function TeacherMessageNotifications({
   teacherId,
 }: TeacherMessageNotificationsProps) {
   const [messages, setMessages] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(false);
+  const loadedRef = useRef(false);
+  const loadErrorLoggedRef = useRef(false);
 
   useEffect(() => {
-    async function loadUnreadMessages() {
-      if (!teacherId) return;
+    mountedRef.current = true;
 
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const loadUnreadMessages = useCallback(async () => {
+    if (!teacherId) return;
+
+    if (!loadedRef.current) {
       setLoading(true);
+    }
 
-      try {
-        const data = await getUnreadTeacherStaffMessages(teacherId);
+    try {
+      const data = await getUnreadTeacherStaffMessages(teacherId);
+
+      if (mountedRef.current) {
         setMessages(data);
-      } catch (error) {
+        loadedRef.current = true;
+        loadErrorLoggedRef.current = false;
+      }
+    } catch (error) {
+      if (!loadErrorLoggedRef.current) {
+        loadErrorLoggedRef.current = true;
         console.error("Unable to load unread teacher messages:", error);
-        setMessages([]);
-      } finally {
+      }
+    } finally {
+      if (mountedRef.current) {
         setLoading(false);
       }
     }
-
-    loadUnreadMessages();
   }, [teacherId]);
+
+  useMessageRealtimeRefresh({
+    onRefresh: loadUnreadMessages,
+    enabled: Boolean(teacherId),
+    intervalMs: 60000,
+    customEventName: TEACHER_MESSAGES_CHANGED_EVENT,
+    channelName: "teacher-dashboard-messages",
+  });
 
   if (loading || messages.length === 0) {
     return null;

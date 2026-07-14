@@ -3,8 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { getAdminUnreadTeacherMessageCount } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
 
@@ -65,55 +66,51 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadTeacherMessages, setUnreadTeacherMessages] = useState(0);
+  const mountedRef = useRef(false);
+  const unreadCountErrorLoggedRef = useRef(false);
 
   useEffect(() => {
-    let isMounted = true;
+    mountedRef.current = true;
 
-    async function loadUnreadCount() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
-        if (!session?.user?.id) {
-          if (isMounted) {
-            setUnreadTeacherMessages(0);
-          }
-          return;
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.user?.id) {
+        if (mountedRef.current) {
+          setUnreadTeacherMessages(0);
         }
+        return;
+      }
 
-        const count = await getAdminUnreadTeacherMessageCount(session.user.id);
+      const count = await getAdminUnreadTeacherMessageCount(session.user.id);
+      unreadCountErrorLoggedRef.current = false;
 
-        if (isMounted) {
-          setUnreadTeacherMessages(count);
-        }
-      } catch (error) {
+      if (mountedRef.current) {
+        setUnreadTeacherMessages(count);
+      }
+    } catch (error) {
+      if (!unreadCountErrorLoggedRef.current) {
+        unreadCountErrorLoggedRef.current = true;
         console.error("Unable to load unread admin messages:", error);
       }
     }
-
-    loadUnreadCount();
-
-    const intervalId = window.setInterval(loadUnreadCount, 60000);
-    const handleFocus = () => loadUnreadCount();
-    const handleMessagesChanged = () => loadUnreadCount();
-
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener(
-      "admin-unread-messages-changed",
-      handleMessagesChanged
-    );
-
-    return () => {
-      isMounted = false;
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener(
-        "admin-unread-messages-changed",
-        handleMessagesChanged
-      );
-    };
   }, []);
+
+  useMessageRealtimeRefresh({
+    onRefresh: loadUnreadCount,
+    enabled: true,
+    intervalMs: 60000,
+    customEventName: "admin-unread-messages-changed",
+    channelName: "admin-layout-messages",
+  });
 
   const menuItems = [
     {

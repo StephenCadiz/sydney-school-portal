@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import TeacherLayout from "../../components/layout/TeacherLayout";
+import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { supabase } from "../../../lib/supabase";
 import {
   formatMessageDateTime,
@@ -17,6 +18,7 @@ import {
 } from "../../../lib/messages";
 
 const tabs = ["Inbox", "Sent", "New Message"];
+const TEACHER_MESSAGES_CHANGED_EVENT = "teacher-unread-messages-changed";
 
 const cardStyle = {
   background: "#ffffff",
@@ -178,6 +180,8 @@ function MessageRow({
 export default function TeacherMessagesPage() {
   const router = useRouter();
   const mountedRef = useRef(false);
+  const messagesRequestRef = useRef(0);
+  const selectedMessageRef = useRef<any | null>(null);
 
   const [teacherId, setTeacherId] = useState("");
   const [activeTab, setActiveTab] = useState("Inbox");
@@ -208,19 +212,37 @@ export default function TeacherMessagesPage() {
   const hasStaffRecipients =
     recipients.admins.length > 0 || recipients.teachers.length > 0;
 
-  async function loadMessages(currentTeacherId: string) {
+  const loadMessages = useCallback(async (currentTeacherId: string) => {
+    if (!currentTeacherId) return;
+
+    const requestId = messagesRequestRef.current + 1;
+    messagesRequestRef.current = requestId;
+
     const [inboxData, sentData] = await Promise.all([
       getTeacherStaffInboxMessages(currentTeacherId),
       getTeacherStaffSentMessages(currentTeacherId),
     ]);
 
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || requestId !== messagesRequestRef.current) {
+      return;
+    }
 
     setInboxMessages(inboxData);
     setSentMessages(sentData);
-  }
 
-  async function loadStaffMessages(currentTeacherId: string) {
+    const currentSelectedMessage = selectedMessageRef.current;
+
+    if (currentSelectedMessage) {
+      const refreshedMessage = [...inboxData, ...sentData].find(
+        (item) => item.id === currentSelectedMessage.id
+      );
+
+      selectedMessageRef.current = refreshedMessage || null;
+      setSelectedMessage(refreshedMessage || null);
+    }
+  }, []);
+
+  const loadStaffMessages = useCallback(async (currentTeacherId: string) => {
     if (!mountedRef.current) return;
 
     setLoading(true);
@@ -235,7 +257,7 @@ export default function TeacherMessagesPage() {
       if (!mountedRef.current) return;
       setLoading(false);
     }
-  }
+  }, [loadMessages]);
 
   async function loadRecipients(currentTeacherId: string) {
     if (!mountedRef.current) return;
@@ -262,6 +284,10 @@ export default function TeacherMessagesPage() {
       setRecipientsLoading(false);
     }
   }
+
+  useEffect(() => {
+    selectedMessageRef.current = selectedMessage;
+  }, [selectedMessage]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -308,8 +334,23 @@ export default function TeacherMessagesPage() {
 
     return () => {
       mountedRef.current = false;
+      messagesRequestRef.current += 1;
     };
-  }, [router]);
+  }, [router, loadStaffMessages]);
+
+  const refreshTeacherMessages = useCallback(async () => {
+    if (!teacherId) return;
+
+    await loadMessages(teacherId);
+  }, [teacherId, loadMessages]);
+
+  useMessageRealtimeRefresh({
+    onRefresh: refreshTeacherMessages,
+    enabled: Boolean(teacherId),
+    intervalMs: 60000,
+    customEventName: TEACHER_MESSAGES_CHANGED_EVENT,
+    channelName: "teacher-messages-page",
+  });
 
   async function openInboxMessage(item: any) {
     setStatusMessage("");
@@ -330,6 +371,7 @@ export default function TeacherMessagesPage() {
             messageItem.id === item.id ? updatedMessage : messageItem
           )
         );
+        window.dispatchEvent(new Event(TEACHER_MESSAGES_CHANGED_EVENT));
       } catch (error) {
         console.error("Unable to mark staff message as read:", error);
       }
@@ -402,6 +444,7 @@ export default function TeacherMessagesPage() {
       setStatusMessage("Message sent successfully.");
       await loadMessages(teacherId);
       setActiveTab("Sent");
+      window.dispatchEvent(new Event(TEACHER_MESSAGES_CHANGED_EVENT));
     } catch (error: any) {
       console.error("Unable to send staff message:", error);
       setErrorMessage(error?.message || "Unable to send message.");
@@ -440,6 +483,7 @@ export default function TeacherMessagesPage() {
       setReplyMessage("");
       setStatusMessage("Reply sent successfully.");
       await loadMessages(teacherId);
+      window.dispatchEvent(new Event(TEACHER_MESSAGES_CHANGED_EVENT));
     } catch (error: any) {
       console.error("Unable to send staff reply:", error);
       setErrorMessage(error?.message || "Unable to send reply.");
@@ -472,6 +516,7 @@ export default function TeacherMessagesPage() {
       );
       setSelectedMessage(null);
       setStatusMessage("Message removed from your Inbox.");
+      window.dispatchEvent(new Event(TEACHER_MESSAGES_CHANGED_EVENT));
     } catch (error: any) {
       console.error("Unable to remove inbox message:", error);
       setErrorMessage("Unable to remove message from Inbox.");
@@ -504,6 +549,7 @@ export default function TeacherMessagesPage() {
       );
       setSelectedMessage(null);
       setStatusMessage("Message removed from your Sent view.");
+      window.dispatchEvent(new Event(TEACHER_MESSAGES_CHANGED_EVENT));
     } catch (error: any) {
       console.error("Unable to remove sent message:", error);
       setErrorMessage("Unable to remove message from Sent.");

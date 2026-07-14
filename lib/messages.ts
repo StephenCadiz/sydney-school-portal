@@ -381,6 +381,12 @@ export async function getUnreadTeacherStaffMessages(teacherId: string) {
   return enrichMessagesWithProfile(data || [], "sender_id", "sender");
 }
 
+export async function getTeacherUnreadStaffMessageCount(teacherId: string) {
+  const messages = await getUnreadTeacherStaffMessages(teacherId);
+
+  return messages.length;
+}
+
 export async function sendTeacherStaffMessage({
   senderId,
   recipient,

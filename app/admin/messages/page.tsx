@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "../../components/layout/AdminLayout";
+import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { getTeachers } from "../../../lib/adminTeachers";
 import {
   formatMessageDateTime,
@@ -74,18 +75,47 @@ export default function AdminMessagesPage() {
   const [sending, setSending] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const mountedRef = useRef(false);
+  const messagesRequestRef = useRef(0);
+  const selectedMessageRef = useRef<any | null>(null);
 
-  async function loadMessages(currentAdminId: string) {
+  const loadMessages = useCallback(async (currentAdminId: string) => {
+    if (!currentAdminId) return;
+
+    const requestId = messagesRequestRef.current + 1;
+    messagesRequestRef.current = requestId;
+
     const [inboxData, sentData] = await Promise.all([
       getAdminInboxMessages(currentAdminId),
       getAdminSentMessages(currentAdminId),
     ]);
 
+    if (!mountedRef.current || requestId !== messagesRequestRef.current) {
+      return;
+    }
+
     setInboxMessages(inboxData);
     setSentMessages(sentData);
-  }
+
+    const currentSelectedMessage = selectedMessageRef.current;
+
+    if (currentSelectedMessage) {
+      const refreshedMessage = [...inboxData, ...sentData].find(
+        (item) => item.id === currentSelectedMessage.id
+      );
+
+      selectedMessageRef.current = refreshedMessage || null;
+      setSelectedMessage(refreshedMessage || null);
+    }
+  }, []);
 
   useEffect(() => {
+    selectedMessageRef.current = selectedMessage;
+  }, [selectedMessage]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
     async function loadPage() {
       try {
         const {
@@ -110,21 +140,47 @@ export default function AdminMessagesPage() {
           return;
         }
 
+        if (!mountedRef.current) return;
+
         setAdminId(session.user.id);
 
         const teacherData = await getTeachers();
+        if (!mountedRef.current) return;
         setTeachers(teacherData);
         await loadMessages(session.user.id);
       } catch (error) {
         console.error("Unable to load admin messages:", error);
-        setErrorMessage("Unable to load messages.");
+        if (mountedRef.current) {
+          setErrorMessage("Unable to load messages.");
+        }
       } finally {
-        setLoading(false);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
       }
     }
 
     loadPage();
-  }, [router]);
+
+    return () => {
+      mountedRef.current = false;
+      messagesRequestRef.current += 1;
+    };
+  }, [router, loadMessages]);
+
+  const refreshAdminMessages = useCallback(async () => {
+    if (!adminId) return;
+
+    await loadMessages(adminId);
+  }, [adminId, loadMessages]);
+
+  useMessageRealtimeRefresh({
+    onRefresh: refreshAdminMessages,
+    enabled: Boolean(adminId),
+    intervalMs: 60000,
+    customEventName: "admin-unread-messages-changed",
+    channelName: "admin-messages-page",
+  });
 
   async function openInboxMessage(item: any) {
     setSelectedMessage(item);
