@@ -7,6 +7,7 @@ import AdminLayout from "../../components/layout/AdminLayout";
 import {
   getCambridgeClassesForStudentInvite,
   getStudents,
+  getYoungLearnerClassesForStudentCreate,
   getYoungLearners,
   updateStudent,
   updateStudentClass,
@@ -107,21 +108,34 @@ export default function AdminStudentsPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [youngLearners, setYoungLearners] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
+  const [youngLearnerClasses, setYoungLearnerClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState("");
+  const [editingYoungLearnerId, setEditingYoungLearnerId] = useState("");
+  const [savingYoungLearnerEdit, setSavingYoungLearnerEdit] = useState(false);
   const [message, setMessage] = useState("");
   const [classesMessage, setClassesMessage] = useState("");
+  const [youngLearnerClassesMessage, setYoungLearnerClassesMessage] =
+    useState("");
+  const [youngLearnerEditError, setYoungLearnerEditError] = useState("");
+  const [youngLearnerEditSuccess, setYoungLearnerEditSuccess] = useState("");
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
     email: "",
     class_id: "",
   });
+  const [youngLearnerForm, setYoungLearnerForm] = useState({
+    first_name: "",
+    last_name: "",
+    class_id: "",
+  });
 
   async function loadData() {
     setLoading(true);
     setClassesMessage("");
+    setYoungLearnerClassesMessage("");
 
     try {
       const studentData = await getStudents();
@@ -152,6 +166,20 @@ export default function AdminStudentsPage() {
       setClassesMessage("Unable to load Cambridge classes.");
     }
 
+    try {
+      const youngLearnerClassData =
+        await getYoungLearnerClassesForStudentCreate();
+      setYoungLearnerClasses(youngLearnerClassData);
+
+      if (youngLearnerClassData.length === 0) {
+        setYoungLearnerClassesMessage("No Young Learner classes found.");
+      }
+    } catch (error) {
+      console.error("Unable to load Young Learner classes:", error);
+      setYoungLearnerClasses([]);
+      setYoungLearnerClassesMessage("Unable to load Young Learner classes.");
+    }
+
     setLoading(false);
   }
 
@@ -175,14 +203,29 @@ export default function AdminStudentsPage() {
     });
   }
 
+  function resetYoungLearnerEdit() {
+    setEditingYoungLearnerId("");
+    setYoungLearnerForm({
+      first_name: "",
+      last_name: "",
+      class_id: "",
+    });
+  }
+
   function cancelEdit() {
     setEditingStudentId("");
     resetForm();
     setMessage("");
   }
 
+  function cancelYoungLearnerEdit() {
+    resetYoungLearnerEdit();
+    setYoungLearnerEditError("");
+  }
+
   function startEdit(student: any) {
     setEditingStudentId(student.id);
+    setEditingYoungLearnerId("");
     setMessage("");
     setForm({
       first_name: student.first_name || "",
@@ -190,6 +233,53 @@ export default function AdminStudentsPage() {
       email: student.email || "",
       class_id: student.class_id || "",
     });
+  }
+
+  function updateYoungLearnerForm(field: string, value: string) {
+    setYoungLearnerForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function startYoungLearnerEdit(student: any) {
+    setEditingStudentId("");
+    setEditingYoungLearnerId(student.id);
+    setYoungLearnerEditError("");
+    setYoungLearnerEditSuccess("");
+    setYoungLearnerForm({
+      first_name: student.first_name || "",
+      last_name: student.last_name || "",
+      class_id: student.class_id || "",
+    });
+  }
+
+  function validateYoungLearnerForm() {
+    const firstName = youngLearnerForm.first_name.trim();
+    const lastName = youngLearnerForm.last_name.trim();
+    const classId = youngLearnerForm.class_id.trim();
+
+    if (!firstName) {
+      return "First name is required.";
+    }
+
+    if (firstName.length > 80) {
+      return "First name must be 80 characters or fewer.";
+    }
+
+    if (!lastName) {
+      return "Last name is required.";
+    }
+
+    if (lastName.length > 80) {
+      return "Last name must be 80 characters or fewer.";
+    }
+
+    if (!classId) {
+      return "Class is required.";
+    }
+
+    return "";
   }
 
   async function handleDeleteStudent(
@@ -244,6 +334,13 @@ export default function AdminStudentsPage() {
         resetForm();
       }
 
+      if (
+        studentType === "young_learner" &&
+        editingYoungLearnerId === studentId
+      ) {
+        resetYoungLearnerEdit();
+      }
+
       await loadData();
       setMessage(result.message || "Student deleted successfully.");
     } catch (error: any) {
@@ -277,6 +374,73 @@ export default function AdminStudentsPage() {
       setMessage(error.message || "Unable to save student.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleYoungLearnerSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setYoungLearnerEditError("");
+    setYoungLearnerEditSuccess("");
+
+    if (!editingYoungLearnerId) {
+      return;
+    }
+
+    const validationMessage = validateYoungLearnerForm();
+
+    if (validationMessage) {
+      setYoungLearnerEditError(validationMessage);
+      return;
+    }
+
+    const firstName = youngLearnerForm.first_name.trim();
+    const lastName = youngLearnerForm.last_name.trim();
+    const classId = youngLearnerForm.class_id.trim();
+
+    setSavingYoungLearnerEdit(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setYoungLearnerEditError("You must be logged in as an admin.");
+        return;
+      }
+
+      const response = await fetch("/api/admin/young-learners/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          young_learner_id: editingYoungLearnerId,
+          first_name: firstName,
+          last_name: lastName,
+          class_id: classId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to update Young Learner.");
+      }
+
+      resetYoungLearnerEdit();
+      await loadData();
+      setYoungLearnerEditSuccess(
+        result.message || "Young Learner updated successfully."
+      );
+    } catch (error: any) {
+      console.error("Unable to update Young Learner:", error);
+      setYoungLearnerEditError(
+        error.message || "Unable to update Young Learner."
+      );
+    } finally {
+      setSavingYoungLearnerEdit(false);
     }
   }
 
@@ -421,11 +585,29 @@ export default function AdminStudentsPage() {
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             gap: "12px",
             marginTop: "16px",
           }}
         >
           <button
+            type="button"
+            onClick={() => startYoungLearnerEdit(student)}
+            style={{
+              background: "#1f3c88",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "8px",
+              padding: "10px 16px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Edit
+          </button>
+
+          <button
+            type="button"
             onClick={() => handleDeleteStudent(student.id, "young_learner")}
             style={{
               background: "#d32f2f",
@@ -573,7 +755,10 @@ export default function AdminStudentsPage() {
       >
         <button
           type="button"
-          onClick={() => setActiveStudentType("cambridge")}
+          onClick={() => {
+            setActiveStudentType("cambridge");
+            resetYoungLearnerEdit();
+          }}
           style={getModeButtonStyle(activeStudentType === "cambridge")}
         >
           Cambridge Students
@@ -584,6 +769,7 @@ export default function AdminStudentsPage() {
           onClick={() => {
             setActiveStudentType("youngLearners");
             setEditingStudentId("");
+            resetForm();
           }}
           style={getModeButtonStyle(activeStudentType === "youngLearners")}
         >
@@ -791,6 +977,174 @@ export default function AdminStudentsPage() {
         </>
       ) : (
         <>
+          {(youngLearnerEditError || youngLearnerEditSuccess) && (
+            <div
+              aria-live="polite"
+              style={{
+                background: "#ffffff",
+                borderRadius: "8px",
+                padding: "14px",
+                marginBottom: "20px",
+                color: youngLearnerEditError ? "#b42318" : "#1f7a3f",
+                border: `1px solid ${
+                  youngLearnerEditError ? "#f4c7c3" : "#bfe5cc"
+                }`,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              }}
+            >
+              {youngLearnerEditError || youngLearnerEditSuccess}
+            </div>
+          )}
+
+          {editingYoungLearnerId && (
+            <form
+              onSubmit={handleYoungLearnerSubmit}
+              style={{
+                background: "#ffffff",
+                padding: "30px",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                marginBottom: "30px",
+              }}
+            >
+              <h2
+                style={{
+                  color: "#1f3c88",
+                  marginTop: 0,
+                  marginBottom: "10px",
+                }}
+              >
+                Edit Young Learner
+              </h2>
+
+              <p
+                style={{
+                  color: "#666",
+                  marginTop: 0,
+                  marginBottom: "25px",
+                }}
+              >
+                Update this Young Learner's name or class assignment.
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "20px",
+                }}
+              >
+                <div>
+                  <label htmlFor="young-learner-first-name" style={labelStyle}>
+                    First Name
+                  </label>
+                  <input
+                    id="young-learner-first-name"
+                    required
+                    maxLength={80}
+                    style={inputStyle}
+                    value={youngLearnerForm.first_name}
+                    onChange={(event) =>
+                      updateYoungLearnerForm("first_name", event.target.value)
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="young-learner-last-name" style={labelStyle}>
+                    Last Name
+                  </label>
+                  <input
+                    id="young-learner-last-name"
+                    required
+                    maxLength={80}
+                    style={inputStyle}
+                    value={youngLearnerForm.last_name}
+                    onChange={(event) =>
+                      updateYoungLearnerForm("last_name", event.target.value)
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="young-learner-class" style={labelStyle}>
+                    Young Learner Class
+                  </label>
+                  <select
+                    id="young-learner-class"
+                    required
+                    style={inputStyle}
+                    value={youngLearnerForm.class_id}
+                    onChange={(event) =>
+                      updateYoungLearnerForm("class_id", event.target.value)
+                    }
+                  >
+                    <option value="">Select a Young Learner class</option>
+                    {youngLearnerClasses.map((classroom) => (
+                      <option key={classroom.id} value={classroom.id}>
+                        {formatClassOption(classroom)}
+                      </option>
+                    ))}
+                  </select>
+                  {youngLearnerClassesMessage && (
+                    <p
+                      style={{
+                        color: "#333",
+                        marginBottom: 0,
+                      }}
+                    >
+                      {youngLearnerClassesMessage}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "12px",
+                  marginTop: "25px",
+                }}
+              >
+                <button
+                  type="submit"
+                  disabled={savingYoungLearnerEdit}
+                  style={{
+                    background: "#1f3c88",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "12px 22px",
+                    cursor: savingYoungLearnerEdit ? "not-allowed" : "pointer",
+                    fontWeight: 700,
+                    opacity: savingYoungLearnerEdit ? 0.7 : 1,
+                  }}
+                >
+                  {savingYoungLearnerEdit ? "Saving..." : "Save Changes"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={cancelYoungLearnerEdit}
+                  disabled={savingYoungLearnerEdit}
+                  style={{
+                    background: "#ffffff",
+                    color: "#1f3c88",
+                    border: "1px solid #1f3c88",
+                    borderRadius: "8px",
+                    padding: "12px 22px",
+                    cursor: savingYoungLearnerEdit ? "not-allowed" : "pointer",
+                    fontWeight: 700,
+                    opacity: savingYoungLearnerEdit ? 0.7 : 1,
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
           <div
             style={{
               background: "#ffffff",
