@@ -11,6 +11,8 @@ import FollowUpsTab from "./FollowUpsTab";
 import ClassMessagesTab from "./ClassMessagesTab";
 import ClassExamsTab from "./ClassExamsTab";
 import UnitExamResultsTab from "./UnitExamResultsTab";
+import SharedResourcesTab from "./SharedResourcesTab";
+import OfficialResourcesTab from "./OfficialResourcesTab";
 import ClassHeader from "../../components/class/ClassHeader";
 import TeacherHomework from "../../components/teacher/TeacherHomework";
 import { isClassExamLevel } from "../../../lib/classExams";
@@ -19,6 +21,8 @@ import { isUnitExamLevel } from "../../../lib/unitExamResults";
 const tabs = [
   { id: "students", label: "Students" },
   { id: "resources", label: "Resources" },
+  { id: "shared-resources", label: "Shared Resources" },
+  { id: "official-resources", label: "Official Resources" },
   { id: "homework", label: "Homework" },
   { id: "class-exams", label: "Class Exams" },
   { id: "unit-exam-results", label: "Unit Exam Results" },
@@ -428,6 +432,20 @@ if (classResult.data) {
             Save Resource
           </button>
         </>
+      )}
+
+      {activeTab === "shared-resources" && classData && (
+        <SharedResourcesTab
+          levelId={classData.level_id}
+          levelName={levelName}
+        />
+      )}
+
+      {activeTab === "official-resources" && classData && (
+        <OfficialResourcesTab
+          levelId={classData.level_id}
+          levelName={levelName}
+        />
       )}
 
      {activeTab === "homework" && (
