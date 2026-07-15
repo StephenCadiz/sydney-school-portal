@@ -122,6 +122,52 @@ img {
   min-width: 0;
 }
 
+.student-dashboard-page {
+  margin: 0 auto;
+  max-width: 1480px;
+  width: 100%;
+}
+
+.student-dashboard-action-button {
+  box-shadow: 0 6px 14px rgba(47, 125, 184, 0.14);
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.student-dashboard-action-button:hover {
+  background: var(--ss-blue-hover) !important;
+  border-color: var(--ss-blue-hover) !important;
+  box-shadow: 0 8px 18px rgba(37, 106, 160, 0.18);
+  transform: translateY(-1px);
+}
+
+.student-dashboard-action-button:focus-visible,
+.student-menu-link:focus-visible {
+  outline: 3px solid rgba(234, 245, 252, 0.9);
+  outline-offset: 3px;
+}
+
+.student-dashboard-access-card {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+a:hover .student-dashboard-access-card {
+  border-color: rgba(47, 125, 184, 0.35) !important;
+  box-shadow: 0 12px 28px rgba(31, 60, 136, 0.09);
+  transform: translateY(-1px);
+}
+
+.student-dashboard-notification-row,
+.student-dashboard-homework-row {
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.student-menu-link:hover,
+.student-menu-link:focus-visible {
+  background: var(--ss-blue-hover) !important;
+}
+
 @media (max-width: 768px) {
   .mobile-topbar {
     align-items: center;
@@ -410,6 +456,11 @@ img {
     pointer-events: auto;
   }
 
+  .student-mobile-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .student-mobile-drawer {
     bottom: 0;
     box-shadow: 18px 0 40px rgba(17, 24, 39, 0.24);
@@ -432,7 +483,7 @@ img {
     box-shadow: none;
     min-height: 100vh !important;
     overflow-y: auto;
-    padding: 24px 18px !important;
+    padding: 22px 18px !important;
     width: 100% !important;
   }
 
@@ -452,12 +503,6 @@ img {
     display: none !important;
   }
 
-  .student-menu-title {
-    font-size: 1.25rem;
-    line-height: 1.2;
-    margin-bottom: 26px !important;
-  }
-
   .student-menu-link {
     font-size: 0.98rem;
     line-height: 1.25;
@@ -472,6 +517,10 @@ img {
     min-width: 0;
     padding: 18px 16px 28px !important;
     width: 100%;
+  }
+
+  .student-dashboard-page {
+    max-width: none;
   }
 
   .student-dashboard-hero {
@@ -504,13 +553,13 @@ img {
 
   .student-dashboard-classroom-image {
     justify-self: start !important;
-    max-width: 170px;
+    max-width: 164px;
     padding: 14px !important;
   }
 
   .student-dashboard-classroom-image img {
     height: auto !important;
-    max-width: 120px !important;
+    max-width: 112px !important;
     width: 100% !important;
   }
 
@@ -536,6 +585,7 @@ img {
     align-self: stretch;
     display: block !important;
     max-width: 100%;
+    min-height: 44px;
     text-align: center;
     white-space: normal !important;
   }

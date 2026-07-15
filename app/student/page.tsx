@@ -46,22 +46,27 @@ function formatDateOnly(date: string | null | undefined) {
 }
 
 const cardStyle = {
-  background: "#ffffff",
-  border: "1px solid #e6eaf2",
-  borderRadius: "12px",
-  padding: "22px",
-  boxShadow: "0 6px 18px rgba(31,60,136,0.06)",
+  background: "var(--ss-card-bg)",
+  border: "1px solid var(--ss-border)",
+  borderRadius: "14px",
+  padding: "24px",
+  boxShadow: "0 10px 26px rgba(31,60,136,0.07)",
 };
 
 const actionButtonStyle = {
-  display: "inline-block",
-  background: "#1f3c88",
+  alignItems: "center",
+  background: "var(--ss-blue)",
+  border: "1px solid var(--ss-blue)",
+  borderRadius: "9px",
   color: "#ffffff",
-  borderRadius: "8px",
-  padding: "10px 16px",
+  display: "inline-flex",
   fontWeight: 700,
+  fontSize: "14px",
+  justifyContent: "center",
   textDecoration: "none",
+  minHeight: "42px",
   marginTop: "16px",
+  padding: "10px 16px",
 };
 
 export default function StudentDashboard() {
@@ -75,8 +80,6 @@ export default function StudentDashboard() {
   const [classSchedule, setClassSchedule] = useState("-");
   const [classroomName, setClassroomName] = useState("-");
   const [classroomLogo, setClassroomLogo] = useState("/Emu Logo.png");
-  const [classroomThemeColour, setClassroomThemeColour] =
-    useState("#1f3c88");
   const [meetLink, setMeetLink] = useState("");
   const [currentHomework, setCurrentHomework] = useState<any[]>([]);
   const [unreadHomeworkCount, setUnreadHomeworkCount] = useState(0);
@@ -130,11 +133,6 @@ export default function StudentDashboard() {
           isOnlineClass
             ? "/On-Line Logo.png"
             : classroomDetails?.logo || "/Emu Logo.png"
-        );
-        setClassroomThemeColour(
-          isOnlineClass
-            ? "#1f3c88"
-            : classroomDetails?.theme_colour || "#1f3c88"
         );
         setClassSchedule(
           [classroom.days, timeSlot].filter(Boolean).join(" - ") ||
@@ -219,7 +217,7 @@ export default function StudentDashboard() {
       </aside>
 
       <main
-        className="student-main-content"
+        className="student-main-content student-dashboard-page"
         style={{
           flex: 1,
           padding: "40px",
@@ -230,15 +228,15 @@ export default function StudentDashboard() {
           style={{
             background: "#ffffff",
             borderRadius: "18px",
-            padding: "32px",
+            padding: "30px 32px",
             marginBottom: "24px",
-            border: "1px solid #e6eaf2",
-            boxShadow: "0 10px 28px rgba(31,60,136,0.08)",
+            border: "1px solid var(--ss-border)",
+            boxShadow: "0 14px 34px rgba(31,60,136,0.09)",
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) 170px",
-            gap: "28px",
+            gridTemplateColumns: "minmax(0, 1fr) 176px",
+            gap: "30px",
             alignItems: "center",
-            borderLeft: `8px solid ${classroomThemeColour}`,
+            borderLeft: "5px solid var(--ss-blue)",
           }}
         >
           <div className="student-dashboard-hero-inner">
@@ -252,7 +250,7 @@ export default function StudentDashboard() {
               style={{
                 width: "230px",
                 height: "auto",
-                marginBottom: "24px",
+                marginBottom: "18px",
               }}
             />
 
@@ -282,20 +280,20 @@ export default function StudentDashboard() {
             className="student-dashboard-classroom-image"
             style={{
               justifySelf: "center",
-              background: "#f5f7fa",
+              background: "var(--ss-blue-light)",
               borderRadius: "16px",
-              padding: "18px",
-              border: "1px solid #e6eaf2",
+              padding: "20px",
+              border: "1px solid var(--ss-border)",
             }}
           >
             <Image
               src={classroomLogo}
               alt={classroomName}
-              width={130}
-              height={130}
+              width={118}
+              height={118}
               style={{
-                width: "130px",
-                height: "130px",
+                width: "118px",
+                height: "118px",
                 objectFit: "contain",
               }}
             />
@@ -324,7 +322,7 @@ export default function StudentDashboard() {
         <section
           style={{
             ...cardStyle,
-            borderLeft: "4px solid #1f3c88",
+            borderLeft: "3px solid var(--ss-blue)",
             marginBottom: "24px",
             padding: "24px",
           }}
@@ -388,13 +386,12 @@ export default function StudentDashboard() {
                     className="student-dashboard-action-button"
                     href="/student/homework"
                     style={{
-                      color: "#1f3c88",
-                      fontWeight: 700,
-                      textDecoration: "none",
+                      ...actionButtonStyle,
+                      marginTop: 0,
                       whiteSpace: "nowrap",
                     }}
                   >
-                    View Homework →
+                    View Homework
                   </Link>
                 </div>
               )}
@@ -433,13 +430,12 @@ export default function StudentDashboard() {
                     className="student-dashboard-action-button"
                     href="/student/messages"
                     style={{
-                      color: "#1f3c88",
-                      fontWeight: 700,
-                      textDecoration: "none",
+                      ...actionButtonStyle,
+                      marginTop: 0,
                       whiteSpace: "nowrap",
                     }}
                   >
-                    View Messages →
+                    View Messages
                   </Link>
                 </div>
               )}
@@ -456,26 +452,27 @@ export default function StudentDashboard() {
             gridTemplateColumns: "140px minmax(0, 1fr)",
             gap: "24px",
             alignItems: "center",
-            borderTop: `5px solid ${classroomThemeColour}`,
+            borderTop: "3px solid var(--ss-blue)",
           }}
         >
           <div
             className="student-dashboard-course-image"
             style={{
-              background: "#f5f7fa",
+              background: "var(--ss-blue-light)",
               borderRadius: "14px",
               padding: "14px",
               textAlign: "center",
+              border: "1px solid var(--ss-border)",
             }}
           >
             <Image
               src={classroomLogo}
               alt={classroomName}
-              width={110}
-              height={110}
+              width={104}
+              height={104}
               style={{
-                width: "110px",
-                height: "110px",
+                width: "104px",
+                height: "104px",
                 objectFit: "contain",
               }}
             />
@@ -598,15 +595,15 @@ export default function StudentDashboard() {
             </div>
 
             <Link
+              className="student-dashboard-action-button"
               href="/student/homework"
               style={{
-                color: "#1f3c88",
-                fontWeight: 700,
-                textDecoration: "none",
+                ...actionButtonStyle,
+                marginTop: 0,
                 whiteSpace: "nowrap",
               }}
             >
-              Open Homework →
+              Open Homework
             </Link>
           </div>
 
@@ -615,7 +612,16 @@ export default function StudentDashboard() {
               Loading homework...
             </p>
           ) : !hasCurrentHomework ? (
-            <p style={{ color: "#667085", margin: 0 }}>
+            <p
+              style={{
+                background: "#f8fafd",
+                border: "1px solid var(--ss-border)",
+                borderRadius: "10px",
+                color: "#667085",
+                margin: 0,
+                padding: "14px",
+              }}
+            >
               No homework has been posted yet.
             </p>
           ) : (
@@ -676,12 +682,10 @@ export default function StudentDashboard() {
                       className="student-dashboard-action-button student-dashboard-homework-view"
                       href="/student/homework"
                       style={{
-                        background: "#1f3c88",
-                        color: "#ffffff",
-                        borderRadius: "8px",
-                        padding: "9px 13px",
-                        fontWeight: 700,
-                        textDecoration: "none",
+                        ...actionButtonStyle,
+                        marginTop: 0,
+                        minHeight: "38px",
+                        padding: "8px 14px",
                         fontSize: "14px",
                         whiteSpace: "nowrap",
                       }}
@@ -715,9 +719,19 @@ export default function StudentDashboard() {
           >
             <Link
               href="/student/resources"
-              style={{ textDecoration: "none" }}
+              style={{ display: "flex", textDecoration: "none" }}
             >
-              <div className="student-dashboard-access-card" style={{ ...cardStyle, minHeight: "145px" }}>
+              <div
+                className="student-dashboard-access-card"
+                style={{
+                  ...cardStyle,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  minHeight: "165px",
+                  width: "100%",
+                }}
+              >
                 <h3
                   style={{
                     color: "#1f3c88",
@@ -738,7 +752,7 @@ export default function StudentDashboard() {
                   Open class resources and materials for your course.
                 </p>
 
-                <span className="student-dashboard-action-button" style={actionButtonStyle}>Open Materials →</span>
+                <span className="student-dashboard-action-button" style={actionButtonStyle}>Open Materials</span>
               </div>
             </Link>
 
@@ -747,8 +761,10 @@ export default function StudentDashboard() {
                 className="student-dashboard-access-card"
                 style={{
                   ...cardStyle,
-                  minHeight: "145px",
-                  opacity: 0.92,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  minHeight: "165px",
                 }}
               >
                 <h3
