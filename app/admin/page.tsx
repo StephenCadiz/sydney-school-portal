@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 
 import AdminLayout from "../components/layout/AdminLayout";
@@ -11,19 +12,140 @@ import { getUnreviewedFollowUpsForAdmin } from "../../lib/followUps";
 import { getUpcomingTeacherCalendarEvents } from "../../lib/teacherCalendar";
 import { supabase } from "../../lib/supabase";
 
-const cardStyle = {
-  background: "#ffffff",
-  border: "1px solid #e6eaf2",
-  borderRadius: "14px",
-  boxShadow: "0 8px 22px rgba(31,60,136,0.06)",
-};
+type IconName =
+  | "classes"
+  | "teachers"
+  | "cambridge"
+  | "youngLearners"
+  | "homework"
+  | "addClass"
+  | "addUsers"
+  | "announcements"
+  | "calendar"
+  | "followUps"
+  | "chevron";
 
 const quickActions = [
-  { label: "Add Class", href: "/admin/classes" },
-  { label: "Add Users", href: "/admin/add-users" },
-  { label: "Add Homework", href: "/admin/homework" },
-  { label: "Announcements", href: "/admin/announcements" },
+  {
+    label: "Add Class",
+    href: "/admin/classes",
+    description: "Create and schedule a new class.",
+    icon: "addClass" as IconName,
+  },
+  {
+    label: "Add Users",
+    href: "/admin/add-users",
+    description: "Add students, teachers or staff.",
+    icon: "addUsers" as IconName,
+  },
+  {
+    label: "Add Homework",
+    href: "/admin/homework",
+    description: "Publish Cambridge homework.",
+    icon: "homework" as IconName,
+  },
+  {
+    label: "Announcements",
+    href: "/admin/announcements",
+    description: "Send an announcement to a selected audience.",
+    icon: "announcements" as IconName,
+  },
 ];
+
+function DashboardIcon({ name, size = 22 }: { name: IconName; size?: number }) {
+  const commonProps = {
+    "aria-hidden": true,
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  switch (name) {
+    case "classes":
+    case "addClass":
+      return (
+        <svg {...commonProps}>
+          <path d="M3 21h18" />
+          <path d="M5 21V8l7-5 7 5v13" />
+          <path d="M9 21v-7h6v7" />
+          <path d="M9 10h.01" />
+          <path d="M15 10h.01" />
+        </svg>
+      );
+    case "teachers":
+    case "youngLearners":
+      return (
+        <svg {...commonProps}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case "cambridge":
+      return (
+        <svg {...commonProps}>
+          <path d="m22 10-10-5-10 5 10 5 10-5Z" />
+          <path d="M6 12v5c3 2 9 2 12 0v-5" />
+          <path d="M22 10v6" />
+        </svg>
+      );
+    case "homework":
+      return (
+        <svg {...commonProps}>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+          <path d="M14 2v6h6" />
+          <path d="M8 13h8" />
+          <path d="M8 17h5" />
+        </svg>
+      );
+    case "addUsers":
+      return (
+        <svg {...commonProps}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M19 8v6" />
+          <path d="M22 11h-6" />
+        </svg>
+      );
+    case "announcements":
+      return (
+        <svg {...commonProps}>
+          <path d="m3 11 18-5v12L3 13v-2Z" />
+          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M16 2v4" />
+          <path d="M8 2v4" />
+          <path d="M3 10h18" />
+        </svg>
+      );
+    case "followUps":
+      return (
+        <svg {...commonProps}>
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      );
+    case "chevron":
+      return (
+        <svg {...commonProps}>
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -58,68 +180,55 @@ function getPreview(value?: string | null) {
   return value.length > 110 ? `${value.slice(0, 110).trim()}...` : value;
 }
 
+function getDisplayDate(date = new Date()) {
+  return date.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 function StatItem({
   label,
   value,
+  icon,
   active = false,
   onClick,
 }: {
   label: string;
   value: number | string;
+  icon: IconName;
   active?: boolean;
   onClick?: () => void;
 }) {
   const interactive = Boolean(onClick);
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!interactive}
-      style={{
-        width: "100%",
-        textAlign: "left",
-        background: active ? "#eef3ff" : "#f8fafd",
-        border: active ? "1px solid #b9c9ef" : "1px solid #edf1f7",
-        borderRadius: "12px",
-        padding: "16px",
-        cursor: interactive ? "pointer" : "default",
-        font: "inherit",
-      }}
+    <article
+      className={`admin-dashboard-kpi-card ${active ? "is-active" : ""}`}
     >
-      <div
-        style={{
-          color: "#667085",
-          fontSize: "13px",
-          fontWeight: 700,
-          marginBottom: "8px",
-        }}
-      >
-        {label}
+      <div className="admin-dashboard-kpi-icon">
+        <DashboardIcon name={icon} />
       </div>
-      <div
-        style={{
-          color: "#1f3c88",
-          fontSize: "28px",
-          fontWeight: 900,
-          lineHeight: 1,
-        }}
-      >
-        {value}
+
+      <div className="admin-dashboard-kpi-body">
+        <div className="admin-dashboard-kpi-label">{label}</div>
+        <div className="admin-dashboard-kpi-value">{value}</div>
       </div>
+
       {interactive && (
-        <div
-          style={{
-            color: "#667085",
-            fontSize: "12px",
-            fontWeight: 700,
-            marginTop: "8px",
-          }}
+        <button
+          type="button"
+          className="admin-dashboard-kpi-action"
+          onClick={onClick}
+          aria-expanded={active}
         >
           {active ? "Hide breakdown" : "View breakdown"}
-        </div>
+          <DashboardIcon name="chevron" size={16} />
+        </button>
       )}
-    </button>
+    </article>
   );
 }
 
@@ -227,58 +336,21 @@ function BreakdownList({
   const total = type === "cambridge" ? cambridgeTotal : youngLearnersTotal;
 
   return (
-    <div
-      style={{
-        gridColumn: "1 / -1",
-        background: "#ffffff",
-        border: "1px solid #e6eaf2",
-        borderRadius: "12px",
-        padding: "14px",
-      }}
-    >
-      <div
-        style={{
-          color: "#1f3c88",
-          fontWeight: 900,
-          marginBottom: "10px",
-          fontSize: "14px",
-        }}
-      >
+    <div className="admin-dashboard-breakdown">
+      <div className="admin-dashboard-breakdown-title">
         {type === "cambridge"
           ? "Cambridge level breakdown"
           : "Young Learner level breakdown"}
       </div>
 
       {total === 0 ? (
-        <p
-          style={{
-            color: "#667085",
-            margin: 0,
-            fontSize: "14px",
-          }}
-        >
-          {emptyMessage}
-        </p>
+        <p className="admin-dashboard-empty-text">{emptyMessage}</p>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gap: "8px",
-          }}
-        >
+        <div className="admin-dashboard-breakdown-list">
           {entries.map(([level, count]) => (
-            <div
-              key={level}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "12px",
-                color: "#333",
-                fontSize: "14px",
-              }}
-            >
+            <div key={level} className="admin-dashboard-breakdown-row">
               <span>{level}</span>
-              <strong style={{ color: "#1f3c88" }}>{count}</strong>
+              <strong>{count}</strong>
             </div>
           ))}
         </div>
@@ -401,134 +473,51 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
-      <div
-        style={{
-          background: "#f5f7fa",
-          margin: "-10px",
-          padding: "26px",
-          minHeight: "100%",
-        }}
-      >
-        <header
-          style={{
-            marginBottom: "28px",
-          }}
-        >
-          <h1
-            style={{
-              color: "#1f3c88",
-              margin: 0,
-              fontSize: "34px",
-              lineHeight: 1.15,
-            }}
-          >
-            Sydney School Admin
-          </h1>
+      <div className="admin-dashboard-page">
+        <header className="admin-dashboard-header">
+          <div className="admin-dashboard-header-main">
+            <Image
+              className="admin-dashboard-logo"
+              src="/LOGO and NAME.png"
+              alt="Sydney School"
+              width={230}
+              height={80}
+              priority
+            />
 
-          <p
-            style={{
-              color: "#667085",
-              margin: "9px 0 0",
-              fontSize: "17px",
-              lineHeight: 1.55,
-            }}
-          >
-            Daily overview of academy operations.
-          </p>
+            <div className="admin-dashboard-header-copy">
+              <h1>Admin Dashboard</h1>
+              <p>Academy management and daily operations.</p>
+            </div>
+          </div>
+
+          <div className="admin-dashboard-date">{getDisplayDate()}</div>
         </header>
 
         {unreviewedFollowUps.length > 0 && (
-          <section
-            style={{
-              ...cardStyle,
-              border: "1px solid #f2c98f",
-              borderLeft: "5px solid #b54708",
-              padding: "20px",
-              marginBottom: "24px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                gap: "18px",
-                marginBottom: "14px",
-              }}
-            >
+          <section className="admin-dashboard-alert-card">
+            <div className="admin-dashboard-alert-header">
               <div>
-                <h2
-                  style={{
-                    color: "#1f3c88",
-                    margin: "0 0 6px",
-                    fontSize: "20px",
-                  }}
-                >
-                  Follow Ups Requiring Review
-                </h2>
-                <p
-                  style={{
-                    color: "#5f6b7a",
-                    margin: 0,
-                    fontSize: "14px",
-                  }}
-                >
+                <h2>Follow Ups Requiring Review</h2>
+                <p>
                   {unreviewedFollowUps.length} new follow-up
                   {unreviewedFollowUps.length === 1 ? "" : "s"} need admin
                   attention.
                 </p>
               </div>
 
-              <Link
-                href="/admin/follow-ups"
-                style={{
-                  background: "#1f3c88",
-                  color: "#ffffff",
-                  borderRadius: "8px",
-                  padding: "9px 13px",
-                  fontWeight: 800,
-                  fontSize: "13px",
-                  textDecoration: "none",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Open Follow Ups →
+              <Link href="/admin/follow-ups" className="admin-dashboard-button">
+                Open Follow Ups
+                <DashboardIcon name="chevron" size={16} />
               </Link>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gap: "10px",
-              }}
-            >
+            <div className="admin-dashboard-follow-up-list">
               {latestFollowUps.map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    background: "#fffaf4",
-                    border: "1px solid #f5dfbf",
-                    borderRadius: "10px",
-                    padding: "12px",
-                  }}
-                >
-                  <strong
-                    style={{
-                      color: "#333",
-                      display: "block",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    {item.title || "Follow up"}
-                  </strong>
+                <div key={item.id} className="admin-dashboard-follow-up-item">
+                  <strong>{item.title || "Follow up"}</strong>
 
-                  <div
-                    style={{
-                      color: "#667085",
-                      fontSize: "13px",
-                      lineHeight: 1.5,
-                    }}
-                  >
+                  <div>
                     {item.student_name || "Unknown student"} ·{" "}
                     {item.teacher_name || "Unknown teacher"}
                     {item.created_at && (
@@ -544,270 +533,159 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1.35fr) minmax(300px, 0.85fr)",
-            gap: "22px",
-            alignItems: "start",
-            marginBottom: "24px",
-          }}
-        >
-          <div
-            style={{
-              ...cardStyle,
-              padding: "24px",
-            }}
-          >
-            <div
-              style={{
-                marginBottom: "18px",
-              }}
-            >
-              <h2
-                style={{
-                  color: "#1f3c88",
-                  margin: "0 0 6px",
-                  fontSize: "21px",
-                }}
+        <section className="admin-dashboard-section">
+          <div className="admin-dashboard-section-heading">
+            <h2>Academy Overview</h2>
+            <p>Current portal records.</p>
+          </div>
+
+          {overviewError && (
+            <p className="admin-dashboard-error">
+              Unable to load all overview counts.
+            </p>
+          )}
+
+          <div className="admin-dashboard-kpi-grid">
+            <StatItem
+              label="Classes"
+              value={overview.classes}
+              icon="classes"
+            />
+            <StatItem
+              label="Teachers"
+              value={overview.teachers}
+              icon="teachers"
+            />
+            <StatItem
+              label="Cambridge Students"
+              value={overview.cambridgeStudents}
+              icon="cambridge"
+              active={activeStudentBreakdown === "cambridge"}
+              onClick={() =>
+                setActiveStudentBreakdown((current) =>
+                  current === "cambridge" ? "" : "cambridge"
+                )
+              }
+            />
+            <StatItem
+              label="Young Learners"
+              value={overview.youngLearners}
+              icon="youngLearners"
+              active={activeStudentBreakdown === "youngLearners"}
+              onClick={() =>
+                setActiveStudentBreakdown((current) =>
+                  current === "youngLearners" ? "" : "youngLearners"
+                )
+              }
+            />
+            <StatItem
+              label="Homework Items"
+              value={overview.homework}
+              icon="homework"
+            />
+          </div>
+
+          {activeStudentBreakdown && (
+            <BreakdownList
+              type={activeStudentBreakdown}
+              cambridgeByLevel={overview.cambridgeByLevel}
+              youngLearnersByLevel={overview.youngLearnersByLevel}
+              cambridgeTotal={overview.cambridgeStudents}
+              youngLearnersTotal={overview.youngLearners}
+            />
+          )}
+
+          <p className="admin-dashboard-count-note">
+            Counts are based on enrolled Cambridge students and active Young
+            Learners.
+          </p>
+        </section>
+
+        <section className="admin-dashboard-main-grid">
+          <div className="admin-dashboard-card admin-dashboard-calendar">
+            <div className="admin-dashboard-card-header">
+              <div>
+                <h2>Teacher Calendar</h2>
+                <p>Upcoming school-wide teacher events.</p>
+              </div>
+
+              <Link
+                href="/admin/teacher-calendar"
+                className="admin-dashboard-secondary-link"
               >
-                Teacher Calendar
-              </h2>
-              <p
-                style={{
-                  color: "#667085",
-                  margin: 0,
-                  fontSize: "14px",
-                }}
-              >
-                Upcoming school-wide teacher events.
-              </p>
+                View Full Calendar
+                <DashboardIcon name="chevron" size={16} />
+              </Link>
             </div>
 
             {calendarError ? (
-              <p style={{ color: "#b00020", margin: 0 }}>
+              <p className="admin-dashboard-error">
                 Unable to load teacher calendar.
               </p>
             ) : calendarEvents.length === 0 ? (
-              <p style={{ color: "#667085", margin: 0 }}>
+              <p className="admin-dashboard-empty-text">
                 No upcoming teacher events.
               </p>
             ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gap: "12px",
-                  maxHeight: "390px",
-                  overflowY: "auto",
-                  paddingRight: "4px",
-                }}
-              >
+              <div className="admin-dashboard-event-list">
                 {calendarEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "72px minmax(0, 1fr)",
-                      gap: "14px",
-                      alignItems: "center",
-                      background: "#f8fafd",
-                      border: "1px solid #edf1f7",
-                      borderRadius: "12px",
-                      padding: "13px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: "#1f3c88",
-                        color: "#ffffff",
-                        borderRadius: "10px",
-                        padding: "10px 8px",
-                        textAlign: "center",
-                        fontWeight: 800,
-                      }}
-                    >
-                      {formatDate(event.event_date)}
+                  <article key={event.id} className="admin-dashboard-event">
+                    <div className="admin-dashboard-event-date">
+                      <span>{formatDate(event.event_date).split(" ")[0]}</span>
+                      <strong>
+                        {formatDate(event.event_date).split(" ")[1] || ""}
+                      </strong>
                     </div>
 
-                    <div>
-                      <div
-                        style={{
-                          color: "#667085",
-                          fontSize: "13px",
-                          fontWeight: 700,
-                          marginBottom: "4px",
-                        }}
-                      >
+                    <div className="admin-dashboard-event-content">
+                      <div className="admin-dashboard-event-meta">
                         {formatDay(event.event_date)}
                         {" · "}
                         {formatTime(event.start_time, event.end_time)}
                       </div>
 
-                      <div
-                        style={{
-                          color: "#1f3c88",
-                          fontWeight: 900,
-                          fontSize: "16px",
-                          marginBottom: event.description ? "4px" : 0,
-                        }}
-                      >
-                        {event.title || "Untitled event"}
-                      </div>
+                      <h3>{event.title || "Untitled event"}</h3>
 
                       {event.description && (
-                        <p
-                          style={{
-                            color: "#5f6b7a",
-                            margin: 0,
-                            fontSize: "13px",
-                            lineHeight: 1.45,
-                          }}
-                        >
-                          {getPreview(event.description)}
-                        </p>
+                        <p>{getPreview(event.description)}</p>
                       )}
                     </div>
-                  </div>
+                  </article>
                 ))}
               </div>
             )}
           </div>
 
-          <aside
-            style={{
-              ...cardStyle,
-              padding: "24px",
-            }}
-          >
-            <h2
-              style={{
-                color: "#1f3c88",
-                margin: "0 0 6px",
-                fontSize: "21px",
-              }}
-            >
-              Academy Overview
-            </h2>
-            <p
-              style={{
-                color: "#667085",
-                margin: "0 0 18px",
-                fontSize: "14px",
-              }}
-            >
-              Current portal records.
-            </p>
-
-            {overviewError && (
-              <p
-                style={{
-                  color: "#b00020",
-                  margin: "0 0 14px",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                }}
-              >
-                Unable to load all overview counts.
-              </p>
-            )}
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: "12px",
-              }}
-            >
-              <StatItem label="Classes" value={overview.classes} />
-              <StatItem label="Teachers" value={overview.teachers} />
-              <StatItem
-                label="Cambridge Students"
-                value={overview.cambridgeStudents}
-                active={activeStudentBreakdown === "cambridge"}
-                onClick={() =>
-                  setActiveStudentBreakdown((current) =>
-                    current === "cambridge" ? "" : "cambridge"
-                  )
-                }
-              />
-              <StatItem
-                label="Young Learners"
-                value={overview.youngLearners}
-                active={activeStudentBreakdown === "youngLearners"}
-                onClick={() =>
-                  setActiveStudentBreakdown((current) =>
-                    current === "youngLearners" ? "" : "youngLearners"
-                  )
-                }
-              />
-              <StatItem label="Homework Items" value={overview.homework} />
-
-              {activeStudentBreakdown && (
-                <BreakdownList
-                  type={activeStudentBreakdown}
-                  cambridgeByLevel={overview.cambridgeByLevel}
-                  youngLearnersByLevel={overview.youngLearnersByLevel}
-                  cambridgeTotal={overview.cambridgeStudents}
-                  youngLearnersTotal={overview.youngLearners}
-                />
-              )}
+          <aside className="admin-dashboard-card admin-dashboard-quick-actions">
+            <div className="admin-dashboard-card-header">
+              <div>
+                <h2>Quick Actions</h2>
+                <p>Common admin tasks.</p>
+              </div>
             </div>
 
-            <p
-              style={{
-                color: "#667085",
-                margin: "14px 0 0",
-                fontSize: "12px",
-              }}
-            >
-              Counts are based on enrolled Cambridge students and active Young
-              Learners.
-            </p>
+            <div className="admin-dashboard-action-grid">
+              {quickActions.map((action) => (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className="admin-dashboard-action-card"
+                  aria-label={`${action.label}: ${action.description}`}
+                >
+                  <span className="admin-dashboard-action-icon">
+                    <DashboardIcon name={action.icon} />
+                  </span>
+                  <span className="admin-dashboard-action-copy">
+                    <strong>{action.label}</strong>
+                    <span>{action.description}</span>
+                  </span>
+                  <span className="admin-dashboard-action-arrow">
+                    <DashboardIcon name="chevron" size={17} />
+                  </span>
+                </Link>
+              ))}
+            </div>
           </aside>
-        </section>
-
-        <section
-          style={{
-            ...cardStyle,
-            padding: "18px",
-          }}
-        >
-          <h2
-            style={{
-              color: "#1f3c88",
-              margin: "0 0 12px",
-              fontSize: "18px",
-            }}
-          >
-            Quick Actions
-          </h2>
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "10px",
-            }}
-          >
-            {quickActions.map((action) => (
-              <Link
-                key={action.href}
-                href={action.href}
-                style={{
-                  background: "#f8fafd",
-                  color: "#1f3c88",
-                  border: "1px solid #dbe3f0",
-                  borderRadius: "999px",
-                  padding: "9px 13px",
-                  textDecoration: "none",
-                  fontWeight: 800,
-                  fontSize: "13px",
-                }}
-              >
-                {action.label} →
-              </Link>
-            ))}
-          </div>
         </section>
       </div>
     </AdminLayout>

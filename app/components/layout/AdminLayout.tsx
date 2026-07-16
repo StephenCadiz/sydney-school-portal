@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -9,23 +8,173 @@ import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh
 import { getAdminUnreadTeacherMessageCount } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
 
+type AdminNavIconName =
+  | "home"
+  | "book"
+  | "clipboard"
+  | "printer"
+  | "users"
+  | "userPlus"
+  | "calendar"
+  | "school"
+  | "graduation"
+  | "fileUser"
+  | "clipboardCheck"
+  | "calendarCheck"
+  | "clock"
+  | "folder"
+  | "envelope"
+  | "megaphone";
+
+function AdminNavIcon({
+  name,
+  size = 19,
+}: {
+  name: AdminNavIconName;
+  size?: number;
+}) {
+  const commonProps = {
+    "aria-hidden": true,
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    style: { flexShrink: 0 },
+  };
+
+  switch (name) {
+    case "home":
+      return (
+        <svg {...commonProps}>
+          <path d="M3 10.5 12 3l9 7.5" />
+          <path d="M5 10v10h14V10" />
+          <path d="M9 20v-6h6v6" />
+        </svg>
+      );
+    case "book":
+      return (
+        <svg {...commonProps}>
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z" />
+        </svg>
+      );
+    case "clipboard":
+      return (
+        <svg {...commonProps}>
+          <rect x="8" y="2" width="8" height="4" rx="1" />
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+          <path d="M8 12h8" />
+          <path d="M8 16h5" />
+        </svg>
+      );
+    case "printer":
+      return (
+        <svg {...commonProps}>
+          <path d="M6 9V2h12v7" />
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+          <path d="M6 14h12v8H6z" />
+        </svg>
+      );
+    case "users":
+      return (
+        <svg {...commonProps}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case "userPlus":
+      return (
+        <svg {...commonProps}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M19 8v6" />
+          <path d="M22 11h-6" />
+        </svg>
+      );
+    case "calendar":
+    case "calendarCheck":
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M16 2v4" />
+          <path d="M8 2v4" />
+          <path d="M3 10h18" />
+          {name === "calendarCheck" && <path d="m9 16 2 2 4-5" />}
+        </svg>
+      );
+    case "school":
+      return (
+        <svg {...commonProps}>
+          <path d="M3 21h18" />
+          <path d="M5 21V8l7-5 7 5v13" />
+          <path d="M9 21v-7h6v7" />
+        </svg>
+      );
+    case "graduation":
+      return (
+        <svg {...commonProps}>
+          <path d="m22 10-10-5-10 5 10 5 10-5Z" />
+          <path d="M6 12v5c3 2 9 2 12 0v-5" />
+          <path d="M22 10v6" />
+        </svg>
+      );
+    case "fileUser":
+      return (
+        <svg {...commonProps}>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+          <path d="M14 2v6h6" />
+          <circle cx="11" cy="13" r="2" />
+          <path d="M8 19a3 3 0 0 1 6 0" />
+        </svg>
+      );
+    case "clipboardCheck":
+      return (
+        <svg {...commonProps}>
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      );
+    case "clock":
+      return (
+        <svg {...commonProps}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 2" />
+        </svg>
+      );
+    case "folder":
+      return (
+        <svg {...commonProps}>
+          <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+        </svg>
+      );
+    case "envelope":
+      return (
+        <svg {...commonProps}>
+          <rect width="20" height="16" x="2" y="4" rx="2" />
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+        </svg>
+      );
+    case "megaphone":
+      return (
+        <svg {...commonProps}>
+          <path d="m3 11 18-5v12L3 13v-2Z" />
+          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 function EnvelopeIcon({ size = 18 }: { size?: number }) {
   return (
-    <svg
-      aria-hidden="true"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ flexShrink: 0 }}
-    >
-      <rect width="20" height="16" x="2" y="4" rx="2" />
-      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-    </svg>
+    <AdminNavIcon name="envelope" size={size} />
   );
 }
 
@@ -116,82 +265,82 @@ export default function AdminLayout({
     {
       name: "Dashboard",
       href: "/admin",
-      icon: "🏠",
+      icon: "home" as AdminNavIconName,
     },
     {
       name: "Homework",
       href: "/admin/homework",
-      icon: "📚",
+      icon: "book" as AdminNavIconName,
     },
     {
       name: "Class Exams",
       href: "/admin/class-exams",
-      icon: "📝",
+      icon: "clipboard" as AdminNavIconName,
     },
     {
       name: "Print Class Exams",
       href: "/admin/print-class-exams",
-      icon: "🖨️",
+      icon: "printer" as AdminNavIconName,
     },
     {
       name: "Teachers",
       href: "/admin/teachers",
-      icon: "👨‍🏫",
+      icon: "users" as AdminNavIconName,
     },
     {
       name: "Add Users",
       href: "/admin/add-users",
-      icon: "👥",
+      icon: "userPlus" as AdminNavIconName,
     },
     {
       name: "Teacher Calendar",
       href: "/admin/teacher-calendar",
-      icon: "🗓️",
+      icon: "calendar" as AdminNavIconName,
     },
     {
       name: "Classes",
       href: "/admin/classes",
-      icon: "🏫",
+      icon: "school" as AdminNavIconName,
     },
     {
       name: "Students",
       href: "/admin/students",
-      icon: "🎓",
+      icon: "graduation" as AdminNavIconName,
     },
     {
       name: "Student Information",
       href: "/admin/student-information",
-      icon: "📋",
+      icon: "fileUser" as AdminNavIconName,
     },
     {
       name: "Follow Ups",
       href: "/admin/follow-ups",
-      icon: "📝",
+      icon: "clipboardCheck" as AdminNavIconName,
     },
     {
       name: "Friday Tutorials",
       href: "/admin/friday-tutorials",
-      icon: "📌",
+      icon: "calendarCheck" as AdminNavIconName,
     },
     {
       name: "Friday @ 6",
       href: "/admin/friday-exam-practice",
-      icon: "🧪",
+      icon: "clock" as AdminNavIconName,
     },
     {
       name: "Resources",
       href: "/admin/resources",
-      icon: "📂",
+      icon: "folder" as AdminNavIconName,
     },
     {
       name: "Messages",
       href: "/admin/messages",
-      icon: "✉️",
+      icon: "envelope" as AdminNavIconName,
     },
     {
       name: "Announcements",
       href: "/admin/announcements",
-      icon: "📢",
+      icon: "megaphone" as AdminNavIconName,
     },
   ];
 
@@ -272,20 +421,9 @@ export default function AdminLayout({
           width: "250px",
           background: "var(--ss-blue)",
           color: "#ffffff",
-          padding: "30px 20px",
+          padding: "24px 20px 30px",
         }}
       >
-        <Image
-          src="/LOGO.png"
-          alt="Sydney School"
-          width={150}
-          height={150}
-          style={{
-            display: "block",
-            margin: "0 auto 35px",
-          }}
-        />
-
         {menuItems.map((item) => {
           const isMessagesItem = item.href === "/admin/messages";
 
@@ -294,7 +432,7 @@ export default function AdminLayout({
               key={item.href}
               href={item.href}
               aria-label={isMessagesItem ? unreadAccessibleLabel : item.name}
-              className="ss-sidebar-link"
+              className="ss-sidebar-link admin-sidebar-link"
               onClick={() => setMenuOpen(false)}
               style={{
                 alignItems: "center",
@@ -313,6 +451,7 @@ export default function AdminLayout({
               }}
             >
               <span
+                className="admin-sidebar-link-main"
                 style={{
                   alignItems: "center",
                   display: "inline-flex",
@@ -320,11 +459,9 @@ export default function AdminLayout({
                   minWidth: 0,
                 }}
               >
-                {isMessagesItem ? (
-                  <EnvelopeIcon size={18} />
-                ) : (
-                  <span aria-hidden="true">{item.icon}</span>
-                )}
+                <span className="admin-nav-icon">
+                  <AdminNavIcon name={item.icon} />
+                </span>
                 <span>{item.name}</span>
               </span>
               {isMessagesItem && <UnreadBadge count={unreadTeacherMessages} />}
@@ -345,6 +482,7 @@ export default function AdminLayout({
       >
         {showDashboardMessageAlert && (
           <section
+            className="admin-dashboard-message-alert"
             style={{
               alignItems: "center",
               background: "#ffffff",
@@ -393,6 +531,7 @@ export default function AdminLayout({
 
             <Link
               href="/admin/messages"
+              className="admin-dashboard-message-alert-link"
               style={{
                 background: "var(--ss-blue)",
                 borderRadius: "9px",
