@@ -103,80 +103,57 @@ export default function MyClassesPage() {
 
   return (
     <TeacherLayout>
-      <h1
-        style={{
-          color: "#1f3c88",
-          marginBottom: "8px",
-        }}
-      >
-        My Classes
-      </h1>
+      <div className="teacher-my-classes-page">
+        <div className="teacher-my-classes-heading">
+          <h1>My Classes</h1>
 
-      <p
-        style={{
-          color: "#666",
-          marginBottom: "30px",
-        }}
-      >
-        Manage all of your classes from one place.
-      </p>
+          <p>Manage all of your classes from one place.</p>
+        </div>
 
-      <SearchBar
-        value={search}
-        onChange={setSearch}
-      />
+        <section
+          className="teacher-my-classes-toolbar"
+          aria-label="Class search and filters"
+        >
+          <div className="teacher-my-classes-toolbar-controls">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+            />
 
-      <FilterBar
-        value={filter}
-        onChange={setFilter}
-        total={classes.length}
-        cambridge={cambridgeCount}
-        youngLearners={youngLearnersCount}
-      />
+            <FilterBar
+              value={filter}
+              onChange={setFilter}
+              total={classes.length}
+              cambridge={cambridgeCount}
+              youngLearners={youngLearnersCount}
+            />
+          </div>
 
-      <div
-        style={{
-          marginBottom: "20px",
-          color: "#666",
-          fontWeight: 600,
-        }}
-      >
-        {filteredClasses.length} class
-        {filteredClasses.length !== 1 ? "es" : ""} found
+          <div className="teacher-my-classes-result-count">
+            {filteredClasses.length} class
+            {filteredClasses.length !== 1 ? "es" : ""} found
+          </div>
+        </section>
+
+        {loading ? (
+          <div className="teacher-my-classes-empty-state">
+            Loading classes...
+          </div>
+        ) : filteredClasses.length === 0 ? (
+          <div className="teacher-my-classes-empty-state">
+            No classes found.
+          </div>
+        ) : (
+          <div className="teacher-my-classes-list">
+            {filteredClasses.map((item) => (
+              <MyClassCard
+                key={item.id}
+                item={item}
+              />
+            ))}
+          </div>
+        )}
       </div>
-
-      {loading ? (
-        <div
-          style={{
-            background: "#ffffff",
-            padding: "30px",
-            borderRadius: "12px",
-            textAlign: "center",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          }}
-        >
-          Loading classes...
-        </div>
-      ) : filteredClasses.length === 0 ? (
-        <div
-          style={{
-            background: "#ffffff",
-            padding: "30px",
-            borderRadius: "12px",
-            textAlign: "center",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          }}
-        >
-          No classes found.
-        </div>
-      ) : (
-        filteredClasses.map((item) => (
-          <MyClassCard
-            key={item.id}
-            item={item}
-          />
-        ))
-      )}
     </TeacherLayout>
   );
 }

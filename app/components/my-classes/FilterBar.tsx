@@ -15,42 +15,36 @@ export default function FilterBar({
   cambridge = 0,
   youngLearners = 0,
 }: Props) {
-  const buttonStyle = (active: boolean) => ({
-    background: active ? "#1f3c88" : "#f3f4f6",
-    color: active ? "#ffffff" : "#444",
-    border: "none",
-    borderRadius: "8px",
-    padding: "10px 18px",
-    cursor: "pointer",
-    fontWeight: 600,
-    transition: "0.2s",
-  });
-
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: "12px",
-        marginBottom: "25px",
-        flexWrap: "wrap",
-      }}
-    >
+    <div className="teacher-my-classes-filters" aria-label="Filter classes">
       <button
-        style={buttonStyle(value === "all")}
+        type="button"
+        className={`teacher-my-classes-filter-button ${
+          value === "all" ? "is-active" : ""
+        }`}
+        aria-pressed={value === "all"}
         onClick={() => onChange("all")}
       >
         All ({total})
       </button>
 
       <button
-        style={buttonStyle(value === "cambridge")}
+        type="button"
+        className={`teacher-my-classes-filter-button ${
+          value === "cambridge" ? "is-active" : ""
+        }`}
+        aria-pressed={value === "cambridge"}
         onClick={() => onChange("cambridge")}
       >
         Cambridge ({cambridge})
       </button>
 
       <button
-        style={buttonStyle(value === "young-learners")}
+        type="button"
+        className={`teacher-my-classes-filter-button ${
+          value === "young-learners" ? "is-active" : ""
+        }`}
+        aria-pressed={value === "young-learners"}
         onClick={() => onChange("young-learners")}
       >
         Young Learners ({youngLearners})
