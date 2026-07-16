@@ -31,7 +31,7 @@ export async function getAdminClasses() {
 export async function getLevels() {
   const { data, error } = await supabase
     .from("levels")
-    .select("id, name")
+    .select("id, name, catagory")
     .order("name");
 
   if (error) {

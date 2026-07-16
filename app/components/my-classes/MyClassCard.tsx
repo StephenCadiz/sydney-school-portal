@@ -88,12 +88,22 @@ function ArrowIcon() {
   );
 }
 
+function normalizeLevelName(levelName: string | null | undefined) {
+  return String(levelName || "").trim().toUpperCase();
+}
+
+function isSupportLevelName(levelName: string | null | undefined) {
+  return normalizeLevelName(levelName) === "SUPPORT CLASSES";
+}
+
 export default function MyClassCard({ item }: Props) {
   const router = useRouter();
 
   const isOnlineClass =
     String(item.course_type || "").toLowerCase() === "online";
   const classTitle = item.levels?.name || item.class_name || "Class";
+  const isSupportClass =
+    item.is_cambridge !== true && isSupportLevelName(classTitle);
   const classroomName = isOnlineClass
     ? "Online Class"
     : item.classrooms?.name || "Classroom not assigned";
@@ -104,8 +114,19 @@ export default function MyClassCard({ item }: Props) {
     ? isOnlineClass
       ? "Online Cambridge Course"
       : "Cambridge Course"
+    : isSupportClass
+    ? "Support Class"
     : "Young Learners";
-  const badgeLabel = item.is_cambridge ? "CAMBRIDGE" : "YOUNG LEARNERS";
+  const badgeLabel = item.is_cambridge
+    ? "CAMBRIDGE"
+    : isSupportClass
+    ? "SUPPORT"
+    : "YOUNG LEARNERS";
+  const badgeClassName = item.is_cambridge
+    ? "is-cambridge"
+    : isSupportClass
+    ? "is-support"
+    : "is-young-learners";
 
   return (
     <div className="teacher-my-classes-card">
@@ -153,9 +174,16 @@ export default function MyClassCard({ item }: Props) {
 
       <div className="teacher-my-classes-actions">
         <span
-          className={`teacher-my-classes-badge ${
-            item.is_cambridge ? "is-cambridge" : "is-young-learners"
-          }`}
+          className={`teacher-my-classes-badge ${badgeClassName}`}
+          style={
+            isSupportClass
+              ? {
+                  background: "#fff7e6",
+                  color: "#8a5a00",
+                  borderColor: "#f3d49b",
+                }
+              : undefined
+          }
         >
           {badgeLabel}
         </span>

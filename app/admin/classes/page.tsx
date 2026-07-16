@@ -109,8 +109,19 @@ function normalizeLevelName(levelName: string | null | undefined) {
   return String(levelName || "").trim().toUpperCase();
 }
 
+function normalizeLevelCategory(category: string | null | undefined) {
+  return String(category || "").trim().toLowerCase();
+}
+
 function isCambridgeLevelName(levelName: string | null | undefined) {
   return cambridgeLevelOrder.includes(normalizeLevelName(levelName));
+}
+
+function isSupportLevel(level: any) {
+  return (
+    normalizeLevelCategory(level?.catagory) === "support" ||
+    normalizeLevelName(level?.name) === "SUPPORT CLASSES"
+  );
 }
 
 function getOrderedLevelNames(groupedItems: Record<string, any[]>, order: string[]) {
@@ -237,7 +248,7 @@ export default function AdminClassesPage() {
   }, []);
 
   function getLevelNameById(levelId: string) {
-    const level = levels.find((item) => item.id === levelId);
+    const level = getLevelById(levelId);
 
     return level?.name || "";
   }
@@ -246,21 +257,35 @@ export default function AdminClassesPage() {
     return isCambridgeLevelName(getLevelNameById(levelId));
   }
 
+  function getLevelById(levelId: string) {
+    return levels.find((item) => String(item.id) === String(levelId));
+  }
+
+  function isSupportLevelId(levelId: string) {
+    return isSupportLevel(getLevelById(levelId));
+  }
+
+  function isYoungLearnerLevelId(levelId: string) {
+    return !isSupportLevelId(levelId);
+  }
+
   function updateForm(field: string, value: any) {
     const selectedCambridgeLevel =
       field === "level_id" ? isCambridgeLevelId(value) : false;
+    const selectedSupportLevel =
+      field === "level_id" ? isSupportLevelId(value) : false;
 
     setForm((current) => ({
       ...current,
       [field]: value,
       is_cambridge:
         field === "level_id"
-          ? selectedCambridgeLevel
+          ? selectedCambridgeLevel && !selectedSupportLevel
           : current.is_cambridge,
       course_type:
         field === "course_type"
           ? value
-          : field === "level_id" && !selectedCambridgeLevel
+          : field === "level_id" && (!selectedCambridgeLevel || selectedSupportLevel)
           ? "regular"
           : current.course_type,
       classroom_id:
@@ -274,6 +299,14 @@ export default function AdminClassesPage() {
 
   function updateCambridge(value: boolean) {
     setForm((current) => {
+      if (isSupportLevelId(current.level_id)) {
+        return {
+          ...current,
+          is_cambridge: false,
+          course_type: "regular",
+        };
+      }
+
       const nextIsCambridge = isCambridgeLevelId(current.level_id)
         ? true
         : value;
@@ -340,6 +373,7 @@ export default function AdminClassesPage() {
 
   function startEdit(item: any) {
     const isForcedCambridge = isCambridgeLevelId(item.level_id || "");
+    const isForcedSupport = isSupportLevelId(item.level_id || "");
 
     setEditingClassId(item.id);
     setMessage("");
@@ -347,7 +381,7 @@ export default function AdminClassesPage() {
       level_id: item.level_id || "",
       teacher_id: item.teacher_id || "",
       classroom_id: item.classroom_id || "",
-      course_type: item.course_type || "regular",
+      course_type: isForcedSupport ? "regular" : item.course_type || "regular",
       days: item.days || "",
       start_time: item.start_time || "",
       end_time: item.end_time || "",
@@ -356,7 +390,11 @@ export default function AdminClassesPage() {
           ? `${item.start_time}-${item.end_time}`
           : "",
       meet_link: item.meet_link || "",
-      is_cambridge: isForcedCambridge ? true : Boolean(item.is_cambridge),
+      is_cambridge: isForcedSupport
+        ? false
+        : isForcedCambridge
+        ? true
+        : Boolean(item.is_cambridge),
     });
   }
 
@@ -439,22 +477,27 @@ export default function AdminClassesPage() {
       return;
     }
 
-    const selectedLevel = levels.find(
-      (level) => level.id === form.level_id
-    );
+    const selectedLevel = getLevelById(form.level_id);
     const isForcedCambridge = isCambridgeLevelName(selectedLevel?.name);
+    const isForcedSupport = isSupportLevel(selectedLevel);
+    const savedCourseType = isForcedSupport ? "regular" : form.course_type;
+    const savedIsOnlineClass = isOnlineCourse(savedCourseType);
 
     const classData: any = {
       class_name: selectedLevel?.name || "",
       level_id: form.level_id,
       teacher_id: form.teacher_id,
-      classroom_id: isOnlineClass ? null : form.classroom_id,
-      course_type: form.course_type,
+      classroom_id: savedIsOnlineClass ? null : form.classroom_id,
+      course_type: savedCourseType,
       days: form.days,
       start_time: form.start_time,
       end_time: form.end_time,
-      meet_link: isOnlineClass ? trimmedMeetLink : null,
-      is_cambridge: isForcedCambridge ? true : form.is_cambridge,
+      meet_link: savedIsOnlineClass ? trimmedMeetLink : null,
+      is_cambridge: isForcedSupport
+        ? false
+        : isForcedCambridge
+        ? true
+        : form.is_cambridge,
     };
 
     try {
@@ -679,11 +722,21 @@ export default function AdminClassesPage() {
   }
 
   const cambridgeClasses = classes.filter(
-    (item) => item.is_cambridge === true
+    (item) =>
+      item.is_cambridge === true &&
+      !isSupportLevelId(item.level_id || "")
   );
   const youngLearnerClasses = classes.filter(
-    (item) => item.is_cambridge !== true
+    (item) =>
+      item.is_cambridge !== true &&
+      isYoungLearnerLevelId(item.level_id || "")
   );
+  const supportClasses = classes.filter(
+    (item) => isSupportLevelId(item.level_id || "")
+  );
+  const selectedFormLevel = getLevelById(form.level_id);
+  const selectedFormIsCambridge = isCambridgeLevelId(form.level_id);
+  const selectedFormIsSupport = isSupportLevel(selectedFormLevel);
 
   return (
     <AdminLayout>
@@ -940,28 +993,30 @@ export default function AdminClassesPage() {
 
         </div>
 
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            marginTop: "20px",
-            color: "#333",
-            fontWeight: 600,
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={form.is_cambridge}
-            disabled={isCambridgeLevelId(form.level_id)}
-            onChange={(event) =>
-              updateCambridge(event.target.checked)
-            }
-          />
-          Cambridge class
-        </label>
+        {!selectedFormIsSupport && (
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              marginTop: "20px",
+              color: "#333",
+              fontWeight: 600,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={form.is_cambridge}
+              disabled={selectedFormIsCambridge}
+              onChange={(event) =>
+                updateCambridge(event.target.checked)
+              }
+            />
+            Cambridge class
+          </label>
+        )}
 
-        {isCambridgeLevelId(form.level_id) && (
+        {selectedFormIsCambridge && (
           <p
             style={{
               color: "#667085",
@@ -970,6 +1025,19 @@ export default function AdminClassesPage() {
             }}
           >
             B1, B2, C1 and C2 are always saved as Cambridge classes.
+          </p>
+        )}
+
+        {selectedFormIsSupport && (
+          <p
+            style={{
+              color: "#667085",
+              margin: "20px 0 0",
+              fontSize: "13px",
+            }}
+          >
+            Support Classes are saved separately from Cambridge and Young
+            Learner groups.
           </p>
         )}
 
@@ -1051,7 +1119,7 @@ export default function AdminClassesPage() {
             }}
           >
             {renderGroupedClassSection(
-              "Cambridge",
+              "Cambridge Classes",
               cambridgeClasses,
               cambridgeLevelOrder,
               "No Cambridge classes created yet."
@@ -1062,6 +1130,13 @@ export default function AdminClassesPage() {
               youngLearnerClasses,
               youngLearnerLevelOrder,
               "No Young Learner classes created yet."
+            )}
+
+            {renderGroupedClassSection(
+              "Support Classes",
+              supportClasses,
+              ["Support Classes"],
+              "No Support Classes have been created yet."
             )}
           </div>
         )}

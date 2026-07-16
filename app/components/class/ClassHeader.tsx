@@ -7,6 +7,14 @@ type Props = {
   studentCount: number;
 };
 
+function normalizeLevelName(levelName: string | null | undefined) {
+  return String(levelName || "").trim().toUpperCase();
+}
+
+function isSupportLevelName(levelName: string | null | undefined) {
+  return normalizeLevelName(levelName) === "SUPPORT CLASSES";
+}
+
 export default function ClassHeader({
   classData,
   studentCount,
@@ -23,6 +31,8 @@ export default function ClassHeader({
   const title = levelName
     ? `${levelName} Class Workspace`
     : "Class Workspace";
+  const isSupportClass =
+    classData.is_cambridge !== true && isSupportLevelName(levelName);
   const classroomName = isOnlineClass
     ? "Online Class"
     : classroom?.name || "Classroom not assigned";
@@ -109,6 +119,8 @@ export default function ClassHeader({
           style={{
             background: classData.is_cambridge
               ? "#1f3c88"
+              : isSupportClass
+              ? "#8a5a00"
               : "#2e7d32",
             color: "#ffffff",
             padding: "8px 16px",
@@ -120,6 +132,8 @@ export default function ClassHeader({
         >
           {classData.is_cambridge
             ? "CAMBRIDGE"
+            : isSupportClass
+            ? "SUPPORT"
             : "YOUNG LEARNERS"}
         </div>
       </div>

@@ -6,6 +6,20 @@ function normalizeLevelName(levelName: string | null | undefined) {
   return String(levelName || "").trim().toUpperCase();
 }
 
+function normalizeLevelCategory(category: string | null | undefined) {
+  return String(category || "").trim().toLowerCase();
+}
+
+function isSupportLevel(
+  levelName: string | null | undefined,
+  category: string | null | undefined
+) {
+  return (
+    normalizeLevelCategory(category) === "support" ||
+    normalizeLevelName(levelName) === "SUPPORT CLASSES"
+  );
+}
+
 function isOnlineClass(classroom: any) {
   return String(classroom?.course_type || "").toLowerCase() === "online";
 }
@@ -44,7 +58,7 @@ async function getClassReferenceData() {
 
   const { data: levels, error: levelsError } = await supabase
     .from("levels")
-    .select("id, name");
+    .select("id, name, catagory");
 
   if (levelsError) {
     console.error("getClassLevels Supabase error:", levelsError);
@@ -225,6 +239,7 @@ export async function getCambridgeClassesForStudentInvite() {
       return {
         id: classroom.id,
         level_name: level?.name || "",
+        level_catagory: level?.catagory || "",
         classroom_name: getClassroomDisplayName(
           classroom,
           assignedClassroom
@@ -260,6 +275,7 @@ export async function getYoungLearnerClassesForStudentCreate() {
       return {
         id: classroom.id,
         level_name: level?.name || "",
+        level_catagory: level?.catagory || "",
         class_label: getClassLabel(classroom, level, assignedClassroom),
         classroom_name: getClassroomDisplayName(
           classroom,
@@ -272,7 +288,11 @@ export async function getYoungLearnerClassesForStudentCreate() {
         is_cambridge: classroom.is_cambridge,
       };
     })
-    .filter((classroom) => classroom.is_cambridge !== true);
+    .filter(
+      (classroom) =>
+        classroom.is_cambridge !== true &&
+        !isSupportLevel(classroom.level_name, classroom.level_catagory)
+    );
 }
 
 export async function getYoungLearners() {
