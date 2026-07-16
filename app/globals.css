@@ -168,6 +168,127 @@ a:hover .student-dashboard-access-card {
   background: var(--ss-blue-hover) !important;
 }
 
+.teacher-mock-result-action-footer {
+  align-items: center;
+  border-top: 1px solid #eef2f7;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.teacher-mock-result-student-status {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.86rem;
+  font-weight: 700;
+  gap: 7px;
+  line-height: 1.35;
+}
+
+.teacher-mock-result-student-status::before {
+  border-radius: 999px;
+  content: "";
+  display: inline-block;
+  height: 8px;
+  width: 8px;
+}
+
+.teacher-mock-result-student-status.is-draft {
+  color: #667085;
+}
+
+.teacher-mock-result-student-status.is-draft::before {
+  background: #d0d5dd;
+}
+
+.teacher-mock-result-student-status.is-visible {
+  color: #236b3b;
+}
+
+.teacher-mock-result-student-status.is-visible::before {
+  background: #2e7d32;
+}
+
+.teacher-mock-result-action-buttons {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.teacher-mock-result-action-button {
+  align-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 41px;
+  padding: 9px 13px;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+
+.teacher-mock-result-action-button:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.24);
+  outline-offset: 2px;
+}
+
+.teacher-mock-result-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.teacher-mock-result-action-button.is-publish {
+  background: var(--ss-blue);
+  border: 1px solid var(--ss-blue);
+  color: #ffffff;
+}
+
+.teacher-mock-result-action-button.is-publish:hover:not(:disabled) {
+  background: var(--ss-blue-hover);
+  border-color: var(--ss-blue-hover);
+  box-shadow: 0 7px 16px rgba(37, 106, 160, 0.16);
+}
+
+.teacher-mock-result-action-button.is-unpublish {
+  background: #ffffff;
+  border: 1px solid #e0b45f;
+  color: #8a5a00;
+}
+
+.teacher-mock-result-action-button.is-unpublish:hover:not(:disabled) {
+  background: #fff7e6;
+  border-color: #c98f1d;
+}
+
+.teacher-mock-result-action-button.is-edit {
+  background: #ffffff;
+  border: 1px solid #cfd8e6;
+  color: var(--ss-blue-dark);
+}
+
+.teacher-mock-result-action-button.is-edit:hover:not(:disabled) {
+  background: var(--ss-blue-light);
+  border-color: rgba(47, 125, 184, 0.45);
+}
+
+.teacher-mock-result-action-button.is-delete {
+  background: #ffffff;
+  border: 1px solid #f1b7b7;
+  color: #9f1d1d;
+}
+
+.teacher-mock-result-action-button.is-delete:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #d96a6a;
+}
+
 .teacher-my-classes-page {
   margin: 0 auto;
   max-width: 1440px;
@@ -547,6 +668,20 @@ a:hover .student-dashboard-access-card {
 }
 
 @media (max-width: 768px) {
+  .teacher-mock-result-action-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .teacher-mock-result-action-buttons {
+    justify-content: flex-start;
+  }
+
+  .teacher-mock-result-action-button {
+    flex: 1 1 auto;
+    min-width: 96px;
+  }
+
   .teacher-my-classes-page {
     max-width: none;
   }

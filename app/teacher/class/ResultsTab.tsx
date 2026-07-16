@@ -55,6 +55,42 @@ const secondaryButtonStyle = {
   cursor: "pointer",
 } as const;
 
+const statusBadgeBaseStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "5px 10px",
+  fontSize: "12px",
+  fontWeight: 800,
+  lineHeight: 1,
+  whiteSpace: "nowrap" as const,
+};
+
+const draftBadgeStyle = {
+  ...statusBadgeBaseStyle,
+  background: "#fff7e6",
+  border: "1px solid #f3d49b",
+  color: "#8a5a00",
+};
+
+const publishedBadgeStyle = {
+  ...statusBadgeBaseStyle,
+  background: "#edf7f1",
+  border: "1px solid #cfe9d8",
+  color: "#236b3b",
+};
+
+const dangerButtonStyle = {
+  ...secondaryButtonStyle,
+  color: "#9f1d1d",
+  border: "1px solid #f1b7b7",
+};
+
+const disabledButtonStyle = {
+  cursor: "not-allowed",
+  opacity: 0.65,
+} as const;
+
 type Props = {
   classId: string;
   students: any[];
@@ -135,6 +171,27 @@ function getMockAverage(result: any) {
   return toNumber(result.overall);
 }
 
+function isMockResultPublished(result: any) {
+  return Boolean(result?.published_at);
+}
+
+function hasCompleteMockScores(result: any) {
+  return (
+    result.reading !== null &&
+    result.reading !== undefined &&
+    result.reading !== "" &&
+    result.writing !== null &&
+    result.writing !== undefined &&
+    result.writing !== "" &&
+    result.listening !== null &&
+    result.listening !== undefined &&
+    result.listening !== "" &&
+    result.speaking !== null &&
+    result.speaking !== undefined &&
+    result.speaking !== ""
+  );
+}
+
 function ProgressBar({ value }: { value: any }) {
   const number = toNumber(value);
   const width = number === null ? 0 : Math.max(0, Math.min(100, number));
@@ -191,6 +248,10 @@ export default function ResultsTab({
   const [comments, setComments] = useState("");
   const [savingMock, setSavingMock] = useState(false);
   const [editingMockId, setEditingMockId] = useState("");
+  const [publishingMockId, setPublishingMockId] = useState("");
+  const [unpublishingMockId, setUnpublishingMockId] = useState("");
+  const [pendingUnpublishResult, setPendingUnpublishResult] =
+    useState<any>(null);
 
   const selectedStudent = students.find(
     (student) => student.id === selectedStudentId
@@ -459,6 +520,11 @@ export default function ResultsTab({
     const average =
       (readingScore + writingScore + listeningScore + speakingScore) / 4;
     const currentTeacherId = await getSafeTeacherId();
+    const wasPublished =
+      editingMockId &&
+      isMockResultPublished(
+        results.find((result) => result.id === editingMockId)
+      );
     const payload: any = {
       class_id: classId,
       student_id: selectedStudent.id,
@@ -471,6 +537,7 @@ export default function ResultsTab({
       speaking: speakingScore,
       overall: average,
       comments,
+      published_at: null,
     };
 
     if (currentTeacherId) {
@@ -491,10 +558,100 @@ export default function ResultsTab({
     }
 
     setMessage(
-      editingMockId ? "Mock exam result updated." : "Mock exam result saved."
+      editingMockId
+        ? wasPublished
+          ? "Mock result updated and returned to Draft. Publish it when ready."
+          : "Mock exam result updated."
+        : "Mock exam result saved as Draft."
     );
     clearMockForm();
     setSavingMock(false);
+    loadResults();
+  }
+
+  async function publishMockResult(result: any) {
+    if (!result?.id || publishingMockId || unpublishingMockId) {
+      return;
+    }
+
+    setMessage("");
+    setErrorMessage("");
+
+    if (!hasCompleteMockScores(result)) {
+      setErrorMessage("Complete all four mock scores before publishing.");
+      return;
+    }
+
+    setPublishingMockId(result.id);
+
+    const { error } = await supabase
+      .from("results")
+      .update({
+        published_at: new Date().toISOString(),
+      })
+      .eq("id", result.id)
+      .eq("class_id", classId)
+      .eq("result_type", "mock");
+
+    if (error) {
+      console.error("Unable to publish mock result:", error);
+      setErrorMessage(
+        "The mock result could not be published. Please try again."
+      );
+      setPublishingMockId("");
+      return;
+    }
+
+    setMessage("Mock result published successfully.");
+    setPublishingMockId("");
+    loadResults();
+  }
+
+  function requestUnpublishMockResult(result: any) {
+    setMessage("");
+    setErrorMessage("");
+    setPendingUnpublishResult(result);
+  }
+
+  function cancelUnpublishMockResult() {
+    if (unpublishingMockId) {
+      return;
+    }
+
+    setPendingUnpublishResult(null);
+  }
+
+  async function confirmUnpublishMockResult() {
+    if (!pendingUnpublishResult?.id || unpublishingMockId) {
+      return;
+    }
+
+    const resultId = pendingUnpublishResult.id;
+    setUnpublishingMockId(resultId);
+    setMessage("");
+    setErrorMessage("");
+
+    const { error } = await supabase
+      .from("results")
+      .update({
+        published_at: null,
+      })
+      .eq("id", resultId)
+      .eq("class_id", classId)
+      .eq("result_type", "mock");
+
+    if (error) {
+      console.error("Unable to unpublish mock result:", error);
+      setErrorMessage(
+        "The mock result could not be unpublished. Please try again."
+      );
+      setUnpublishingMockId("");
+      return;
+    }
+
+    setMessage("Mock result returned to Draft.");
+    setUnpublishingMockId("");
+    setPendingUnpublishResult(null);
     loadResults();
   }
 
@@ -582,6 +739,8 @@ export default function ResultsTab({
 
       {message && (
         <div
+          role="status"
+          aria-live="polite"
           style={{
             ...cardStyle,
             borderColor: "#c8e6d2",
@@ -595,6 +754,8 @@ export default function ResultsTab({
 
       {errorMessage && (
         <div
+          role="alert"
+          aria-live="assertive"
           style={{
             ...cardStyle,
             borderColor: "#f1b7b7",
@@ -1002,110 +1163,252 @@ export default function ResultsTab({
               </p>
             ) : (
               <div style={{ display: "grid", gap: "12px" }}>
-                {mockResults.map((result) => (
-                  <div
-                    key={result.id}
-                    style={{
-                      border: "1px solid #edf1f7",
-                      borderRadius: "12px",
-                      padding: "16px",
-                    }}
-                  >
+                {mockResults.map((result) => {
+                  const published = isMockResultPublished(result);
+                  const isPublishing = publishingMockId === result.id;
+                  const isUnpublishing = unpublishingMockId === result.id;
+
+                  return (
                     <div
+                      key={result.id}
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: "14px",
-                        marginBottom: "14px",
+                        border: "1px solid #edf1f7",
+                        borderRadius: "12px",
+                        padding: "16px",
                       }}
                     >
-                      <strong
+                      <div
                         style={{
-                          color: "#1f3c88",
-                          fontSize: "17px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "14px",
+                          marginBottom: "14px",
+                          flexWrap: "wrap",
                         }}
                       >
-                        {mockTitle(result)}
-                      </strong>
-
-                      <strong style={{ color: "#1f3c88" }}>
-                        Average {formatPercent(getMockAverage(result))}
-                      </strong>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(140px, 1fr))",
-                        gap: "12px",
-                        marginBottom: result.comments ? "14px" : "0",
-                      }}
-                    >
-                      {[
-                        { label: readingLabel, value: result.reading },
-                        { label: "Writing", value: result.writing },
-                        { label: "Listening", value: result.listening },
-                        { label: "Speaking", value: result.speaking },
-                      ].map((item) => (
-                        <div key={item.label}>
-                          <span
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <strong
                             style={{
-                              color: "#667085",
-                              fontSize: "13px",
+                              color: "#1f3c88",
+                              fontSize: "17px",
                             }}
                           >
-                            {item.label}
-                          </span>
-                          <div>
-                            <strong style={{ color: "#333333" }}>
-                              {formatPercent(item.value)}
-                            </strong>
-                          </div>
-                          <ProgressBar value={item.value} />
-                        </div>
-                      ))}
-                    </div>
+                            {mockTitle(result)}
+                          </strong>
 
-                    {result.comments && (
-                      <p
+                          <span
+                            style={
+                              published ? publishedBadgeStyle : draftBadgeStyle
+                            }
+                          >
+                            {published ? "Published" : "Draft"}
+                          </span>
+                        </div>
+
+                        <strong style={{ color: "#1f3c88" }}>
+                          Average {formatPercent(getMockAverage(result))}
+                        </strong>
+                      </div>
+
+                      <div
                         style={{
-                          color: "#667085",
-                          margin: "0 0 14px",
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(140px, 1fr))",
+                          gap: "12px",
+                          marginBottom: result.comments ? "14px" : "0",
                         }}
                       >
-                        {result.comments}
-                      </p>
-                    )}
+                        {[
+                          { label: readingLabel, value: result.reading },
+                          { label: "Writing", value: result.writing },
+                          { label: "Listening", value: result.listening },
+                          { label: "Speaking", value: result.speaking },
+                        ].map((item) => (
+                          <div key={item.label}>
+                            <span
+                              style={{
+                                color: "#667085",
+                                fontSize: "13px",
+                              }}
+                            >
+                              {item.label}
+                            </span>
+                            <div>
+                              <strong style={{ color: "#333333" }}>
+                                {formatPercent(item.value)}
+                              </strong>
+                            </div>
+                            <ProgressBar value={item.value} />
+                          </div>
+                        ))}
+                      </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      <button
-                        onClick={() => editMock(result)}
-                        style={secondaryButtonStyle}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() =>
-                          deleteResult(result.id, "mock exam result")
-                        }
-                        style={secondaryButtonStyle}
-                      >
-                        Delete
-                      </button>
+                      {result.comments && (
+                        <p
+                          style={{
+                            color: "#667085",
+                            margin: "0 0 14px",
+                          }}
+                        >
+                          {result.comments}
+                        </p>
+                      )}
+
+                      <div className="teacher-mock-result-action-footer">
+                        <div
+                          className={`teacher-mock-result-student-status ${
+                            published ? "is-visible" : "is-draft"
+                          }`}
+                        >
+                          {published
+                            ? "Visible to student"
+                            : "Not visible to student"}
+                        </div>
+
+                        <div className="teacher-mock-result-action-buttons">
+                          {published ? (
+                            <button
+                              type="button"
+                              aria-label={`Unpublish ${mockTitle(result)}`}
+                              onClick={() => requestUnpublishMockResult(result)}
+                              disabled={isUnpublishing}
+                              className="teacher-mock-result-action-button is-unpublish"
+                            >
+                              {isUnpublishing ? "Unpublishing…" : "Unpublish"}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              aria-label={`Publish ${mockTitle(result)}`}
+                              onClick={() => publishMockResult(result)}
+                              disabled={isPublishing}
+                              className="teacher-mock-result-action-button is-publish"
+                            >
+                              {isPublishing ? "Publishing…" : "Publish"}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => editMock(result)}
+                            className="teacher-mock-result-action-button is-edit"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteResult(result.id, "mock exam result")
+                            }
+                            className="teacher-mock-result-action-button is-delete"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
         </>
+      )}
+
+      {pendingUnpublishResult && (
+        <div
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(17, 24, 39, 0.42)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "18px",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="unpublish-mock-title"
+            aria-describedby="unpublish-mock-description"
+            style={{
+              background: "#ffffff",
+              borderRadius: "14px",
+              boxShadow: "0 20px 60px rgba(17, 24, 39, 0.22)",
+              border: "1px solid #e6eaf2",
+              width: "100%",
+              maxWidth: "460px",
+              padding: "22px",
+            }}
+          >
+            <h3
+              id="unpublish-mock-title"
+              style={{
+                color: "#1f3c88",
+                margin: "0 0 10px",
+                fontSize: "21px",
+              }}
+            >
+              Unpublish Mock Result?
+            </h3>
+
+            <p
+              id="unpublish-mock-description"
+              style={{
+                color: "#667085",
+                margin: "0 0 20px",
+                lineHeight: 1.55,
+              }}
+            >
+              The marks will remain saved, but the student will no longer see
+              this mock result until it is published again.
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                onClick={cancelUnpublishMockResult}
+                disabled={Boolean(unpublishingMockId)}
+                style={{
+                  ...secondaryButtonStyle,
+                  ...(unpublishingMockId ? disabledButtonStyle : {}),
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmUnpublishMockResult}
+                disabled={Boolean(unpublishingMockId)}
+                style={{
+                  ...dangerButtonStyle,
+                  ...(unpublishingMockId ? disabledButtonStyle : {}),
+                }}
+              >
+                {unpublishingMockId ? "Unpublishing..." : "Unpublish"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

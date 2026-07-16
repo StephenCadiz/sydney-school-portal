@@ -8,5 +8,9 @@ export async function getStudentResults(studentId: string) {
 
   if (error) throw error;
 
-  return data || [];
+  return (data || []).filter(
+    (result) =>
+      result.result_type !== "mock" ||
+      (result.published_at !== null && result.published_at !== undefined)
+  );
 }

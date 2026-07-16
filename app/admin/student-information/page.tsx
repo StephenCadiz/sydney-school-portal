@@ -80,6 +80,87 @@ function formatDate(value: string | null | undefined) {
   });
 }
 
+function formatPublishedDate(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Madrid",
+  }).format(date);
+}
+
+function getMockPublicationBadgeStyle(isPublished: boolean) {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    borderRadius: "999px",
+    padding: "5px 10px",
+    fontSize: "12px",
+    fontWeight: 800,
+    lineHeight: 1,
+    whiteSpace: "nowrap" as const,
+    background: isPublished ? "#edf7f1" : "#fff7e6",
+    border: isPublished ? "1px solid #cfe9d8" : "1px solid #f3d49b",
+    color: isPublished ? "#236b3b" : "#8a5a00",
+  };
+}
+
+function getMockDisplayName(row: any) {
+  const mockNumber = Number(row?.mock_number);
+
+  if (!Number.isFinite(mockNumber) || mockNumber <= 0) {
+    return "Mock Exam";
+  }
+
+  return `Mock ${mockNumber}`;
+}
+
+function getMockSortValue(row: any) {
+  const mockNumber = Number(row?.mock_number);
+
+  return Number.isFinite(mockNumber) && mockNumber > 0
+    ? mockNumber
+    : Number.POSITIVE_INFINITY;
+}
+
+function MockScoreCell({ label, value }: { label: string; value: any }) {
+  return (
+    <div
+      style={{
+        border: "1px solid var(--ss-border)",
+        borderRadius: "10px",
+        padding: "12px",
+        background: "#ffffff",
+        minWidth: 0,
+      }}
+    >
+      <p
+        style={{
+          color: "#667085",
+          fontSize: "13px",
+          lineHeight: 1.35,
+          margin: "0 0 6px",
+        }}
+      >
+        {label}
+      </p>
+      <strong style={{ color: "var(--ss-blue-dark)", fontSize: "22px" }}>
+        {formatAverage(value)}
+      </strong>
+    </div>
+  );
+}
+
 function StatCard({
   label,
   value,
@@ -132,6 +213,19 @@ function PlaceholderCard({ title }: { title: string }) {
 function CambridgeResults({ student }: { student: any }) {
   const practice = student.results_summary?.practice || {};
   const mock = student.results_summary?.mock || {};
+  const readingLabel = getCambridgeReadingSkillLabel(student.level_name);
+  const mockRows = [...(mock.rows || [])].sort((first: any, second: any) => {
+    const firstSort = getMockSortValue(first);
+    const secondSort = getMockSortValue(second);
+
+    if (firstSort !== secondSort) {
+      return firstSort - secondSort;
+    }
+
+    return String(first.created_at || "").localeCompare(
+      String(second.created_at || "")
+    );
+  });
 
   return (
     <section style={cardStyle}>
@@ -175,23 +269,91 @@ function CambridgeResults({ student }: { student: any }) {
             Mock Exam Results
           </h3>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-              gap: "12px",
-            }}
-          >
-            <StatCard label="Reading" value={formatAverage(mock.reading_average)} />
-            <StatCard label="Writing" value={formatAverage(mock.writing_average)} />
-            <StatCard label="Listening" value={formatAverage(mock.listening_average)} />
-            <StatCard label="Speaking" value={formatAverage(mock.speaking_average)} />
-            <StatCard label="Overall average" value={formatAverage(mock.overall_average)} />
-          </div>
+          {mockRows.length > 0 ? (
+            <div style={{ display: "grid", gap: "10px" }}>
+              {mockRows.map((row: any) => {
+                const isPublished = Boolean(row.published_at);
+                const publishedDate = formatPublishedDate(row.published_at);
 
-          {(!mock.rows || mock.rows.length === 0) && (
+                return (
+                  <div
+                    key={row.id}
+                    style={{
+                      border: "1px solid var(--ss-border)",
+                      borderRadius: "12px",
+                      padding: "14px",
+                      background: "#f8fafd",
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(145px, 1fr))",
+                      gap: "12px",
+                      alignItems: "stretch",
+                    }}
+                  >
+                    <div
+                      style={{
+                        border: "1px solid var(--ss-border)",
+                        borderRadius: "10px",
+                        padding: "12px",
+                        background: "#ffffff",
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong style={{ color: "var(--ss-blue-dark)" }}>
+                          {getMockDisplayName(row)}
+                        </strong>
+                        <span style={getMockPublicationBadgeStyle(isPublished)}>
+                          {isPublished ? "Published" : "Draft"}
+                        </span>
+                      </div>
+
+                      <p
+                        style={{
+                          color: isPublished ? "#236b3b" : "#667085",
+                          margin: "8px 0 0",
+                          fontSize: "13px",
+                          fontWeight: isPublished ? 700 : 500,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {isPublished
+                          ? "Visible to student"
+                          : "Not visible to student"}
+                      </p>
+
+                      {isPublished && publishedDate && (
+                        <p
+                          style={{
+                            color: "#667085",
+                            margin: "4px 0 0",
+                            fontSize: "12px",
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          Published {publishedDate}
+                        </p>
+                      )}
+                    </div>
+
+                    <MockScoreCell label={readingLabel} value={row.reading} />
+                    <MockScoreCell label="Writing" value={row.writing} />
+                    <MockScoreCell label="Listening" value={row.listening} />
+                    <MockScoreCell label="Speaking" value={row.speaking} />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
             <p style={{ color: "#667085", margin: "12px 0 0" }}>
-              No mock exam results found.
+              No Mock Exam results found.
             </p>
           )}
         </div>

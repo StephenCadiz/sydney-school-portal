@@ -467,6 +467,7 @@ export async function getCambridgeStudentResultsSummary(studentId: string) {
 
     return {
       ...row,
+      published_at: row.published_at ?? null,
       row_average: toNumber(row.overall) ?? calculatedOverall,
     };
   });
