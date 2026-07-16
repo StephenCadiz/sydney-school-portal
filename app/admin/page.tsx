@@ -158,12 +158,13 @@ function buildStudentOverview(
 
     const level = levels.find((item) => item.id === classroom.level_id);
     const levelName = level?.name || "Level not set";
+    const normalizedLevelName = String(levelName || "").trim().toUpperCase();
 
     if (classroom.is_cambridge === true) {
       cambridgeStudents += 1;
 
-      if (cambridgeLevels.includes(levelName)) {
-        cambridgeByLevel[levelName] += 1;
+      if (cambridgeLevels.includes(normalizedLevelName)) {
+        cambridgeByLevel[normalizedLevelName] += 1;
       }
     }
   }
