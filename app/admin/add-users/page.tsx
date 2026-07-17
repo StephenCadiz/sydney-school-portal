@@ -5,14 +5,41 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
 import {
-  getCambridgeClassesForStudentInvite,
+  getCambridgeClassesForBulkCreate,
   getYoungLearnerClassesForBulkCreate,
 } from "../../../lib/adminStudents";
-import type { YoungLearnerBulkClassOption } from "../../../lib/adminStudents";
+import type {
+  CambridgeBulkClassOption,
+  YoungLearnerBulkClassOption,
+} from "../../../lib/adminStudents";
 import { supabase } from "../../../lib/supabase";
 
 type ActiveTab = "teacher" | "cambridge" | "youngLearner" | "adminStaff";
 type CreationMode = "manual" | "invite";
+type CambridgeBulkRowField =
+  | "first_name"
+  | "last_name"
+  | "email"
+  | "password"
+  | "student";
+type CambridgeBulkRowErrors = Partial<Record<CambridgeBulkRowField, string>>;
+type CambridgeBulkRow = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  show_password: boolean;
+  errors: CambridgeBulkRowErrors;
+};
+type CambridgeDialog =
+  | {
+      type: "clear";
+    }
+  | {
+      type: "changeClass";
+      nextClassId: string;
+    };
 type YoungLearnerBulkRowField = "first_name" | "last_name" | "student";
 type YoungLearnerBulkRowErrors = Partial<
   Record<YoungLearnerBulkRowField, string>
@@ -34,9 +61,20 @@ type YoungLearnerDialog =
 
 const youngLearnerBulkRowCount = 12;
 const youngLearnerMaxNameLength = 80;
+const cambridgeBulkRowCount = 12;
+const cambridgeMaxNameLength = 80;
+const cambridgeMaxEmailLength = 254;
+const cambridgeMinimumPasswordLength = 6;
 const youngLearnerBulkRowFields: YoungLearnerBulkRowField[] = [
   "first_name",
   "last_name",
+  "student",
+];
+const cambridgeBulkRowFields: CambridgeBulkRowField[] = [
+  "first_name",
+  "last_name",
+  "email",
+  "password",
   "student",
 ];
 
@@ -97,23 +135,6 @@ function formatCourseType(courseType: string) {
   return courseType.charAt(0).toUpperCase() + courseType.slice(1);
 }
 
-function formatClassOption(classroom: any) {
-  if (classroom.class_label) {
-    return classroom.class_label;
-  }
-
-  const timeSlot =
-    classroom.start_time && classroom.end_time
-      ? `${classroom.start_time}-${classroom.end_time}`
-      : "-";
-
-  return `${classroom.level_name || "-"} - ${formatCourseType(
-    classroom.course_type
-  )} - ${classroom.days || "-"} - ${timeSlot} - ${
-    classroom.classroom_name || "No classroom assigned"
-  }`;
-}
-
 function formatTimeRange(startTime: string, endTime: string) {
   if (startTime && endTime) {
     return `${startTime}-${endTime}`;
@@ -137,6 +158,25 @@ function formatYoungLearnerClassOption(
     .join(" - ");
 }
 
+function formatCambridgeClassOption(classroom: CambridgeBulkClassOption) {
+  const timeSlot = formatTimeRange(classroom.start_time, classroom.end_time);
+  const schedule = [classroom.days, timeSlot].filter(Boolean).join(" ");
+  const levelAndCourse = [
+    classroom.level_name || "Unknown Level",
+    formatCourseType(classroom.course_type),
+  ]
+    .filter((item) => item && item !== "-")
+    .join(" ");
+
+  return [
+    levelAndCourse || "Unknown Cambridge Class",
+    schedule,
+    classroom.classroom_name || "Not assigned",
+  ]
+    .filter(Boolean)
+    .join(" - ");
+}
+
 function formatYoungLearnerSubmitLabel(count: number, saving: boolean) {
   if (saving) {
     return `Adding ${count || 0} student${count === 1 ? "" : "s"}...`;
@@ -149,10 +189,25 @@ function formatYoungLearnerSubmitLabel(count: number, saving: boolean) {
   return "Add Young Learners";
 }
 
+function formatCambridgeSubmitLabel(count: number, saving: boolean) {
+  if (saving) {
+    return `Adding ${count || 0} student${count === 1 ? "" : "s"}...`;
+  }
+
+  if (count > 0) {
+    return `Add ${count} Cambridge Student${count === 1 ? "" : "s"}`;
+  }
+
+  return "Add Cambridge Students";
+}
+
 function getYoungLearnerMessageType(message: string) {
   const normalizedMessage = message.toLowerCase();
 
-  return normalizedMessage.includes("successfully") ? "success" : "error";
+  return normalizedMessage.includes("successfully") &&
+    !normalizedMessage.includes("attention")
+    ? "success"
+    : "error";
 }
 
 function InfoIcon() {
@@ -180,6 +235,53 @@ function InfoIcon() {
   );
 }
 
+function getCambridgeMethodText(row: CambridgeBulkRow, rowErrors: CambridgeBulkRowErrors) {
+  const rowHasText = Boolean(
+    row.first_name || row.last_name || row.email || row.password
+  );
+
+  if (rowErrors.password) {
+    return "Password requires attention";
+  }
+
+  if (!rowHasText) {
+    return "Enter student details";
+  }
+
+  if (row.password.length > 0) {
+    return "Manual password - no email will be sent";
+  }
+
+  return "Invitation email will be sent";
+}
+
+function getCambridgeMethodClass(
+  row: CambridgeBulkRow,
+  rowErrors: CambridgeBulkRowErrors
+) {
+  if (rowErrors.password) {
+    return "add-users-cambridge-method-error";
+  }
+
+  if (row.password.length > 0) {
+    return "add-users-cambridge-method-manual";
+  }
+
+  return "add-users-cambridge-method-invite";
+}
+
+function createInitialCambridgeRows(): CambridgeBulkRow[] {
+  return Array.from({ length: cambridgeBulkRowCount }, (_, index) => ({
+    id: index + 1,
+    first_name: "",
+    last_name: "",
+    email: "",
+    password: "",
+    show_password: false,
+    errors: {},
+  }));
+}
+
 function getInitialAuthForm() {
   return {
     first_name: "",
@@ -196,6 +298,153 @@ function createInitialYoungLearnerRows(): YoungLearnerBulkRow[] {
     last_name: "",
     errors: {},
   }));
+}
+
+function normalizeCambridgeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function isValidCambridgeEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validateCambridgeRows(rows: CambridgeBulkRow[]) {
+  const errorsByRow: Record<number, CambridgeBulkRowErrors> = {};
+  const completeRows: Array<{
+    row: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    method: "invitation" | "manual";
+  }> = [];
+  let hasEnteredRows = false;
+
+  rows.forEach((row) => {
+    const firstName = row.first_name.trim();
+    const lastName = row.last_name.trim();
+    const email = normalizeCambridgeEmail(row.email);
+    const password = row.password;
+    const rowHasText = Boolean(
+      row.first_name || row.last_name || row.email || row.password
+    );
+
+    if (!rowHasText) {
+      return;
+    }
+
+    hasEnteredRows = true;
+
+    if (!firstName) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        first_name: "First name is required.",
+      };
+    } else if (firstName.length > cambridgeMaxNameLength) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        first_name: `First name must be ${cambridgeMaxNameLength} characters or fewer.`,
+      };
+    }
+
+    if (!lastName) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        last_name: "Last name is required.",
+      };
+    } else if (lastName.length > cambridgeMaxNameLength) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        last_name: `Last name must be ${cambridgeMaxNameLength} characters or fewer.`,
+      };
+    }
+
+    if (!email) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        email: "Email is required.",
+      };
+    } else if (
+      email.length > cambridgeMaxEmailLength ||
+      !isValidCambridgeEmail(email)
+    ) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        email: "Enter a valid email address.",
+      };
+    }
+
+    if (row.email.trim() && /\s/.test(row.email.trim())) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        email: "Email cannot contain spaces.",
+      };
+    }
+
+    if (password.length > 0 && !password.trim()) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        password: "Enter a valid password or clear the field completely.",
+      };
+    } else if (
+      password.length > 0 &&
+      password.length < cambridgeMinimumPasswordLength
+    ) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        password: "Password must be at least 6 characters.",
+      };
+    }
+
+    if (
+      firstName &&
+      lastName &&
+      email &&
+      firstName.length <= cambridgeMaxNameLength &&
+      lastName.length <= cambridgeMaxNameLength &&
+      email.length <= cambridgeMaxEmailLength &&
+      isValidCambridgeEmail(email) &&
+      !/\s/.test(row.email.trim()) &&
+      (password.length === 0 ||
+        (password.trim() && password.length >= cambridgeMinimumPasswordLength))
+    ) {
+      completeRows.push({
+        row: row.id,
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        password,
+        method: password.length > 0 ? "manual" : "invitation",
+      });
+    }
+  });
+
+  const duplicateRows = new Set<number>();
+  const rowsByEmail = completeRows.reduce<Record<string, number[]>>(
+    (groups, row) => ({
+      ...groups,
+      [row.email]: [...(groups[row.email] || []), row.row],
+    }),
+    {}
+  );
+
+  Object.values(rowsByEmail)
+    .filter((rowsWithEmail) => rowsWithEmail.length > 1)
+    .flat()
+    .forEach((rowId) => {
+      duplicateRows.add(rowId);
+      errorsByRow[rowId] = {
+        ...errorsByRow[rowId],
+        email: "Duplicate email address in this batch.",
+      };
+    });
+
+  return {
+    completeRows: completeRows.filter((row) => !duplicateRows.has(row.row)),
+    errorsByRow,
+    hasEnteredRows,
+    hasErrors: Object.keys(errorsByRow).length > 0,
+  };
 }
 
 function normalizeYoungLearnerFullName(firstName: string, lastName: string) {
@@ -299,12 +548,12 @@ function validateYoungLearnerRows(rows: YoungLearnerBulkRow[]) {
 export default function AddUsersPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("teacher");
   const [teacherMode, setTeacherMode] = useState<CreationMode>("manual");
-  const [cambridgeMode, setCambridgeMode] = useState<CreationMode>("manual");
   const [teacherForm, setTeacherForm] = useState(getInitialAuthForm);
-  const [cambridgeForm, setCambridgeForm] = useState({
-    ...getInitialAuthForm(),
-    class_id: "",
-  });
+  const [cambridgeClassId, setCambridgeClassId] = useState("");
+  const [cambridgeRows, setCambridgeRows] = useState(createInitialCambridgeRows);
+  const [cambridgeDialog, setCambridgeDialog] = useState<CambridgeDialog | null>(
+    null
+  );
   const [youngLearnerClassId, setYoungLearnerClassId] = useState("");
   const [youngLearnerRows, setYoungLearnerRows] = useState(
     createInitialYoungLearnerRows
@@ -315,7 +564,9 @@ export default function AddUsersPage() {
     ...getInitialAuthForm(),
     confirm_password: "",
   });
-  const [cambridgeClasses, setCambridgeClasses] = useState<any[]>([]);
+  const [cambridgeClasses, setCambridgeClasses] = useState<
+    CambridgeBulkClassOption[]
+  >([]);
   const [youngLearnerClasses, setYoungLearnerClasses] = useState<
     YoungLearnerBulkClassOption[]
   >([]);
@@ -323,12 +574,57 @@ export default function AddUsersPage() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingClasses, setLoadingClasses] = useState(true);
+  const cambridgeFirstNameRefs = useRef<Record<number, HTMLInputElement | null>>(
+    {}
+  );
+  const cambridgeLastNameRefs = useRef<Record<number, HTMLInputElement | null>>(
+    {}
+  );
+  const cambridgeEmailRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const cambridgePasswordRefs = useRef<
+    Record<number, HTMLInputElement | null>
+  >({});
   const youngLearnerFirstNameRefs = useRef<
     Record<number, HTMLInputElement | null>
   >({});
   const youngLearnerLastNameRefs = useRef<
     Record<number, HTMLInputElement | null>
   >({});
+
+  const selectedCambridgeClass = useMemo(
+    () =>
+      cambridgeClasses.find((classroom) => classroom.id === cambridgeClassId) ||
+      null,
+    [cambridgeClasses, cambridgeClassId]
+  );
+  const cambridgeValidation = useMemo(
+    () => validateCambridgeRows(cambridgeRows),
+    [cambridgeRows]
+  );
+  const cambridgeRowsHaveStoredErrors = useMemo(
+    () =>
+      cambridgeRows.some((row) =>
+        Object.values(row.errors).some((message) => Boolean(message))
+      ),
+    [cambridgeRows]
+  );
+  const hasCambridgeEntries = useMemo(
+    () =>
+      cambridgeRows.some(
+        (row) =>
+          row.first_name.trim() ||
+          row.last_name.trim() ||
+          row.email.trim() ||
+          row.password
+      ),
+    [cambridgeRows]
+  );
+  const cambridgeInvitationCount = cambridgeValidation.completeRows.filter(
+    (row) => row.method === "invitation"
+  ).length;
+  const cambridgeManualCount = cambridgeValidation.completeRows.filter(
+    (row) => row.method === "manual"
+  ).length;
 
   const selectedYoungLearnerClass = useMemo(
     () =>
@@ -363,7 +659,7 @@ export default function AddUsersPage() {
 
       try {
         const [cambridgeData, youngLearnerData] = await Promise.all([
-          getCambridgeClassesForStudentInvite(),
+          getCambridgeClassesForBulkCreate(),
           getYoungLearnerClassesForBulkCreate(),
         ]);
 
@@ -383,6 +679,11 @@ export default function AddUsersPage() {
 
     loadClasses();
   }, []);
+
+  async function refreshCambridgeClasses() {
+    const cambridgeData = await getCambridgeClassesForBulkCreate();
+    setCambridgeClasses(cambridgeData);
+  }
 
   async function refreshYoungLearnerClasses() {
     const youngLearnerData = await getYoungLearnerClassesForBulkCreate();
@@ -468,49 +769,372 @@ export default function AddUsersPage() {
 
   async function handleCambridgeStudentSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaving(true);
     setMessage("");
 
+    if (!cambridgeClassId) {
+      setMessage("Please select a Cambridge class.");
+      return;
+    }
+
+    const validation = validateCambridgeRows(cambridgeRows);
+
+    if (validation.completeRows.length === 0 && !validation.hasEnteredRows) {
+      setMessage("Add at least one Cambridge student row before saving.");
+      focusCambridgeRow(1);
+      return;
+    }
+
+    if (validation.hasErrors || validation.completeRows.length === 0) {
+      setCambridgeRows((currentRows) =>
+        currentRows.map((row) => ({
+          ...row,
+          errors: validation.errorsByRow[row.id] || {},
+        }))
+      );
+      setMessage("Please correct the highlighted rows.");
+      focusFirstCambridgeError(validation.errorsByRow);
+      return;
+    }
+
+    setSaving(true);
+
     try {
-      if (!cambridgeForm.class_id) {
-        setMessage("Class is required.");
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error("You must be logged in as an admin.");
+      }
+
+      const response = await fetch("/api/admin/students/create-bulk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          class_id: cambridgeClassId,
+          students: validation.completeRows.map((row) => ({
+            row: row.row,
+            first_name: row.first_name,
+            last_name: row.last_name,
+            email: row.email,
+            password: row.password,
+          })),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (Array.isArray(result.errors)) {
+          const serverErrorsByRow = result.errors.reduce(
+            (
+              rowErrors: Record<number, CambridgeBulkRowErrors>,
+              error: {
+                row?: number;
+                field?: CambridgeBulkRowField;
+                message?: string;
+              }
+            ) => {
+              const rowId = Number(error.row);
+              const field = error.field;
+
+              if (
+                !Number.isInteger(rowId) ||
+                rowId < 1 ||
+                rowId > cambridgeBulkRowCount ||
+                !field ||
+                !cambridgeBulkRowFields.includes(field)
+              ) {
+                return rowErrors;
+              }
+
+              return {
+                ...rowErrors,
+                [rowId]: {
+                  ...rowErrors[rowId],
+                  [field]: error.message || "Please check this row.",
+                },
+              };
+            },
+            {}
+          );
+
+          setCambridgeRows((currentRows) =>
+            currentRows.map((row) => ({
+              ...row,
+              errors: serverErrorsByRow[row.id] || {},
+            }))
+          );
+          setMessage("Please correct the highlighted rows.");
+          focusFirstCambridgeError(serverErrorsByRow);
+          return;
+        }
+
+        throw new Error(result.error || "Unable to create Cambridge students.");
+      }
+
+      try {
+        await refreshCambridgeClasses();
+      } catch (refreshError) {
+        console.error("Unable to refresh Cambridge class counts:", refreshError);
+      }
+
+      const rowResults: Array<{
+        row?: number;
+        status?: "created" | "failed";
+        method?: "invitation" | "manual";
+        message?: string;
+      }> = Array.isArray(result.results) ? result.results : [];
+      const createdRows = new Set(
+        rowResults
+          .filter((rowResult) => rowResult.status === "created")
+          .map((rowResult) => Number(rowResult.row))
+      );
+      const failedResultsByRow = rowResults.reduce<
+        Record<number, { method?: "invitation" | "manual"; message?: string }>
+      >((failedRows, rowResult) => {
+        const rowId = Number(rowResult.row);
+
+        if (
+          rowResult.status !== "failed" ||
+          !Number.isInteger(rowId) ||
+          rowId < 1 ||
+          rowId > cambridgeBulkRowCount
+        ) {
+          return failedRows;
+        }
+
+        return {
+          ...failedRows,
+          [rowId]: {
+            method: rowResult.method,
+            message: rowResult.message,
+          },
+        };
+      }, {});
+
+      if (Number(result.failed_count || 0) > 0) {
+        setCambridgeRows((currentRows) =>
+          currentRows.map((row) => {
+            const failedResult = failedResultsByRow[row.id];
+
+            if (createdRows.has(row.id)) {
+              return {
+                ...row,
+                first_name: "",
+                last_name: "",
+                email: "",
+                password: "",
+                show_password: false,
+                errors: {},
+              };
+            }
+
+            if (failedResult) {
+              return {
+                ...row,
+                password: "",
+                show_password: false,
+                errors: {
+                  student: [
+                    failedResult.message || "Unable to create this student.",
+                    failedResult.method === "manual"
+                      ? "Re-enter the password before trying this row again."
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" "),
+                },
+              };
+            }
+
+            return {
+              ...row,
+              errors: {},
+            };
+          })
+        );
+
+        const createdCount = Number(result.created_count || 0);
+        const failedCount = Number(result.failed_count || 0);
+        setMessage(
+          `${createdCount} student${
+            createdCount === 1 ? " was" : "s were"
+          } added successfully. ${failedCount} student${
+            failedCount === 1 ? "" : "s"
+          } ${failedCount === 1 ? "requires" : "require"} attention.`
+        );
+        const firstFailedRow = Object.keys(failedResultsByRow)
+          .map(Number)
+          .sort((first, second) => first - second)[0];
+        focusCambridgeRow(firstFailedRow || 1);
         return;
       }
 
-      if (cambridgeMode === "manual") {
-        const passwordError = validatePassword(cambridgeForm.password);
+      resetCambridgeRows(true);
+      const createdCount = Number(result.created_count || 0);
+      const invitedCount = Number(result.invited_count || 0);
+      const manualCount = Number(result.manual_count || 0);
+      const savedClassLabel =
+        selectedCambridgeClass?.class_label ||
+        "the selected Cambridge class";
+      const methodSummary = [
+        invitedCount > 0
+          ? `${invitedCount} invitation email${
+              invitedCount === 1 ? " was" : "s were"
+            } sent`
+          : "",
+        manualCount > 0
+          ? `${manualCount} account${
+              manualCount === 1 ? " was" : "s were"
+            } created with manual passwords`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(". ");
 
-        if (passwordError) {
-          setMessage(passwordError);
-          return;
-        }
-      }
-
-      const result = await postWithSession(
-        cambridgeMode === "manual"
-          ? "/api/admin/students/create-manual"
-          : "/api/admin/students/invite",
-        cambridgeMode === "manual"
-          ? cambridgeForm
-          : {
-              first_name: cambridgeForm.first_name,
-              last_name: cambridgeForm.last_name,
-              email: cambridgeForm.email,
-              class_id: cambridgeForm.class_id,
-            }
+      setMessage(
+        `${createdCount} Cambridge student${
+          createdCount === 1 ? "" : "s"
+        } added successfully to ${savedClassLabel}.${
+          methodSummary ? `\n${methodSummary}.` : ""
+        }`
       );
-
-      setCambridgeForm({
-        ...getInitialAuthForm(),
-        class_id: "",
-      });
-      setMessage(result.message || "Cambridge student saved successfully.");
     } catch (error: any) {
-      console.error("Unable to save Cambridge student:", error);
-      setMessage(error.message || "Unable to save Cambridge student.");
+      console.error("Unable to save Cambridge students:", error);
+      setMessage(error.message || "Unable to save Cambridge students.");
     } finally {
       setSaving(false);
     }
+  }
+
+  function focusCambridgeRow(
+    rowId: number,
+    field: CambridgeBulkRowField = "first_name"
+  ) {
+    window.setTimeout(() => {
+      if (field === "last_name") {
+        cambridgeLastNameRefs.current[rowId]?.focus();
+        return;
+      }
+
+      if (field === "email") {
+        cambridgeEmailRefs.current[rowId]?.focus();
+        return;
+      }
+
+      if (field === "password") {
+        cambridgePasswordRefs.current[rowId]?.focus();
+        return;
+      }
+
+      cambridgeFirstNameRefs.current[rowId]?.focus();
+    }, 0);
+  }
+
+  function focusFirstCambridgeError(
+    errorsByRow: Record<number, CambridgeBulkRowErrors>
+  ) {
+    const firstErrorRow = Object.keys(errorsByRow)
+      .map(Number)
+      .sort((first, second) => first - second)[0];
+
+    if (!firstErrorRow) {
+      focusCambridgeRow(1);
+      return;
+    }
+
+    const rowErrors = errorsByRow[firstErrorRow];
+    const firstErrorField =
+      cambridgeBulkRowFields.find((field) => Boolean(rowErrors?.[field])) ||
+      "first_name";
+
+    focusCambridgeRow(
+      firstErrorRow,
+      firstErrorField === "student" ? "first_name" : firstErrorField
+    );
+  }
+
+  function resetCambridgeRows(shouldFocusFirstRow = false) {
+    setCambridgeRows(createInitialCambridgeRows());
+
+    if (shouldFocusFirstRow) {
+      focusCambridgeRow(1);
+    }
+  }
+
+  function updateCambridgeRow(
+    rowId: number,
+    field: Exclude<CambridgeBulkRowField, "student">,
+    value: string
+  ) {
+    setCambridgeRows((currentRows) =>
+      currentRows.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [field]: value,
+              errors: {},
+            }
+          : row
+      )
+    );
+  }
+
+  function toggleCambridgePassword(rowId: number) {
+    setCambridgeRows((currentRows) =>
+      currentRows.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              show_password: !row.show_password,
+            }
+          : row
+      )
+    );
+  }
+
+  function requestCambridgeClassChange(nextClassId: string) {
+    if (saving || nextClassId === cambridgeClassId) {
+      return;
+    }
+
+    if (hasCambridgeEntries) {
+      setCambridgeDialog({
+        type: "changeClass",
+        nextClassId,
+      });
+      return;
+    }
+
+    setCambridgeClassId(nextClassId);
+    resetCambridgeRows();
+  }
+
+  function requestClearCambridgeRows() {
+    if (!hasCambridgeEntries) {
+      resetCambridgeRows(true);
+      return;
+    }
+
+    setCambridgeDialog({ type: "clear" });
+  }
+
+  function confirmCambridgeDialog() {
+    if (!cambridgeDialog) {
+      return;
+    }
+
+    if (cambridgeDialog.type === "changeClass") {
+      setCambridgeClassId(cambridgeDialog.nextClassId);
+    }
+
+    resetCambridgeRows(true);
+    setCambridgeDialog(null);
+    setMessage("");
   }
 
   function focusYoungLearnerRow(
@@ -814,7 +1438,7 @@ export default function AddUsersPage() {
         Create teachers, Cambridge students, Young Learners and admin staff.
       </p>
 
-      {message && activeTab !== "youngLearner" && (
+      {message && activeTab !== "youngLearner" && activeTab !== "cambridge" && (
         <div
           role="status"
           aria-live="polite"
@@ -882,56 +1506,545 @@ export default function AddUsersPage() {
       )}
 
       {activeTab === "cambridge" && (
-        <form onSubmit={handleCambridgeStudentSubmit} style={cardStyle}>
-          <h2 style={{ color: "var(--ss-blue-dark)", marginTop: 0 }}>
-            Add Cambridge Student
-          </h2>
-
-          <CreationModeControl
-            mode={cambridgeMode}
-            onChange={setCambridgeMode}
-            manualText="Create the student login directly without sending an invitation email."
-            inviteText="Send an email invite so the student can choose their password."
-          />
-
-          <AuthFields
-            form={cambridgeForm}
-            setForm={setCambridgeForm}
-            showPassword={cambridgeMode === "manual"}
-          />
-
-          <div style={{ marginTop: "20px" }}>
-            <label style={labelStyle}>Class</label>
-            <select
-              required
-              style={inputStyle}
-              value={cambridgeForm.class_id}
-              onChange={(event) =>
-                setCambridgeForm((current) => ({
-                  ...current,
-                  class_id: event.target.value,
-                }))
-              }
-            >
-              <option value="">Select a Cambridge class</option>
-              {cambridgeClasses.map((classroom) => (
-                <option key={classroom.id} value={classroom.id}>
-                  {formatClassOption(classroom)}
-                </option>
-              ))}
-            </select>
-            {loadingClasses ? (
-              <p style={{ color: "#666" }}>Loading classes...</p>
-            ) : classMessage ? (
-              <p style={{ color: "#666" }}>{classMessage}</p>
-            ) : null}
+        <form
+          onSubmit={handleCambridgeStudentSubmit}
+          className="add-users-young-form add-users-young-card add-users-cambridge-card"
+        >
+          <div className="add-users-young-header add-users-cambridge-header">
+            <div>
+              <h2>Add Cambridge Students</h2>
+              <p>
+                Select a Cambridge class and add up to 12 students at once.
+                Leave Initial Password blank to send an invitation email, or
+                enter a password to create the account manually.
+              </p>
+              <p className="add-users-cambridge-password-note">
+                Passwords are never saved in the browser and are cleared after
+                a server request.
+              </p>
+            </div>
+            <div className="add-users-cambridge-counter-group">
+              <div className="add-users-young-counter">
+                {cambridgeValidation.completeRows.length} of{" "}
+                {cambridgeBulkRowCount} ready
+              </div>
+              <div className="add-users-cambridge-method-counts">
+                <span>
+                  {cambridgeInvitationCount} invitation email
+                  {cambridgeInvitationCount === 1 ? "" : "s"}
+                </span>
+                <span>
+                  {cambridgeManualCount} manual-password account
+                  {cambridgeManualCount === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <SubmitButton saving={saving}>
-            {cambridgeMode === "manual"
-              ? "Create Student Account"
-              : "Invite Student"}
-          </SubmitButton>
+          {message && (
+            <div
+              className={`add-users-young-message add-users-young-message-${getYoungLearnerMessageType(
+                message
+              )}`}
+              role="status"
+              aria-live="polite"
+            >
+              {message}
+            </div>
+          )}
+
+          <div className="add-users-young-workflow add-users-cambridge-workflow">
+            <section className="add-users-young-step add-users-young-step-class">
+              <div className="add-users-young-step-heading">
+                <span className="add-users-young-step-number">1</span>
+                <div>
+                  <h3>Choose class</h3>
+                  <p>Select the Cambridge group for this batch.</p>
+                </div>
+              </div>
+
+              <label
+                className="add-users-young-label"
+                htmlFor="cambridge-class-id"
+              >
+                Cambridge Class
+              </label>
+              <select
+                id="cambridge-class-id"
+                required
+                className="add-users-young-select add-users-young-class-select"
+                value={cambridgeClassId}
+                disabled={saving || loadingClasses}
+                onChange={(event) =>
+                  requestCambridgeClassChange(event.target.value)
+                }
+              >
+                <option value="">Select a Cambridge class</option>
+                {cambridgeClasses.map((classroom) => (
+                  <option key={classroom.id} value={classroom.id}>
+                    {formatCambridgeClassOption(classroom)}
+                  </option>
+                ))}
+              </select>
+
+              {loadingClasses ? (
+                <p className="add-users-young-help">Loading classes...</p>
+              ) : classMessage ? (
+                <p className="add-users-young-help">{classMessage}</p>
+              ) : cambridgeClasses.length === 0 ? (
+                <p className="add-users-young-help">
+                  No Cambridge classes are available yet.
+                </p>
+              ) : null}
+
+              <div className="add-users-young-info">
+                <InfoIcon />
+                <span>
+                  B1, B2, C1 and C2 classes are included. Support Classes and
+                  Young Learner classes are excluded.
+                </span>
+              </div>
+            </section>
+
+            <section className="add-users-young-step add-users-young-step-summary">
+              <div className="add-users-young-step-heading">
+                <span className="add-users-young-step-number">2</span>
+                <div>
+                  <h3>Class summary</h3>
+                  <p>Check the selected class before saving.</p>
+                </div>
+              </div>
+
+              {selectedCambridgeClass ? (
+                <dl className="add-users-young-summary">
+                  <div className="add-users-young-summary-row">
+                    <dt>Level</dt>
+                    <dd>{selectedCambridgeClass.level_name || "Unknown Level"}</dd>
+                  </div>
+                  <div className="add-users-young-summary-row">
+                    <dt>Course type</dt>
+                    <dd>
+                      {formatCourseType(selectedCambridgeClass.course_type) ||
+                        "Not assigned"}
+                    </dd>
+                  </div>
+                  <div className="add-users-young-summary-row">
+                    <dt>Teacher</dt>
+                    <dd>{selectedCambridgeClass.teacher_name}</dd>
+                  </div>
+                  <div className="add-users-young-summary-row">
+                    <dt>Schedule</dt>
+                    <dd>
+                      {[
+                        selectedCambridgeClass.days,
+                        formatTimeRange(
+                          selectedCambridgeClass.start_time,
+                          selectedCambridgeClass.end_time
+                        ),
+                      ]
+                        .filter(Boolean)
+                        .join(" - ") || "Not scheduled"}
+                    </dd>
+                  </div>
+                  <div className="add-users-young-summary-row">
+                    <dt>Classroom</dt>
+                    <dd>{selectedCambridgeClass.classroom_name}</dd>
+                  </div>
+                  <div className="add-users-young-summary-row">
+                    <dt>Current Cambridge students</dt>
+                    <dd>
+                      {selectedCambridgeClass.current_cambridge_student_count}
+                    </dd>
+                  </div>
+                </dl>
+              ) : (
+                <div className="add-users-young-summary-empty">
+                  Select a Cambridge class to view its details.
+                </div>
+              )}
+            </section>
+
+            <section
+              className={`add-users-young-step add-users-young-step-entry add-users-cambridge-entry ${
+                cambridgeClassId ? "" : "add-users-young-step-disabled"
+              }`}
+            >
+              <div className="add-users-young-step-heading">
+                <span className="add-users-young-step-number">3</span>
+                <div>
+                  <h3>Add students</h3>
+                  <p>Up to 12 students</p>
+                </div>
+              </div>
+
+              <div
+                className="add-users-young-table add-users-cambridge-table"
+                aria-label="Cambridge student rows"
+              >
+                <div className="add-users-young-grid-header add-users-cambridge-grid-header">
+                  <span>#</span>
+                  <span>First Name</span>
+                  <span>Last Name</span>
+                  <span>Email</span>
+                  <span>Initial Password</span>
+                  <span>Account Method</span>
+                </div>
+
+                <div className="add-users-young-table-body">
+                  {cambridgeRows.map((row) => {
+                    const rowErrors = {
+                      ...cambridgeValidation.errorsByRow[row.id],
+                      ...row.errors,
+                    };
+                    const firstNameId = `cambridge-${row.id}-first-name`;
+                    const lastNameId = `cambridge-${row.id}-last-name`;
+                    const emailId = `cambridge-${row.id}-email`;
+                    const passwordId = `cambridge-${row.id}-password`;
+                    const firstNameErrorId = `${firstNameId}-error`;
+                    const lastNameErrorId = `${lastNameId}-error`;
+                    const emailErrorId = `${emailId}-error`;
+                    const passwordErrorId = `${passwordId}-error`;
+                    const rowErrorId = `cambridge-${row.id}-error`;
+                    const hasRowError = Boolean(
+                      rowErrors.first_name ||
+                        rowErrors.last_name ||
+                        rowErrors.email ||
+                        rowErrors.password ||
+                        rowErrors.student
+                    );
+                    const firstNameDescribedBy = [
+                      rowErrors.first_name ? firstNameErrorId : "",
+                      rowErrors.student ? rowErrorId : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    const lastNameDescribedBy = [
+                      rowErrors.last_name ? lastNameErrorId : "",
+                      rowErrors.student ? rowErrorId : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    const emailDescribedBy = [
+                      rowErrors.email ? emailErrorId : "",
+                      rowErrors.student ? rowErrorId : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    const passwordDescribedBy = [
+                      rowErrors.password ? passwordErrorId : "",
+                      rowErrors.student ? rowErrorId : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
+                    return (
+                      <div
+                        className={`add-users-young-row add-users-cambridge-row ${
+                          hasRowError ? "add-users-young-row-error" : ""
+                        }`}
+                        key={row.id}
+                      >
+                        <div className="add-users-young-row-number">
+                          <span className="add-users-young-row-mobile-label">
+                            Student{" "}
+                          </span>
+                          {row.id}
+                        </div>
+
+                        <div className="add-users-young-field">
+                          <label
+                            className="add-users-young-field-label"
+                            htmlFor={firstNameId}
+                          >
+                            First Name
+                          </label>
+                          <input
+                            id={firstNameId}
+                            aria-label={`Student ${row.id} First Name`}
+                            placeholder="First name"
+                            ref={(element) => {
+                              cambridgeFirstNameRefs.current[row.id] = element;
+                            }}
+                            autoComplete="given-name"
+                            maxLength={cambridgeMaxNameLength}
+                            value={row.first_name}
+                            disabled={!cambridgeClassId || saving}
+                            aria-invalid={Boolean(
+                              rowErrors.first_name || rowErrors.student
+                            )}
+                            aria-describedby={
+                              firstNameDescribedBy || undefined
+                            }
+                            onChange={(event) =>
+                              updateCambridgeRow(
+                                row.id,
+                                "first_name",
+                                event.target.value
+                              )
+                            }
+                          />
+                          {rowErrors.first_name && (
+                            <span
+                              className="add-users-young-field-error"
+                              id={firstNameErrorId}
+                            >
+                              {rowErrors.first_name}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="add-users-young-field">
+                          <label
+                            className="add-users-young-field-label"
+                            htmlFor={lastNameId}
+                          >
+                            Last Name
+                          </label>
+                          <input
+                            id={lastNameId}
+                            aria-label={`Student ${row.id} Last Name`}
+                            placeholder="Last name"
+                            ref={(element) => {
+                              cambridgeLastNameRefs.current[row.id] = element;
+                            }}
+                            autoComplete="family-name"
+                            maxLength={cambridgeMaxNameLength}
+                            value={row.last_name}
+                            disabled={!cambridgeClassId || saving}
+                            aria-invalid={Boolean(
+                              rowErrors.last_name || rowErrors.student
+                            )}
+                            aria-describedby={lastNameDescribedBy || undefined}
+                            onChange={(event) =>
+                              updateCambridgeRow(
+                                row.id,
+                                "last_name",
+                                event.target.value
+                              )
+                            }
+                          />
+                          {rowErrors.last_name && (
+                            <span
+                              className="add-users-young-field-error"
+                              id={lastNameErrorId}
+                            >
+                              {rowErrors.last_name}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="add-users-young-field">
+                          <label
+                            className="add-users-young-field-label"
+                            htmlFor={emailId}
+                          >
+                            Email
+                          </label>
+                          <input
+                            id={emailId}
+                            aria-label={`Student ${row.id} Email`}
+                            placeholder="student@example.com"
+                            ref={(element) => {
+                              cambridgeEmailRefs.current[row.id] = element;
+                            }}
+                            autoComplete="email"
+                            inputMode="email"
+                            maxLength={cambridgeMaxEmailLength}
+                            value={row.email}
+                            disabled={!cambridgeClassId || saving}
+                            aria-invalid={Boolean(
+                              rowErrors.email || rowErrors.student
+                            )}
+                            aria-describedby={emailDescribedBy || undefined}
+                            onChange={(event) =>
+                              updateCambridgeRow(
+                                row.id,
+                                "email",
+                                event.target.value
+                              )
+                            }
+                          />
+                          {rowErrors.email && (
+                            <span
+                              className="add-users-young-field-error"
+                              id={emailErrorId}
+                            >
+                              {rowErrors.email}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="add-users-young-field add-users-cambridge-password-field">
+                          <label
+                            className="add-users-young-field-label"
+                            htmlFor={passwordId}
+                          >
+                            Initial Password
+                          </label>
+                          <div className="add-users-cambridge-password-wrap">
+                            <input
+                              id={passwordId}
+                              aria-label={`Student ${row.id} Initial Password`}
+                              placeholder="Optional"
+                              ref={(element) => {
+                                cambridgePasswordRefs.current[row.id] =
+                                  element;
+                              }}
+                              autoComplete="new-password"
+                              minLength={cambridgeMinimumPasswordLength}
+                              type={row.show_password ? "text" : "password"}
+                              value={row.password}
+                              disabled={!cambridgeClassId || saving}
+                              aria-invalid={Boolean(
+                                rowErrors.password || rowErrors.student
+                              )}
+                              aria-describedby={
+                                passwordDescribedBy || undefined
+                              }
+                              onChange={(event) =>
+                                updateCambridgeRow(
+                                  row.id,
+                                  "password",
+                                  event.target.value
+                                )
+                              }
+                            />
+                            <button
+                              type="button"
+                              className="add-users-cambridge-password-toggle"
+                              disabled={!cambridgeClassId || saving}
+                              aria-label={`${
+                                row.show_password ? "Hide" : "Show"
+                              } password for Student ${row.id}`}
+                              aria-pressed={row.show_password}
+                              onClick={() => toggleCambridgePassword(row.id)}
+                            >
+                              {row.show_password ? "Hide" : "Show"}
+                            </button>
+                          </div>
+                          {rowErrors.password && (
+                            <span
+                              className="add-users-young-field-error"
+                              id={passwordErrorId}
+                            >
+                              {rowErrors.password}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="add-users-cambridge-method-cell">
+                          <span
+                            className={`add-users-cambridge-method ${getCambridgeMethodClass(
+                              row,
+                              rowErrors
+                            )}`}
+                          >
+                            {getCambridgeMethodText(row, rowErrors)}
+                          </span>
+                        </div>
+
+                        {rowErrors.student && (
+                          <p
+                            className="add-users-young-row-message add-users-cambridge-row-message"
+                            id={rowErrorId}
+                          >
+                            {rowErrors.student}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <footer className="add-users-young-footer">
+            <p className="add-users-young-footer-info">
+              <InfoIcon />
+              <span>
+                Blank rows are ignored. Invitation rows send a setup email;
+                manual-password rows create the login directly.
+              </span>
+            </p>
+
+            <div className="add-users-young-actions">
+              <button
+                type="button"
+                className="add-users-young-clear"
+                disabled={saving || !hasCambridgeEntries}
+                onClick={requestClearCambridgeRows}
+              >
+                Clear All
+              </button>
+              <button
+                type="submit"
+                className="add-users-young-submit"
+                disabled={
+                  saving ||
+                  loadingClasses ||
+                  !cambridgeClassId ||
+                  cambridgeValidation.completeRows.length === 0 ||
+                  cambridgeValidation.hasErrors ||
+                  cambridgeRowsHaveStoredErrors
+                }
+              >
+                {formatCambridgeSubmitLabel(
+                  cambridgeValidation.completeRows.length,
+                  saving
+                )}
+              </button>
+            </div>
+          </footer>
+
+          {cambridgeDialog && (
+            <div
+              className="add-users-young-dialog-backdrop"
+              role="presentation"
+              onClick={() => setCambridgeDialog(null)}
+            >
+              <div
+                className="add-users-young-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="add-users-cambridge-dialog-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <h3 id="add-users-cambridge-dialog-title">
+                  {cambridgeDialog.type === "clear"
+                    ? "Clear entered students?"
+                    : "Change class?"}
+                </h3>
+                <p>
+                  {cambridgeDialog.type === "clear"
+                    ? "This will remove all Cambridge student details currently entered. The selected class will remain unchanged."
+                    : "Changing class will clear the entered student details, including any passwords. Continue?"}
+                </p>
+                <div className="add-users-young-dialog-actions">
+                  <button
+                    type="button"
+                    className="add-users-young-dialog-cancel"
+                    onClick={() => setCambridgeDialog(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className={`add-users-young-dialog-confirm ${
+                      cambridgeDialog.type === "clear"
+                        ? "add-users-young-dialog-confirm-danger"
+                        : ""
+                    }`}
+                    onClick={confirmCambridgeDialog}
+                  >
+                    {cambridgeDialog.type === "clear"
+                      ? "Clear All"
+                      : "Change Class"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </form>
       )}
 

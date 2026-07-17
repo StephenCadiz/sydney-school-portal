@@ -19,6 +19,23 @@ export type YoungLearnerBulkClassOption = {
   active_young_learner_count: number;
 };
 
+export type CambridgeBulkClassOption = {
+  id: string;
+  level_name: string;
+  level_catagory: string;
+  course_type: string;
+  class_label: string;
+  classroom_name: string;
+  teacher_id: string;
+  teacher_name: string;
+  days: string;
+  start_time: string;
+  end_time: string;
+  is_cambridge: boolean;
+  is_online: boolean;
+  current_cambridge_student_count: number;
+};
+
 function normalizeLevelName(levelName: string | null | undefined) {
   return String(levelName || "").trim().toUpperCase();
 }
@@ -61,6 +78,36 @@ function getClassLabel(classroom: any, level: any, assignedClassroom: any) {
         assignedClassroom
       )}`
     : "";
+}
+
+function formatCourseTypeLabel(courseType: string | null | undefined) {
+  const normalizedCourseType = String(courseType || "").trim();
+
+  if (!normalizedCourseType) {
+    return "";
+  }
+
+  return (
+    normalizedCourseType.charAt(0).toUpperCase() +
+    normalizedCourseType.slice(1).toLowerCase()
+  );
+}
+
+function getCambridgeClassLabel(classroom: any, level: any, assignedClassroom: any) {
+  const timeSlot =
+    classroom?.start_time && classroom?.end_time
+      ? `${classroom.start_time}-${classroom.end_time}`
+      : "";
+  const courseType = formatCourseTypeLabel(classroom?.course_type);
+
+  return [
+    [level?.name || "Unknown Level", courseType].filter(Boolean).join(" "),
+    classroom?.days || "",
+    timeSlot,
+    getClassroomDisplayName(classroom, assignedClassroom),
+  ]
+    .filter(Boolean)
+    .join(" - ");
 }
 
 async function getClassReferenceData() {
@@ -274,6 +321,114 @@ export async function getCambridgeClassesForStudentInvite() {
         cambridgeLevelNames.includes(
           normalizeLevelName(classroom.level_name)
         )
+    );
+}
+
+export async function getCambridgeClassesForBulkCreate(): Promise<
+  CambridgeBulkClassOption[]
+> {
+  const { classes, levels, classrooms } = await getClassReferenceData();
+  const teacherIds = Array.from(
+    new Set(classes.map((classroom) => classroom.teacher_id).filter(Boolean))
+  );
+
+  const { data: teachers, error: teachersError } =
+    teacherIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", teacherIds)
+      : { data: [], error: null };
+
+  if (teachersError) {
+    console.error("getCambridgeBulkClasses teachers error:", teachersError);
+    throw teachersError;
+  }
+
+  const { data: studentProfiles, error: studentsError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("role", "student");
+
+  if (studentsError) {
+    console.error("getCambridgeBulkClasses students error:", studentsError);
+    throw studentsError;
+  }
+
+  const studentIds = (studentProfiles || []).map((student) => student.id);
+  const { data: enrolments, error: enrolmentsError } =
+    studentIds.length > 0
+      ? await supabase
+          .from("class_enrolments")
+          .select("student_id, class_id")
+          .in("student_id", studentIds)
+      : { data: [], error: null };
+
+  if (enrolmentsError) {
+    console.error("getCambridgeBulkClasses enrolments error:", enrolmentsError);
+    throw enrolmentsError;
+  }
+
+  const countedStudentsByClass = (enrolments || []).reduce<
+    Record<string, Set<string>>
+  >((counts, enrolment) => {
+    const classId = String(enrolment.class_id || "");
+    const studentId = String(enrolment.student_id || "");
+
+    if (!classId || !studentId) {
+      return counts;
+    }
+
+    return {
+      ...counts,
+      [classId]: new Set([...(counts[classId] || []), studentId]),
+    };
+  }, {});
+
+  return classes
+    .map((classroom) => {
+      const level = levels.find((item) => item.id === classroom.level_id);
+      const assignedClassroom = classrooms.find(
+        (item) => item.id === classroom.classroom_id
+      );
+      const teacher = (teachers || []).find(
+        (item) => item.id === classroom.teacher_id
+      );
+      const levelName = level?.name || "";
+      const levelCategory = level?.catagory || "";
+      const teacherName = `${teacher?.first_name || ""} ${
+        teacher?.last_name || ""
+      }`.trim();
+      const classId = String(classroom.id);
+
+      return {
+        id: classroom.id,
+        level_name: levelName,
+        level_catagory: levelCategory,
+        course_type: classroom.course_type || "",
+        class_label: getCambridgeClassLabel(classroom, level, assignedClassroom),
+        classroom_name: getClassroomDisplayName(classroom, assignedClassroom),
+        teacher_id: classroom.teacher_id || "",
+        teacher_name: teacherName || "Not assigned",
+        days: classroom.days || "",
+        start_time: classroom.start_time || "",
+        end_time: classroom.end_time || "",
+        is_cambridge: classroom.is_cambridge === true,
+        is_online: isOnlineClass(classroom),
+        current_cambridge_student_count:
+          countedStudentsByClass[classId]?.size || 0,
+      };
+    })
+    .filter(
+      (classroom) =>
+        classroom.is_cambridge === true &&
+        cambridgeLevelNames.includes(normalizeLevelName(classroom.level_name)) &&
+        !isSupportLevel(classroom.level_name, classroom.level_catagory)
+    )
+    .sort((first, second) =>
+      first.class_label.localeCompare(second.class_label, undefined, {
+        sensitivity: "base",
+      })
     );
 }
 

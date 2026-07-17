@@ -3426,6 +3426,148 @@ a:hover .student-dashboard-access-card {
   border-color: #991b1b;
 }
 
+.add-users-cambridge-password-note {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 8px !important;
+}
+
+.add-users-cambridge-counter-group {
+  align-items: flex-end;
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.add-users-cambridge-method-counts {
+  color: #64748b;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.add-users-cambridge-method-counts span {
+  background: #f8fafc;
+  border: 1px solid #dfe8f2;
+  border-radius: 999px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.add-users-cambridge-workflow {
+  grid-template-columns: minmax(220px, 1fr) minmax(240px, 1fr);
+  row-gap: 24px;
+}
+
+.add-users-cambridge-workflow .add-users-cambridge-entry {
+  border-top: 1px solid #e6edf5;
+  grid-column: 1 / -1;
+  padding: 22px 0 0;
+}
+
+.add-users-cambridge-workflow .add-users-young-step-summary {
+  border-right: 0;
+  padding-right: 0;
+}
+
+.add-users-cambridge-table {
+  overflow-x: auto;
+}
+
+.add-users-cambridge-table .add-users-young-table-body {
+  min-width: 980px;
+}
+
+.add-users-cambridge-card .add-users-cambridge-grid-header,
+.add-users-cambridge-card .add-users-cambridge-row {
+  grid-template-columns:
+    42px minmax(110px, 0.9fr) minmax(110px, 0.9fr)
+    minmax(190px, 1.25fr) minmax(210px, 1.2fr)
+    minmax(180px, 0.95fr);
+}
+
+.add-users-cambridge-card .add-users-cambridge-grid-header {
+  min-width: 980px;
+}
+
+.add-users-cambridge-password-wrap {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.add-users-cambridge-card .add-users-cambridge-password-wrap input {
+  min-width: 0;
+}
+
+.add-users-cambridge-password-toggle {
+  background: #ffffff;
+  border: 1px solid #cfdbe8;
+  border-radius: 9px;
+  color: var(--ss-blue-dark);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  min-height: 42px;
+  padding: 0 11px;
+}
+
+.add-users-cambridge-password-toggle:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.add-users-cambridge-password-toggle:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.22);
+  outline-offset: 2px;
+}
+
+.add-users-cambridge-password-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.add-users-cambridge-method-cell {
+  align-items: flex-start;
+  display: flex;
+  min-width: 0;
+}
+
+.add-users-cambridge-method {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.25;
+  padding: 8px 10px;
+}
+
+.add-users-cambridge-method-invite {
+  background: var(--ss-blue-light);
+  border: 1px solid #c8e1f4;
+  color: var(--ss-blue-dark);
+}
+
+.add-users-cambridge-method-manual {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.add-users-cambridge-method-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.add-users-cambridge-row-message {
+  grid-column: 2 / -1;
+}
+
 @media (max-width: 1180px) {
   .add-users-young-workflow {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -3446,6 +3588,10 @@ a:hover .student-dashboard-access-card {
     border-top: 1px solid #e6edf5;
     grid-column: 1 / -1;
     padding: 22px 0 0;
+  }
+
+  .add-users-cambridge-workflow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 
@@ -3567,6 +3713,43 @@ a:hover .student-dashboard-access-card {
   .add-users-young-card .add-users-young-clear,
   .add-users-young-card .add-users-young-submit {
     width: 100%;
+  }
+
+  .add-users-cambridge-counter-group {
+    align-items: flex-start;
+    justify-items: start;
+  }
+
+  .add-users-cambridge-method-counts {
+    justify-content: flex-start;
+  }
+
+  .add-users-cambridge-table {
+    overflow: visible;
+  }
+
+  .add-users-cambridge-table .add-users-young-table-body,
+  .add-users-cambridge-card .add-users-cambridge-grid-header {
+    min-width: 0;
+  }
+
+  .add-users-cambridge-card .add-users-cambridge-row {
+    grid-template-columns: 1fr;
+  }
+
+  .add-users-cambridge-password-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .add-users-cambridge-password-toggle,
+  .add-users-cambridge-method {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .add-users-cambridge-method-cell,
+  .add-users-cambridge-row-message {
+    grid-column: auto;
   }
 }
 
