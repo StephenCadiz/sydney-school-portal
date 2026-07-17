@@ -24,13 +24,40 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function getDisplayDate(date = new Date()) {
-  return date.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+function TeacherDashboardIcon({
+  name,
+}: {
+  name: "classes" | "status";
+}) {
+  const commonProps = {
+    "aria-hidden": true,
+    width: 24,
+    height: 24,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  if (name === "classes") {
+    return (
+      <svg {...commonProps}>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z" />
+        <path d="M9 7h6" />
+        <path d="M9 11h6" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...commonProps}>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+      <path d="m9 12 2 2 4-5" />
+    </svg>
+  );
 }
 
 export default function TeacherPage() {
@@ -150,119 +177,24 @@ setClasses(classesWithLevels);
     loadData();
   }, [router]);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  }
-
   const classroomName = classes[0]?.classrooms?.name || "-";
   const classroomLogo = classes[0]?.classrooms?.logo || "/Emu Logo.png";
-  const classroomThemeColour =
-    classes[0]?.classrooms?.theme_colour || "#1f3c88";
 
   return (
   <TeacherLayout>
      
      <div className="teacher-dashboard-page">
       <section
-        className="teacher-dashboard-hero"
-        style={{
-          background: "#ffffff",
-          padding: "25px 30px",
-          borderRadius: "12px",
-          marginBottom: "30px",
-          display: "none",
-          justifyContent: "space-between",
-          alignItems: "center",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-        }}
+        className="teacher-dashboard-overview"
+        aria-label="Teacher overview"
       >
-        <Image
-          className="teacher-dashboard-hero-logo"
-          src="/LOGO and NAME.png"
-          alt="Sydney School"
-          width={220}
-          height={70}
-          style={{
-            height: "auto",
-            width: "auto",
-          }}
-        />
+        <article className="teacher-dashboard-card teacher-dashboard-welcome-card">
+          <div>
+            <p className="teacher-dashboard-card-label">Welcome back</p>
+            <h2 className="teacher-dashboard-teacher-name">{teacherName}</h2>
+          </div>
 
-        <div className="teacher-dashboard-hero-text">
-          <h1
-            style={{
-              margin: 0,
-              color: "#1f3c88",
-            }}
-          >
-            Teacher Dashboard
-          </h1>
-
-          <p
-            style={{
-              margin: "6px 0 0 0",
-              color: "#666",
-            }}
-          >
-            Sydney School Portal
-          </p>
-
-          <p
-            style={{
-              margin: "10px 0 0 0",
-              color: "#666",
-              fontWeight: 600,
-            }}
-          >
-            {getDisplayDate()}
-          </p>
-        </div>
-      </section>
-
-      <section
-        className="teacher-dashboard-stats-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr 1fr 1fr",
-          gap: "20px",
-          marginBottom: "30px",
-        }}
-      >
-        <div
-          className="teacher-dashboard-stat-card"
-          style={{
-            background: "#ffffff",
-            padding: "25px",
-            borderRadius: "12px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          }}
-        >
-          <p
-            style={{
-              color: "#888",
-              marginBottom: "8px",
-            }}
-          >
-            Welcome back
-          </p>
-
-          <h2
-            style={{
-              margin: 0,
-              color: "#1f3c88",
-            }}
-          >
-            {teacherName}
-          </h2>
-
-          <p
-            className="teacher-dashboard-welcome-text"
-            style={{
-              marginTop: "15px",
-              color: "#666",
-            }}
-          >
+          <p className="teacher-dashboard-welcome-text">
             <span className="teacher-dashboard-welcome-long-text">
               Ready for another great day of teaching.
             </span>
@@ -270,119 +202,44 @@ setClasses(classesWithLevels);
               Ready to teach.
             </span>
           </p>
-        </div>
+        </article>
 
-        <div
-          className="teacher-dashboard-stat-card"
-          style={{
-            background: "#ffffff",
-            padding: "20px",
-            borderRadius: "12px",
-            textAlign: "center",
-            borderTop: `4px solid ${classroomThemeColour}`,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          }}
-        >
-          <h3
-            style={{
-              marginTop: 0,
-              color: "#1f3c88",
-            }}
-          >
-            Classroom
-          </h3>
-
-          <div
-            style={{
-              minHeight: "58px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: "10px",
-            }}
-          >
-            <Image
-              src={classroomLogo}
-              alt={`${classroomName} classroom`}
-              width={58}
-              height={58}
-              style={{
-                objectFit: "contain",
-              }}
-            />
+        <article className="teacher-dashboard-card teacher-dashboard-classroom-card">
+          <p className="teacher-dashboard-card-label">Classroom</p>
+          <div className="teacher-dashboard-classroom-content">
+            <span className="teacher-dashboard-classroom-image">
+              <Image
+                src={classroomLogo}
+                alt={`${classroomName} classroom`}
+                width={62}
+                height={62}
+              />
+            </span>
+            <strong>{classroomName}</strong>
           </div>
+        </article>
 
-          <div
-            style={{
-              fontSize: "24px",
-              fontWeight: 700,
-              color: "#1f3c88",
-              lineHeight: 1.2,
-            }}
-          >
-            {classroomName}
+        <article className="teacher-dashboard-card teacher-dashboard-kpi-card">
+          <span className="teacher-dashboard-card-icon">
+            <TeacherDashboardIcon name="classes" />
+          </span>
+          <div>
+            <p className="teacher-dashboard-card-label">Assigned Classes</p>
+            <strong className="teacher-dashboard-kpi-value">
+              {classes.length}
+            </strong>
           </div>
-        </div>
+        </article>
 
-        <div
-          className="teacher-dashboard-stat-card"
-          style={{
-            background: "#ffffff",
-            padding: "20px",
-            borderRadius: "12px",
-            textAlign: "center",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          }}
-        >
-          <h3
-            style={{
-              marginTop: 0,
-              color: "#1f3c88",
-            }}
-          >
-            Classes
-          </h3>
-
-          <div
-            style={{
-              fontSize: "32px",
-              fontWeight: 700,
-              color: "#1f3c88",
-            }}
-          >
-            {classes.length}
+        <article className="teacher-dashboard-card teacher-dashboard-kpi-card">
+          <span className="teacher-dashboard-card-icon teacher-dashboard-status-icon">
+            <TeacherDashboardIcon name="status" />
+          </span>
+          <div>
+            <p className="teacher-dashboard-card-label">Account Status</p>
+            <strong className="teacher-dashboard-status-value">Active</strong>
           </div>
-        </div>
-
-        <div
-          className="teacher-dashboard-stat-card"
-          style={{
-            background: "#ffffff",
-            padding: "20px",
-            borderRadius: "12px",
-            textAlign: "center",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          }}
-        >
-          <h3
-            style={{
-              marginTop: 0,
-              color: "#1f3c88",
-            }}
-          >
-            Status
-          </h3>
-
-          <div
-            style={{
-              color: "#2e7d32",
-              fontWeight: 700,
-              fontSize: "22px",
-            }}
-          >
-            Active
-          </div>
-        </div>
+        </article>
       </section>
 
      <TeacherAnnouncementBanner teacherId={teacherId} />
@@ -396,24 +253,6 @@ setClasses(classesWithLevels);
      <TeacherCalendarAgenda />
 
      <TodaySchedule classes={classes} /> 
-
-      {/* LOGOUT */}
-
-      <button
-        onClick={handleLogout}
-        style={{
-          background: "#d32f2f",
-          color: "#ffffff",
-          border: "none",
-          padding: "10px 20px",
-          borderRadius: "8px",
-          cursor: "pointer",
-          fontWeight: 600,
-          marginTop: "10px",
-        }}
-      >
-        Logout
-      </button>
      </div>
     </TeacherLayout>
   );

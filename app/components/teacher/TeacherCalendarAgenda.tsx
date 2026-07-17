@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { getUpcomingTeacherCalendarEvents } from "../../../lib/teacherCalendar";
@@ -58,145 +59,74 @@ export default function TeacherCalendarAgenda() {
   }, []);
 
   return (
-    <section
-      style={{
-        background: "#ffffff",
-        borderRadius: "12px",
-        padding: "28px",
-        marginBottom: "30px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "20px",
-          marginBottom: "22px",
-        }}
-      >
+    <section className="teacher-dashboard-card teacher-dashboard-calendar">
+      <div className="teacher-dashboard-section-header">
         <div>
-          <h2
-            style={{
-              color: "#1f3c88",
-              margin: 0,
-            }}
-          >
-            Teacher Calendar
-          </h2>
-          <p
-            style={{
-              color: "#666",
-              margin: "6px 0 0",
-            }}
-          >
+          <h2>Teacher Calendar</h2>
+          <p>
             Upcoming school-wide teacher events.
           </p>
         </div>
+
+        <Link
+          href="/teacher/calendar"
+          className="teacher-dashboard-secondary-link"
+        >
+          View Full Calendar
+        </Link>
       </div>
 
-      {loading && <p>Loading teacher calendar...</p>}
+      {loading && (
+        <p className="teacher-dashboard-muted-text">
+          Loading teacher calendar...
+        </p>
+      )}
 
-      {!loading && error && <p>Unable to load teacher calendar.</p>}
+      {!loading && error && (
+        <p className="teacher-dashboard-error-text">
+          Unable to load teacher calendar.
+        </p>
+      )}
 
       {!loading && !error && events.length === 0 && (
-        <p>No upcoming teacher events.</p>
+        <p className="teacher-dashboard-empty-state">
+          No upcoming teacher events.
+        </p>
       )}
 
       {!loading && !error && events.length > 0 && (
-        <div
-          style={{
-            display: "grid",
-            gap: "12px",
-            maxHeight: "430px",
-            overflowY: "auto",
-            paddingRight: "4px",
-          }}
-        >
+        <div className="teacher-dashboard-event-list">
           {events.map((item) => {
             const dateParts = getDateParts(item.event_date);
 
             return (
-              <div
-                key={item.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "68px minmax(0, 1fr)",
-                  gap: "16px",
-                  alignItems: "center",
-                  border: "1px solid #edf0f5",
-                  borderRadius: "10px",
-                  padding: "14px",
-                  background: "#ffffff",
-                }}
-              >
-                <div
-                  style={{
-                    background: "#1f3c88",
-                    color: "#ffffff",
-                    borderRadius: "9px",
-                    padding: "9px 8px",
-                    textAlign: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "22px",
-                      fontWeight: 800,
-                      lineHeight: 1,
-                    }}
-                  >
+              <article key={item.id} className="teacher-dashboard-event">
+                <div className="teacher-dashboard-event-date">
+                  <span>
                     {dateParts.dayNumber}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      marginTop: "6px",
-                      textTransform: "uppercase",
-                    }}
-                  >
+                  </span>
+                  <strong>
                     {dateParts.month}
-                  </div>
+                  </strong>
                 </div>
 
-                <div>
-                  <div
-                    style={{
-                      color: "#777",
-                      fontSize: "13px",
-                      fontWeight: 700,
-                      marginBottom: "4px",
-                    }}
-                  >
+                <div className="teacher-dashboard-event-content">
+                  <div className="teacher-dashboard-event-meta">
                     {dateParts.weekday} ·{" "}
                     {formatTime(item.start_time, item.end_time)}
                   </div>
 
-                  <div
-                    style={{
-                      color: "#1f3c88",
-                      fontSize: "17px",
-                      fontWeight: 800,
-                    }}
-                  >
+                  <h3>
                     {item.title}
-                  </div>
+                  </h3>
 
                   {item.description && (
-                    <p
-                      style={{
-                        color: "#666",
-                        margin: "6px 0 0",
-                        lineHeight: 1.45,
-                        fontSize: "14px",
-                      }}
-                    >
+                    <p>
                       {item.description}
                     </p>
                   )}
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>

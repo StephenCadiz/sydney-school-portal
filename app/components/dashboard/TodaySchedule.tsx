@@ -4,6 +4,38 @@ type Props = {
   classes: any[];
 };
 
+function LessonMetaIcon({ name }: { name: "days" | "time" }) {
+  const commonProps = {
+    "aria-hidden": true,
+    width: 16,
+    height: 16,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  if (name === "days") {
+    return (
+      <svg {...commonProps}>
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4" />
+        <path d="M8 2v4" />
+        <path d="M3 10h18" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...commonProps}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
 function formatTime(value?: string | null) {
   if (!value) return "";
 
@@ -64,62 +96,20 @@ export default function TodaySchedule({ classes }: Props) {
     );
 
   return (
-    <section
-      style={{
-        background: "#ffffff",
-        border: "1px solid #e6eaf2",
-        borderRadius: "14px",
-        padding: "22px",
-        marginBottom: "30px",
-        boxShadow: "0 6px 18px rgba(31,60,136,0.06)",
-      }}
-    >
-      <div
-        style={{
-          marginBottom: "18px",
-        }}
-      >
-        <h2
-          style={{
-            margin: "0 0 6px",
-            color: "#1f3c88",
-            fontSize: "22px",
-          }}
-        >
-          Today&rsquo;s Lessons
-        </h2>
-
-        <p
-          style={{
-            margin: 0,
-            color: "#667085",
-            fontSize: "15px",
-          }}
-        >
-          Your scheduled lessons for today.
-        </p>
+    <section className="teacher-dashboard-card teacher-dashboard-lessons">
+      <div className="teacher-dashboard-section-header">
+        <div>
+          <h2>Today&rsquo;s Lessons</h2>
+          <p>Your scheduled lessons for today.</p>
+        </div>
       </div>
 
       {todaysClasses.length === 0 ? (
-        <div
-          style={{
-            background: "#f8fafd",
-            border: "1px dashed #cfd8e6",
-            borderRadius: "12px",
-            padding: "18px",
-            color: "#667085",
-            fontWeight: 600,
-          }}
-        >
+        <div className="teacher-dashboard-empty-state">
           No lessons scheduled today.
         </div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gap: "12px",
-          }}
-        >
+        <div className="teacher-dashboard-lesson-list">
           {todaysClasses.map((item) => {
             const levelName = getLevelName(item);
             const classroomName = getClassroomName(item);
@@ -131,122 +121,46 @@ export default function TodaySchedule({ classes }: Props) {
               <Link
                 key={item.id}
                 href={`/teacher/class?id=${item.id}`}
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "14px",
-                  alignItems: "center",
-                  background: "#f8fafd",
-                  border: "1px solid #edf1f7",
-                  borderRadius: "12px",
-                  padding: "14px",
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
+                className="teacher-dashboard-lesson-card"
               >
-                <div
-                  style={{
-                    background: "#1f3c88",
-                    color: "#ffffff",
-                    borderRadius: "999px",
-                    padding: "8px 12px",
-                    fontWeight: 800,
-                    fontSize: "14px",
-                    textAlign: "center",
-                    minWidth: "42px",
-                  }}
-                >
-                  {levelName}
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    flex: "1 1 240px",
-                    minWidth: 0,
-                  }}
-                >
+                <div className="teacher-dashboard-lesson-identity">
+                  <span className="teacher-dashboard-lesson-image">
                   <img
                     src={classroomLogo}
                     alt={classroomName}
-                    style={{
-                      width: "46px",
-                      height: "46px",
-                      borderRadius: "10px",
-                      objectFit: "contain",
-                      background: "#ffffff",
-                      border: "1px solid #e6eaf2",
-                      padding: "5px",
-                      flex: "0 0 auto",
-                    }}
                   />
+                  </span>
 
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        color: "#1f3c88",
-                        fontWeight: 800,
-                        fontSize: "16px",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
+                  <div className="teacher-dashboard-lesson-copy">
+                    <span className="teacher-dashboard-lesson-level">
+                      {levelName}
+                    </span>
+
+                    <strong>
                       {classroomName}
-                    </div>
+                    </strong>
 
-                    <div
-                      style={{
-                        color: "#667085",
-                        fontSize: "13px",
-                        marginTop: "3px",
-                      }}
-                    >
+                    <span>
                       {onlineClass ? "Online lesson" : "Classroom"}
-                    </div>
+                    </span>
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #dbe3f0",
-                    color: "#1f3c88",
-                    borderRadius: "999px",
-                    padding: "7px 12px",
-                    fontWeight: 700,
-                    fontSize: "13px",
-                    textAlign: "center",
-                    flex: "0 1 auto",
-                  }}
-                >
-                  {formatDays(item.days)}
+                <div className="teacher-dashboard-lesson-schedule">
+                  <span>
+                    <LessonMetaIcon name="days" />
+                    {formatDays(item.days)}
+                  </span>
+
+                  <span>
+                    <LessonMetaIcon name="time" />
+                    {timeRange}
+                  </span>
                 </div>
 
-                <div
-                  style={{
-                    color: "#1f3c88",
-                    fontWeight: 900,
-                    fontSize: "17px",
-                    textAlign: "right",
-                    whiteSpace: "nowrap",
-                    marginLeft: "auto",
-                  }}
-                >
-                  {timeRange}
-                </div>
-
-                <div
-                  style={{
-                    color: "#1f3c88",
-                    fontWeight: 800,
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <span className="teacher-dashboard-lesson-action">
                   Open →
-                </div>
+                </span>
               </Link>
             );
           })}

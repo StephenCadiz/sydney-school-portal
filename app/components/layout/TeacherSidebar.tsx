@@ -40,18 +40,9 @@ export default function TeacherSidebar({
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        padding: "30px 20px",
+        padding: "24px 20px 30px",
       }}
     >
-      <h2
-        style={{
-          marginBottom: "40px",
-          textAlign: "center",
-        }}
-      >
-        Sydney School
-      </h2>
-
       <SidebarItem
         href="/teacher"
         icon={<Home size={20} />}
