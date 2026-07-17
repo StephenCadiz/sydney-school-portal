@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import {
@@ -7,9 +8,22 @@ import {
   markFollowUpAsSeen,
   updateFollowUpDocumentForAdmin,
 } from "../../../lib/followUps";
+import { supabase } from "../../../lib/supabase";
+import { formatFridayTutorialApprovedDate } from "../../../lib/fridayTutorials";
 
 const categories = ["Academic", "Behaviour", "Homework", "Attendance", "Other"];
 const statuses = ["Open", "In Progress", "Resolved"];
+
+type FridayTutorialStatus = {
+  status: "added" | "not_added" | "removed" | "ineligible";
+  approved_at: string | null;
+  eligible: boolean;
+  eligibility: boolean;
+  has_existing_record: boolean;
+  previously_removed: boolean;
+  tutorial_student_id: string | null;
+  tutorial_group: string | null;
+};
 
 const inputStyle = {
   width: "100%",
@@ -99,6 +113,12 @@ export default function AdminFollowUpsPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [fridayStatuses, setFridayStatuses] = useState<
+    Record<string, FridayTutorialStatus>
+  >({});
+  const [fridayStatusLoading, setFridayStatusLoading] = useState(false);
+  const [fridayStatusUnavailable, setFridayStatusUnavailable] = useState(false);
+  const [addingFridayFollowUpId, setAddingFridayFollowUpId] = useState("");
   const [editingId, setEditingId] = useState("");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -111,6 +131,62 @@ export default function AdminFollowUpsPage() {
     (item) => item.admin_seen === false
   ).length;
 
+  async function getAuthToken() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    return session?.access_token || "";
+  }
+
+  async function loadFridayStatuses(items: any[]) {
+    const academicFollowUpIds = items
+      .filter((item) => item.category === "Academic")
+      .map((item) => item.id)
+      .filter(Boolean);
+
+    setFridayStatuses({});
+    setFridayStatusUnavailable(false);
+
+    if (academicFollowUpIds.length === 0) {
+      setFridayStatusLoading(false);
+      return;
+    }
+
+    setFridayStatusLoading(true);
+
+    try {
+      const token = await getAuthToken();
+
+      if (!token) {
+        throw new Error("Missing authorization token.");
+      }
+
+      const response = await fetch("/api/follow-ups/friday-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          follow_up_document_ids: academicFollowUpIds,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Unable to load Friday status.");
+      }
+
+      setFridayStatuses(data.statuses || {});
+    } catch (statusError) {
+      console.error("Unable to load Friday Tutorial statuses:", statusError);
+      setFridayStatusUnavailable(true);
+    } finally {
+      setFridayStatusLoading(false);
+    }
+  }
+
   async function loadFollowUps() {
     setLoading(true);
     setError("");
@@ -118,12 +194,206 @@ export default function AdminFollowUpsPage() {
     try {
       const data = await getAllFollowUpsForAdmin();
       setFollowUps(data);
+      await loadFridayStatuses(data);
     } catch (loadError: any) {
       console.error("Unable to load follow-ups:", loadError);
       setError(loadError?.message || "Unable to load follow-ups.");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleAddToFridayList(item: any) {
+    const currentStatus = fridayStatuses[item.id];
+
+    if (
+      currentStatus?.status === "removed" &&
+      !confirm(
+        "This student was previously removed from the Friday list. Re-add them now?"
+      )
+    ) {
+      return;
+    }
+
+    setMessage("");
+    setError("");
+    setAddingFridayFollowUpId(item.id);
+
+    try {
+      const token = await getAuthToken();
+
+      if (!token) {
+        throw new Error("Missing authorization token.");
+      }
+
+      const response = await fetch(
+        "/api/admin/friday-tutorials/add-from-follow-up",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            follow_up_document_id: item.id,
+          }),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Unable to update Friday list.");
+      }
+
+      setFridayStatuses((current) => ({
+        ...current,
+        [item.id]: data.status,
+      }));
+      setMessage(data?.message || "Friday Tutorial list updated.");
+    } catch (addError: any) {
+      console.error("Unable to update Friday Tutorial list:", addError);
+      setError(addError?.message || "Unable to update Friday Tutorial list.");
+    } finally {
+      setAddingFridayFollowUpId("");
+    }
+  }
+
+  function renderFridayTutorialStatus(item: any) {
+    if (item.category !== "Academic") {
+      return null;
+    }
+
+    const status = fridayStatuses[item.id];
+    const isAdding = addingFridayFollowUpId === item.id;
+
+    if (fridayStatusLoading && !status) {
+      return (
+        <section className="follow-up-friday-status" aria-live="polite">
+          <div className="follow-up-friday-status-header">
+            <strong>Friday Tutorial Status</strong>
+            <span className="follow-up-friday-status-badge follow-up-friday-status-pending">
+              Checking
+            </span>
+          </div>
+          <p className="follow-up-friday-status-message">
+            Checking Friday list status...
+          </p>
+        </section>
+      );
+    }
+
+    if (fridayStatusUnavailable && !status) {
+      return (
+        <section className="follow-up-friday-status" aria-live="polite">
+          <div className="follow-up-friday-status-header">
+            <strong>Friday Tutorial Status</strong>
+            <span className="follow-up-friday-status-badge follow-up-friday-status-ineligible">
+              Unavailable
+            </span>
+          </div>
+          <p className="follow-up-friday-status-message">
+            Friday list status unavailable.
+          </p>
+        </section>
+      );
+    }
+
+    if (!status) {
+      return null;
+    }
+
+    if (status.status === "added") {
+      const approvedDate = formatFridayTutorialApprovedDate(status.approved_at);
+
+      return (
+        <section className="follow-up-friday-status" aria-live="polite">
+          <div className="follow-up-friday-status-header">
+            <strong>Friday Tutorial Status</strong>
+            <span className="follow-up-friday-status-badge follow-up-friday-status-added">
+              Added
+            </span>
+          </div>
+          <p className="follow-up-friday-status-message">
+            Added to Friday list
+            {approvedDate ? ` on ${approvedDate}` : ""}.
+          </p>
+          <div className="follow-up-friday-status-actions">
+            <Link
+              className="follow-up-friday-status-link"
+              href="/admin/friday-tutorials"
+            >
+              View Friday List
+            </Link>
+          </div>
+        </section>
+      );
+    }
+
+    if (status.status === "removed") {
+      return (
+        <section className="follow-up-friday-status" aria-live="polite">
+          <div className="follow-up-friday-status-header">
+            <strong>Friday Tutorial Status</strong>
+            <span className="follow-up-friday-status-badge follow-up-friday-status-removed">
+              Not currently added
+            </span>
+          </div>
+          <p className="follow-up-friday-status-message">
+            Not currently on the Friday list.
+          </p>
+          <div className="follow-up-friday-status-actions">
+            <button
+              type="button"
+              className="follow-up-friday-status-button"
+              onClick={() => handleAddToFridayList(item)}
+              disabled={isAdding}
+            >
+              {isAdding ? "Adding..." : "Re-add to Friday List"}
+            </button>
+          </div>
+        </section>
+      );
+    }
+
+    if (status.status === "ineligible") {
+      return (
+        <section className="follow-up-friday-status" aria-live="polite">
+          <div className="follow-up-friday-status-header">
+            <strong>Friday Tutorial Status</strong>
+            <span className="follow-up-friday-status-badge follow-up-friday-status-ineligible">
+              Not eligible
+            </span>
+          </div>
+          <p className="follow-up-friday-status-message">
+            Not eligible for Friday Tutorials.
+          </p>
+        </section>
+      );
+    }
+
+    return (
+      <section className="follow-up-friday-status" aria-live="polite">
+        <div className="follow-up-friday-status-header">
+          <strong>Friday Tutorial Status</strong>
+          <span className="follow-up-friday-status-badge follow-up-friday-status-pending">
+            Not added
+          </span>
+        </div>
+        <p className="follow-up-friday-status-message">
+          Not added to Friday list yet.
+        </p>
+        <div className="follow-up-friday-status-actions">
+          <button
+            type="button"
+            className="follow-up-friday-status-button"
+            onClick={() => handleAddToFridayList(item)}
+            disabled={isAdding}
+          >
+            {isAdding ? "Adding..." : "Add to Friday List"}
+          </button>
+        </div>
+      </section>
+    );
   }
 
   useEffect(() => {
@@ -420,6 +690,8 @@ export default function AdminFollowUpsPage() {
                       {item.status || "Open"}
                     </span>
                   </p>
+
+                  {renderFridayTutorialStatus(item)}
 
                   <Timeline entries={item.entries || []} />
                 </article>

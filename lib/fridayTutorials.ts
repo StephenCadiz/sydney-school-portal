@@ -70,11 +70,28 @@ export function getTutorialGroupLabel(group: string | null | undefined) {
   return sessionLabels[String(group || "")] || group || "-";
 }
 
-function normalizeLevelName(levelName: string | null | undefined) {
+export type FridayTutorialStatusValue =
+  | "added"
+  | "not_added"
+  | "removed"
+  | "ineligible";
+
+export type FridayTutorialStatusResult = {
+  status: FridayTutorialStatusValue;
+  approved_at: string | null;
+  eligible: boolean;
+  eligibility: boolean;
+  has_existing_record: boolean;
+  previously_removed: boolean;
+  tutorial_student_id: string | null;
+  tutorial_group: string | null;
+};
+
+export function normalizeLevelName(levelName: string | null | undefined) {
   return String(levelName || "").trim().toUpperCase();
 }
 
-function getTutorialGroupForLevel(
+export function getTutorialGroupForLevel(
   levelName: string | null | undefined,
   studentType: string
 ) {
@@ -97,6 +114,94 @@ function getTutorialGroupForLevel(
   }
 
   return null;
+}
+
+export function getFridayTutorialStatusFromRows(
+  rows: any[],
+  eligible: boolean,
+  tutorialGroup: string | null
+): FridayTutorialStatusResult {
+  if (!eligible) {
+    return {
+      status: "ineligible",
+      approved_at: null,
+      eligible: false,
+      eligibility: false,
+      has_existing_record: rows.length > 0,
+      previously_removed: false,
+      tutorial_student_id: null,
+      tutorial_group: tutorialGroup,
+    };
+  }
+
+  const approvedRow = rows.find(
+    (row) => row.approval_status === "approved" && row.active === true
+  );
+
+  if (approvedRow) {
+    return {
+      status: "added",
+      approved_at:
+        approvedRow.approved_at || approvedRow.updated_at || approvedRow.created_at || null,
+      eligible: true,
+      eligibility: true,
+      has_existing_record: true,
+      previously_removed: false,
+      tutorial_student_id: approvedRow.id || null,
+      tutorial_group: approvedRow.tutorial_group || tutorialGroup,
+    };
+  }
+
+  const removedRow = rows.find(
+    (row) => row.approval_status === "removed" || row.active === false
+  );
+
+  if (removedRow) {
+    return {
+      status: "removed",
+      approved_at:
+        removedRow.approved_at || removedRow.updated_at || removedRow.created_at || null,
+      eligible: true,
+      eligibility: true,
+      has_existing_record: true,
+      previously_removed: true,
+      tutorial_student_id: removedRow.id || null,
+      tutorial_group: removedRow.tutorial_group || tutorialGroup,
+    };
+  }
+
+  const existingRow = rows[0];
+
+  return {
+    status: "not_added",
+    approved_at:
+      existingRow?.approved_at || existingRow?.updated_at || existingRow?.created_at || null,
+    eligible: true,
+    eligibility: true,
+    has_existing_record: rows.length > 0,
+    previously_removed: false,
+    tutorial_student_id: existingRow?.id || null,
+    tutorial_group: existingRow?.tutorial_group || tutorialGroup,
+  };
+}
+
+export function formatFridayTutorialApprovedDate(dateValue: string | null | undefined) {
+  if (!dateValue) {
+    return "";
+  }
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Madrid",
+  }).format(date);
 }
 
 export async function getFridayTutorialSettings() {
@@ -609,12 +714,19 @@ export async function updateFridayTutorialStudent(
   id: string,
   updates: any
 ) {
+  const now = new Date().toISOString();
+  const nextUpdates = {
+    ...updates,
+    updated_at: now,
+  };
+
+  if (updates?.approval_status === "approved" && updates?.active === true) {
+    nextUpdates.approved_at = now;
+  }
+
   const { error } = await supabase
     .from("friday_tutorial_students")
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
+    .update(nextUpdates)
     .eq("id", id);
 
   if (error) {

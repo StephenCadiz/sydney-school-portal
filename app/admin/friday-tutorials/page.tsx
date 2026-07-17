@@ -464,6 +464,7 @@ export default function AdminFridayTutorialsPage() {
                 handleUpdateMasterStudent(student.id, {
                   approval_status: "approved",
                   active: true,
+                  approved_at: new Date().toISOString(),
                 })
               }
               style={primaryButtonStyle}
