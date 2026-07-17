@@ -1,17 +1,44 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
 import {
   getCambridgeClassesForStudentInvite,
-  getYoungLearnerClassesForStudentCreate,
+  getYoungLearnerClassesForBulkCreate,
 } from "../../../lib/adminStudents";
+import type { YoungLearnerBulkClassOption } from "../../../lib/adminStudents";
 import { supabase } from "../../../lib/supabase";
 
 type ActiveTab = "teacher" | "cambridge" | "youngLearner" | "adminStaff";
 type CreationMode = "manual" | "invite";
+type YoungLearnerBulkRowField = "first_name" | "last_name" | "student";
+type YoungLearnerBulkRowErrors = Partial<
+  Record<YoungLearnerBulkRowField, string>
+>;
+type YoungLearnerBulkRow = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  errors: YoungLearnerBulkRowErrors;
+};
+type YoungLearnerDialog =
+  | {
+      type: "clear";
+    }
+  | {
+      type: "changeClass";
+      nextClassId: string;
+    };
+
+const youngLearnerBulkRowCount = 12;
+const youngLearnerMaxNameLength = 80;
+const youngLearnerBulkRowFields: YoungLearnerBulkRowField[] = [
+  "first_name",
+  "last_name",
+  "student",
+];
 
 const inputStyle = {
   width: "100%",
@@ -87,12 +114,185 @@ function formatClassOption(classroom: any) {
   }`;
 }
 
+function formatTimeRange(startTime: string, endTime: string) {
+  if (startTime && endTime) {
+    return `${startTime}-${endTime}`;
+  }
+
+  return "";
+}
+
+function formatYoungLearnerClassOption(
+  classroom: YoungLearnerBulkClassOption
+) {
+  const timeSlot = formatTimeRange(classroom.start_time, classroom.end_time);
+  const schedule = [classroom.days, timeSlot].filter(Boolean).join(" ");
+
+  return [
+    classroom.level_name || "Unknown Level",
+    classroom.classroom_name || "No classroom assigned",
+    schedule,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+}
+
+function formatYoungLearnerSubmitLabel(count: number, saving: boolean) {
+  if (saving) {
+    return `Adding ${count || 0} student${count === 1 ? "" : "s"}...`;
+  }
+
+  if (count > 0) {
+    return `Add ${count} Young Learner${count === 1 ? "" : "s"}`;
+  }
+
+  return "Add Young Learners";
+}
+
+function getYoungLearnerMessageType(message: string) {
+  const normalizedMessage = message.toLowerCase();
+
+  return normalizedMessage.includes("successfully") ? "success" : "error";
+}
+
+function InfoIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M10 9.2V14"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <path
+        d="M10 6.2H10.01"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function getInitialAuthForm() {
   return {
     first_name: "",
     last_name: "",
     email: "",
     password: "",
+  };
+}
+
+function createInitialYoungLearnerRows(): YoungLearnerBulkRow[] {
+  return Array.from({ length: youngLearnerBulkRowCount }, (_, index) => ({
+    id: index + 1,
+    first_name: "",
+    last_name: "",
+    errors: {},
+  }));
+}
+
+function normalizeYoungLearnerFullName(firstName: string, lastName: string) {
+  return `${firstName} ${lastName}`
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function validateYoungLearnerRows(rows: YoungLearnerBulkRow[]) {
+  const errorsByRow: Record<number, YoungLearnerBulkRowErrors> = {};
+  const completeRows: Array<{
+    row: number;
+    first_name: string;
+    last_name: string;
+    normalized_name: string;
+  }> = [];
+  let hasEnteredRows = false;
+
+  rows.forEach((row) => {
+    const firstName = row.first_name.trim();
+    const lastName = row.last_name.trim();
+    const hasFirstName = firstName.length > 0;
+    const hasLastName = lastName.length > 0;
+
+    if (!hasFirstName && !hasLastName) {
+      return;
+    }
+
+    hasEnteredRows = true;
+
+    if (!hasFirstName) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        first_name: "First name is required.",
+      };
+    }
+
+    if (!hasLastName) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        last_name: "Last name is required.",
+      };
+    }
+
+    if (firstName.length > youngLearnerMaxNameLength) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        first_name: `First name must be ${youngLearnerMaxNameLength} characters or fewer.`,
+      };
+    }
+
+    if (lastName.length > youngLearnerMaxNameLength) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        last_name: `Last name must be ${youngLearnerMaxNameLength} characters or fewer.`,
+      };
+    }
+
+    if (
+      hasFirstName &&
+      hasLastName &&
+      firstName.length <= youngLearnerMaxNameLength &&
+      lastName.length <= youngLearnerMaxNameLength
+    ) {
+      completeRows.push({
+        row: row.id,
+        first_name: firstName,
+        last_name: lastName,
+        normalized_name: normalizeYoungLearnerFullName(firstName, lastName),
+      });
+    }
+  });
+
+  const rowsByName = completeRows.reduce<Record<string, number[]>>(
+    (groups, row) => ({
+      ...groups,
+      [row.normalized_name]: [...(groups[row.normalized_name] || []), row.row],
+    }),
+    {}
+  );
+
+  Object.values(rowsByName)
+    .filter((duplicateRows) => duplicateRows.length > 1)
+    .flat()
+    .forEach((rowId) => {
+      errorsByRow[rowId] = {
+        ...errorsByRow[rowId],
+        student: "Duplicate name in this batch.",
+      };
+    });
+
+  return {
+    completeRows,
+    errorsByRow,
+    hasEnteredRows,
+    hasErrors: Object.keys(errorsByRow).length > 0,
   };
 }
 
@@ -105,21 +305,56 @@ export default function AddUsersPage() {
     ...getInitialAuthForm(),
     class_id: "",
   });
-  const [youngLearnerForm, setYoungLearnerForm] = useState({
-    first_name: "",
-    last_name: "",
-    class_id: "",
-  });
+  const [youngLearnerClassId, setYoungLearnerClassId] = useState("");
+  const [youngLearnerRows, setYoungLearnerRows] = useState(
+    createInitialYoungLearnerRows
+  );
+  const [youngLearnerDialog, setYoungLearnerDialog] =
+    useState<YoungLearnerDialog | null>(null);
   const [adminForm, setAdminForm] = useState({
     ...getInitialAuthForm(),
     confirm_password: "",
   });
   const [cambridgeClasses, setCambridgeClasses] = useState<any[]>([]);
-  const [youngLearnerClasses, setYoungLearnerClasses] = useState<any[]>([]);
+  const [youngLearnerClasses, setYoungLearnerClasses] = useState<
+    YoungLearnerBulkClassOption[]
+  >([]);
   const [classMessage, setClassMessage] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingClasses, setLoadingClasses] = useState(true);
+  const youngLearnerFirstNameRefs = useRef<
+    Record<number, HTMLInputElement | null>
+  >({});
+  const youngLearnerLastNameRefs = useRef<
+    Record<number, HTMLInputElement | null>
+  >({});
+
+  const selectedYoungLearnerClass = useMemo(
+    () =>
+      youngLearnerClasses.find(
+        (classroom) => classroom.id === youngLearnerClassId
+      ) || null,
+    [youngLearnerClasses, youngLearnerClassId]
+  );
+  const youngLearnerValidation = useMemo(
+    () => validateYoungLearnerRows(youngLearnerRows),
+    [youngLearnerRows]
+  );
+  const youngLearnerRowsHaveStoredErrors = useMemo(
+    () =>
+      youngLearnerRows.some((row) =>
+        Object.values(row.errors).some((message) => Boolean(message))
+      ),
+    [youngLearnerRows]
+  );
+  const hasYoungLearnerEntries = useMemo(
+    () =>
+      youngLearnerRows.some(
+        (row) => row.first_name.trim() || row.last_name.trim()
+      ),
+    [youngLearnerRows]
+  );
 
   useEffect(() => {
     async function loadClasses() {
@@ -129,7 +364,7 @@ export default function AddUsersPage() {
       try {
         const [cambridgeData, youngLearnerData] = await Promise.all([
           getCambridgeClassesForStudentInvite(),
-          getYoungLearnerClassesForStudentCreate(),
+          getYoungLearnerClassesForBulkCreate(),
         ]);
 
         setCambridgeClasses(cambridgeData);
@@ -148,6 +383,11 @@ export default function AddUsersPage() {
 
     loadClasses();
   }, []);
+
+  async function refreshYoungLearnerClasses() {
+    const youngLearnerData = await getYoungLearnerClassesForBulkCreate();
+    setYoungLearnerClasses(youngLearnerData);
+  }
 
   async function postWithSession(path: string, payload: any) {
     const {
@@ -273,31 +513,234 @@ export default function AddUsersPage() {
     }
   }
 
-  async function handleYoungLearnerSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage("");
-
-    try {
-      if (!youngLearnerForm.class_id) {
-        setMessage("Class is required.");
+  function focusYoungLearnerRow(
+    rowId: number,
+    field: "first_name" | "last_name" = "first_name"
+  ) {
+    window.setTimeout(() => {
+      if (field === "last_name") {
+        youngLearnerLastNameRefs.current[rowId]?.focus();
         return;
       }
 
-      const result = await postWithSession(
-        "/api/admin/young-learners/create",
-        youngLearnerForm
-      );
+      youngLearnerFirstNameRefs.current[rowId]?.focus();
+    }, 0);
+  }
 
-      setYoungLearnerForm({
-        first_name: "",
-        last_name: "",
-        class_id: "",
+  function focusFirstYoungLearnerError(
+    errorsByRow: Record<number, YoungLearnerBulkRowErrors>
+  ) {
+    const firstErrorRow = Object.keys(errorsByRow)
+      .map(Number)
+      .sort((first, second) => first - second)[0];
+
+    if (!firstErrorRow) {
+      focusYoungLearnerRow(1);
+      return;
+    }
+
+    const rowErrors = errorsByRow[firstErrorRow];
+    focusYoungLearnerRow(
+      firstErrorRow,
+      rowErrors?.last_name && !rowErrors?.first_name
+        ? "last_name"
+        : "first_name"
+    );
+  }
+
+  function resetYoungLearnerRows(shouldFocusFirstRow = false) {
+    setYoungLearnerRows(createInitialYoungLearnerRows());
+
+    if (shouldFocusFirstRow) {
+      focusYoungLearnerRow(1);
+    }
+  }
+
+  function updateYoungLearnerRow(
+    rowId: number,
+    field: "first_name" | "last_name",
+    value: string
+  ) {
+    setYoungLearnerRows((currentRows) =>
+      currentRows.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [field]: value,
+              errors: {},
+            }
+          : row
+      )
+    );
+  }
+
+  function requestYoungLearnerClassChange(nextClassId: string) {
+    if (saving || nextClassId === youngLearnerClassId) {
+      return;
+    }
+
+    if (hasYoungLearnerEntries) {
+      setYoungLearnerDialog({
+        type: "changeClass",
+        nextClassId,
       });
-      setMessage(result.message || "Young Learner added successfully.");
+      return;
+    }
+
+    setYoungLearnerClassId(nextClassId);
+    resetYoungLearnerRows();
+  }
+
+  function requestClearYoungLearnerRows() {
+    if (!hasYoungLearnerEntries) {
+      resetYoungLearnerRows(true);
+      return;
+    }
+
+    setYoungLearnerDialog({ type: "clear" });
+  }
+
+  function confirmYoungLearnerDialog() {
+    if (!youngLearnerDialog) {
+      return;
+    }
+
+    if (youngLearnerDialog.type === "changeClass") {
+      setYoungLearnerClassId(youngLearnerDialog.nextClassId);
+    }
+
+    resetYoungLearnerRows(true);
+    setYoungLearnerDialog(null);
+    setMessage("");
+  }
+
+  async function handleYoungLearnerSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+
+    if (!youngLearnerClassId) {
+      setMessage("Please select a Young Learner class.");
+      return;
+    }
+
+    const validation = validateYoungLearnerRows(youngLearnerRows);
+
+    if (validation.completeRows.length === 0 && !validation.hasEnteredRows) {
+      setMessage("Add at least one Young Learner row before saving.");
+      focusYoungLearnerRow(1);
+      return;
+    }
+
+    if (validation.hasErrors || validation.completeRows.length === 0) {
+      setYoungLearnerRows((currentRows) =>
+        currentRows.map((row) => ({
+          ...row,
+          errors: validation.errorsByRow[row.id] || {},
+        }))
+      );
+      setMessage("Please correct the highlighted Young Learner rows.");
+      focusFirstYoungLearnerError(validation.errorsByRow);
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error("You must be logged in as an admin.");
+      }
+
+      const response = await fetch("/api/admin/young-learners/create-bulk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          class_id: youngLearnerClassId,
+          students: validation.completeRows.map((row) => ({
+            row: row.row,
+            first_name: row.first_name,
+            last_name: row.last_name,
+          })),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (Array.isArray(result.errors)) {
+          const serverErrorsByRow = result.errors.reduce(
+            (
+              rowErrors: Record<number, YoungLearnerBulkRowErrors>,
+              error: {
+                row?: number;
+                field?: YoungLearnerBulkRowField;
+                message?: string;
+              }
+            ) => {
+              const rowId = Number(error.row);
+              const field = error.field;
+
+              if (
+                !Number.isInteger(rowId) ||
+                rowId < 1 ||
+                rowId > youngLearnerBulkRowCount ||
+                !field ||
+                !youngLearnerBulkRowFields.includes(field)
+              ) {
+                return rowErrors;
+              }
+
+              return {
+                ...rowErrors,
+                [rowId]: {
+                  ...rowErrors[rowId],
+                  [field]: error.message || "Please check this row.",
+                },
+              };
+            },
+            {}
+          );
+
+          setYoungLearnerRows((currentRows) =>
+            currentRows.map((row) => ({
+              ...row,
+              errors: serverErrorsByRow[row.id] || {},
+            }))
+          );
+          setMessage("Please correct the highlighted Young Learner rows.");
+          focusFirstYoungLearnerError(serverErrorsByRow);
+          return;
+        }
+
+        throw new Error(result.error || "Unable to create Young Learners.");
+      }
+
+      try {
+        await refreshYoungLearnerClasses();
+      } catch (refreshError) {
+        console.error("Unable to refresh Young Learner class counts:", refreshError);
+      }
+
+      resetYoungLearnerRows(true);
+      const createdCount = Number(result.created_count || 0);
+      const savedClassLabel =
+        result.class_label ||
+        selectedYoungLearnerClass?.class_label ||
+        "the selected class";
+      setMessage(
+        `${createdCount} Young Learner${
+          createdCount === 1 ? "" : "s"
+        } added successfully to ${savedClassLabel}.`
+      );
     } catch (error: any) {
-      console.error("Unable to save Young Learner:", error);
-      setMessage(error.message || "Unable to save Young Learner.");
+      console.error("Unable to save Young Learners:", error);
+      setMessage(error.message || "Unable to save Young Learners.");
     } finally {
       setSaving(false);
     }
@@ -371,8 +814,10 @@ export default function AddUsersPage() {
         Create teachers, Cambridge students, Young Learners and admin staff.
       </p>
 
-      {message && (
+      {message && activeTab !== "youngLearner" && (
         <div
+          role="status"
+          aria-live="polite"
           style={{
             background: "#ffffff",
             borderRadius: "10px",
@@ -491,83 +936,394 @@ export default function AddUsersPage() {
       )}
 
       {activeTab === "youngLearner" && (
-        <form onSubmit={handleYoungLearnerSubmit} style={cardStyle}>
-          <h2 style={{ color: "var(--ss-blue-dark)", marginTop: 0 }}>
-            Add Young Learner
-          </h2>
-
-          <p style={{ color: "#666", marginTop: 0 }}>
-            Young Learners do not receive Student Portal access. No email or
-            password is needed.
-          </p>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "20px",
-            }}
-          >
+        <form
+          onSubmit={handleYoungLearnerSubmit}
+          className="add-users-young-form add-users-young-card"
+        >
+          <div className="add-users-young-header">
             <div>
-              <label style={labelStyle}>First Name</label>
-              <input
-                required
-                style={inputStyle}
-                value={youngLearnerForm.first_name}
-                onChange={(event) =>
-                  setYoungLearnerForm((current) => ({
-                    ...current,
-                    first_name: event.target.value,
-                  }))
-                }
-              />
+              <h2>Add Young Learners</h2>
+              <p>
+                Select a class and add up to 12 students at once. Young Learners
+                do not receive Student Portal access, so no email or password is
+                needed.
+              </p>
             </div>
-
-            <div>
-              <label style={labelStyle}>Last Name</label>
-              <input
-                required
-                style={inputStyle}
-                value={youngLearnerForm.last_name}
-                onChange={(event) =>
-                  setYoungLearnerForm((current) => ({
-                    ...current,
-                    last_name: event.target.value,
-                  }))
-                }
-              />
+            <div className="add-users-young-counter">
+              {youngLearnerValidation.completeRows.length} of{" "}
+              {youngLearnerBulkRowCount} ready
             </div>
+          </div>
 
-            <div>
-              <label style={labelStyle}>Class</label>
+          {message && (
+            <div
+              className={`add-users-young-message add-users-young-message-${getYoungLearnerMessageType(
+                message
+              )}`}
+              role="status"
+              aria-live="polite"
+            >
+              {message}
+            </div>
+          )}
+
+          <div className="add-users-young-workflow">
+            <section className="add-users-young-step add-users-young-step-class">
+              <div className="add-users-young-step-heading">
+                <span className="add-users-young-step-number">1</span>
+                <div>
+                  <h3>Choose class</h3>
+                  <p>Select the group for this batch.</p>
+                </div>
+              </div>
+
+              <label className="add-users-young-label" htmlFor="young-class-id">
+                Young Learner Class
+              </label>
               <select
+                id="young-class-id"
                 required
-                style={inputStyle}
-                value={youngLearnerForm.class_id}
+                className="add-users-young-select add-users-young-class-select"
+                value={youngLearnerClassId}
+                disabled={saving || loadingClasses}
                 onChange={(event) =>
-                  setYoungLearnerForm((current) => ({
-                    ...current,
-                    class_id: event.target.value,
-                  }))
+                  requestYoungLearnerClassChange(event.target.value)
                 }
               >
                 <option value="">Select a Young Learner class</option>
                 {youngLearnerClasses.map((classroom) => (
                   <option key={classroom.id} value={classroom.id}>
-                    {formatClassOption(classroom)}
+                    {formatYoungLearnerClassOption(classroom)}
                   </option>
                 ))}
               </select>
-            </div>
+
+              {loadingClasses ? (
+                <p className="add-users-young-help">Loading classes...</p>
+              ) : classMessage ? (
+                <p className="add-users-young-help">{classMessage}</p>
+              ) : youngLearnerClasses.length === 0 ? (
+                <p className="add-users-young-help">
+                  No Young Learner classes are available yet.
+                </p>
+              ) : null}
+
+              <div className="add-users-young-info">
+                <InfoIcon />
+                <span>Cambridge and Support Classes are excluded from this list.</span>
+              </div>
+            </section>
+
+            <section className="add-users-young-step add-users-young-step-summary">
+              <div className="add-users-young-step-heading">
+                <span className="add-users-young-step-number">2</span>
+                <div>
+                  <h3>Class summary</h3>
+                  <p>Review the selected class details.</p>
+                </div>
+              </div>
+
+              {selectedYoungLearnerClass ? (
+                <dl className="add-users-young-summary">
+                  <div className="add-users-young-summary-row">
+                    <dt>Level / Class</dt>
+                    <dd>
+                      {[
+                        selectedYoungLearnerClass.level_name || "Unknown Level",
+                        selectedYoungLearnerClass.classroom_name,
+                      ]
+                        .filter(Boolean)
+                        .join(" - ")}
+                    </dd>
+                  </div>
+                  <div className="add-users-young-summary-row">
+                    <dt>Teacher</dt>
+                    <dd>{selectedYoungLearnerClass.teacher_name}</dd>
+                  </div>
+                  <div className="add-users-young-summary-row">
+                    <dt>Schedule</dt>
+                    <dd>
+                      {[
+                        selectedYoungLearnerClass.days,
+                        formatTimeRange(
+                          selectedYoungLearnerClass.start_time,
+                          selectedYoungLearnerClass.end_time
+                        ),
+                      ]
+                        .filter(Boolean)
+                        .join(" - ") || "Not scheduled"}
+                    </dd>
+                  </div>
+                  <div className="add-users-young-summary-row">
+                    <dt>Classroom</dt>
+                    <dd>{selectedYoungLearnerClass.classroom_name}</dd>
+                  </div>
+                  <div className="add-users-young-summary-row">
+                    <dt>Current active students</dt>
+                    <dd>
+                      {selectedYoungLearnerClass.active_young_learner_count}
+                    </dd>
+                  </div>
+                </dl>
+              ) : (
+                <div className="add-users-young-summary-empty">
+                  Select a class to view its details.
+                </div>
+              )}
+            </section>
+
+            <section
+              className={`add-users-young-step add-users-young-step-entry ${
+                youngLearnerClassId ? "" : "add-users-young-step-disabled"
+              }`}
+            >
+              <div className="add-users-young-step-heading">
+                <span className="add-users-young-step-number">3</span>
+                <div>
+                  <h3>Add students</h3>
+                  <p>Up to 12 students</p>
+                </div>
+              </div>
+
+              <div
+                className="add-users-young-table"
+                aria-label="Young Learner rows"
+              >
+                <div className="add-users-young-grid-header">
+                  <span>#</span>
+                  <span>First Name</span>
+                  <span>Last Name</span>
+                </div>
+
+                <div className="add-users-young-table-body">
+                  {youngLearnerRows.map((row) => {
+                    const rowErrors = {
+                      ...youngLearnerValidation.errorsByRow[row.id],
+                      ...row.errors,
+                    };
+                    const firstNameId = `young-learner-${row.id}-first-name`;
+                    const lastNameId = `young-learner-${row.id}-last-name`;
+                    const firstNameErrorId = `${firstNameId}-error`;
+                    const lastNameErrorId = `${lastNameId}-error`;
+                    const rowErrorId = `young-learner-${row.id}-error`;
+                    const hasRowError = Boolean(
+                      rowErrors.first_name ||
+                        rowErrors.last_name ||
+                        rowErrors.student
+                    );
+                    const firstNameDescribedBy = [
+                      rowErrors.first_name ? firstNameErrorId : "",
+                      rowErrors.student ? rowErrorId : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    const lastNameDescribedBy = [
+                      rowErrors.last_name ? lastNameErrorId : "",
+                      rowErrors.student ? rowErrorId : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
+                    return (
+                      <div
+                        className={`add-users-young-row ${
+                          hasRowError ? "add-users-young-row-error" : ""
+                        }`}
+                        key={row.id}
+                      >
+                        <div className="add-users-young-row-number">
+                          <span className="add-users-young-row-mobile-label">
+                            Student{" "}
+                          </span>
+                          {row.id}
+                        </div>
+
+                        <div className="add-users-young-field">
+                          <label
+                            className="add-users-young-field-label"
+                            htmlFor={firstNameId}
+                          >
+                            First Name
+                          </label>
+                          <input
+                            id={firstNameId}
+                            aria-label={`Student ${row.id} First Name`}
+                            placeholder="First name"
+                            ref={(element) => {
+                              youngLearnerFirstNameRefs.current[row.id] =
+                                element;
+                            }}
+                            autoComplete="off"
+                            maxLength={youngLearnerMaxNameLength}
+                            value={row.first_name}
+                            disabled={!youngLearnerClassId || saving}
+                            aria-invalid={Boolean(
+                              rowErrors.first_name || rowErrors.student
+                            )}
+                            aria-describedby={
+                              firstNameDescribedBy || undefined
+                            }
+                            onChange={(event) =>
+                              updateYoungLearnerRow(
+                                row.id,
+                                "first_name",
+                                event.target.value
+                              )
+                            }
+                          />
+                          {rowErrors.first_name && (
+                            <span
+                              className="add-users-young-field-error"
+                              id={firstNameErrorId}
+                            >
+                              {rowErrors.first_name}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="add-users-young-field">
+                          <label
+                            className="add-users-young-field-label"
+                            htmlFor={lastNameId}
+                          >
+                            Last Name
+                          </label>
+                          <input
+                            id={lastNameId}
+                            aria-label={`Student ${row.id} Last Name`}
+                            placeholder="Last name"
+                            ref={(element) => {
+                              youngLearnerLastNameRefs.current[row.id] =
+                                element;
+                            }}
+                            autoComplete="off"
+                            maxLength={youngLearnerMaxNameLength}
+                            value={row.last_name}
+                            disabled={!youngLearnerClassId || saving}
+                            aria-invalid={Boolean(
+                              rowErrors.last_name || rowErrors.student
+                            )}
+                            aria-describedby={lastNameDescribedBy || undefined}
+                            onChange={(event) =>
+                              updateYoungLearnerRow(
+                                row.id,
+                                "last_name",
+                                event.target.value
+                              )
+                            }
+                          />
+                          {rowErrors.last_name && (
+                            <span
+                              className="add-users-young-field-error"
+                              id={lastNameErrorId}
+                            >
+                              {rowErrors.last_name}
+                            </span>
+                          )}
+                        </div>
+
+                        {rowErrors.student && (
+                          <p
+                            className="add-users-young-row-message"
+                            id={rowErrorId}
+                          >
+                            {rowErrors.student}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
           </div>
 
-          {loadingClasses ? (
-            <p style={{ color: "#666" }}>Loading classes...</p>
-          ) : classMessage ? (
-            <p style={{ color: "#666" }}>{classMessage}</p>
-          ) : null}
+          <footer className="add-users-young-footer">
+            <p className="add-users-young-footer-info">
+              <InfoIcon />
+              <span>
+                Blank rows are ignored. Rows with only one name are highlighted
+                before saving.
+              </span>
+            </p>
 
-          <SubmitButton saving={saving}>Add Young Learner</SubmitButton>
+            <div className="add-users-young-actions">
+              <button
+                type="button"
+                className="add-users-young-clear"
+                disabled={saving || !hasYoungLearnerEntries}
+                onClick={requestClearYoungLearnerRows}
+              >
+                Clear All
+              </button>
+              <button
+                type="submit"
+                className="add-users-young-submit"
+                disabled={
+                  saving ||
+                  loadingClasses ||
+                  !youngLearnerClassId ||
+                  youngLearnerValidation.completeRows.length === 0 ||
+                  youngLearnerValidation.hasErrors ||
+                  youngLearnerRowsHaveStoredErrors
+                }
+              >
+                {formatYoungLearnerSubmitLabel(
+                  youngLearnerValidation.completeRows.length,
+                  saving
+                )}
+              </button>
+            </div>
+          </footer>
+
+          {youngLearnerDialog && (
+            <div
+              className="add-users-young-dialog-backdrop"
+              role="presentation"
+              onClick={() => setYoungLearnerDialog(null)}
+            >
+              <div
+                className="add-users-young-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="add-users-young-dialog-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <h3 id="add-users-young-dialog-title">
+                  {youngLearnerDialog.type === "clear"
+                    ? "Clear entered students?"
+                    : "Change class?"}
+                </h3>
+                <p>
+                  {youngLearnerDialog.type === "clear"
+                    ? "This will remove all names currently entered. The selected class will remain unchanged."
+                    : "Changing class will clear the entered student names. Continue?"}
+                </p>
+                <div className="add-users-young-dialog-actions">
+                  <button
+                    type="button"
+                    className="add-users-young-dialog-cancel"
+                    onClick={() => setYoungLearnerDialog(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className={`add-users-young-dialog-confirm ${
+                      youngLearnerDialog.type === "clear"
+                        ? "add-users-young-dialog-confirm-danger"
+                        : ""
+                    }`}
+                    onClick={confirmYoungLearnerDialog}
+                  >
+                    {youngLearnerDialog.type === "clear"
+                      ? "Clear All"
+                      : "Change Class"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </form>
       )}
 

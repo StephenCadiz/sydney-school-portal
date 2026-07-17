@@ -2,6 +2,23 @@ import { supabase } from "./supabase";
 
 const cambridgeLevelNames = ["B1", "B2", "C1", "C2"];
 
+export type YoungLearnerBulkClassOption = {
+  id: string;
+  level_name: string;
+  level_catagory: string;
+  class_label: string;
+  classroom_name: string;
+  teacher_id: string;
+  teacher_name: string;
+  course_type: string;
+  days: string;
+  start_time: string;
+  end_time: string;
+  is_cambridge: boolean;
+  is_support: boolean;
+  active_young_learner_count: number;
+};
+
 function normalizeLevelName(levelName: string | null | undefined) {
   return String(levelName || "").trim().toUpperCase();
 }
@@ -292,6 +309,100 @@ export async function getYoungLearnerClassesForStudentCreate() {
       (classroom) =>
         classroom.is_cambridge !== true &&
         !isSupportLevel(classroom.level_name, classroom.level_catagory)
+    );
+}
+
+export async function getYoungLearnerClassesForBulkCreate(): Promise<
+  YoungLearnerBulkClassOption[]
+> {
+  const { classes, levels, classrooms } = await getClassReferenceData();
+  const teacherIds = Array.from(
+    new Set(classes.map((classroom) => classroom.teacher_id).filter(Boolean))
+  );
+
+  const { data: teachers, error: teachersError } =
+    teacherIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", teacherIds)
+      : { data: [], error: null };
+
+  if (teachersError) {
+    console.error("getYoungLearnerBulkClasses teachers error:", teachersError);
+    throw teachersError;
+  }
+
+  const { data: activeYoungLearners, error: youngLearnersError } =
+    await supabase
+      .from("young_learners")
+      .select("id, class_id")
+      .eq("active", true);
+
+  if (youngLearnersError) {
+    console.error(
+      "getYoungLearnerBulkClasses young learners error:",
+      youngLearnersError
+    );
+    throw youngLearnersError;
+  }
+
+  const countsByClassId = (activeYoungLearners || []).reduce<
+    Record<string, number>
+  >((counts, student) => {
+    const classId = String(student.class_id || "");
+
+    if (!classId) {
+      return counts;
+    }
+
+    return {
+      ...counts,
+      [classId]: (counts[classId] || 0) + 1,
+    };
+  }, {});
+
+  return classes
+    .map((classroom) => {
+      const level = levels.find((item) => item.id === classroom.level_id);
+      const assignedClassroom = classrooms.find(
+        (item) => item.id === classroom.classroom_id
+      );
+      const teacher = (teachers || []).find(
+        (item) => item.id === classroom.teacher_id
+      );
+      const levelName = level?.name || "";
+      const levelCategory = level?.catagory || "";
+      const isSupport = isSupportLevel(levelName, levelCategory);
+      const teacherName = `${teacher?.first_name || ""} ${
+        teacher?.last_name || ""
+      }`.trim();
+
+      return {
+        id: classroom.id,
+        level_name: levelName,
+        level_catagory: levelCategory,
+        class_label: getClassLabel(classroom, level, assignedClassroom),
+        classroom_name: getClassroomDisplayName(classroom, assignedClassroom),
+        teacher_id: classroom.teacher_id || "",
+        teacher_name: teacherName || "Not assigned",
+        course_type: classroom.course_type || "",
+        days: classroom.days || "",
+        start_time: classroom.start_time || "",
+        end_time: classroom.end_time || "",
+        is_cambridge: classroom.is_cambridge === true,
+        is_support: isSupport,
+        active_young_learner_count: countsByClassId[String(classroom.id)] || 0,
+      };
+    })
+    .filter(
+      (classroom) =>
+        classroom.is_cambridge !== true && classroom.is_support !== true
+    )
+    .sort((first, second) =>
+      first.class_label.localeCompare(second.class_label, undefined, {
+        sensitivity: "base",
+      })
     );
 }
 
