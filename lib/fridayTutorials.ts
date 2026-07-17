@@ -66,6 +66,116 @@ function formatSupabaseError(action: string, error: any) {
     .join("\n");
 }
 
+function getMadridNow(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const valueByType = Object.fromEntries(
+    parts.map((part) => [part.type, part.value])
+  );
+  const hour = Number(valueByType.hour || 0);
+  const minute = Number(valueByType.minute || 0);
+
+  return {
+    date: `${valueByType.year}-${valueByType.month}-${valueByType.day}`,
+    minutes: hour * 60 + minute,
+  };
+}
+
+function getDateOnly(value: string | null | undefined) {
+  const text = String(value || "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
+
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : "";
+}
+
+function getTimeMinutes(value: string | null | undefined) {
+  const match = /^(\d{1,2}):(\d{2})/.exec(String(value || "").trim());
+
+  if (!match) {
+    return null;
+  }
+
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+export function isFridayTutorialSessionFuture(session: any, now = new Date()) {
+  const sessionDate = getDateOnly(session?.session_date);
+
+  if (!sessionDate) {
+    return false;
+  }
+
+  const madridNow = getMadridNow(now);
+
+  if (sessionDate > madridNow.date) {
+    return true;
+  }
+
+  if (sessionDate < madridNow.date) {
+    return false;
+  }
+
+  const startMinutes = getTimeMinutes(session?.start_time);
+
+  if (startMinutes === null) {
+    return false;
+  }
+
+  return startMinutes > madridNow.minutes;
+}
+
+function isFridayTutorialSessionCompleted(session: any) {
+  const status = String(
+    session?.status || session?.session_status || session?.completion_status || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return Boolean(
+    session?.completed === true ||
+      session?.is_completed === true ||
+      session?.completed_at ||
+      ["completed", "complete", "closed", "finished", "done"].includes(status)
+  );
+}
+
+export function isFridayTutorialSessionRemovable(session: any, now = new Date()) {
+  if (isFridayTutorialSessionCompleted(session)) {
+    return false;
+  }
+
+  const sessionDate = getDateOnly(session?.session_date);
+
+  if (!sessionDate) {
+    return false;
+  }
+
+  const madridNow = getMadridNow(now);
+
+  if (sessionDate > madridNow.date) {
+    return true;
+  }
+
+  if (sessionDate < madridNow.date) {
+    return false;
+  }
+
+  const startMinutes = getTimeMinutes(session?.start_time);
+
+  if (startMinutes === null) {
+    return true;
+  }
+
+  return startMinutes > madridNow.minutes;
+}
+
 export function getTutorialGroupLabel(group: string | null | undefined) {
   return sessionLabels[String(group || "")] || group || "-";
 }
@@ -633,6 +743,15 @@ export async function getFridayTutorialSessionRegister(
     return {
       session_student_id: row.id,
       session_id: row.session_id,
+      session_date: session.session_date,
+      start_time: session.start_time,
+      end_time: session.end_time,
+      completed: session.completed,
+      is_completed: session.is_completed,
+      completed_at: session.completed_at,
+      status: session.status,
+      session_status: session.session_status,
+      completion_status: session.completion_status,
       tutorial_student_id: row.tutorial_student_id,
       student_name: enrichedStudent.student_name || "Unknown student",
       level_name: enrichedStudent.level_name || "Unknown level",
@@ -691,6 +810,81 @@ export async function updateFridayTutorialSessionStudent(
   if (error) {
     throw new Error(formatSupabaseError("weekly register update", error));
   }
+}
+
+export async function removeFutureFridayTutorialSessionMemberships(
+  tutorialStudentId: string,
+  client: any = supabase
+) {
+  const { data: memberships, error: membershipError } = await client
+    .from("friday_tutorial_session_students")
+    .select("id, session_id")
+    .eq("tutorial_student_id", tutorialStudentId);
+
+  if (membershipError) {
+    throw new Error(
+      formatSupabaseError("future session membership lookup", membershipError)
+    );
+  }
+
+  const rows = memberships || [];
+
+  if (rows.length === 0) {
+    return {
+      removed: 0,
+      retained: 0,
+    };
+  }
+
+  const sessionIds = Array.from(
+    new Set(rows.map((item: any) => item.session_id).filter(Boolean))
+  );
+  const { data: sessions, error: sessionsError } =
+    sessionIds.length > 0
+      ? await client
+          .from("friday_tutorial_sessions")
+          .select("id, session_date, start_time")
+          .in("id", sessionIds)
+      : { data: [], error: null };
+
+  if (sessionsError) {
+    throw new Error(
+      formatSupabaseError("future session lookup", sessionsError)
+    );
+  }
+
+  const sessionMap = new Map(
+    (sessions || []).map((session: any) => [session.id, session])
+  );
+  const futureMembershipIds = rows
+    .filter((row: any) =>
+      isFridayTutorialSessionFuture(sessionMap.get(row.session_id))
+    )
+    .map((row: any) => row.id)
+    .filter(Boolean);
+
+  if (futureMembershipIds.length === 0) {
+    return {
+      removed: 0,
+      retained: rows.length,
+    };
+  }
+
+  const { error: deleteError } = await client
+    .from("friday_tutorial_session_students")
+    .delete()
+    .in("id", futureMembershipIds);
+
+  if (deleteError) {
+    throw new Error(
+      formatSupabaseError("future session membership removal", deleteError)
+    );
+  }
+
+  return {
+    removed: futureMembershipIds.length,
+    retained: rows.length - futureMembershipIds.length,
+  };
 }
 
 export async function removeTutorialStudentFromFutureLists(

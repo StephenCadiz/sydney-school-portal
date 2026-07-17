@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import {
   calculateUpcomingFridayTutorials,
@@ -8,11 +8,12 @@ import {
   getFridayTutorialSettings,
   getFridayTutorialStudents,
   getTutorialGroupLabel,
-  removeTutorialStudentFromFutureLists,
+  isFridayTutorialSessionRemovable,
   saveFridayTutorialSettings,
   updateFridayTutorialSessionStudent,
   updateFridayTutorialStudent,
 } from "../../../lib/fridayTutorials";
+import { supabase } from "../../../lib/supabase";
 
 const sessionTypeOptions = [
   {
@@ -183,6 +184,10 @@ export default function AdminFridayTutorialsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [studentPendingRemoval, setStudentPendingRemoval] = useState<any>(null);
+  const [removingStudent, setRemovingStudent] = useState(false);
+  const [removeError, setRemoveError] = useState("");
+  const cancelRemoveButtonRef = useRef<HTMLButtonElement | null>(null);
   const [masterCommentDrafts, setMasterCommentDrafts] = useState<
     Record<string, string>
   >({});
@@ -288,6 +293,26 @@ export default function AdminFridayTutorialsPage() {
     loadRegister(selectedTutorial.session_date, selectedTutorial.tutorial_group);
   }, [selectedSessionKey, selectedTutorial?.session_date, selectedTutorial?.tutorial_group]);
 
+  useEffect(() => {
+    if (!studentPendingRemoval || removingStudent) return;
+
+    cancelRemoveButtonRef.current?.focus();
+  }, [studentPendingRemoval, removingStudent]);
+
+  useEffect(() => {
+    if (!studentPendingRemoval) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !removingStudent) {
+        closeRemoveModal();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [studentPendingRemoval, removingStudent]);
+
   function updateForm(field: string, value: string) {
     setForm((current) => ({
       ...current,
@@ -362,27 +387,100 @@ export default function AdminFridayTutorialsPage() {
     }
   }
 
-  async function handleRemoveFromFutureLists(tutorialStudentId: string) {
-    if (!confirm("Remove this student from future Friday Tutorial lists?")) {
-      return;
-    }
+  function openRemoveModal(student: any, source: "active" | "weekly") {
+    setStudentPendingRemoval({
+      ...student,
+      remove_source: source,
+    });
+    setRemoveError("");
+    setMessage("");
+    setError("");
+  }
 
+  function closeRemoveModal() {
+    if (removingStudent) return;
+
+    setStudentPendingRemoval(null);
+    setRemoveError("");
+  }
+
+  async function getAuthToken() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    return session?.access_token || "";
+  }
+
+  async function handleConfirmRemoveStudent() {
+    if (!studentPendingRemoval || removingStudent) return;
+
+    setRemovingStudent(true);
+    setRemoveError("");
     setMessage("");
     setError("");
 
     try {
-      await removeTutorialStudentFromFutureLists(tutorialStudentId);
+      const token = await getAuthToken();
+
+      if (!token) {
+        throw new Error("Missing authorization token.");
+      }
+
+      const response = await fetch("/api/admin/friday-tutorials/delete-student", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(
+          studentPendingRemoval.remove_source === "weekly"
+            ? { session_student_id: studentPendingRemoval.session_student_id }
+            : { tutorial_student_id: studentPendingRemoval.id }
+        ),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Unable to remove student.");
+      }
+
+      const wasWeeklyRemoval = studentPendingRemoval.remove_source === "weekly";
+      const removedSessionStudentId = studentPendingRemoval.session_student_id;
+
+      if (wasWeeklyRemoval && removedSessionStudentId) {
+        setRegisterRows((current) =>
+          current.filter((row) => row.session_student_id !== removedSessionStudentId)
+        );
+      }
+
+      setStudentPendingRemoval(null);
       await loadMasterData();
+
       if (selectedTutorial) {
         await loadRegister(
           selectedTutorial.session_date,
           selectedTutorial.tutorial_group
         );
       }
-      setMessage("Student removed from future Friday Tutorial lists.");
-    } catch (removeError) {
-      console.error("Unable to remove student from future lists:", removeError);
-      setError("Unable to remove student from future lists.");
+
+      setMessage(
+        wasWeeklyRemoval
+          ? data?.action === "moved_to_suggested"
+            ? "Student removed from the weekly list and moved to Suggested Students."
+            : "Student removed from Friday Tutorials."
+          : data?.action === "moved_to_suggested"
+            ? "Student moved back to Suggested Students."
+            : "Student removed from Friday Tutorials."
+      );
+    } catch (removeActiveError: any) {
+      console.error("Unable to remove Friday Tutorial student:", removeActiveError);
+      const nextError =
+        removeActiveError?.message || "Unable to remove student from Friday Tutorials.";
+      setRemoveError(nextError);
+      setError(nextError);
+    } finally {
+      setRemovingStudent(false);
     }
   }
 
@@ -553,6 +651,76 @@ export default function AdminFridayTutorialsPage() {
           </div>
         )}
 
+        {studentPendingRemoval && (
+          <div
+            className="friday-remove-modal-backdrop"
+            onMouseDown={closeRemoveModal}
+          >
+            <section
+              aria-labelledby="friday-remove-modal-title"
+              aria-modal="true"
+              className="friday-remove-modal"
+              role="dialog"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <h2 id="friday-remove-modal-title">Remove student?</h2>
+              {studentPendingRemoval.remove_source === "weekly" ? (
+                <>
+                  <p>Remove this student from Friday Tutorials?</p>
+                  <p>
+                    This will remove them from this weekly list and all future
+                    Friday sessions. If their current Academic Follow-Up still
+                    recommends Friday Tutorial, they will return to Suggested
+                    Students. Otherwise, their Friday Tutorial record will be
+                    removed.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>Remove this student from the Friday Tutorial list?</p>
+                  <p>
+                    If their current Academic Follow-Up still recommends Friday
+                    Tutorial, they will return to Suggested Students. Otherwise,
+                    their Friday Tutorial record will be removed.
+                  </p>
+                </>
+              )}
+
+              {removeError && (
+                <div className="friday-remove-error" role="alert">
+                  {removeError}
+                </div>
+              )}
+
+              {removingStudent && (
+                <p className="friday-remove-status" aria-live="polite">
+                  Removing...
+                </p>
+              )}
+
+              <div className="friday-remove-modal-actions">
+                <button
+                  ref={cancelRemoveButtonRef}
+                  type="button"
+                  className="friday-remove-cancel"
+                  onClick={closeRemoveModal}
+                  disabled={removingStudent}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="friday-remove-confirm"
+                  onClick={handleConfirmRemoveStudent}
+                  disabled={removingStudent}
+                >
+                  {removingStudent ? "Removing..." : "Remove Student"}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
         <nav
           style={{
             display: "flex",
@@ -673,6 +841,7 @@ export default function AdminFridayTutorialsPage() {
                         <tr style={{ background: "var(--ss-blue)" }}>
                           {[
                             "Name",
+                            "Actions",
                             "Level",
                             "Reason",
                             "Time and Day",
@@ -682,7 +851,6 @@ export default function AdminFridayTutorialsPage() {
                             "Teacher Material Received",
                             "Student Attended",
                             "Comments",
-                            "Remove from Future Lists",
                           ].map((heading) => (
                             <th
                               key={heading}
@@ -691,6 +859,13 @@ export default function AdminFridayTutorialsPage() {
                                 textAlign: "left",
                                 padding: "12px",
                                 fontSize: "13px",
+                                ...(heading === "Actions"
+                                  ? {
+                                      minWidth: "100px",
+                                      whiteSpace: "nowrap",
+                                      width: "112px",
+                                    }
+                                  : {}),
                               }}
                             >
                               {heading}
@@ -699,116 +874,130 @@ export default function AdminFridayTutorialsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {registerRows.map((row) => (
-                          <tr key={row.session_student_id}>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", fontWeight: 700 }}>
-                              {row.student_name}
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                              {row.level_name}
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                              <input
-                                value={row.reason || "Tutorial"}
-                                onChange={(event) =>
-                                  handleUpdateRegisterRow(row.session_student_id, {
-                                    reason: event.target.value,
-                                  })
-                                }
-                                style={{ ...inputStyle, minWidth: "120px" }}
-                              />
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", whiteSpace: "nowrap" }}>
-                              Friday 18:00-19:00
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                              {row.teacher_name}
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                              <StatusSelect
-                                value={row.whatsapp_sent_status}
-                                onChange={(value) =>
-                                  handleUpdateRegisterRow(row.session_student_id, {
-                                    whatsapp_sent_status: value,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                              <StatusSelect
-                                value={row.parent_confirmed_status}
-                                onChange={(value) =>
-                                  handleUpdateRegisterRow(row.session_student_id, {
-                                    parent_confirmed_status: value,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                              <StatusSelect
-                                value={row.material_received_status}
-                                onChange={(value) =>
-                                  handleUpdateRegisterRow(row.session_student_id, {
-                                    material_received_status: value,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                              <StatusSelect
-                                value={row.student_attended_status}
-                                onChange={(value) =>
-                                  handleUpdateRegisterRow(row.session_student_id, {
-                                    student_attended_status: value,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", minWidth: "220px" }}>
-                              <textarea
-                                value={registerCommentDrafts[row.session_student_id] || ""}
-                                onChange={(event) =>
-                                  setRegisterCommentDrafts((current) => ({
-                                    ...current,
-                                    [row.session_student_id]: event.target.value,
-                                  }))
-                                }
-                                style={{ ...inputStyle, minHeight: "58px", resize: "vertical" as const }}
-                              />
-                              <button
-                                onClick={() =>
-                                  handleUpdateRegisterRow(row.session_student_id, {
-                                    comment:
-                                      registerCommentDrafts[row.session_student_id] || "",
-                                  })
-                                }
-                                style={{
-                                  ...primaryButtonStyle,
-                                  marginTop: "8px",
-                                  padding: "8px 10px",
-                                }}
-                              >
-                                Save
-                              </button>
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                              <button
-                                onClick={() =>
-                                  handleRemoveFromFutureLists(row.tutorial_student_id)
-                                }
-                                style={{
-                                  ...primaryButtonStyle,
-                                  background: "#ffffff",
-                                  color: "#991b1b",
-                                  border: "1px solid #fecaca",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                Remove
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {registerRows.map((row) => {
+                          const removableSession = {
+                            ...selectedTutorial,
+                            ...row,
+                          };
+                          const canRemoveWeeklyRow =
+                            isFridayTutorialSessionRemovable(removableSession);
+                          const isRemovingThisWeeklyRow =
+                            removingStudent &&
+                            studentPendingRemoval?.remove_source === "weekly" &&
+                            studentPendingRemoval?.session_student_id ===
+                              row.session_student_id;
+
+                          return (
+                            <tr key={row.session_student_id}>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", fontWeight: 700 }}>
+                                {row.student_name}
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", verticalAlign: "top", whiteSpace: "nowrap", width: "112px" }}>
+                                {canRemoveWeeklyRow ? (
+                                  <button
+                                    type="button"
+                                    className="friday-remove-action"
+                                    onClick={() => openRemoveModal(row, "weekly")}
+                                    disabled={removingStudent}
+                                  >
+                                    {isRemovingThisWeeklyRow ? "Removing..." : "Remove"}
+                                  </button>
+                                ) : (
+                                  <span style={{ color: "#6b7280", fontSize: "13px" }}>
+                                    Not available
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                                {row.level_name}
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                                <input
+                                  value={row.reason || "Tutorial"}
+                                  onChange={(event) =>
+                                    handleUpdateRegisterRow(row.session_student_id, {
+                                      reason: event.target.value,
+                                    })
+                                  }
+                                  style={{ ...inputStyle, minWidth: "120px" }}
+                                />
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", whiteSpace: "nowrap" }}>
+                                Friday 18:00-19:00
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                                {row.teacher_name}
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                                <StatusSelect
+                                  value={row.whatsapp_sent_status}
+                                  onChange={(value) =>
+                                    handleUpdateRegisterRow(row.session_student_id, {
+                                      whatsapp_sent_status: value,
+                                    })
+                                  }
+                                />
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                                <StatusSelect
+                                  value={row.parent_confirmed_status}
+                                  onChange={(value) =>
+                                    handleUpdateRegisterRow(row.session_student_id, {
+                                      parent_confirmed_status: value,
+                                    })
+                                  }
+                                />
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                                <StatusSelect
+                                  value={row.material_received_status}
+                                  onChange={(value) =>
+                                    handleUpdateRegisterRow(row.session_student_id, {
+                                      material_received_status: value,
+                                    })
+                                  }
+                                />
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                                <StatusSelect
+                                  value={row.student_attended_status}
+                                  onChange={(value) =>
+                                    handleUpdateRegisterRow(row.session_student_id, {
+                                      student_attended_status: value,
+                                    })
+                                  }
+                                />
+                              </td>
+                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", minWidth: "220px" }}>
+                                <textarea
+                                  value={registerCommentDrafts[row.session_student_id] || ""}
+                                  onChange={(event) =>
+                                    setRegisterCommentDrafts((current) => ({
+                                      ...current,
+                                      [row.session_student_id]: event.target.value,
+                                    }))
+                                  }
+                                  style={{ ...inputStyle, minHeight: "58px", resize: "vertical" as const }}
+                                />
+                                <button
+                                  onClick={() =>
+                                    handleUpdateRegisterRow(row.session_student_id, {
+                                      comment:
+                                        registerCommentDrafts[row.session_student_id] || "",
+                                    })
+                                  }
+                                  style={{
+                                    ...primaryButtonStyle,
+                                    marginTop: "8px",
+                                    padding: "8px 10px",
+                                  }}
+                                >
+                                  Save
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -889,7 +1078,7 @@ export default function AdminFridayTutorialsPage() {
                                 "Teacher",
                                 "Tutorial Group",
                                 "Comment",
-                                "Remove from Future Lists",
+                                "Remove",
                               ].map((heading) => (
                                 <th
                                   key={heading}
@@ -925,15 +1114,10 @@ export default function AdminFridayTutorialsPage() {
                                 </td>
                                 <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
                                   <button
-                                    onClick={() =>
-                                      handleRemoveFromFutureLists(student.id)
-                                    }
-                                    style={{
-                                      ...primaryButtonStyle,
-                                      background: "#ffffff",
-                                      color: "#991b1b",
-                                      border: "1px solid #fecaca",
-                                    }}
+                                    type="button"
+                                    className="friday-remove-action"
+                                    onClick={() => openRemoveModal(student, "active")}
+                                    disabled={removingStudent}
                                   >
                                     Remove
                                   </button>

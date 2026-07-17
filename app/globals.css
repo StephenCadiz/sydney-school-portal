@@ -2441,6 +2441,111 @@ a:hover .student-dashboard-access-card {
   color: var(--ss-blue-dark);
 }
 
+.friday-remove-action {
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  cursor: pointer;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 9px 13px;
+}
+
+.friday-remove-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.friday-remove-action:focus-visible,
+.friday-remove-cancel:focus-visible,
+.friday-remove-confirm:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.35);
+  outline-offset: 2px;
+}
+
+.friday-remove-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.friday-remove-modal {
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-border);
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+  color: #374151;
+  max-width: 520px;
+  padding: 24px;
+  width: min(100%, 520px);
+}
+
+.friday-remove-modal h2 {
+  color: var(--ss-blue-dark);
+  font-size: 22px;
+  margin: 0 0 12px;
+}
+
+.friday-remove-modal p {
+  line-height: 1.55;
+  margin: 10px 0 0;
+}
+
+.friday-remove-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
+  font-weight: 700;
+  margin-top: 14px;
+  padding: 11px 12px;
+}
+
+.friday-remove-status {
+  color: var(--ss-blue-dark);
+  font-weight: 800;
+}
+
+.friday-remove-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.friday-remove-cancel,
+.friday-remove-confirm {
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 800;
+  min-height: 42px;
+  padding: 10px 15px;
+}
+
+.friday-remove-cancel {
+  background: #ffffff;
+  border: 1px solid var(--ss-border);
+  color: var(--ss-blue-dark);
+}
+
+.friday-remove-confirm {
+  background: #991b1b;
+  border: 1px solid #991b1b;
+  color: #ffffff;
+}
+
+.friday-remove-cancel:disabled,
+.friday-remove-confirm:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 @media (max-width: 640px) {
   .follow-up-friday-status-header {
     align-items: flex-start;
@@ -2450,6 +2555,20 @@ a:hover .student-dashboard-access-card {
   .follow-up-friday-status-actions,
   .follow-up-friday-status-button,
   .follow-up-friday-status-link {
+    width: 100%;
+  }
+
+  .friday-remove-modal {
+    padding: 20px;
+  }
+
+  .friday-remove-modal-actions {
+    flex-direction: column;
+  }
+
+  .friday-remove-cancel,
+  .friday-remove-confirm,
+  .friday-remove-action {
     width: 100%;
   }
 }
