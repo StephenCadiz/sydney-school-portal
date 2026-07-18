@@ -80,6 +80,20 @@ function normalizeLevelCategory(category: string | null | undefined) {
   return String(category || "").trim().toLowerCase();
 }
 
+function getMadridDateString(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value || "";
+  const month = parts.find((part) => part.type === "month")?.value || "";
+  const day = parts.find((part) => part.type === "day")?.value || "";
+
+  return `${year}-${month}-${day}`;
+}
+
 function isSupportLevel(
   levelName: string | null | undefined,
   category: string | null | undefined
@@ -512,7 +526,7 @@ export async function updateStudentClass(
 ) {
   const { data: enrolments, error: enrolmentsError } = await supabase
     .from("class_enrolments")
-    .select("student_id")
+    .select("student_id, class_id")
     .eq("student_id", studentId);
 
   if (enrolmentsError) {
@@ -521,10 +535,17 @@ export async function updateStudentClass(
   }
 
   if (enrolments && enrolments.length > 0) {
+    const currentClassId = String(enrolments[0]?.class_id || "");
+
+    if (currentClassId === String(classId || "")) {
+      return;
+    }
+
     const { error } = await supabase
       .from("class_enrolments")
       .update({
         class_id: classId,
+        enrolled_at: getMadridDateString(),
       })
       .eq("student_id", studentId);
 
@@ -542,6 +563,7 @@ export async function updateStudentClass(
       {
         student_id: studentId,
         class_id: classId,
+        enrolled_at: getMadridDateString(),
       },
     ]);
 

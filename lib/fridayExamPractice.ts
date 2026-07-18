@@ -1,12 +1,16 @@
 import { supabase } from "./supabase";
-import { normalizeCambridgeLevel } from "./homework";
+import {
+  fridayTutorialCambridgeLevels,
+  normalizeCambridgeLevel,
+} from "./fridayTutorialResults";
 
-const allowedLevels = ["B1", "B2", "C1"];
+const allowedLevels = [...fridayTutorialCambridgeLevels];
 
 const activityOptionsByLevel: Record<string, string[]> = {
   B1: ["Reading", "Listening"],
   B2: ["Use of English", "Reading", "Listening"],
   C1: ["Use of English", "Reading", "Listening"],
+  C2: ["Use of English", "Reading", "Listening"],
 };
 
 function formatSupabaseError(action: string, error: any) {
@@ -37,13 +41,14 @@ function validateFridayExamPracticePayload(payload: any) {
   const pdfUrl = String(payload.pdf_url || "").trim();
   const audioUrl = String(payload.audio_url || "").trim();
   const keyUrl = String(payload.key_url || "").trim();
+  const examPart = String(payload.exam_part || "").trim();
 
   if (!sessionDate) {
     throw new Error("Please choose a session date.");
   }
 
-  if (!allowedLevels.includes(levelName)) {
-    throw new Error("Level must be B1, B2 or C1.");
+  if (!allowedLevels.includes(levelName as any)) {
+    throw new Error("Level must be B1, B2, C1 or C2.");
   }
 
   if (!getActivityOptionsForLevel(levelName).includes(activityType)) {
@@ -58,10 +63,15 @@ function validateFridayExamPracticePayload(payload: any) {
     throw new Error("Listening activities require an audio link.");
   }
 
+  if (!examPart) {
+    throw new Error("Please add the exam part.");
+  }
+
   return {
     session_date: sessionDate,
     level_name: levelName,
     activity_type: activityType,
+    exam_part: examPart,
     pdf_url: pdfUrl,
     audio_url: isListeningActivity(activityType) ? audioUrl : null,
     key_url: keyUrl || null,
@@ -133,7 +143,7 @@ export async function getActiveFridayExamPracticeSessions() {
 export async function getFridayExamPracticeSessionsForDate(date: string) {
   const { data, error } = await supabase
     .from("friday_exam_practice_sessions")
-    .select("id, session_date, level_name, activity_type, pdf_url, audio_url, key_url, note, active")
+    .select("id, session_date, level_name, activity_type, exam_part, pdf_url, audio_url, key_url, note, active")
     .eq("active", true)
     .eq("session_date", date)
     .order("level_name", { ascending: true });
@@ -197,12 +207,47 @@ export async function updateFridayExamPracticeSession(
 }
 
 export async function deleteFridayExamPracticeSession(id: string) {
+  const { data: session, error: sessionError } = await supabase
+    .from("friday_exam_practice_sessions")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (sessionError) {
+    throw new Error(formatSupabaseError("delete lookup", sessionError));
+  }
+
+  if (!session) {
+    throw new Error("This activity was not found.");
+  }
+
+  const { count, error: resultsError } = await supabase
+    .from("friday_tutorial_result_sheets")
+    .select("id", { count: "exact", head: true })
+    .eq("tutorial_session_id", id);
+
+  if (resultsError) {
+    throw new Error(formatSupabaseError("result check", resultsError));
+  }
+
+  if ((count || 0) > 0) {
+    throw new Error(
+      "This activity has submitted tutorial result sheets. Mark it inactive instead of deleting it."
+    );
+  }
+
   const { error } = await supabase
     .from("friday_exam_practice_sessions")
     .delete()
     .eq("id", id);
 
   if (error) {
+    if (error.code === "23503") {
+      throw new Error(
+        "This activity has linked tutorial result sheets. Mark it inactive instead of deleting it."
+      );
+    }
+
     throw new Error(formatSupabaseError("delete", error));
   }
 }

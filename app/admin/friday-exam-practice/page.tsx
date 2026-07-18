@@ -17,7 +17,7 @@ import {
   updateFridayExamPracticeSession,
 } from "../../../lib/fridayExamPractice";
 
-const levelOptions = ["B1", "B2", "C1"];
+const levelOptions = ["B1", "B2", "C1", "C2"];
 
 const inputStyle = {
   width: "100%",
@@ -60,6 +60,7 @@ function emptyExamForm() {
     session_date: "",
     level_name: "B1",
     activity_type: "Reading",
+    exam_part: "",
     pdf_url: "",
     audio_url: "",
     key_url: "",
@@ -225,6 +226,7 @@ export default function FridayAt6Page() {
       session_date: item.session_date || "",
       level_name: item.level_name || "B1",
       activity_type: item.activity_type || "Reading",
+      exam_part: item.exam_part || "",
       pdf_url: item.pdf_url || "",
       audio_url: item.audio_url || "",
       key_url: item.key_url || "",
@@ -617,6 +619,19 @@ export default function FridayAt6Page() {
             </label>
 
             <label>
+              <span style={labelStyle}>Exam part</span>
+              <input
+                value={examForm.exam_part}
+                onChange={(event) =>
+                  updateExamForm("exam_part", event.target.value)
+                }
+                placeholder="Part 4"
+                style={inputStyle}
+                required
+              />
+            </label>
+
+            <label>
               <span style={labelStyle}>PDF link</span>
               <input
                 value={examForm.pdf_url}
@@ -758,6 +773,7 @@ export default function FridayAt6Page() {
                               }}
                             >
                               {item.level_name} - {item.activity_type}
+                              {item.exam_part ? ` — ${item.exam_part}` : ""}
                             </h5>
                             <span
                               style={{
