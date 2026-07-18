@@ -1,20 +1,48 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import StudentMenu from "../StudentMenu";
-import { useEffect, useState } from "react";
 import {
-  adjustHomeworkDatesForClassDays,
-  getHomework,
+  getHomeworkSkillLabel,
+  getHomeworkTimingStatus,
+  getReleasedStudentHomework,
+  normalizeHomeworkSkill,
 } from "../../../lib/homework";
+import {
+  buildHomeworkResultMap,
+  getHomeworkResultKey,
+  getHomeworkWeekNumber,
+  getStudentResults,
+  toResultNumber,
+} from "../../../lib/progress";
 import {
   getCurrentStudentCourseInfo,
   getCurrentUser,
 } from "../../../lib/user";
 import { markHomeworkAsViewed } from "../../../lib/studentNotifications";
 
-function formatDateOnly(date: string | null | undefined) {
+type HomeworkItem = {
+  id: string;
+  week_number: string | number;
+  homework_order?: string | number | null;
+  title?: string | null;
+  description?: string | null;
+  homework_skill?: string | null;
+  release_date?: string | null;
+  due_date?: string | null;
+  resource_url?: string | null;
+  audio_url?: string | null;
+};
+
+type ResourceAction = {
+  href: string;
+  label: string;
+};
+
+function formatDateShort(date: string | null | undefined) {
   if (!date) {
-    return "";
+    return "-";
   }
 
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
@@ -28,87 +56,183 @@ function formatDateOnly(date: string | null | undefined) {
     Number(match[2]) - 1,
     Number(match[3])
   ).toLocaleDateString("en-GB", {
-    weekday: "long",
     day: "numeric",
-    month: "long",
+    month: "short",
+    year: "numeric",
   });
 }
 
-const homeworkLinkStyle = {
-  display: "inline-block",
-  marginTop: "10px",
-  marginRight: "10px",
-  color: "#1f3c88",
-  fontWeight: 600,
-  textDecoration: "none",
-} as const;
+function formatPercent(value: any) {
+  const number = toResultNumber(value);
 
-type HomeworkItem = {
-  id: string;
-  week_number: string | number;
-  title?: string | null;
-  description?: string | null;
-  homework_skill?: string | null;
-  resource_url?: string | null;
-  audio_url?: string | null;
-  due_date?: string | null;
-};
+  if (number === null) {
+    return "Not graded";
+  }
+
+  return `${Math.round(number)}%`;
+}
+
+function getHomeworkTitle(item: HomeworkItem) {
+  return item.title?.trim() || `Week ${item.week_number} Homework`;
+}
+
+function getResourceLabel(url: string, isListening: boolean) {
+  if (isListening) {
+    return "Open PDF";
+  }
+
+  const urlWithoutQuery = url.split("?")[0].toLowerCase();
+
+  return urlWithoutQuery.endsWith(".pdf") ? "Open PDF" : "Open Resource";
+}
+
+function getResourceActions(item: HomeworkItem): ResourceAction[] {
+  const isListening = normalizeHomeworkSkill(item.homework_skill) === "listening";
+  const actions: ResourceAction[] = [];
+
+  if (item.resource_url) {
+    actions.push({
+      href: item.resource_url,
+      label: getResourceLabel(item.resource_url, isListening),
+    });
+  }
+
+  if (item.audio_url) {
+    actions.push({
+      href: item.audio_url,
+      label: "Play Audio",
+    });
+  }
+
+  return actions;
+}
+
+function getHomeworkCountLabel(count: number) {
+  return `${count} released homework item${count === 1 ? "" : "s"}`;
+}
 
 export default function HomeworkPage() {
   const [homework, setHomework] = useState<HomeworkItem[]>([]);
+  const [results, setResults] = useState<any[]>([]);
+  const [level, setLevel] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const groupedHomework = homework.reduce<Record<string, HomeworkItem[]>>((groups, item) => {
-  if (!groups[item.week_number]) {
-    groups[item.week_number] = [];
-  }
+  const [error, setError] = useState(false);
 
-  groups[item.week_number].push(item);
+  const resultMap = useMemo(
+    () => buildHomeworkResultMap(results, homework),
+    [results, homework]
+  );
 
-  return groups;
-}, {});
+  const loadHomework = useCallback(async () => {
+    setLoading(true);
+    setError(false);
 
-  useEffect(() => {
-    async function loadHomework() {
-      try {
-        const user = await getCurrentUser();
-        const courseInfo = await getCurrentStudentCourseInfo();
+    try {
+      const user = await getCurrentUser();
+      const courseInfo = await getCurrentStudentCourseInfo();
+      const releasedHomework = await getReleasedStudentHomework(
+        courseInfo.level,
+        courseInfo.courseType,
+        courseInfo.classroom.days
+      );
+      const studentResults = await getStudentResults(user.id);
 
-        const data = await getHomework(
-          courseInfo.level,
-          courseInfo.courseType
-        );
-        const adjustedHomework = adjustHomeworkDatesForClassDays(
-          data,
-          courseInfo.classroom.days
-        );
+      setLevel(courseInfo.level);
+      setHomework(releasedHomework);
+      setResults(studentResults);
 
-        console.log("Homework from Supabase:", data);
-        setHomework(adjustedHomework);
-
-        await markHomeworkAsViewed(
-          user.id,
-          data.map((item) => item.id)
-        );
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
+      if (releasedHomework.length > 0) {
+        try {
+          await markHomeworkAsViewed(
+            user.id,
+            releasedHomework.map((item) => item.id)
+          );
+        } catch (viewError) {
+          console.error("Unable to mark released homework as viewed:", viewError);
+        }
       }
+    } catch (loadError) {
+      console.error(loadError);
+      setError(true);
+      setHomework([]);
+      setResults([]);
+    } finally {
+      setLoading(false);
     }
-
-    loadHomework();
   }, []);
 
+  useEffect(() => {
+    loadHomework();
+  }, [loadHomework]);
+
+  function renderResourceActions(item: HomeworkItem) {
+    const actions = getResourceActions(item);
+
+    if (actions.length === 0) {
+      return <span className="student-homework-muted">-</span>;
+    }
+
+    return (
+      <div className="student-homework-resources">
+        {actions.map((action) => (
+          <a
+            key={`${item.id}-${action.label}`}
+            className="student-homework-resource-link"
+            href={action.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${action.label} for ${getHomeworkTitle(item)}`}
+          >
+            {action.label}
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  function getResultForHomework(item: HomeworkItem) {
+    const key = getHomeworkResultKey(
+      getHomeworkWeekNumber(item),
+      item.homework_skill
+    );
+
+    return key ? resultMap.get(key) : null;
+  }
+
+  function renderResult(item: HomeworkItem) {
+    const result = getResultForHomework(item);
+
+    return (
+      <span
+        className={`student-homework-result ${
+          result ? "is-graded" : "is-not-graded"
+        }`}
+      >
+        {formatPercent(result?.percentage)}
+      </span>
+    );
+  }
+
+  function renderStatus(item: HomeworkItem) {
+    const status = getHomeworkTimingStatus(
+      item,
+      undefined,
+      Boolean(getResultForHomework(item))
+    );
+    const statusClass = status.toLowerCase();
+
+    return (
+      <span
+        className={`student-homework-status is-${statusClass}`}
+      >
+        {status}
+      </span>
+    );
+  }
+
   return (
-    <div
-      className="student-layout-shell"
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "#f5f7fa",
-      }}
-    >
+    <div className="student-layout-shell">
       <div className="student-mobile-topbar">
         <div className="student-mobile-topbar-title">Sydney School / Student</div>
         <button
@@ -145,190 +269,155 @@ export default function HomeworkPage() {
         <StudentMenu />
       </aside>
 
-      <main
-        className="student-main-content student-homework-page"
-        style={{
-          flex: 1,
-          padding: "40px",
-        }}
-      >
-        <h1
-          className="student-homework-header"
-          style={{
-            color: "#1f3c88",
-            marginBottom: "10px",
-          }}
+      <main className="student-main-content student-homework-page">
+        <header className="student-homework-header-block">
+          <h1 className="student-homework-header">Homework</h1>
+          <p className="student-homework-subtitle">
+            View your released homework, resources and results.
+          </p>
+        </header>
+
+        <section
+          className="student-homework-directory"
+          aria-labelledby="student-homework-directory-title"
         >
-          Homework
-        </h1>
+          <div className="student-homework-directory-header">
+            <div>
+              <h2 id="student-homework-directory-title">Released Homework</h2>
+              <p>
+                Current and past homework for your class, ordered by due date.
+              </p>
+            </div>
 
-        <p
-          className="student-homework-subtitle"
-          style={{
-            color: "#666",
-            marginBottom: "40px",
-          }}
-        >
-          View your homework assigned by your teacher.
-        </p>
-
-       {loading ? (
-  <div
-    className="student-homework-empty"
-    style={{
-      background: "#ffffff",
-      borderRadius: "14px",
-      padding: "30px",
-      boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-      maxWidth: "900px",
-      marginBottom: "25px",
-      color: "#666",
-      fontWeight: 600,
-    }}
-  >
-    Loading homework...
-  </div>
-) : homework.length === 0 ? (
-  <div
-    className="student-homework-empty"
-    style={{
-      background: "#ffffff",
-      borderRadius: "14px",
-      padding: "30px",
-      boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-      maxWidth: "900px",
-      marginBottom: "25px",
-      color: "#666",
-      fontWeight: 600,
-    }}
-  >
-    No homework has been posted yet.
-  </div>
-) : (
-  <div className="student-homework-weeks">
-       {Object.entries(groupedHomework).map(([week, items]) => (
-  <div
-    key={week}
-    className="student-homework-week-card"
-    style={{
-      background: "#ffffff",
-      borderRadius: "14px",
-      padding: "30px",
-      boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
-      maxWidth: "900px",
-      marginBottom: "25px",
-    }}
-  >
-    <h2
-      className="student-homework-week-title"
-      style={{
-        marginTop: 0,
-        color: "#1f3c88",
-      }}
-    >
-      Week {week}
-    </h2>
-
-    {items.map((item) => (
-      <div
-        key={item.id}
-        className="student-homework-item"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: "25px",
-          padding: "15px",
-          background: "#f8f9fc",
-          borderRadius: "10px",
-        }}
-      >
-        <div className="student-homework-item-content">
-          <div
-            className="student-homework-item-title"
-            style={{
-              fontWeight: 700,
-              color: "#1f3c88",
-              marginBottom: "6px",
-            }}
-          >
-            {item.title}
+            <div className="student-homework-summary" aria-live="polite">
+              {getHomeworkCountLabel(homework.length)}
+            </div>
           </div>
 
-          <div
-            className="student-homework-description"
-            style={{
-              color: "#555",
-            }}
-          >
-            {item.description}
-          </div>
+          {loading && (
+            <div className="student-homework-state" role="status" aria-live="polite">
+              Loading homework...
+            </div>
+          )}
 
-<div className="student-homework-links">
-{item.homework_skill === "listening" ? (
-  <>
-    {item.resource_url && (
-      <a
-        className="student-homework-link"
-        href={item.resource_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={homeworkLinkStyle}
-      >
-        Open PDF
-      </a>
-    )}
+          {!loading && error && (
+            <div className="student-homework-state is-error" role="alert">
+              <p>Unable to load homework. Please try again.</p>
+              <button type="button" onClick={loadHomework}>
+                Retry
+              </button>
+            </div>
+          )}
 
-    {item.audio_url && (
-      <a
-        className="student-homework-link"
-        href={item.audio_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={homeworkLinkStyle}
-      >
-        Open Audio
-      </a>
-    )}
-  </>
-) : (
-  item.resource_url && (
-    <a
-      className="student-homework-link"
-      href={item.resource_url}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={homeworkLinkStyle}
-    >
-      Open File
-    </a>
-  )
-)}
-</div>
+          {!loading && !error && homework.length === 0 && (
+            <div className="student-homework-state">
+              No homework has been released yet.
+            </div>
+          )}
 
-        </div>
+          {!loading && !error && homework.length > 0 && (
+            <>
+              <div className="student-homework-table-wrap">
+                <table className="student-homework-table">
+                  <caption className="student-homework-table-caption">
+                    Released homework, resources and results
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Week</th>
+                      <th scope="col">Homework</th>
+                      <th scope="col">Skill</th>
+                      <th scope="col">Release</th>
+                      <th scope="col">Due</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Result</th>
+                      <th scope="col">Resources</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {homework.map((item) => {
+                      const skillLabel = getHomeworkSkillLabel(
+                        level,
+                        item.homework_skill
+                      );
 
-        <div
-          className="student-homework-due-date"
-          style={{
-            background: "#ffe8a3",
-            color: "#7a5b00",
-            padding: "6px 14px",
-            borderRadius: "20px",
-            fontWeight: 600,
-            fontSize: "14px",
-          }}
-        >
-          Due{" "}
-{formatDateOnly(item.due_date)}
-        </div>
-      </div>
-    ))}
-  </div>
-))}
-  </div>
-)}
+                      return (
+                        <tr key={item.id}>
+                          <td>Week {item.week_number}</td>
+                          <td>
+                            <strong>{getHomeworkTitle(item)}</strong>
+                            {item.description && (
+                              <span>{item.description}</span>
+                            )}
+                          </td>
+                          <td>{skillLabel || "Homework"}</td>
+                          <td>{formatDateShort(item.release_date)}</td>
+                          <td>{formatDateShort(item.due_date)}</td>
+                          <td>{renderStatus(item)}</td>
+                          <td>{renderResult(item)}</td>
+                          <td>{renderResourceActions(item)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
+              <div className="student-homework-mobile-list">
+                {homework.map((item, index) => {
+                  const skillLabel = getHomeworkSkillLabel(
+                    level,
+                    item.homework_skill
+                  );
+
+                  return (
+                    <article
+                      key={item.id}
+                      className="student-homework-mobile-card"
+                    >
+                      <div className="student-homework-mobile-card-header">
+                        <span>#{index + 1}</span>
+                        {renderStatus(item)}
+                      </div>
+
+                      <h3>{getHomeworkTitle(item)}</h3>
+
+                      {item.description && <p>{item.description}</p>}
+
+                      <dl>
+                        <div>
+                          <dt>Week</dt>
+                          <dd>Week {item.week_number}</dd>
+                        </div>
+                        <div>
+                          <dt>Skill</dt>
+                          <dd>{skillLabel || "Homework"}</dd>
+                        </div>
+                        <div>
+                          <dt>Release</dt>
+                          <dd>{formatDateShort(item.release_date)}</dd>
+                        </div>
+                        <div>
+                          <dt>Due</dt>
+                          <dd>{formatDateShort(item.due_date)}</dd>
+                        </div>
+                        <div>
+                          <dt>Result</dt>
+                          <dd>{renderResult(item)}</dd>
+                        </div>
+                      </dl>
+
+                      <div className="student-homework-mobile-resources">
+                        <span>Resources</span>
+                        {renderResourceActions(item)}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </section>
       </main>
     </div>
   );

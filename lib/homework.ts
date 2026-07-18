@@ -40,6 +40,22 @@ export function normalizeCambridgeLevel(level: unknown) {
   return String(level ?? "").trim().toUpperCase();
 }
 
+export function normalizeHomeworkSkill(skill: unknown) {
+  const normalisedSkill = String(skill ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_&/-]+/g, " ")
+    .replace(/\s+/g, " ");
+
+  if (!normalisedSkill) return "";
+  if (normalisedSkill.includes("listening")) return "listening";
+  if (normalisedSkill.includes("writing")) return "writing";
+  if (normalisedSkill.includes("speaking")) return "speaking";
+  if (normalisedSkill.includes("reading")) return "reading";
+
+  return normalisedSkill;
+}
+
 export function getCambridgeReadingSkillLabel(level: unknown) {
   return normalizeCambridgeLevel(level) === "B1"
     ? "Reading"
@@ -50,19 +66,21 @@ export function getHomeworkSkillLabel(
   level: string,
   skill: string | null | undefined
 ) {
-  if (skill === "reading") {
+  const normalisedSkill = normalizeHomeworkSkill(skill);
+
+  if (normalisedSkill === "reading") {
     return getCambridgeReadingSkillLabel(level);
   }
 
-  if (skill === "listening") {
+  if (normalisedSkill === "listening") {
     return "Listening";
   }
 
-  if (skill === "writing") {
+  if (normalisedSkill === "writing") {
     return "Writing";
   }
 
-  if (skill === "speaking") {
+  if (normalisedSkill === "speaking") {
     return "Speaking";
   }
 
@@ -95,6 +113,21 @@ function shouldMoveHomeworkDates(classDays: string | null | undefined) {
     normalisedDays.includes("tuesday") &&
     normalisedDays.includes("thursday")
   );
+}
+
+export function getMadridDateString(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value])
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function addDaysToDateOnly(dateValue: string | null | undefined, days: number) {
@@ -141,6 +174,85 @@ export function adjustHomeworkDatesForClassDays(
   }));
 }
 
+export function getHomeworkTimingStatus(
+  homework: { due_date?: string | null },
+  todayMadrid = getMadridDateString(),
+  hasMatchingResult = false
+) {
+  if (hasMatchingResult) {
+    return "Complete";
+  }
+
+  if (!homework.due_date || homework.due_date >= todayMadrid) {
+    return "Current";
+  }
+
+  return "Past";
+}
+
+function getDateSortValue(dateValue: string | null | undefined) {
+  return dateValue || "9999-12-31";
+}
+
+function getSkillSortValue(skill: unknown) {
+  const normalisedSkill = normalizeHomeworkSkill(skill);
+
+  if (normalisedSkill === "reading") return 1;
+  if (normalisedSkill === "listening") return 2;
+  if (normalisedSkill === "writing") return 3;
+
+  return 99;
+}
+
+function compareHomeworkTieBreakers(a: any, b: any) {
+  const skillDifference =
+    getSkillSortValue(a.homework_skill) - getSkillSortValue(b.homework_skill);
+
+  if (skillDifference !== 0) return skillDifference;
+
+  const weekDifference = Number(a.week_number || 0) - Number(b.week_number || 0);
+
+  if (weekDifference !== 0) return weekDifference;
+
+  const orderDifference =
+    Number(a.homework_order || 0) - Number(b.homework_order || 0);
+
+  if (orderDifference !== 0) return orderDifference;
+
+  const titleDifference = String(a.title || "").localeCompare(
+    String(b.title || "")
+  );
+
+  if (titleDifference !== 0) return titleDifference;
+
+  return String(a.id || "").localeCompare(String(b.id || ""));
+}
+
+export function sortReleasedHomework(
+  homeworkItems: any[],
+  todayMadrid = getMadridDateString()
+) {
+  return [...homeworkItems].sort((a, b) => {
+    const aStatus = getHomeworkTimingStatus(a, todayMadrid);
+    const bStatus = getHomeworkTimingStatus(b, todayMadrid);
+
+    if (aStatus !== bStatus) {
+      return aStatus === "Current" ? -1 : 1;
+    }
+
+    const aDueDate = getDateSortValue(a.due_date);
+    const bDueDate = getDateSortValue(b.due_date);
+
+    if (aDueDate !== bDueDate) {
+      return aStatus === "Current"
+        ? aDueDate.localeCompare(bDueDate)
+        : bDueDate.localeCompare(aDueDate);
+    }
+
+    return compareHomeworkTieBreakers(a, b);
+  });
+}
+
 export async function getHomework(
   level: string,
   courseType: string
@@ -163,6 +275,39 @@ export async function getHomework(
   if (error) throw error;
 
   return data || [];
+}
+
+export async function getReleasedStudentHomework(
+  level: string,
+  courseType: string,
+  classDays: string | null | undefined
+) {
+  const normalisedLevel = String(level || "").trim().toUpperCase();
+  const normalisedCourseType = String(courseType || "").trim().toLowerCase();
+  const todayMadrid = getMadridDateString();
+
+  if (!normalisedLevel || !normalisedCourseType) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("cambridge_homework")
+    .select("*")
+    .eq("level", normalisedLevel)
+    .eq("course_type", normalisedCourseType)
+    .eq("active", true)
+    .lte("release_date", todayMadrid)
+    .order("week_number")
+    .order("homework_order");
+
+  if (error) throw error;
+
+  const adjustedHomework = adjustHomeworkDatesForClassDays(
+    data || [],
+    classDays
+  ).filter((item) => item.release_date && item.release_date <= todayMadrid);
+
+  return sortReleasedHomework(adjustedHomework, todayMadrid);
 }
 
 export async function createHomework(homework: any) {

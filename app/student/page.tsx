@@ -6,10 +6,16 @@ import Image from "next/image";
 
 import StudentMenu from "./StudentMenu";
 import {
-  adjustHomeworkDatesForClassDays,
-  getHomework,
+  getHomeworkTimingStatus,
+  getReleasedStudentHomework,
   getHomeworkSkillLabel,
 } from "../../lib/homework";
+import {
+  buildHomeworkResultMap,
+  getHomeworkResultKey,
+  getHomeworkWeekNumber,
+  getStudentResults,
+} from "../../lib/progress";
 import {
   getCurrentStudentCourseInfo,
   getCurrentTeacher,
@@ -140,17 +146,36 @@ export default function StudentDashboard() {
         );
         setMeetLink(String(classroom.meet_link ?? "").trim());
 
-        const homeworkData = await getHomework(
+        const releasedHomework = await getReleasedStudentHomework(
           courseInfo.level,
-          courseInfo.courseType
-        );
-        const adjustedHomework = adjustHomeworkDatesForClassDays(
-          homeworkData,
+          courseInfo.courseType,
           courseInfo.classroom.days
         );
-        setCurrentHomework(adjustedHomework.slice(0, 4));
+        const studentResults = await getStudentResults(user.id);
+        const homeworkResultMap = buildHomeworkResultMap(
+          studentResults,
+          releasedHomework
+        );
+        const dashboardHomework = releasedHomework
+          .filter((item) => getHomeworkTimingStatus(item) === "Current")
+          .slice(0, 4)
+          .map((item) => {
+            const resultKey = getHomeworkResultKey(
+              getHomeworkWeekNumber(item),
+              item.homework_skill
+            );
 
-        const homeworkIds = adjustedHomework.map((item) => item.id);
+            return {
+              ...item,
+              homework_result: resultKey
+                ? homeworkResultMap.get(resultKey) || null
+                : null,
+            };
+          });
+
+        setCurrentHomework(dashboardHomework);
+
+        const homeworkIds = releasedHomework.map((item) => item.id);
         const unreadHomeworkIds = await getUnreadHomeworkForStudent(
           user.id,
           homeworkIds
@@ -636,6 +661,11 @@ export default function StudentDashboard() {
                   level,
                   item.homework_skill
                 );
+                const homeworkStatus = getHomeworkTimingStatus(
+                  item,
+                  undefined,
+                  Boolean(item.homework_result)
+                );
 
                 return (
                   <div
@@ -675,6 +705,11 @@ export default function StudentDashboard() {
                         {skillLabel && <span>{skillLabel}</span>}
                         <span>Release: {formatDateOnly(item.release_date)}</span>
                         <span>Due: {formatDateOnly(item.due_date)}</span>
+                        <span
+                          className={`student-homework-status is-${homeworkStatus.toLowerCase()}`}
+                        >
+                          {homeworkStatus}
+                        </span>
                       </div>
                     </div>
 

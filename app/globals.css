@@ -168,6 +168,372 @@ a:hover .student-dashboard-access-card {
   background: var(--ss-blue-hover) !important;
 }
 
+.student-homework-page,
+.student-progress-page {
+  margin: 0 auto;
+  max-width: 1480px;
+  padding: 40px;
+  width: 100%;
+}
+
+.student-homework-header-block,
+.student-progress-header {
+  margin-bottom: 26px;
+}
+
+.student-homework-header,
+.student-progress-header h1 {
+  color: var(--ss-blue-dark);
+  font-size: 34px;
+  line-height: 1.15;
+  margin: 0 0 10px;
+}
+
+.student-homework-subtitle,
+.student-progress-header p {
+  color: #667085;
+  font-size: 17px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.student-homework-directory,
+.student-progress-homework-averages,
+.student-progress-mock-section,
+.student-progress-state {
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(31, 60, 136, 0.07);
+}
+
+.student-homework-directory {
+  overflow: hidden;
+}
+
+.student-homework-directory-header,
+.student-progress-section-header {
+  align-items: flex-start;
+  border-bottom: 1px solid #e8eef6;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding: 22px 24px;
+}
+
+.student-homework-directory-header h2,
+.student-progress-section-header h2 {
+  color: var(--ss-blue-dark);
+  font-size: 22px;
+  line-height: 1.2;
+  margin: 0 0 6px;
+}
+
+.student-homework-directory-header p,
+.student-progress-section-header p {
+  color: #667085;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.student-homework-summary {
+  align-items: center;
+  background: var(--ss-blue-light);
+  border: 1px solid #cfe2f3;
+  border-radius: 999px;
+  color: var(--ss-blue-dark);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 800;
+  min-height: 38px;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+.student-homework-state,
+.student-progress-state {
+  color: #667085;
+  font-weight: 700;
+  margin: 0;
+  padding: 28px 24px;
+}
+
+.student-progress-state {
+  margin-bottom: 24px;
+}
+
+.student-homework-state.is-error,
+.student-progress-state.is-error {
+  color: #9f1d1d;
+}
+
+.student-homework-state.is-error p,
+.student-progress-state.is-error p {
+  margin: 0 0 14px;
+}
+
+.student-homework-state button,
+.student-progress-state button {
+  background: var(--ss-blue);
+  border: 1px solid var(--ss-blue);
+  border-radius: 9px;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 9px 16px;
+}
+
+.student-homework-table-wrap {
+  max-height: min(72vh, 760px);
+  overflow: auto;
+}
+
+.student-homework-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #1f2937;
+  font-size: 14px;
+  min-width: 960px;
+  width: 100%;
+}
+
+.student-homework-table-caption {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.student-homework-table th {
+  background: #f8fafd;
+  border-bottom: 1px solid #dbe7f3;
+  color: var(--ss-blue-dark);
+  font-size: 12px;
+  font-weight: 900;
+  padding: 13px 14px;
+  position: sticky;
+  text-align: left;
+  text-transform: uppercase;
+  top: 0;
+  z-index: 1;
+}
+
+.student-homework-table td {
+  border-bottom: 1px solid #edf2f7;
+  padding: 14px;
+  vertical-align: middle;
+}
+
+.student-homework-table tbody tr {
+  transition: background 0.18s ease;
+}
+
+.student-homework-table tbody tr:hover {
+  background: #fbfdff;
+}
+
+.student-homework-table td:nth-child(2) {
+  min-width: 230px;
+}
+
+.student-homework-table td strong {
+  color: var(--ss-blue-dark);
+  display: block;
+  line-height: 1.35;
+}
+
+.student-homework-table td strong + span {
+  color: #667085;
+  display: block;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-top: 4px;
+  max-width: 420px;
+}
+
+.student-homework-status,
+.student-homework-result {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  min-height: 30px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.student-homework-status.is-current {
+  background: #eaf5fc;
+  border: 1px solid #cfe2f3;
+  color: var(--ss-blue-dark);
+}
+
+.student-homework-status.is-complete {
+  background: #edf7f1;
+  border: 1px solid #cfe9d8;
+  color: #236b3b;
+}
+
+.student-homework-status.is-past {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #4b5563;
+}
+
+.student-homework-result.is-graded {
+  background: #edf7f1;
+  border: 1px solid #cfe9d8;
+  color: #236b3b;
+}
+
+.student-homework-result.is-not-graded {
+  background: #fff7e6;
+  border: 1px solid #f3d49b;
+  color: #8a5a00;
+}
+
+.student-homework-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.student-homework-resource-link {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cfd8e6;
+  border-radius: 9px;
+  color: var(--ss-blue-dark);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 11px;
+  text-decoration: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+.student-homework-resource-link:hover {
+  border-color: var(--ss-blue);
+  box-shadow: 0 8px 16px rgba(47, 125, 184, 0.12);
+  color: var(--ss-blue-hover);
+}
+
+.student-homework-resource-link:focus-visible,
+.student-homework-state button:focus-visible,
+.student-progress-state button:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.24);
+  outline-offset: 3px;
+}
+
+.student-homework-muted {
+  color: #98a2b3;
+}
+
+.student-homework-mobile-list {
+  display: none;
+}
+
+.student-progress-homework-averages {
+  margin-bottom: 30px;
+  overflow: hidden;
+}
+
+.student-progress-average-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 22px 24px 24px;
+}
+
+.student-progress-average-card {
+  background: #ffffff;
+  border: 1px solid #e6eaf2;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(31, 60, 136, 0.05);
+  display: flex;
+  flex-direction: column;
+  min-height: 178px;
+  padding: 18px;
+}
+
+.student-progress-average-card.is-strong {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  border-color: #cfe2f3;
+}
+
+.student-progress-average-card h3 {
+  color: var(--ss-blue-dark);
+  font-size: 16px;
+  line-height: 1.25;
+  margin: 0 0 14px;
+}
+
+.student-progress-average-value {
+  color: var(--ss-blue-dark);
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  margin-top: auto;
+}
+
+.student-progress-average-value.is-empty {
+  color: #667085;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.student-progress-average-card p {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 10px 0 14px;
+}
+
+.student-progress-bar {
+  background: #eef2f7;
+  border-radius: 999px;
+  height: 9px;
+  overflow: hidden;
+}
+
+.student-progress-bar > div {
+  border-radius: 999px;
+  height: 100%;
+}
+
+.student-progress-mock-section {
+  padding-bottom: 24px;
+}
+
+.student-progress-mock-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  padding: 22px 24px 0;
+}
+
+.student-progress-mock-skill {
+  display: grid;
+  gap: 7px;
+}
+
+.student-progress-mock-skill > div:first-child {
+  color: #333333;
+  display: flex;
+  font-size: 14px;
+  gap: 12px;
+  justify-content: space-between;
+}
+
 .admin-sidebar-link {
   min-height: 46px;
 }
@@ -1825,6 +2191,142 @@ a:hover .student-dashboard-access-card {
     line-height: 1.35;
     max-width: 100%;
     overflow-wrap: anywhere;
+  }
+
+  .student-progress-page {
+    padding: 18px 16px 28px !important;
+    width: 100%;
+  }
+
+  .student-homework-header-block,
+  .student-progress-header {
+    margin-bottom: 22px;
+  }
+
+  .student-progress-header h1 {
+    font-size: 2rem;
+  }
+
+  .student-homework-directory-header,
+  .student-progress-section-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .student-homework-summary {
+    align-self: flex-start;
+    white-space: normal;
+  }
+
+  .student-homework-table-wrap {
+    display: none;
+  }
+
+  .student-homework-mobile-list {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .student-homework-mobile-card {
+    background: #ffffff;
+    border: 1px solid #e6eaf2;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(31, 60, 136, 0.05);
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .student-homework-mobile-card-header {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .student-homework-mobile-card-header > span:first-child {
+    color: #667085;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .student-homework-mobile-card h3 {
+    color: var(--ss-blue-dark);
+    font-size: 18px;
+    line-height: 1.3;
+    margin: 0 0 8px;
+    overflow-wrap: anywhere;
+  }
+
+  .student-homework-mobile-card p {
+    color: #667085;
+    line-height: 1.5;
+    margin: 0 0 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .student-homework-mobile-card dl {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+  }
+
+  .student-homework-mobile-card dl > div {
+    display: grid;
+    gap: 4px;
+  }
+
+  .student-homework-mobile-card dt,
+  .student-homework-mobile-resources > span {
+    color: #667085;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .student-homework-mobile-card dd {
+    color: #1f2937;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .student-homework-mobile-resources {
+    border-top: 1px solid #edf2f7;
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+
+  .student-homework-mobile-resources .student-homework-resources {
+    display: grid;
+    width: 100%;
+  }
+
+  .student-homework-mobile-resources .student-homework-resource-link {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .student-progress-average-grid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .student-progress-average-card {
+    min-height: 150px;
+  }
+
+  .student-progress-mock-section {
+    padding-bottom: 16px;
+  }
+
+  .student-progress-mock-grid {
+    grid-template-columns: 1fr;
+    padding: 16px 16px 0;
   }
 }
 

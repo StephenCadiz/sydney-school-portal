@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import StudentMenu from "../StudentMenu";
-import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
-import { getStudentResults } from "../../../lib/progress";
+import {
+  getCambridgeReadingSkillLabel,
+  getReleasedStudentHomework,
+  normalizeHomeworkSkill,
+} from "../../../lib/homework";
+import {
+  getEligibleHomeworkResults,
+  getStudentResults,
+  toResultNumber,
+} from "../../../lib/progress";
 import {
   getCurrentStudentCourseInfo,
   getCurrentUser,
@@ -18,45 +26,28 @@ const cardStyle = {
   boxShadow: "0 6px 18px rgba(31,60,136,0.06)",
 };
 
-function toNumber(value: any) {
-  if (value === null || value === undefined || value === "") {
+function average(values: number[]) {
+  if (values.length === 0) {
     return null;
   }
 
-  const number = Number(value);
-
-  return Number.isFinite(number) ? number : null;
-}
-
-function average(values: Array<number | null>) {
-  const numericValues = values.filter(
-    (value): value is number => value !== null
-  );
-
-  if (numericValues.length === 0) {
-    return null;
-  }
-
-  return (
-    numericValues.reduce((total, value) => total + value, 0) /
-    numericValues.length
-  );
+  return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
 function formatPercent(value: number | null) {
+  if (value === null) return "No graded homework yet";
+
+  return `${Math.round(value)}%`;
+}
+
+function formatMockPercent(value: number | null) {
   if (value === null) return "-";
 
   return `${Math.round(value)}%`;
 }
 
-function getMotivation(value: number | null) {
-  if (value === null) return "Keep going - your progress will appear here.";
-  if (value >= 80) return "Excellent progress";
-  if (value >= 70) return "Very good progress";
-  if (value >= 60) return "Good progress";
-  if (value >= 50) return "Keep going - you are improving";
-
-  return "Keep practising - small improvements matter";
+function getTaskLabel(count: number) {
+  return `Based on ${count} graded homework task${count === 1 ? "" : "s"}`;
 }
 
 function ProgressBar({
@@ -69,125 +60,148 @@ function ProgressBar({
   const width = value === null ? 0 : Math.max(0, Math.min(100, value));
 
   return (
-    <div
-      style={{
-        height: "9px",
-        background: "#eef2f7",
-        borderRadius: "999px",
-        overflow: "hidden",
-      }}
-    >
+    <div className="student-progress-bar">
       <div
         style={{
           width: `${width}%`,
-          height: "100%",
           background: strong ? "#1f3c88" : "#5f7dcc",
-          borderRadius: "999px",
         }}
       />
     </div>
   );
 }
 
-function SkillProgressCard({
+function AverageCard({
   label,
   value,
+  count,
+  strong = false,
 }: {
   label: string;
   value: number | null;
+  count: number;
+  strong?: boolean;
 }) {
-  return (
-    <div style={cardStyle}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: "14px",
-          marginBottom: "12px",
-        }}
-      >
-        <h3
-          style={{
-            color: "#1f3c88",
-            margin: 0,
-            fontSize: "17px",
-          }}
-        >
-          {label}
-        </h3>
+  const hasResults = count > 0 && value !== null;
 
-        <strong style={{ color: "#1f3c88" }}>
-          {formatPercent(value)}
-        </strong>
+  return (
+    <article
+      className={`student-progress-average-card ${strong ? "is-strong" : ""}`}
+      aria-label={label}
+    >
+      <h3>{label}</h3>
+
+      <div
+        className={`student-progress-average-value ${
+          hasResults ? "" : "is-empty"
+        }`}
+      >
+        {formatPercent(value)}
       </div>
 
-      <ProgressBar value={value} />
-    </div>
+      <p>
+        {hasResults
+          ? getTaskLabel(count)
+          : "Results will appear after released homework is graded."}
+      </p>
+
+      <ProgressBar value={value} strong={strong} />
+    </article>
   );
 }
 
 export default function ProgressPage() {
   const [results, setResults] = useState<any[]>([]);
+  const [releasedHomework, setReleasedHomework] = useState<any[]>([]);
   const [level, setLevel] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const readingLabel = getCambridgeReadingSkillLabel(level);
 
-  const weeklyResults = results.filter(
-    (result) => result.result_type === "homework"
+  const eligibleHomeworkResults = useMemo(
+    () => getEligibleHomeworkResults(results, releasedHomework),
+    [results, releasedHomework]
   );
+
   const mockResults = results.filter(
     (result) => result.result_type === "mock"
   );
 
-  const weeklyOverallAverage = average(
-    weeklyResults.map((result) => toNumber(result.percentage))
-  );
-
-  const weeklySkillAverages = {
-    reading: average(
-      weeklyResults
-        .filter((result) => result.skill === "reading")
-        .map((result) => toNumber(result.percentage))
-    ),
-    listening: average(
-      weeklyResults
-        .filter((result) => result.skill === "listening")
-        .map((result) => toNumber(result.percentage))
-    ),
-    writing: average(
-      weeklyResults
-        .filter((result) => result.skill === "writing")
-        .map((result) => toNumber(result.percentage))
-    ),
-  };
-
-  useEffect(() => {
-    async function loadProgress() {
-      try {
-        const user = await getCurrentUser();
-        const courseInfo = await getCurrentStudentCourseInfo();
-        const data = await getStudentResults(user.id);
-
-        setLevel(courseInfo.level);
-        setResults(data);
-      } catch (error) {
-        console.error(error);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
+  const homeworkStats = useMemo(() => {
+    function getSkillValues(skill: string) {
+      return eligibleHomeworkResults
+        .filter((result) => normalizeHomeworkSkill(result.skill) === skill)
+        .map((result) => toResultNumber(result.percentage))
+        .filter((value): value is number => value !== null);
     }
 
-    loadProgress();
+    const readingValues = getSkillValues("reading");
+    const listeningValues = getSkillValues("listening");
+    const writingValues = getSkillValues("writing");
+    const overallValues = eligibleHomeworkResults
+      .map((result) => toResultNumber(result.percentage))
+      .filter((value): value is number => value !== null);
+
+    return {
+      reading: {
+        average: average(readingValues),
+        count: readingValues.length,
+      },
+      listening: {
+        average: average(listeningValues),
+        count: listeningValues.length,
+      },
+      writing: {
+        average: average(writingValues),
+        count: writingValues.length,
+      },
+      overall: {
+        average: average(overallValues),
+        count: overallValues.length,
+      },
+    };
+  }, [eligibleHomeworkResults]);
+
+  const loadProgress = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+
+    try {
+      const user = await getCurrentUser();
+      const courseInfo = await getCurrentStudentCourseInfo();
+      const [studentResults, homeworkItems] = await Promise.all([
+        getStudentResults(user.id),
+        getReleasedStudentHomework(
+          courseInfo.level,
+          courseInfo.courseType,
+          courseInfo.classroom.days
+        ),
+      ]);
+
+      setLevel(courseInfo.level);
+      setResults(studentResults);
+      setReleasedHomework(homeworkItems);
+    } catch (loadError) {
+      console.error(loadError);
+      setError(true);
+      setResults([]);
+      setReleasedHomework([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    loadProgress();
+  }, [loadProgress]);
+
   function getMockAverage(result: any) {
-    const reading = toNumber(result.reading);
-    const writing = toNumber(result.writing);
-    const listening = toNumber(result.listening);
-    const speaking = toNumber(result.speaking);
+    const reading = toResultNumber(result.reading);
+    const writing = toResultNumber(result.writing);
+    const listening = toResultNumber(result.listening);
+    const speaking = toResultNumber(result.speaking);
 
     if (
       reading !== null &&
@@ -198,7 +212,7 @@ export default function ProgressPage() {
       return average([reading, writing, listening, speaking]);
     }
 
-    return toNumber(result.overall);
+    return toResultNumber(result.overall);
   }
 
   function getMockTitle(result: any) {
@@ -211,23 +225,10 @@ export default function ProgressPage() {
 
   function renderMockSkill(label: string, value: number | null) {
     return (
-      <div
-        style={{
-          display: "grid",
-          gap: "7px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: "12px",
-            color: "#333",
-            fontSize: "14px",
-          }}
-        >
+      <div className="student-progress-mock-skill">
+        <div>
           <span>{label}</span>
-          <strong>{formatPercent(value)}</strong>
+          <strong>{formatMockPercent(value)}</strong>
         </div>
 
         <ProgressBar value={value} />
@@ -236,186 +237,120 @@ export default function ProgressPage() {
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "#f5f7fa",
-      }}
-    >
-      <StudentMenu />
-
-      <main
-        style={{
-          flex: 1,
-          padding: "40px",
-        }}
-      >
-        <h1
-          style={{
-            color: "#1f3c88",
-            fontSize: "34px",
-            margin: "0 0 10px",
-          }}
+    <div className="student-layout-shell">
+      <div className="student-mobile-topbar">
+        <div className="student-mobile-topbar-title">Sydney School / Student</div>
+        <button
+          type="button"
+          className="mobile-menu-button"
+          aria-label="Open student menu"
+          onClick={() => setMenuOpen(true)}
         >
-          Student Progress
-        </h1>
+          Menu
+        </button>
+      </div>
 
-        <p
-          style={{
-            color: "#667085",
-            marginBottom: "30px",
-            fontSize: "17px",
-          }}
+      {menuOpen && (
+        <button
+          type="button"
+          aria-label="Close student menu"
+          className="student-mobile-drawer-overlay"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+
+      <div className={`student-mobile-drawer ${menuOpen ? "open" : ""}`}>
+        <button
+          type="button"
+          className="student-mobile-drawer-close"
+          onClick={() => setMenuOpen(false)}
         >
-          Track your exam practice, mock exam results and overall
-          progress.
-        </p>
+          Close
+        </button>
+        <StudentMenu mobileMode onClose={() => setMenuOpen(false)} />
+      </div>
+
+      <aside className="student-desktop-sidebar">
+        <StudentMenu />
+      </aside>
+
+      <main className="student-main-content student-progress-page">
+        <header className="student-progress-header">
+          <h1>Student Progress</h1>
+          <p>Track your homework averages and mock exam progress.</p>
+        </header>
 
         {loading && (
-          <div style={cardStyle}>
-            <p style={{ margin: 0 }}>Loading progress...</p>
+          <div className="student-progress-state" role="status" aria-live="polite">
+            Loading progress...
           </div>
         )}
 
         {!loading && error && (
-          <div style={cardStyle}>
-            <p style={{ margin: 0 }}>Unable to load progress.</p>
+          <div className="student-progress-state is-error" role="alert">
+            <p>Unable to load progress.</p>
+            <button type="button" onClick={loadProgress}>
+              Retry
+            </button>
           </div>
         )}
 
-        {!loading && !error && results.length === 0 && (
-          <div style={cardStyle}>
-            <p style={{ margin: 0 }}>No progress results yet.</p>
-          </div>
-        )}
-
-        {!loading && !error && results.length > 0 && (
+        {!loading && !error && (
           <>
             <section
-              style={{
-                ...cardStyle,
-                marginBottom: "26px",
-              }}
+              className="student-progress-homework-averages"
+              aria-labelledby="student-homework-averages-title"
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "24px",
-                  alignItems: "center",
-                  marginBottom: "14px",
-                }}
-              >
-                <div>
-                  <h2
-                    style={{
-                      color: "#1f3c88",
-                      margin: "0 0 6px",
-                      fontSize: "20px",
-                    }}
-                  >
-                    Overall Weekly Practice Average
-                  </h2>
-
-                  <p
-                    style={{
-                      color: "#667085",
-                      margin: 0,
-                      fontSize: "14px",
-                    }}
-                  >
-                    {getMotivation(weeklyOverallAverage)}
-                  </p>
-                </div>
-
-                <strong
-                  style={{
-                    color: "#1f3c88",
-                    fontSize: "34px",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {formatPercent(weeklyOverallAverage)}
-                </strong>
+              <div className="student-progress-section-header">
+                <h2 id="student-homework-averages-title">Homework Averages</h2>
+                <p>
+                  Only released homework with entered teacher results is
+                  included.
+                </p>
               </div>
 
-              <ProgressBar value={weeklyOverallAverage} strong />
+              <div className="student-progress-average-grid">
+                <AverageCard
+                  label={`${readingLabel} Average`}
+                  value={homeworkStats.reading.average}
+                  count={homeworkStats.reading.count}
+                />
+                <AverageCard
+                  label="Listening Average"
+                  value={homeworkStats.listening.average}
+                  count={homeworkStats.listening.count}
+                />
+                <AverageCard
+                  label="Writing Average"
+                  value={homeworkStats.writing.average}
+                  count={homeworkStats.writing.count}
+                />
+                <AverageCard
+                  label="Overall Homework Average"
+                  value={homeworkStats.overall.average}
+                  count={homeworkStats.overall.count}
+                  strong
+                />
+              </div>
             </section>
 
-            <section style={{ marginBottom: "32px" }}>
-              <h2
-                style={{
-                  color: "#1f3c88",
-                  margin: "0 0 16px",
-                  fontSize: "23px",
-                }}
-              >
-                Weekly Practice Progress
-              </h2>
-
-              {weeklyResults.length === 0 ? (
-                <div style={cardStyle}>
-                  <p style={{ margin: 0 }}>
-                    No weekly practice results yet.
-                  </p>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: "16px",
-                  }}
-                >
-                  <SkillProgressCard
-                    label={readingLabel}
-                    value={weeklySkillAverages.reading}
-                  />
-                  <SkillProgressCard
-                    label="Listening"
-                    value={weeklySkillAverages.listening}
-                  />
-                  <SkillProgressCard
-                    label="Writing"
-                    value={weeklySkillAverages.writing}
-                  />
-                </div>
-              )}
-            </section>
-
-            <section style={{ marginBottom: "32px" }}>
-              <h2
-                style={{
-                  color: "#1f3c88",
-                  margin: "0 0 16px",
-                  fontSize: "23px",
-                }}
-              >
-                Mock Exam Progress
-              </h2>
+            <section className="student-progress-mock-section">
+              <div className="student-progress-section-header">
+                <h2>Mock Exam Progress</h2>
+                <p>Mock exam results remain separate from homework averages.</p>
+              </div>
 
               {mockResults.length === 0 ? (
                 <div style={cardStyle}>
-                  <p style={{ margin: 0 }}>
-                    No mock exam results yet.
-                  </p>
+                  <p style={{ margin: 0 }}>No mock exam results yet.</p>
                 </div>
               ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fit, minmax(280px, 1fr))",
-                    gap: "18px",
-                  }}
-                >
+                <div className="student-progress-mock-grid">
                   {mockResults.map((result) => {
-                    const reading = toNumber(result.reading);
-                    const writing = toNumber(result.writing);
-                    const listening = toNumber(result.listening);
-                    const speaking = toNumber(result.speaking);
+                    const reading = toResultNumber(result.reading);
+                    const writing = toResultNumber(result.writing);
+                    const listening = toResultNumber(result.listening);
+                    const speaking = toResultNumber(result.speaking);
                     const mockAverage = getMockAverage(result);
 
                     return (
@@ -458,7 +393,7 @@ export default function ProgressPage() {
                               }}
                             >
                               <span>Average</span>
-                              <span>{formatPercent(mockAverage)}</span>
+                              <span>{formatMockPercent(mockAverage)}</span>
                             </div>
 
                             <ProgressBar value={mockAverage} strong />
@@ -478,85 +413,6 @@ export default function ProgressPage() {
                           </p>
                         )}
                       </article>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section>
-              <h2
-                style={{
-                  color: "#1f3c88",
-                  margin: "0 0 16px",
-                  fontSize: "23px",
-                }}
-              >
-                Recent Practice Results
-              </h2>
-
-              {weeklyResults.length === 0 ? (
-                <div style={cardStyle}>
-                  <p style={{ margin: 0 }}>
-                    No weekly practice results yet.
-                  </p>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gap: "10px",
-                  }}
-                >
-                  {weeklyResults.slice(0, 5).map((result) => {
-                    const score = toNumber(result.percentage);
-                    const skillLabel =
-                      result.skill === "reading"
-                        ? readingLabel
-                        : result.skill === "listening"
-                        ? "Listening"
-                        : result.skill === "writing"
-                        ? "Writing"
-                        : "Practice";
-
-                    return (
-                      <div
-                        key={result.id}
-                        style={{
-                          background: "#ffffff",
-                          border: "1px solid #e6eaf2",
-                          borderRadius: "10px",
-                          padding: "14px 16px",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: "18px",
-                          alignItems: "center",
-                        }}
-                      >
-                        <div>
-                          <strong style={{ color: "#1f3c88" }}>
-                            {result.title || "Weekly practice"}
-                          </strong>
-                          <div
-                            style={{
-                              color: "#667085",
-                              fontSize: "14px",
-                              marginTop: "4px",
-                            }}
-                          >
-                            {skillLabel}
-                          </div>
-                        </div>
-
-                        <strong
-                          style={{
-                            color: "#1f3c88",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {formatPercent(score)}
-                        </strong>
-                      </div>
                     );
                   })}
                 </div>
