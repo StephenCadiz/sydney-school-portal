@@ -7,7 +7,6 @@ import Link from "next/link";
 import AdminLayout from "../components/layout/AdminLayout";
 import { getAdminClasses } from "../../lib/adminClasses";
 import { getTeachers } from "../../lib/adminTeachers";
-import { getAllHomework } from "../../lib/homework";
 import { getUnreviewedFollowUpsForAdmin } from "../../lib/followUps";
 import { getUpcomingTeacherCalendarEvents } from "../../lib/teacherCalendar";
 import { supabase } from "../../lib/supabase";
@@ -367,7 +366,6 @@ export default function AdminDashboard() {
     teachers: 0,
     cambridgeStudents: 0,
     youngLearners: 0,
-    homework: 0,
     cambridgeByLevel: {
       B1: 0,
       B2: 0,
@@ -400,11 +398,9 @@ export default function AdminDashboard() {
       }
 
       try {
-        const [classes, teachers, homework, studentProfiles] =
-          await Promise.all([
+        const [classes, teachers, studentProfiles] = await Promise.all([
           getAdminClasses(),
           getTeachers(),
-          getAllHomework(),
           supabase
             .from("profiles")
             .select("id")
@@ -457,7 +453,6 @@ export default function AdminDashboard() {
         setOverview({
           classes: classes.length,
           teachers: teachers.length,
-          homework: homework.length,
           ...studentOverview,
         });
       } catch (error) {
@@ -578,11 +573,6 @@ export default function AdminDashboard() {
                 )
               }
             />
-            <StatItem
-              label="Homework Items"
-              value={overview.homework}
-              icon="homework"
-            />
           </div>
 
           {activeStudentBreakdown && (
@@ -613,7 +603,7 @@ export default function AdminDashboard() {
                 href="/admin/teacher-calendar"
                 className="admin-dashboard-secondary-link"
               >
-                View Full Calendar
+                Add Events to Calendar
                 <DashboardIcon name="chevron" size={16} />
               </Link>
             </div>

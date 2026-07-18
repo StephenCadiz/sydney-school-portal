@@ -370,7 +370,7 @@ a:hover .student-dashboard-access-card {
 .admin-dashboard-kpi-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .admin-dashboard-kpi-card {
@@ -378,7 +378,8 @@ a:hover .student-dashboard-access-card {
   border: 1px solid var(--ss-border);
   border-radius: 15px;
   box-shadow: 0 8px 22px rgba(31, 60, 136, 0.055);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   min-height: 158px;
   padding: 18px;
@@ -395,6 +396,11 @@ a:hover .student-dashboard-access-card {
   border-color: rgba(47, 125, 184, 0.28);
   box-shadow: 0 12px 28px rgba(31, 60, 136, 0.09);
   transform: translateY(-1px);
+}
+
+.admin-dashboard-kpi-body {
+  display: grid;
+  gap: 8px;
 }
 
 .admin-dashboard-kpi-icon,
@@ -415,7 +421,6 @@ a:hover .student-dashboard-access-card {
   font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0.02em;
-  margin-bottom: 8px;
 }
 
 .admin-dashboard-kpi-value {
@@ -438,7 +443,7 @@ a:hover .student-dashboard-access-card {
   font-weight: 800;
   gap: 4px;
   justify-content: space-between;
-  margin: 0;
+  margin: auto 0 0;
   min-height: 38px;
   padding: 12px 0 0;
   text-align: left;
@@ -650,6 +655,10 @@ a:hover .student-dashboard-access-card {
 }
 
 @media (max-width: 920px) {
+  .admin-dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-dashboard-header {
     align-items: flex-start;
     flex-direction: column;
@@ -709,7 +718,6 @@ a:hover .student-dashboard-access-card {
 
   .admin-dashboard-kpi-grid {
     gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   }
 
   .admin-dashboard-kpi-card {
