@@ -21,14 +21,6 @@ import {
 } from "../../../lib/user";
 import type { FridayTutorialProgressSummary } from "../../../lib/fridayTutorialResults";
 
-const cardStyle = {
-  background: "#ffffff",
-  border: "1px solid #e6eaf2",
-  borderRadius: "14px",
-  padding: "22px",
-  boxShadow: "0 6px 18px rgba(31,60,136,0.06)",
-};
-
 function average(values: number[]) {
   if (values.length === 0) {
     return null;
@@ -38,7 +30,7 @@ function average(values: number[]) {
 }
 
 function formatPercent(value: number | null) {
-  if (value === null) return "No graded homework yet";
+  if (value === null) return "-";
 
   return `${Math.round(value)}%`;
 }
@@ -84,23 +76,198 @@ function getTaskLabel(count: number) {
   return `Based on ${count} graded homework task${count === 1 ? "" : "s"}`;
 }
 
-function ProgressBar({
+function getTargetForLevel(level: string) {
+  const normalizedLevel = String(level ?? "").trim().toUpperCase();
+
+  return normalizedLevel === "B1" ? 70 : 60;
+}
+
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function getPerformanceStatus(value: number | null, target: number) {
+  if (value === null) {
+    return {
+      key: "empty",
+      label: "Not started yet",
+    };
+  }
+
+  if (value >= 90) {
+    return {
+      key: "excellent",
+      label: "Excellent",
+    };
+  }
+
+  if (value >= target + 15) {
+    return {
+      key: "strong",
+      label: "Strong",
+    };
+  }
+
+  if (value >= target) {
+    return {
+      key: "on-track",
+      label: "On track",
+    };
+  }
+
+  if (value >= target - 10) {
+    return {
+      key: "getting-close",
+      label: "Getting close",
+    };
+  }
+
+  return {
+    key: "building",
+    label: "Building",
+  };
+}
+
+function getNextGoalText(value: number | null, target: number) {
+  if (value === null) {
+    return "Your progress will appear after your first graded task.";
+  }
+
+  if (value >= 100) {
+    return "Outstanding - maximum score achieved.";
+  }
+
+  if (value >= 90) {
+    return "Excellent work - keep the momentum going.";
+  }
+
+  if (value >= target) {
+    const pointsToExcellent = Math.max(0, Math.ceil(90 - value));
+
+    return pointsToExcellent === 1
+      ? "Target achieved ✓ · 1 point to 90%"
+      : `Target achieved ✓ · ${pointsToExcellent} points to 90%`;
+  }
+
+  const pointsToTarget = Math.max(0, Math.ceil(target - value));
+
+  return pointsToTarget <= 2
+    ? `Almost there - ${pointsToTarget} point${
+        pointsToTarget === 1 ? "" : "s"
+      } to your target`
+    : `${pointsToTarget} points to the ${target}% target`;
+}
+
+function getAttendanceStatus(value: number | null) {
+  if (value === null) {
+    return {
+      key: "empty",
+      label: "Attendance waiting to start",
+    };
+  }
+
+  if (value === 100) {
+    return {
+      key: "perfect",
+      label: "Perfect attendance",
+    };
+  }
+
+  if (value >= 90) {
+    return {
+      key: "excellent",
+      label: "Excellent consistency",
+    };
+  }
+
+  if (value >= 75) {
+    return {
+      key: "strong",
+      label: "Strong attendance",
+    };
+  }
+
+  if (value >= 60) {
+    return {
+      key: "building",
+      label: "Building consistency",
+    };
+  }
+
+  return {
+    key: "focus",
+    label: "Keep building your attendance",
+  };
+}
+
+function PerformanceBadge({
+  status,
+}: {
+  status: ReturnType<typeof getPerformanceStatus>;
+}) {
+  return (
+    <span className={`student-progress-status-pill is-${status.key}`}>
+      {status.label}
+    </span>
+  );
+}
+
+function ProgressJourney({
   value,
-  strong = false,
+  target,
+  label,
+  large = false,
 }: {
   value: number | null;
-  strong?: boolean;
+  target: number;
+  label: string;
+  large?: boolean;
 }) {
-  const width = value === null ? 0 : Math.max(0, Math.min(100, value));
+  const width = value === null ? 0 : clampPercent(value);
+  const targetPosition = clampPercent(target);
+  const status = getPerformanceStatus(value, target);
+  const valueText = value === null ? "Not started yet" : `${Math.round(value)}%`;
 
   return (
-    <div className="student-progress-bar">
-      <div
-        style={{
-          width: `${width}%`,
-          background: strong ? "#1f3c88" : "#5f7dcc",
-        }}
-      />
+    <div
+      className={`student-progress-journey is-${status.key} ${
+        large ? "is-large" : ""
+      }`}
+      role="meter"
+      aria-label={`${label}: ${valueText}; target ${target}%`}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(width)}
+      aria-valuetext={`${valueText}; target ${target}%`}
+    >
+      <div className="student-progress-journey-track">
+        <div
+          className="student-progress-journey-fill"
+          style={{ width: `${width}%` }}
+        />
+        {value !== null && (
+          <span
+            className="student-progress-journey-dot"
+            style={{ left: `${width}%` }}
+            aria-hidden="true"
+          />
+        )}
+        <span
+          className="student-progress-journey-target"
+          style={{ left: `${targetPosition}%` }}
+          aria-hidden="true"
+        />
+      </div>
+      <div className="student-progress-journey-labels" aria-hidden="true">
+        <span>0</span>
+        <span
+          className="student-progress-journey-target-label"
+          style={{ left: `${targetPosition}%` }}
+        >
+          Target {target}%
+        </span>
+        <span>100</span>
+      </div>
     </div>
   );
 }
@@ -109,47 +276,71 @@ function AverageCard({
   label,
   value,
   count,
-  strong = false,
+  target,
+  featured = false,
 }: {
   label: string;
   value: number | null;
   count: number;
-  strong?: boolean;
+  target: number;
+  featured?: boolean;
 }) {
   const hasResults = count > 0 && value !== null;
+  const status = getPerformanceStatus(hasResults ? value : null, target);
 
   return (
     <article
-      className={`student-progress-average-card ${strong ? "is-strong" : ""}`}
+      className={`student-progress-average-card is-${status.key} ${
+        featured ? "is-featured" : ""
+      }`}
       aria-label={label}
     >
-      <h3>{label}</h3>
+      <div className="student-progress-card-heading">
+        <h3>{label}</h3>
+        <PerformanceBadge status={status} />
+      </div>
 
       <div
         className={`student-progress-average-value ${
           hasResults ? "" : "is-empty"
         }`}
       >
-        {formatPercent(value)}
+        {hasResults ? formatPercent(value) : "Not started yet"}
       </div>
 
-      <p>
+      <ProgressJourney
+        value={hasResults ? value : null}
+        target={target}
+        label={label}
+        large={featured}
+      />
+
+      <p className="student-progress-next-goal">
         {hasResults
-          ? getTaskLabel(count)
-          : "Results will appear after released homework is graded."}
+          ? getNextGoalText(value, target)
+          : "Your progress will appear after your first graded task."}
       </p>
 
-      <ProgressBar value={value} strong={strong} />
+      <p className="student-progress-task-count">
+        {hasResults ? getTaskLabel(count) : "0 graded tasks so far"}
+      </p>
     </article>
   );
 }
 
 function FridayTutorialProgressSection({
   summary,
+  target,
 }: {
   summary: FridayTutorialProgressSummary;
+  target: number;
 }) {
   const attendance = summary.attendance;
+  const attendanceStatus = getAttendanceStatus(attendance.attendance_percentage);
+  const attendanceDegrees =
+    attendance.attendance_percentage === null
+      ? 0
+      : clampPercent(attendance.attendance_percentage) * 3.6;
 
   return (
     <section
@@ -176,16 +367,26 @@ function FridayTutorialProgressSection({
         <div className="student-progress-friday-content">
           <article className="student-progress-friday-attendance">
             <h3>Attendance</h3>
-            <strong>
+            <div
+              className={`student-progress-attendance-ring is-${attendanceStatus.key}`}
+              style={{
+                background: `conic-gradient(var(--attendance-accent) ${attendanceDegrees}deg, #eef2f7 0deg)`,
+              }}
+              aria-label={`Attendance ${formatTutorialPercent(
+                attendance.attendance_percentage
+              )}`}
+            >
+              <div>
+                <strong>
+                  {formatTutorialPercent(attendance.attendance_percentage)}
+                </strong>
+                <span>{attendanceStatus.label}</span>
+              </div>
+            </div>
+            <p>
               {attendance.attended_count} of {attendance.eligible_count} tutorials
               attended
-            </strong>
-            <p>
-              {attendance.attendance_percentage === null
-                ? "Attendance will appear after results are submitted."
-                : formatTutorialPercent(attendance.attendance_percentage)}
             </p>
-            <ProgressBar value={attendance.attendance_percentage} strong />
           </article>
 
           <div className="student-progress-friday-panel">
@@ -194,15 +395,40 @@ function FridayTutorialProgressSection({
               <p>No scored tutorial attempts yet.</p>
             ) : (
               <div className="student-progress-friday-average-list">
-                {summary.averages.map((item) => (
-                  <div key={item.practice_key}>
-                    <span>{item.practice_label || "Tutorial practice"}</span>
-                    <strong>{formatTutorialPercent(item.average)}</strong>
-                    <small>
-                      {item.count} attempt{item.count === 1 ? "" : "s"}
-                    </small>
-                  </div>
-                ))}
+                {summary.averages.map((item) => {
+                  const status = getPerformanceStatus(item.average, target);
+                  const label = item.practice_label || "Tutorial practice";
+
+                  return (
+                    <div
+                      className={`student-progress-friday-average-item is-${status.key}`}
+                      key={item.practice_key}
+                    >
+                      <div className="student-progress-score-row">
+                        <div>
+                          <span>{label}</span>
+                          <small>
+                            {item.count} attempt{item.count === 1 ? "" : "s"}
+                          </small>
+                        </div>
+                        <div>
+                          <strong>{formatTutorialPercent(item.average)}</strong>
+                          <PerformanceBadge status={status} />
+                        </div>
+                      </div>
+
+                      <ProgressJourney
+                        value={item.average}
+                        target={target}
+                        label={label}
+                      />
+
+                      <p className="student-progress-next-goal">
+                        {getNextGoalText(item.average, target)}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -211,7 +437,16 @@ function FridayTutorialProgressSection({
             <h3>Last 3 Tutorials</h3>
             <div className="student-progress-friday-recent-list">
               {summary.recent.map((item) => (
-                <div key={`${item.result_sheet_id}-${item.result_id}`}>
+                <div
+                  className="student-progress-tutorial-timeline-item"
+                  key={`${item.result_sheet_id}-${item.result_id}`}
+                >
+                  <span
+                    className={`student-progress-tutorial-dot ${
+                      item.attended ? "is-attended" : "is-absent"
+                    }`}
+                    aria-hidden="true"
+                  />
                   <div>
                     <strong>{formatTutorialDate(item.session_date)}</strong>
                     <span>{item.practice_label || item.activity_type}</span>
@@ -250,6 +485,7 @@ export default function ProgressPage() {
   const [error, setError] = useState(false);
 
   const readingLabel = getCambridgeReadingSkillLabel(level);
+  const levelTarget = getTargetForLevel(level);
 
   const eligibleHomeworkResults = useMemo(
     () => getEligibleProgressHomeworkResults(results, homeworkReleaseMetadata),
@@ -364,14 +600,21 @@ export default function ProgressPage() {
   }
 
   function renderMockSkill(label: string, value: number | null) {
+    const status = getPerformanceStatus(value, levelTarget);
+
     return (
-      <div className="student-progress-mock-skill">
-        <div>
-          <span>{label}</span>
-          <strong>{formatMockPercent(value)}</strong>
+      <div className={`student-progress-mock-skill is-${status.key}`}>
+        <div className="student-progress-score-row">
+          <div>
+            <span>{label}</span>
+          </div>
+          <div>
+            <strong>{formatMockPercent(value)}</strong>
+            <PerformanceBadge status={status} />
+          </div>
         </div>
 
-        <ProgressBar value={value} />
+        <ProgressJourney value={value} target={levelTarget} label={label} />
       </div>
     );
   }
@@ -416,8 +659,23 @@ export default function ProgressPage() {
 
       <main className="student-main-content student-progress-page">
         <header className="student-progress-header">
-          <h1>Student Progress</h1>
-          <p>Track your homework averages and mock exam progress.</p>
+          <div>
+            <span className="student-progress-kicker">
+              {level ? `${level} progress` : "Cambridge progress"}
+            </span>
+            <h1>Student Progress</h1>
+            <p>
+              Track your homework, Friday tutorials and mock exam progress
+              {level
+                ? ` against your ${levelTarget}% target.`
+                : " as soon as your course loads."}
+            </p>
+          </div>
+
+          <div className="student-progress-target-card">
+            <span>Target</span>
+            <strong>{level ? `${levelTarget}%` : "-"}</strong>
+          </div>
         </header>
 
         {loading && (
@@ -442,48 +700,74 @@ export default function ProgressPage() {
               aria-labelledby="student-homework-averages-title"
             >
               <div className="student-progress-section-header">
-                <h2 id="student-homework-averages-title">Homework Averages</h2>
-                <p>
-                  Teacher-entered homework results are included after their
-                  matching homework release date.
-                </p>
+                <div>
+                  <h2 id="student-homework-averages-title">
+                    Homework Averages
+                  </h2>
+                  <p>
+                    Teacher-entered homework results are included after their
+                    matching homework release date.
+                  </p>
+                </div>
+                <span className="student-progress-section-target">
+                  Target {levelTarget}%
+                </span>
               </div>
 
               <div className="student-progress-average-grid">
-                <AverageCard
-                  label={`${readingLabel} Average`}
-                  value={homeworkStats.reading.average}
-                  count={homeworkStats.reading.count}
-                />
-                <AverageCard
-                  label="Listening Average"
-                  value={homeworkStats.listening.average}
-                  count={homeworkStats.listening.count}
-                />
-                <AverageCard
-                  label="Writing Average"
-                  value={homeworkStats.writing.average}
-                  count={homeworkStats.writing.count}
-                />
-                <AverageCard
-                  label="Overall Homework Average"
-                  value={homeworkStats.overall.average}
-                  count={homeworkStats.overall.count}
-                  strong
-                />
+                <div className="student-progress-skill-grid">
+                  <AverageCard
+                    label={`${readingLabel} Average`}
+                    value={homeworkStats.reading.average}
+                    count={homeworkStats.reading.count}
+                    target={levelTarget}
+                  />
+                  <AverageCard
+                    label="Listening Average"
+                    value={homeworkStats.listening.average}
+                    count={homeworkStats.listening.count}
+                    target={levelTarget}
+                  />
+                  <AverageCard
+                    label="Writing Average"
+                    value={homeworkStats.writing.average}
+                    count={homeworkStats.writing.count}
+                    target={levelTarget}
+                  />
+                </div>
+
+                <div className="student-progress-overall-wrap">
+                  <AverageCard
+                    label="Overall Homework Progress"
+                    value={homeworkStats.overall.average}
+                    count={homeworkStats.overall.count}
+                    target={levelTarget}
+                    featured
+                  />
+                </div>
               </div>
             </section>
 
-            <FridayTutorialProgressSection summary={fridayTutorialProgress} />
+            <FridayTutorialProgressSection
+              summary={fridayTutorialProgress}
+              target={levelTarget}
+            />
 
             <section className="student-progress-mock-section">
               <div className="student-progress-section-header">
-                <h2>Mock Exam Progress</h2>
-                <p>Mock exam results remain separate from homework averages.</p>
+                <div>
+                  <h2>Mock Exam Progress</h2>
+                  <p>
+                    Mock exam results remain separate from homework averages.
+                  </p>
+                </div>
+                <span className="student-progress-section-target">
+                  Target {levelTarget}%
+                </span>
               </div>
 
               {mockResults.length === 0 ? (
-                <div style={cardStyle}>
+                <div className="student-progress-empty-card">
                   <p style={{ margin: 0 }}>No mock exam results yet.</p>
                 </div>
               ) : (
@@ -494,63 +778,51 @@ export default function ProgressPage() {
                     const listening = toResultNumber(result.listening);
                     const speaking = toResultNumber(result.speaking);
                     const mockAverage = getMockAverage(result);
+                    const mockAverageStatus = getPerformanceStatus(
+                      mockAverage,
+                      levelTarget
+                    );
 
                     return (
-                      <article key={result.id} style={cardStyle}>
-                        <h3
-                          style={{
-                            color: "#1f3c88",
-                            margin: "0 0 16px",
-                            fontSize: "19px",
-                          }}
-                        >
-                          {getMockTitle(result)}
-                        </h3>
+                      <article
+                        className="student-progress-mock-card"
+                        key={result.id}
+                      >
+                        <div className="student-progress-mock-card-header">
+                          <h3>{getMockTitle(result)}</h3>
+                        </div>
 
-                        <div
-                          style={{
-                            display: "grid",
-                            gap: "13px",
-                          }}
-                        >
+                        <div className="student-progress-mock-skill-list">
                           {renderMockSkill(readingLabel, reading)}
                           {renderMockSkill("Writing", writing)}
                           {renderMockSkill("Listening", listening)}
                           {renderMockSkill("Speaking", speaking)}
 
-                          <div
-                            style={{
-                              borderTop: "1px solid #eef2f7",
-                              paddingTop: "13px",
-                              display: "grid",
-                              gap: "8px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                color: "#1f3c88",
-                                fontWeight: 800,
-                              }}
-                            >
-                              <span>Average</span>
-                              <span>{formatMockPercent(mockAverage)}</span>
+                          <div className="student-progress-mock-average">
+                            <div className="student-progress-score-row">
+                              <div>
+                                <span>Average</span>
+                              </div>
+                              <div>
+                                <strong>{formatMockPercent(mockAverage)}</strong>
+                                <PerformanceBadge status={mockAverageStatus} />
+                              </div>
                             </div>
 
-                            <ProgressBar value={mockAverage} strong />
+                            <ProgressJourney
+                              value={mockAverage}
+                              target={levelTarget}
+                              label={`${getMockTitle(result)} average`}
+                              large
+                            />
+                            <p className="student-progress-next-goal">
+                              {getNextGoalText(mockAverage, levelTarget)}
+                            </p>
                           </div>
                         </div>
 
                         {result.comments && (
-                          <p
-                            style={{
-                              color: "#667085",
-                              margin: "16px 0 0",
-                              lineHeight: 1.55,
-                              fontSize: "14px",
-                            }}
-                          >
+                          <p className="student-progress-mock-comment">
                             {result.comments}
                           </p>
                         )}
