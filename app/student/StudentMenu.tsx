@@ -2,11 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  BookOpen,
+  FolderOpen,
+  LayoutDashboard,
+  Megaphone,
+  MessageSquare,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 
 type StudentMenuProps = {
   mobileMode?: boolean;
   onClose?: () => void;
 };
+
+type StudentNavItem = {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+};
+
+const items: StudentNavItem[] = [
+  { name: "Dashboard", href: "/student", icon: LayoutDashboard },
+  { name: "Homework", href: "/student/homework", icon: BookOpen },
+  { name: "Messages", href: "/student/messages", icon: MessageSquare },
+  { name: "Resources", href: "/student/resources", icon: FolderOpen },
+  { name: "Announcements", href: "/student/announcements", icon: Megaphone },
+  { name: "Progress", href: "/student/progress", icon: TrendingUp },
+];
 
 export default function StudentMenu({
   mobileMode = false,
@@ -14,53 +38,64 @@ export default function StudentMenu({
 }: StudentMenuProps) {
   const pathname = usePathname();
 
-  const items = [
-    { name: "Dashboard", href: "/student" },
-    { name: "Homework", href: "/student/homework" },
-    { name: "Messages", href: "/student/messages" },
-    { name: "Resources", href: "/student/resources" },
-    { name: "Announcements", href: "/student/announcements" },
-    { name: "Progress", href: "/student/progress" },
-  ];
-
   const isActive = (href: string) =>
     href === "/student" ? pathname === "/student" : pathname.startsWith(href);
 
   return (
-    <div
-      className={`student-menu ${mobileMode ? "student-menu-mobile" : "student-menu-desktop"}`}
-      style={{
-        width: "260px",
-        background: "var(--ss-blue)",
-        color: "white",
-        padding: "24px 20px",
-        minHeight: "100vh",
-      }}
+    <nav
+      className={`student-menu student-sidebar-nav ${
+        mobileMode ? "student-menu-mobile" : "student-menu-desktop"
+      }`}
+      aria-label="Student portal navigation"
     >
-      {items.map((item) => (
-        <Link
-          key={item.name}
-          href={item.href}
-          className="ss-sidebar-link student-menu-link"
-          onClick={onClose}
-          style={{
-            display: "block",
-            padding: "14px 16px",
-            marginBottom: "8px",
-            borderRadius: "9px",
-            textDecoration: "none",
-            color: "white",
-            background:
-              isActive(item.href)
-                ? "var(--ss-blue-hover)"
-                : "rgba(255,255,255,0.09)",
-            fontWeight: isActive(item.href) ? 700 : 500,
-            transition: "0.2s",
-          }}
-        >
-          {item.name}
-        </Link>
-      ))}
-    </div>
+      <div className="student-sidebar-brand">
+        <span className="student-sidebar-brand-mark" aria-hidden="true">
+          SS
+        </span>
+        <div>
+          <strong>Sydney School</strong>
+          <span>Student Portal</span>
+        </div>
+      </div>
+
+      <div className="student-sidebar-divider" />
+
+      <div className="student-sidebar-nav-label">Navigation</div>
+
+      <div className="student-sidebar-link-list">
+        {items.map((item) => {
+          const active = isActive(item.href);
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={`student-menu-link student-sidebar-link ${
+                active ? "is-active" : ""
+              }`}
+              onClick={onClose}
+            >
+              <span
+                className="student-sidebar-active-indicator"
+                aria-hidden="true"
+              />
+              <span className="student-sidebar-icon" aria-hidden="true">
+                <Icon size={20} strokeWidth={2} />
+              </span>
+              <span className="student-sidebar-link-text">{item.name}</span>
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="student-sidebar-spacer" />
+
+      <div className="student-sidebar-footer">
+        <span>Student Portal</span>
+        <strong>Sydney School</strong>
+      </div>
+    </nav>
   );
 }
