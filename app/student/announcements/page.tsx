@@ -18,6 +18,7 @@ function formatDate(value?: string | null) {
 
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -43,101 +44,91 @@ export default function AnnouncementsPage() {
   }, []);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "#f5f7fa",
-      }}
-    >
-      <StudentMenu />
-
-      <main
-        style={{
-          flex: 1,
-          padding: "40px",
-        }}
-      >
-        <h1
-          style={{
-            color: "#1f3c88",
-            fontSize: "32px",
-            marginBottom: "10px",
-          }}
+    <div className="student-layout-shell">
+      <div className="student-mobile-topbar">
+        <div className="student-mobile-topbar-title">Sydney School / Student</div>
+        <button
+          type="button"
+          className="mobile-menu-button"
+          aria-label="Open student menu"
+          onClick={() => setMenuOpen(true)}
         >
-          Announcements
-        </h1>
+          Menu
+        </button>
+      </div>
 
-        <p
-          style={{
-            color: "#666",
-            marginBottom: "40px",
-          }}
+      {menuOpen && (
+        <button
+          type="button"
+          aria-label="Close student menu"
+          className="student-mobile-drawer-overlay"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+
+      <div className={`student-mobile-drawer ${menuOpen ? "open" : ""}`}>
+        <button
+          type="button"
+          className="student-mobile-drawer-close"
+          onClick={() => setMenuOpen(false)}
         >
-          Important updates from your teacher and Sydney School.
-        </p>
+          Close
+        </button>
+        <StudentMenu mobileMode onClose={() => setMenuOpen(false)} />
+      </div>
 
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: "18px",
-            padding: "30px",
-            boxShadow: "0 8px 25px rgba(0,0,0,0.06)",
-          }}
-        >
-          {loading && <p>Loading announcements...</p>}
+      <aside className="student-desktop-sidebar">
+        <StudentMenu />
+      </aside>
 
-          {!loading && error && <p>Unable to load announcements.</p>}
+      <main className="student-main-content student-announcements-page">
+        <header className="student-announcements-header">
+          <h1>Announcements</h1>
+          <p>Important updates from your teacher and Sydney School.</p>
+        </header>
+
+        <section className="student-announcements-list">
+          {loading && (
+            <div className="student-announcements-state">
+              Loading announcements...
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="student-announcements-state is-error">
+              Unable to load announcements.
+            </div>
+          )}
 
           {!loading && !error && announcements.length === 0 && (
-            <p>No announcements yet.</p>
+            <div className="student-announcements-state">
+              No announcements yet.
+            </div>
           )}
 
           {!loading &&
             !error &&
             announcements.map((announcement) => (
-              <div
+              <article
                 key={announcement.id}
-                style={{
-                  padding: "20px",
-                  background: "#f7f8fc",
-                  border: "1px solid #e6eaf2",
-                  borderRadius: "12px",
-                  marginBottom: "18px",
-                }}
+                className="student-announcements-card"
               >
-                <h3
-                  style={{
-                    marginTop: 0,
-                    color: "#1f3c88",
-                  }}
-                >
+                <h3>
                   {announcement.title || "Announcement"}
                 </h3>
 
-                <p
-                  style={{
-                    color: "#666",
-                    lineHeight: "1.6",
-                    marginBottom: "15px",
-                    whiteSpace: "pre-line",
-                  }}
-                >
+                <p>
                   {announcement.content || ""}
                 </p>
 
                 {announcement.created_at && (
-                  <small
-                    style={{
-                      color: "#999",
-                    }}
-                  >
+                  <small className="student-announcements-date">
                     Posted {formatDate(announcement.created_at)}
                   </small>
                 )}
-              </div>
+              </article>
             ))}
-        </div>
+        </section>
       </main>
     </div>
   );

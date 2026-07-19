@@ -21,8 +21,6 @@ export default function StudentMenu({
     { name: "Resources", href: "/student/resources" },
     { name: "Announcements", href: "/student/announcements" },
     { name: "Progress", href: "/student/progress" },
-    { name: "Mock Exams", href: "/student/mock-exams" },
-    { name: "Profile", href: "/student/profile" },
   ];
 
   const isActive = (href: string) =>

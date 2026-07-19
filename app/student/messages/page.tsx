@@ -25,14 +25,6 @@ const inputStyle = {
   boxSizing: "border-box" as const,
 };
 
-const cardStyle = {
-  background: "#ffffff",
-  border: "1px solid #e6eaf2",
-  borderRadius: "12px",
-  padding: "20px",
-  boxShadow: "0 6px 18px rgba(31,60,136,0.06)",
-};
-
 function getPreview(message: string) {
   if (!message) return "";
 
@@ -47,6 +39,7 @@ export default function StudentMessagesPage() {
   const [inboxMessages, setInboxMessages] = useState<any[]>([]);
   const [sentMessages, setSentMessages] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("inbox");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [openMessage, setOpenMessage] = useState<any>(null);
   const [openMessageType, setOpenMessageType] = useState<
     "inbox" | "sent"
@@ -192,7 +185,7 @@ export default function StudentMessagesPage() {
   ) {
     if (items.length === 0) {
       return (
-        <p style={{ color: "#667085", margin: 0 }}>
+        <p className="student-messages-empty">
           {type === "inbox"
             ? "No inbox messages yet."
             : "No sent messages yet."}
@@ -201,7 +194,7 @@ export default function StudentMessagesPage() {
     }
 
     return (
-      <div style={{ display: "grid", gap: "12px" }}>
+      <div className="student-messages-list">
         {items.map((item) => (
           <button
             key={item.id}
@@ -210,63 +203,27 @@ export default function StudentMessagesPage() {
                 ? openInboxMessage(item)
                 : openSentMessage(item)
             }
-            style={{
-              ...cardStyle,
-              cursor: "pointer",
-              textAlign: "left",
-              border:
-                type === "inbox" && !item.read_at
-                  ? "1px solid #b8c7ee"
-                  : "1px solid #e6eaf2",
-            }}
+            className={`student-messages-card ${
+              type === "inbox" && !item.read_at ? "is-unread" : ""
+            }`}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "14px",
-                marginBottom: "8px",
-              }}
-            >
-              <strong style={{ color: "#1f3c88", fontSize: "16px" }}>
+            <div className="student-messages-card-header">
+              <strong>
                 {item.subject || "No subject"}
               </strong>
 
-              <span
-                style={{
-                  color: "#667085",
-                  fontSize: "13px",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <span>
                 {formatMessageDateTime(item.created_at)}
               </span>
             </div>
 
             {type === "inbox" && !item.read_at && (
-              <span
-                style={{
-                  display: "inline-block",
-                  background: "#eef3ff",
-                  color: "#1f3c88",
-                  borderRadius: "999px",
-                  padding: "4px 9px",
-                  fontWeight: 700,
-                  fontSize: "12px",
-                  marginBottom: "8px",
-                }}
-              >
+              <span className="student-messages-new-badge">
                 New
               </span>
             )}
 
-            <p
-              style={{
-                color: "#5f6b7a",
-                margin: 0,
-                lineHeight: 1.5,
-              }}
-            >
+            <p className="student-messages-preview">
               {getPreview(item.message)}
             </p>
           </button>
@@ -276,58 +233,67 @@ export default function StudentMessagesPage() {
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "#f5f7fa",
-      }}
-    >
-      <StudentMenu />
+    <div className="student-layout-shell">
+      <div className="student-mobile-topbar">
+        <div className="student-mobile-topbar-title">Sydney School / Student</div>
+        <button
+          type="button"
+          className="mobile-menu-button"
+          aria-label="Open student menu"
+          onClick={() => setMenuOpen(true)}
+        >
+          Menu
+        </button>
+      </div>
 
-      <main
-        style={{
-          flex: 1,
-          padding: "40px",
-        }}
-      >
-        <header style={{ marginBottom: "28px" }}>
-          <h1
-            style={{
-              color: "#1f3c88",
-              margin: 0,
-              fontSize: "34px",
-            }}
-          >
-            Messages
-          </h1>
+      {menuOpen && (
+        <button
+          type="button"
+          aria-label="Close student menu"
+          className="student-mobile-drawer-overlay"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
 
-          <p style={{ color: "#667085", marginTop: "8px" }}>
-            School messages between you and your class teacher.
-          </p>
+      <div className={`student-mobile-drawer ${menuOpen ? "open" : ""}`}>
+        <button
+          type="button"
+          className="student-mobile-drawer-close"
+          onClick={() => setMenuOpen(false)}
+        >
+          Close
+        </button>
+        <StudentMenu mobileMode onClose={() => setMenuOpen(false)} />
+      </div>
+
+      <aside className="student-desktop-sidebar">
+        <StudentMenu />
+      </aside>
+
+      <main className="student-main-content student-messages-page">
+        <header className="student-messages-header">
+          <h1>Messages</h1>
+
+          <p>School messages between you and your class teacher.</p>
         </header>
 
         {loading ? (
-          <div style={cardStyle}>Loading messages...</div>
+          <div className="student-messages-state">Loading messages...</div>
         ) : openMessage ? (
-          <section style={cardStyle}>
+          <section className="student-messages-open-card">
             <button
+              type="button"
+              className="student-messages-secondary-button"
               onClick={() => setOpenMessage(null)}
-              style={{ marginBottom: "18px" }}
             >
               Back
             </button>
 
-            <h2
-              style={{
-                color: "#1f3c88",
-                margin: "0 0 12px",
-              }}
-            >
+            <h2>
               {openMessage.subject || "No subject"}
             </h2>
 
-            <p style={{ color: "#667085", marginTop: 0 }}>
+            <p className="student-messages-meta">
               {openMessageType === "inbox"
                 ? `From: ${teacher?.first_name || ""} ${
                     teacher?.last_name || ""
@@ -339,13 +305,7 @@ export default function StudentMessagesPage() {
               {formatMessageDateTime(openMessage.created_at)}
             </p>
 
-            <p
-              style={{
-                color: "#333",
-                lineHeight: 1.65,
-                whiteSpace: "pre-wrap",
-              }}
-            >
+            <p className="student-messages-body">
               {openMessage.message}
             </p>
 
@@ -354,19 +314,19 @@ export default function StudentMessagesPage() {
                 href={openMessage.attachment_link}
                 target="_blank"
                 rel="noreferrer"
-                style={{
-                  color: "#1f3c88",
-                  fontWeight: 700,
-                  textDecoration: "none",
-                }}
+                className="student-messages-attachment"
               >
                 Open attachment
               </a>
             )}
 
             {openMessageType === "inbox" && (
-              <div style={{ marginTop: "22px" }}>
-                <button onClick={() => startReply(openMessage)}>
+              <div className="student-messages-actions">
+                <button
+                  type="button"
+                  className="student-messages-primary-button"
+                  onClick={() => startReply(openMessage)}
+                >
                   Reply
                 </button>
               </div>
@@ -374,30 +334,16 @@ export default function StudentMessagesPage() {
           </section>
         ) : (
           <>
-            <div
-              style={{
-                display: "flex",
-                gap: "10px",
-                marginBottom: "22px",
-              }}
-            >
+            <div className="student-messages-tabs">
               {["inbox", "sent", "new"].map((tab) => (
                 <button
+                  type="button"
                   key={tab}
+                  className={activeTab === tab ? "is-active" : ""}
                   onClick={() => {
                     setActiveTab(tab);
                     setStatusMessage("");
                     setErrorMessage("");
-                  }}
-                  style={{
-                    background:
-                      activeTab === tab ? "#1f3c88" : "#ffffff",
-                    color: activeTab === tab ? "#ffffff" : "#1f3c88",
-                    border: "1px solid #d8e2fb",
-                    borderRadius: "8px",
-                    padding: "10px 16px",
-                    cursor: "pointer",
-                    fontWeight: 700,
                   }}
                 >
                   {tab === "inbox"
@@ -410,27 +356,13 @@ export default function StudentMessagesPage() {
             </div>
 
             {errorMessage && (
-              <div
-                style={{
-                  ...cardStyle,
-                  color: "#b00020",
-                  marginBottom: "18px",
-                  fontWeight: 600,
-                }}
-              >
+              <div className="student-messages-state is-error">
                 {errorMessage}
               </div>
             )}
 
             {statusMessage && (
-              <div
-                style={{
-                  ...cardStyle,
-                  color: "#287a45",
-                  marginBottom: "18px",
-                  fontWeight: 600,
-                }}
-              >
+              <div className="student-messages-state is-success">
                 {statusMessage}
               </div>
             )}
@@ -444,17 +376,10 @@ export default function StudentMessagesPage() {
             )}
 
             {activeTab === "new" && (
-              <form onSubmit={handleSendMessage} style={cardStyle}>
-                <h2
-                  style={{
-                    color: "#1f3c88",
-                    marginTop: 0,
-                  }}
-                >
-                  New Message
-                </h2>
+              <form onSubmit={handleSendMessage} className="student-messages-form">
+                <h2>New Message</h2>
 
-                <p style={{ color: "#667085" }}>
+                <p>
                   To:{" "}
                   <strong>
                     {teacher
@@ -493,15 +418,7 @@ export default function StudentMessagesPage() {
                 <button
                   type="submit"
                   disabled={sending}
-                  style={{
-                    background: "#1f3c88",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: "8px",
-                    padding: "12px 20px",
-                    cursor: sending ? "not-allowed" : "pointer",
-                    fontWeight: 700,
-                  }}
+                  className="student-messages-primary-button"
                 >
                   {sending ? "Sending..." : "Send Message"}
                 </button>

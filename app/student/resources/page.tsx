@@ -1,93 +1,74 @@
 "use client";
 
+import { useState } from "react";
+
 import StudentMenu from "../StudentMenu";
 
 export default function ResourcesPage() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "#f5f7fa",
-      }}
-    >
-      <StudentMenu />
-
-      <main
-        style={{
-          flex: 1,
-          padding: "40px",
-        }}
-      >
-        <h1
-          style={{
-            color: "#1f3c88",
-            marginBottom: "10px",
-            fontSize: "32px",
-          }}
+    <div className="student-layout-shell">
+      <div className="student-mobile-topbar">
+        <div className="student-mobile-topbar-title">Sydney School / Student</div>
+        <button
+          type="button"
+          className="mobile-menu-button"
+          aria-label="Open student menu"
+          onClick={() => setMenuOpen(true)}
         >
-          Resources
-        </h1>
+          Menu
+        </button>
+      </div>
 
-        <p
-          style={{
-            color: "#666",
-            marginBottom: "40px",
-          }}
+      {menuOpen && (
+        <button
+          type="button"
+          aria-label="Close student menu"
+          className="student-mobile-drawer-overlay"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+
+      <div className={`student-mobile-drawer ${menuOpen ? "open" : ""}`}>
+        <button
+          type="button"
+          className="student-mobile-drawer-close"
+          onClick={() => setMenuOpen(false)}
         >
-          Download worksheets, PDFs, audio files and extra learning materials.
-        </p>
+          Close
+        </button>
+        <StudentMenu mobileMode onClose={() => setMenuOpen(false)} />
+      </div>
 
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: "18px",
-            padding: "30px",
-            boxShadow: "0 8px 25px rgba(0,0,0,0.06)",
-          }}
-        >
-          <h2
-            style={{
-              color: "#1f3c88",
-              marginTop: 0,
-            }}
-          >
-            Week 1 Resources
-          </h2>
+      <aside className="student-desktop-sidebar">
+        <StudentMenu />
+      </aside>
 
-          <div
-            style={{
-              marginTop: "20px",
-              padding: "20px",
-              background: "#f7f8fc",
-              borderRadius: "12px",
-            }}
-          >
+      <main className="student-main-content student-resources-page">
+        <header className="student-resources-header">
+          <h1>Resources</h1>
+          <p>Download worksheets, PDFs, audio files and extra learning materials.</p>
+        </header>
+
+        <section className="student-resources-card">
+          <h2>Week 1 Resources</h2>
+
+          <div className="student-resources-item">
             <strong>B2 Reading Worksheet</strong>
 
-            <p
-              style={{
-                marginTop: "8px",
-                color: "#666",
-              }}
-            >
+            <p>
               Additional Cambridge Reading Part 5 practice.
             </p>
 
             <button
-              style={{
-                background: "#1f3c88",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                padding: "10px 18px",
-                cursor: "pointer",
-              }}
+              type="button"
+              className="student-resources-action"
             >
               Download PDF
             </button>
           </div>
-        </div>
+        </section>
       </main>
     </div>
   );
