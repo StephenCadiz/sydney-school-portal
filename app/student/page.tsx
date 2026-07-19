@@ -59,21 +59,9 @@ const cardStyle = {
   boxShadow: "0 10px 26px rgba(31,60,136,0.07)",
 };
 
-const actionButtonStyle = {
-  alignItems: "center",
-  background: "var(--ss-blue)",
-  border: "1px solid var(--ss-blue)",
-  borderRadius: "9px",
-  color: "#ffffff",
-  display: "inline-flex",
-  fontWeight: 700,
-  fontSize: "14px",
-  justifyContent: "center",
-  textDecoration: "none",
-  minHeight: "42px",
-  marginTop: "16px",
-  padding: "10px 16px",
-};
+function formatSchedule(value: string) {
+  return value.replace(" - ", " · ");
+}
 
 export default function StudentDashboard() {
   const [studentName, setStudentName] = useState("Student");
@@ -248,22 +236,7 @@ export default function StudentDashboard() {
           padding: "40px",
         }}
       >
-        <section
-          className="student-dashboard-hero"
-          style={{
-            background: "#ffffff",
-            borderRadius: "18px",
-            padding: "30px 32px",
-            marginBottom: "24px",
-            border: "1px solid var(--ss-border)",
-            boxShadow: "0 14px 34px rgba(31,60,136,0.09)",
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) 176px",
-            gap: "30px",
-            alignItems: "center",
-            borderLeft: "5px solid var(--ss-blue)",
-          }}
-        >
+        <section className="student-dashboard-hero">
           <div className="student-dashboard-hero-inner">
             <Image
               className="student-dashboard-logo"
@@ -272,57 +245,23 @@ export default function StudentDashboard() {
               width={230}
               height={80}
               priority
-              style={{
-                width: "230px",
-                height: "auto",
-                marginBottom: "18px",
-              }}
             />
 
-            <h1
-              style={{
-                color: "#1f3c88",
-                margin: 0,
-                fontSize: "36px",
-                lineHeight: 1.15,
-              }}
-            >
+            <h1>
               Welcome back, {studentName}
             </h1>
 
-            <p
-              style={{
-                color: "#667085",
-                margin: "10px 0 0",
-                fontSize: "17px",
-              }}
-            >
-              Here is your latest course information.
+            <p>
+              Your {level} course at a glance.
             </p>
           </div>
 
-          <div
-            className="student-dashboard-classroom-image"
-            style={{
-              justifySelf: "center",
-              background: "var(--ss-blue-light)",
-              borderRadius: "16px",
-              padding: "20px",
-              border: "1px solid var(--ss-border)",
-            }}
-          >
-            <Image
-              src={classroomLogo}
-              alt={classroomName}
-              width={118}
-              height={118}
-              style={{
-                width: "118px",
-                height: "118px",
-                objectFit: "contain",
-              }}
-            />
-          </div>
+          {!loading && unreadHomeworkCount === 0 && unreadMessageCount === 0 && (
+            <div className="student-dashboard-up-to-date">
+              <span aria-hidden="true">✓</span>
+              You&apos;re up to date
+            </div>
+          )}
         </section>
 
         {error && (
@@ -344,236 +283,78 @@ export default function StudentDashboard() {
           classId={classId}
         />
 
-        <section
-          style={{
-            ...cardStyle,
-            borderLeft: "3px solid var(--ss-blue)",
-            marginBottom: "24px",
-            padding: "24px",
-          }}
-        >
-          <h2
-            style={{
-              color: "#1f3c88",
-              margin: "0 0 14px",
-              fontSize: "20px",
-            }}
-          >
-            Notifications
-          </h2>
-
-          {loading ? (
-            <p style={{ color: "#667085", margin: 0 }}>
-              Loading notifications...
-            </p>
-          ) : unreadHomeworkCount === 0 && unreadMessageCount === 0 ? (
-            <p style={{ color: "#287a45", margin: 0, fontWeight: 600 }}>
-              You are up to date.
-            </p>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gap: "12px",
-              }}
-            >
-              {unreadHomeworkCount > 0 && (
-                <div
-                  className="student-dashboard-notification-row"
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                    alignItems: "center",
-                    background: "#f8fafd",
-                    border: "1px solid #e6eaf2",
-                    borderRadius: "10px",
-                    padding: "14px",
-                  }}
-                >
-                  <div>
-                    <strong style={{ color: "#333" }}>
-                      New homework available
-                    </strong>
-                    <div
-                      style={{
-                        color: "#667085",
-                        fontSize: "14px",
-                        marginTop: "4px",
-                      }}
-                    >
-                      {unreadHomeworkCount} item
-                      {unreadHomeworkCount === 1 ? "" : "s"} to review
-                    </div>
-                  </div>
-
-                  <Link
-                    className="student-dashboard-action-button"
-                    href="/student/homework"
-                    style={{
-                      ...actionButtonStyle,
-                      marginTop: 0,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    View Homework
-                  </Link>
+        {!loading && (unreadHomeworkCount > 0 || unreadMessageCount > 0) && (
+          <section className="student-dashboard-alerts" aria-label="Notifications">
+            {unreadHomeworkCount > 0 && (
+              <div className="student-dashboard-notification-row">
+                <div>
+                  <strong>New homework available</strong>
+                  <span>
+                    {unreadHomeworkCount} item
+                    {unreadHomeworkCount === 1 ? "" : "s"} to review
+                  </span>
                 </div>
-              )}
 
-              {unreadMessageCount > 0 && (
-                <div
-                  className="student-dashboard-notification-row"
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                    alignItems: "center",
-                    background: "#f8fafd",
-                    border: "1px solid #e6eaf2",
-                    borderRadius: "10px",
-                    padding: "14px",
-                  }}
+                <Link
+                  className="student-dashboard-action-link"
+                  href="/student/homework"
                 >
-                  <div>
-                    <strong style={{ color: "#333" }}>
-                      New message from your teacher
-                    </strong>
-                    <div
-                      style={{
-                        color: "#667085",
-                        fontSize: "14px",
-                        marginTop: "4px",
-                      }}
-                    >
-                      {unreadMessageCount} unread message
-                      {unreadMessageCount === 1 ? "" : "s"}
-                    </div>
-                  </div>
+                  View Homework
+                </Link>
+              </div>
+            )}
 
-                  <Link
-                    className="student-dashboard-action-button"
-                    href="/student/messages"
-                    style={{
-                      ...actionButtonStyle,
-                      marginTop: 0,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    View Messages
-                  </Link>
+            {unreadMessageCount > 0 && (
+              <div className="student-dashboard-notification-row">
+                <div>
+                  <strong>New message from your teacher</strong>
+                  <span>
+                    {unreadMessageCount} unread message
+                    {unreadMessageCount === 1 ? "" : "s"}
+                  </span>
                 </div>
-              )}
-            </div>
-          )}
-        </section>
 
-        <section
-          className="student-course-card"
-          style={{
-            ...cardStyle,
-            marginBottom: "26px",
-            display: "grid",
-            gridTemplateColumns: "140px minmax(0, 1fr)",
-            gap: "24px",
-            alignItems: "center",
-            borderTop: "3px solid var(--ss-blue)",
-          }}
-        >
-          <div
-            className="student-dashboard-course-image"
-            style={{
-              background: "var(--ss-blue-light)",
-              borderRadius: "14px",
-              padding: "14px",
-              textAlign: "center",
-              border: "1px solid var(--ss-border)",
-            }}
-          >
+                <Link
+                  className="student-dashboard-action-link"
+                  href="/student/messages"
+                >
+                  View Messages
+                </Link>
+              </div>
+            )}
+          </section>
+        )}
+
+        <section className="student-course-card">
+          <div className="student-dashboard-course-image">
             <Image
               src={classroomLogo}
               alt={classroomName}
               width={104}
               height={104}
-              style={{
-                width: "104px",
-                height: "104px",
-                objectFit: "contain",
-              }}
             />
           </div>
 
-          <div>
-            <h2
-              style={{
-                color: "#1f3c88",
-                margin: "0 0 16px",
-                fontSize: "22px",
-              }}
-            >
-              Your Course
-            </h2>
+          <div className="student-course-card-content">
+            <div className="student-course-card-heading">
+              <span>Your Course</span>
+              <h2>{level} {formatCourseType(courseType)}</h2>
+            </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: "16px",
-                color: "#333",
-              }}
-            >
+            <div className="student-course-meta-grid">
               <div>
-                <div
-                  style={{
-                    color: "#667085",
-                    fontSize: "13px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  Course
-                </div>
-                <strong style={{ color: "#1f3c88", fontSize: "22px" }}>
-                  {level} {formatCourseType(courseType)}
-                </strong>
+                <span>Teacher</span>
+                <strong>{teacherName}</strong>
               </div>
 
               <div>
-                <div
-                  style={{
-                    color: "#667085",
-                    fontSize: "13px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  Teacher
-                </div>
-                <strong style={{ color: "#1f3c88" }}>{teacherName}</strong>
+                <span>Schedule</span>
+                <strong>{formatSchedule(classSchedule)}</strong>
               </div>
 
               <div>
-                <div
-                  style={{
-                    color: "#667085",
-                    fontSize: "13px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  Days and Time
-                </div>
-                <strong style={{ color: "#1f3c88" }}>{classSchedule}</strong>
-              </div>
-
-              <div>
-                <div
-                  style={{
-                    color: "#667085",
-                    fontSize: "13px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  Classroom
-                </div>
-                <strong style={{ color: "#1f3c88" }}>
+                <span>Classroom</span>
+                <strong>
                   {classroomName || className}
                 </strong>
               </div>
@@ -581,81 +362,21 @@ export default function StudentDashboard() {
           </div>
         </section>
 
-        <section
-          className="student-current-homework-card"
-          style={{
-            ...cardStyle,
-            marginBottom: "26px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: "16px",
-              alignItems: "center",
-              marginBottom: "18px",
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  color: "#1f3c88",
-                  margin: "0 0 6px",
-                  fontSize: "22px",
-                }}
-              >
-                Current Homework
-              </h2>
-
-              <p
-                style={{
-                  color: "#667085",
-                  margin: 0,
-                  fontSize: "14px",
-                }}
-              >
-                Recent homework posted for your course.
-              </p>
-            </div>
-
-            <Link
-              className="student-dashboard-action-button"
-              href="/student/homework"
-              style={{
-                ...actionButtonStyle,
-                marginTop: 0,
-                whiteSpace: "nowrap",
-              }}
-            >
-              Open Homework
-            </Link>
+        <section className="student-current-homework-card">
+          <div className="student-dashboard-section-heading">
+            <span>Current Homework</span>
           </div>
 
           {loading ? (
-            <p style={{ color: "#667085", margin: 0 }}>
+            <p className="student-dashboard-empty">
               Loading homework...
             </p>
           ) : !hasCurrentHomework ? (
-            <p
-              style={{
-                background: "#f8fafd",
-                border: "1px solid var(--ss-border)",
-                borderRadius: "10px",
-                color: "#667085",
-                margin: 0,
-                padding: "14px",
-              }}
-            >
+            <p className="student-dashboard-empty">
               No homework has been posted yet.
             </p>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gap: "12px",
-              }}
-            >
+            <div className="student-dashboard-homework-list">
               {currentHomework.map((item) => {
                 const skillLabel = getHomeworkSkillLabel(
                   level,
@@ -668,43 +389,18 @@ export default function StudentDashboard() {
                 );
 
                 return (
-                  <div
-                    className="student-dashboard-homework-row"
-                    key={item.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "minmax(0, 1fr) auto",
-                      gap: "16px",
-                      alignItems: "center",
-                      background: "#f8fafd",
-                      border: "1px solid #e6eaf2",
-                      borderRadius: "10px",
-                      padding: "14px",
-                    }}
-                  >
+                  <div className="student-dashboard-homework-row" key={item.id}>
                     <div>
-                      <strong
-                        style={{
-                          color: "#1f3c88",
-                          display: "block",
-                          marginBottom: "6px",
-                        }}
-                      >
+                      <strong>
                         {item.title || "Homework"}
                       </strong>
 
-                      <div
-                        style={{
-                          color: "#667085",
-                          fontSize: "14px",
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: "10px",
-                        }}
-                      >
+                      <div className="student-dashboard-homework-meta">
                         {skillLabel && <span>{skillLabel}</span>}
-                        <span>Release: {formatDateOnly(item.release_date)}</span>
-                        <span>Due: {formatDateOnly(item.due_date)}</span>
+                        <span>
+                          Released {formatDateOnly(item.release_date)} · Due{" "}
+                          {formatDateOnly(item.due_date)}
+                        </span>
                         <span
                           className={`student-homework-status is-${homeworkStatus.toLowerCase()}`}
                         >
@@ -714,18 +410,10 @@ export default function StudentDashboard() {
                     </div>
 
                     <Link
-                      className="student-dashboard-action-button student-dashboard-homework-view"
+                      className="student-dashboard-subtle-link student-dashboard-homework-view"
                       href="/student/homework"
-                      style={{
-                        ...actionButtonStyle,
-                        marginTop: 0,
-                        minHeight: "38px",
-                        padding: "8px 14px",
-                        fontSize: "14px",
-                        whiteSpace: "nowrap",
-                      }}
                     >
-                      View
+                      Open →
                     </Link>
                   </div>
                 );
@@ -734,131 +422,44 @@ export default function StudentDashboard() {
           )}
         </section>
 
-        <section className="student-course-access-section" style={{ marginBottom: "24px" }}>
-          <h2
-            style={{
-              color: "#1f3c88",
-              margin: "0 0 16px",
-              fontSize: "22px",
-            }}
-          >
-            Course Access
-          </h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: "18px",
-            }}
-          >
+        <section className="student-course-access-section">
+          <div className="student-dashboard-access-list">
             <Link
               href="/student/resources"
-              style={{ display: "flex", textDecoration: "none" }}
+              className="student-dashboard-access-card"
             >
-              <div
-                className="student-dashboard-access-card"
-                style={{
-                  ...cardStyle,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  minHeight: "165px",
-                  width: "100%",
-                }}
-              >
-                <h3
-                  style={{
-                    color: "#1f3c88",
-                    margin: "0 0 10px",
-                    fontSize: "18px",
-                  }}
-                >
-                  Course Materials
-                </h3>
-
-                <p
-                  style={{
-                    color: "#667085",
-                    margin: 0,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Open class resources and materials for your course.
-                </p>
-
-                <span className="student-dashboard-action-button" style={actionButtonStyle}>Open Materials</span>
+              <div>
+                <h3>Course Materials</h3>
+                <p>Books, worksheets and learning resources.</p>
               </div>
+
+              <span>Open →</span>
             </Link>
 
             {isOnlineCourse && (
-              <div
-                className="student-dashboard-access-card"
-                style={{
-                  ...cardStyle,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  minHeight: "165px",
-                }}
-              >
-                <h3
-                  style={{
-                    color: "#1f3c88",
-                    margin: "0 0 10px",
-                    fontSize: "18px",
-                  }}
-                >
-                  Connect to Online Class
-                </h3>
-
-                {meetLink ? (
-                  <>
-                    <p
-                      style={{
-                        color: "#667085",
-                        margin: 0,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      Join your online class using the Google Meet link.
-                    </p>
-
-                    <a
-                      className="student-dashboard-action-button"
-                      href={meetLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={actionButtonStyle}
-                    >
-                      Join Google Meet
-                    </a>
-                  </>
-                ) : (
-                  <p
-                    style={{
-                      color: "#667085",
-                      margin: 0,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    The Google Meet link has not been added yet.
+              <div className="student-dashboard-access-card">
+                <div>
+                  <h3>Online Class</h3>
+                  <p>
+                    {meetLink
+                      ? "Join your online class using the Google Meet link."
+                      : "The Google Meet link has not been added yet."}
                   </p>
+                </div>
+
+                {meetLink && (
+                  <a
+                    href={meetLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Join →
+                  </a>
                 )}
               </div>
             )}
           </div>
         </section>
-
-        <p
-          style={{
-            color: "#667085",
-            fontSize: "14px",
-            margin: 0,
-          }}
-        >
-          Use the sidebar to access all course sections.
-        </p>
       </main>
     </div>
   );
