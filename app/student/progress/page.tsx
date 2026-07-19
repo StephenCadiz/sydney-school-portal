@@ -5,12 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import StudentMenu from "../StudentMenu";
 import {
   getCambridgeReadingSkillLabel,
-  getReleasedStudentHomework,
+  getHomeworkReleaseMetadata,
   normalizeHomeworkSkill,
 } from "../../../lib/homework";
 import {
   getEmptyFridayTutorialProgressSummary,
-  getEligibleHomeworkResults,
+  getEligibleProgressHomeworkResults,
   getStudentFridayTutorialProgress,
   getStudentResults,
   toResultNumber,
@@ -237,7 +237,9 @@ function FridayTutorialProgressSection({
 
 export default function ProgressPage() {
   const [results, setResults] = useState<any[]>([]);
-  const [releasedHomework, setReleasedHomework] = useState<any[]>([]);
+  const [homeworkReleaseMetadata, setHomeworkReleaseMetadata] = useState<any[]>(
+    []
+  );
   const [fridayTutorialProgress, setFridayTutorialProgress] =
     useState<FridayTutorialProgressSummary>(() =>
       getEmptyFridayTutorialProgressSummary()
@@ -250,8 +252,8 @@ export default function ProgressPage() {
   const readingLabel = getCambridgeReadingSkillLabel(level);
 
   const eligibleHomeworkResults = useMemo(
-    () => getEligibleHomeworkResults(results, releasedHomework),
-    [results, releasedHomework]
+    () => getEligibleProgressHomeworkResults(results, homeworkReleaseMetadata),
+    [results, homeworkReleaseMetadata]
   );
 
   const mockResults = results.filter(
@@ -300,9 +302,9 @@ export default function ProgressPage() {
     try {
       const user = await getCurrentUser();
       const courseInfo = await getCurrentStudentCourseInfo();
-      const [studentResults, homeworkItems] = await Promise.all([
+      const [studentResults, homeworkMetadata] = await Promise.all([
         getStudentResults(user.id),
-        getReleasedStudentHomework(
+        getHomeworkReleaseMetadata(
           courseInfo.level,
           courseInfo.courseType,
           courseInfo.classroom.days
@@ -318,13 +320,13 @@ export default function ProgressPage() {
 
       setLevel(courseInfo.level);
       setResults(studentResults);
-      setReleasedHomework(homeworkItems);
+      setHomeworkReleaseMetadata(homeworkMetadata);
       setFridayTutorialProgress(tutorialProgress);
     } catch (loadError) {
       console.error(loadError);
       setError(true);
       setResults([]);
-      setReleasedHomework([]);
+      setHomeworkReleaseMetadata([]);
       setFridayTutorialProgress(getEmptyFridayTutorialProgressSummary());
     } finally {
       setLoading(false);
@@ -442,8 +444,8 @@ export default function ProgressPage() {
               <div className="student-progress-section-header">
                 <h2 id="student-homework-averages-title">Homework Averages</h2>
                 <p>
-                  Only released homework with entered teacher results is
-                  included.
+                  Teacher-entered homework results are included after their
+                  matching homework release date.
                 </p>
               </div>
 

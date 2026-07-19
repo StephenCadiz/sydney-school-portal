@@ -310,6 +310,65 @@ export async function getReleasedStudentHomework(
   return sortReleasedHomework(adjustedHomework, todayMadrid);
 }
 
+function isMissingHomeworkTimestampColumn(error: any) {
+  const errorText = [
+    error?.message,
+    error?.details,
+    error?.hint,
+    error?.code,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return errorText.includes("created_at") || errorText.includes("updated_at");
+}
+
+export async function getHomeworkReleaseMetadata(
+  level: string,
+  courseType: string,
+  classDays: string | null | undefined
+) {
+  const normalisedLevel = String(level || "").trim().toUpperCase();
+  const normalisedCourseType = String(courseType || "").trim().toLowerCase();
+
+  if (!normalisedLevel || !normalisedCourseType) {
+    return [];
+  }
+
+  const metadataColumns =
+    "id, week_number, homework_skill, release_date, active, level, course_type, homework_order, created_at, updated_at";
+  const fallbackMetadataColumns =
+    "id, week_number, homework_skill, release_date, active, level, course_type, homework_order";
+
+  const metadataResult = await supabase
+    .from("cambridge_homework")
+    .select(metadataColumns)
+    .eq("level", normalisedLevel)
+    .eq("course_type", normalisedCourseType)
+    .order("week_number")
+    .order("homework_order");
+  let data: any[] | null = metadataResult.data;
+  let error: any = metadataResult.error;
+
+  if (error && isMissingHomeworkTimestampColumn(error)) {
+    const fallbackResult = await supabase
+      .from("cambridge_homework")
+      .select(fallbackMetadataColumns)
+      .eq("level", normalisedLevel)
+      .eq("course_type", normalisedCourseType)
+      .order("week_number")
+      .order("homework_order");
+
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
+
+  if (error) throw error;
+
+  return adjustHomeworkDatesForClassDays(data || [], classDays);
+}
+
 export async function createHomework(homework: any) {
   const { error } = await supabase
     .from("cambridge_homework")
