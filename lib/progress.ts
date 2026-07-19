@@ -1,5 +1,11 @@
 import { supabase } from "./supabase";
 import { normalizeHomeworkSkill } from "./homework";
+import {
+  getEmptyFridayTutorialProgressSummary,
+  type FridayTutorialProgressSummary,
+} from "./fridayTutorialResults";
+
+export { getEmptyFridayTutorialProgressSummary };
 
 export async function getStudentResults(studentId: string) {
   const { data, error } = await supabase
@@ -13,6 +19,34 @@ export async function getStudentResults(studentId: string) {
     (result) =>
       result.result_type !== "mock" ||
       (result.published_at !== null && result.published_at !== undefined)
+  );
+}
+
+export async function getStudentFridayTutorialProgress(): Promise<FridayTutorialProgressSummary> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error("No user logged in.");
+  }
+
+  const response = await fetch("/api/friday-tutorial-progress", {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.error || "Unable to load Friday tutorial progress."
+    );
+  }
+
+  return (
+    (payload.summary as FridayTutorialProgressSummary | undefined) ||
+    getEmptyFridayTutorialProgressSummary()
   );
 }
 

@@ -99,6 +99,22 @@ function formatPublishedDate(value: string | null | undefined) {
   }).format(date);
 }
 
+function formatFridayTutorialPercent(value: any) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "-";
+  }
+
+  const rounded = Math.round(number * 10) / 10;
+
+  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}%`;
+}
+
 function getMockPublicationBadgeStyle(isPublished: boolean) {
   return {
     display: "inline-flex",
@@ -187,6 +203,124 @@ function StatCard({
   );
 }
 
+function FridayTutorialAdminSummary({ summary }: { summary: any }) {
+  const attendance = summary?.attendance || {};
+  const averages = summary?.averages || [];
+
+  return (
+    <div>
+      <h3 style={{ color: "#111827", margin: "0 0 12px", fontSize: "17px" }}>
+        Friday Tutorial Progress
+      </h3>
+
+      {!summary?.has_results ? (
+        <p style={{ color: "#667085", margin: "12px 0 0" }}>
+          No Friday tutorial results found.
+        </p>
+      ) : (
+        <div style={{ display: "grid", gap: "12px" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+              gap: "12px",
+            }}
+          >
+            <StatCard
+              label="Attendance"
+              value={
+                attendance.attendance_percentage === null
+                  ? "-"
+                  : formatFridayTutorialPercent(attendance.attendance_percentage)
+              }
+            />
+            <StatCard
+              label="Tutorials attended"
+              value={`${attendance.attended_count || 0} of ${
+                attendance.eligible_count || 0
+              }`}
+            />
+            <StatCard label="Absences" value={attendance.absent_count || 0} />
+          </div>
+
+          <div
+            style={{
+              border: "1px solid var(--ss-border)",
+              borderRadius: "12px",
+              padding: "14px",
+              background: "#f8fafd",
+            }}
+          >
+            <h4
+              style={{
+                color: "var(--ss-blue-dark)",
+                fontSize: "15px",
+                margin: "0 0 10px",
+              }}
+            >
+              Average Results by Skill & Part
+            </h4>
+
+            {averages.length === 0 ? (
+              <p style={{ color: "#667085", margin: 0 }}>
+                No scored tutorial attempts yet.
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                {averages.map((item: any) => (
+                  <div
+                    key={item.practice_key}
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid var(--ss-border)",
+                      borderRadius: "10px",
+                      padding: "12px",
+                    }}
+                  >
+                    <p
+                      style={{
+                        color: "#667085",
+                        fontSize: "13px",
+                        lineHeight: 1.35,
+                        margin: "0 0 6px",
+                      }}
+                    >
+                      {item.practice_label || "Tutorial practice"}
+                    </p>
+                    <strong
+                      style={{
+                        color: "var(--ss-blue-dark)",
+                        fontSize: "22px",
+                      }}
+                    >
+                      {formatFridayTutorialPercent(item.average)}
+                    </strong>
+                    <p
+                      style={{
+                        color: "#667085",
+                        fontSize: "12px",
+                        margin: "6px 0 0",
+                      }}
+                    >
+                      {item.count || 0} attempt{item.count === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2
@@ -213,6 +347,7 @@ function PlaceholderCard({ title }: { title: string }) {
 function CambridgeResults({ student }: { student: any }) {
   const practice = student.results_summary?.practice || {};
   const mock = student.results_summary?.mock || {};
+  const fridayTutorial = student.results_summary?.friday_tutorial || {};
   const readingLabel = getCambridgeReadingSkillLabel(student.level_name);
   const mockRows = [...(mock.rows || [])].sort((first: any, second: any) => {
     const firstSort = getMockSortValue(first);
@@ -263,6 +398,8 @@ function CambridgeResults({ student }: { student: any }) {
             </p>
           )}
         </div>
+
+        <FridayTutorialAdminSummary summary={fridayTutorial} />
 
         <div>
           <h3 style={{ color: "#111827", margin: "0 0 12px", fontSize: "17px" }}>

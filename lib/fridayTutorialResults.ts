@@ -90,6 +90,7 @@ export type FridayTutorialSaveResponse = {
 };
 
 export type FridayTutorialStudentHistoryItem = {
+  result_id: string;
   result_sheet_id: string;
   tutorial_session_id: string;
   session_date: string;
@@ -100,6 +101,18 @@ export type FridayTutorialStudentHistoryItem = {
   attended: boolean;
   practice_key: string;
   practice_label: string;
+};
+
+export type FridayTutorialProgressSourceRow = {
+  id: string;
+  result_sheet_id: string;
+  percentage: number | null;
+  attended: boolean;
+  tutorial_session_id: string;
+  session_date: string;
+  level_name: string;
+  activity_type: string;
+  exam_part: string | null;
 };
 
 export type FridayTutorialAverageByPart = {
@@ -115,6 +128,29 @@ export type FridayTutorialAttendanceSummary = {
   absent_count: number;
   attendance_percentage: number | null;
 };
+
+export type FridayTutorialProgressSummary = {
+  has_results: boolean;
+  total_count: number;
+  attendance: FridayTutorialAttendanceSummary;
+  averages: FridayTutorialAverageByPart[];
+  recent: FridayTutorialStudentHistoryItem[];
+};
+
+export function getEmptyFridayTutorialProgressSummary(): FridayTutorialProgressSummary {
+  return {
+    has_results: false,
+    total_count: 0,
+    attendance: {
+      eligible_count: 0,
+      attended_count: 0,
+      absent_count: 0,
+      attendance_percentage: null,
+    },
+    averages: [],
+    recent: [],
+  };
+}
 
 export function normalizeCambridgeLevel(level: unknown) {
   return String(level ?? "").trim().toUpperCase();
@@ -155,8 +191,9 @@ export function formatFridayTutorialPracticeLabel(
   activityType: unknown,
   examPart: unknown
 ) {
+  void levelName;
+
   return [
-    normalizeCambridgeLevel(levelName),
     normalizePracticeText(activityType),
     normalizePracticeText(examPart),
   ]
@@ -203,8 +240,11 @@ export function calculateFridayTutorialAttendance(
   rows: Array<{ percentage?: number | null; attended?: boolean | null }>
 ): FridayTutorialAttendanceSummary {
   const eligibleCount = rows.length;
-  const attendedCount = rows.filter((row) =>
-    row.attended ?? row.percentage !== null
+  const attendedCount = rows.filter(
+    (row) =>
+      row.attended === true &&
+      row.percentage !== null &&
+      row.percentage !== undefined
   ).length;
   const absentCount = Math.max(eligibleCount - attendedCount, 0);
 
@@ -228,6 +268,10 @@ export function calculateFridayTutorialAveragesByPart(
   >();
 
   for (const row of rows) {
+    if (row.attended !== true || row.percentage === null) {
+      continue;
+    }
+
     const normalized = normalizeFridayTutorialPercentage(row.percentage);
 
     if (normalized.value === null) {
@@ -257,19 +301,90 @@ export function calculateFridayTutorialAveragesByPart(
     groups.set(practiceKey, group);
   }
 
-  return Array.from(groups.entries()).map(([practiceKey, group]) => {
-    const total = group.values.reduce((sum, value) => sum + value, 0);
+  return Array.from(groups.entries())
+    .map(([practiceKey, group]) => {
+      const total = group.values.reduce((sum, value) => sum + value, 0);
 
-    return {
-      practice_key: practiceKey,
-      practice_label: group.practice_label,
-      count: group.values.length,
-      average:
-        group.values.length > 0
-          ? Math.round((total / group.values.length) * 100) / 100
-          : null,
-    };
-  });
+      return {
+        practice_key: practiceKey,
+        practice_label: group.practice_label,
+        count: group.values.length,
+        average:
+          group.values.length > 0
+            ? Math.round((total / group.values.length) * 100) / 100
+            : null,
+      };
+    })
+    .sort((first, second) =>
+      first.practice_label.localeCompare(second.practice_label, undefined, {
+        sensitivity: "base",
+      })
+    );
+}
+
+export function buildFridayTutorialProgressSummary(
+  rows: FridayTutorialProgressSourceRow[]
+): FridayTutorialProgressSummary {
+  const history = rows
+    .map((row) => {
+      const normalizedPercentage = normalizeFridayTutorialPercentage(
+        row.percentage
+      );
+      const percentage = normalizedPercentage.error
+        ? null
+        : normalizedPercentage.value;
+
+      return {
+        result_id: row.id,
+        result_sheet_id: row.result_sheet_id,
+        tutorial_session_id: row.tutorial_session_id,
+        session_date: String(row.session_date || ""),
+        level_name: normalizeCambridgeLevel(row.level_name),
+        activity_type: normalizePracticeText(row.activity_type),
+        exam_part: normalizePracticeText(row.exam_part) || null,
+        percentage,
+        attended: row.attended === true && percentage !== null,
+        practice_key: formatFridayTutorialPracticeKey(
+          row.level_name,
+          row.activity_type,
+          row.exam_part
+        ),
+        practice_label: formatFridayTutorialPracticeLabel(
+          row.level_name,
+          row.activity_type,
+          row.exam_part
+        ),
+      };
+    })
+    .sort((first, second) => {
+      const dateComparison = String(second.session_date || "").localeCompare(
+        String(first.session_date || "")
+      );
+
+      if (dateComparison !== 0) {
+        return dateComparison;
+      }
+
+      const sessionComparison = String(
+        second.tutorial_session_id || ""
+      ).localeCompare(String(first.tutorial_session_id || ""));
+
+      if (sessionComparison !== 0) {
+        return sessionComparison;
+      }
+
+      return String(second.result_id || "").localeCompare(
+        String(first.result_id || "")
+      );
+    });
+
+  return {
+    has_results: history.length > 0,
+    total_count: history.length,
+    attendance: calculateFridayTutorialAttendance(history),
+    averages: calculateFridayTutorialAveragesByPart(history),
+    recent: history.slice(0, 3),
+  };
 }
 
 export function selectLastThreeSubmittedSessions<

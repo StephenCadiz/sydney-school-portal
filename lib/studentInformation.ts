@@ -1,4 +1,8 @@
 import { supabase } from "./supabase";
+import {
+  getEmptyFridayTutorialProgressSummary,
+  type FridayTutorialProgressSummary,
+} from "./fridayTutorialResults";
 import { isTeensUnitExamLevel } from "./unitExamResults";
 
 function formatSupabaseError(action: string, error: any) {
@@ -431,6 +435,37 @@ export async function searchAllStudents(query: string) {
   ].sort((first, second) => first.full_name.localeCompare(second.full_name));
 }
 
+export async function getCambridgeFridayTutorialProgressSummary(
+  studentId: string
+): Promise<FridayTutorialProgressSummary> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error("No user logged in.");
+  }
+
+  const params = new URLSearchParams({ student_id: studentId });
+  const response = await fetch(`/api/friday-tutorial-progress?${params}`, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.error || "Unable to load Friday tutorial progress."
+    );
+  }
+
+  return (
+    (payload.summary as FridayTutorialProgressSummary | undefined) ||
+    getEmptyFridayTutorialProgressSummary()
+  );
+}
+
 export async function getCambridgeStudentResultsSummary(studentId: string) {
   const { data, error } = await supabase
     .from("results")
@@ -491,6 +526,7 @@ export async function getCambridgeStudentResultsSummary(studentId: string) {
         enrichedMockRows.map((item) => item.row_average)
       ),
     },
+    friday_tutorial: await getCambridgeFridayTutorialProgressSummary(studentId),
   };
 }
 

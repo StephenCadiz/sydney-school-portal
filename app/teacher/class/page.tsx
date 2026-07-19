@@ -10,12 +10,14 @@ import StudentProgressTab from "./StudentProgressTab";
 import FollowUpsTab from "./FollowUpsTab";
 import ClassMessagesTab from "./ClassMessagesTab";
 import ClassExamsTab from "./ClassExamsTab";
+import FridayTutorialResultsTab from "./FridayTutorialResultsTab";
 import UnitExamResultsTab from "./UnitExamResultsTab";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
 import ClassHeader from "../../components/class/ClassHeader";
 import TeacherHomework from "../../components/teacher/TeacherHomework";
 import { isClassExamLevel } from "../../../lib/classExams";
+import { isFridayTutorialCambridgeLevel } from "../../../lib/fridayTutorialResults";
 import { isUnitExamLevel } from "../../../lib/unitExamResults";
 
 const tabs = [
@@ -28,6 +30,7 @@ const tabs = [
   { id: "unit-exam-results", label: "Unit Exam Results" },
   { id: "announcements", label: "Announcements" },
   { id: "results", label: "Results" },
+  { id: "friday-tutorial-results", label: "Friday Tutorial Results" },
   { id: "notes", label: "Teacher Notes" },
   { id: "messages", label: "Messages" },
   { id: "follow-up", label: "Follow Up" },
@@ -211,6 +214,8 @@ if (classResult.data) {
   const totalStudentCount = students.length + youngLearners.length;
   const showClassExamsTab = isClassExamLevel(levelName);
   const showUnitExamResultsTab = isUnitExamLevel(levelName);
+  const showFridayTutorialResultsTab =
+    classData?.is_cambridge === true && isFridayTutorialCambridgeLevel(levelName);
   const classStudentList = [
     ...students.map((student) => ({
       id: `cambridge-${student.id}`,
@@ -273,6 +278,11 @@ if (classResult.data) {
           .filter(
             (tab) =>
               tab.id !== "unit-exam-results" || showUnitExamResultsTab
+          )
+          .filter(
+            (tab) =>
+              tab.id !== "friday-tutorial-results" ||
+              showFridayTutorialResultsTab
           )
           .map((tab) => {
           const isActive = activeTab === tab.id;
@@ -522,6 +532,15 @@ if (classResult.data) {
     courseType={classData.course_type}
     classDays={classData.days}
     teacherId={teacherId}
+  />
+)}
+
+      {activeTab === "friday-tutorial-results" &&
+        showFridayTutorialResultsTab &&
+        classData && (
+  <FridayTutorialResultsTab
+    classId={classData.id}
+    levelName={levelName}
   />
 )}
 

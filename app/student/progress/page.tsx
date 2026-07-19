@@ -9,7 +9,9 @@ import {
   normalizeHomeworkSkill,
 } from "../../../lib/homework";
 import {
+  getEmptyFridayTutorialProgressSummary,
   getEligibleHomeworkResults,
+  getStudentFridayTutorialProgress,
   getStudentResults,
   toResultNumber,
 } from "../../../lib/progress";
@@ -17,6 +19,7 @@ import {
   getCurrentStudentCourseInfo,
   getCurrentUser,
 } from "../../../lib/user";
+import type { FridayTutorialProgressSummary } from "../../../lib/fridayTutorialResults";
 
 const cardStyle = {
   background: "#ffffff",
@@ -44,6 +47,37 @@ function formatMockPercent(value: number | null) {
   if (value === null) return "-";
 
   return `${Math.round(value)}%`;
+}
+
+function formatTutorialPercent(value: number | null) {
+  if (value === null) return "-";
+
+  const rounded = Math.round(value * 10) / 10;
+
+  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}%`;
+}
+
+function formatTutorialDate(value: string | null | undefined) {
+  if (!value) {
+    return "Date not available";
+  }
+
+  const [year, month, day] = String(value).split("-").map(Number);
+  const date =
+    Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+      ? new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+      : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Date not available";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Europe/Madrid",
+  }).format(date);
 }
 
 function getTaskLabel(count: number) {
@@ -110,9 +144,104 @@ function AverageCard({
   );
 }
 
+function FridayTutorialProgressSection({
+  summary,
+}: {
+  summary: FridayTutorialProgressSummary;
+}) {
+  const attendance = summary.attendance;
+
+  return (
+    <section
+      className="student-progress-friday-section"
+      aria-labelledby="student-friday-tutorial-progress-title"
+    >
+      <div className="student-progress-section-header">
+        <div>
+          <h2 id="student-friday-tutorial-progress-title">
+            Friday Tutorial Progress
+          </h2>
+          <p>
+            Submitted Friday @ 6 tutorial results are shown here once your
+            teacher saves the class sheet.
+          </p>
+        </div>
+      </div>
+
+      {!summary.has_results ? (
+        <div className="student-progress-friday-empty">
+          No Friday tutorial results are available yet.
+        </div>
+      ) : (
+        <div className="student-progress-friday-content">
+          <article className="student-progress-friday-attendance">
+            <h3>Attendance</h3>
+            <strong>
+              {attendance.attended_count} of {attendance.eligible_count} tutorials
+              attended
+            </strong>
+            <p>
+              {attendance.attendance_percentage === null
+                ? "Attendance will appear after results are submitted."
+                : formatTutorialPercent(attendance.attendance_percentage)}
+            </p>
+            <ProgressBar value={attendance.attendance_percentage} strong />
+          </article>
+
+          <div className="student-progress-friday-panel">
+            <h3>Average Results by Skill & Part</h3>
+            {summary.averages.length === 0 ? (
+              <p>No scored tutorial attempts yet.</p>
+            ) : (
+              <div className="student-progress-friday-average-list">
+                {summary.averages.map((item) => (
+                  <div key={item.practice_key}>
+                    <span>{item.practice_label || "Tutorial practice"}</span>
+                    <strong>{formatTutorialPercent(item.average)}</strong>
+                    <small>
+                      {item.count} attempt{item.count === 1 ? "" : "s"}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="student-progress-friday-panel">
+            <h3>Last 3 Tutorials</h3>
+            <div className="student-progress-friday-recent-list">
+              {summary.recent.map((item) => (
+                <div key={`${item.result_sheet_id}-${item.result_id}`}>
+                  <div>
+                    <strong>{formatTutorialDate(item.session_date)}</strong>
+                    <span>{item.practice_label || item.activity_type}</span>
+                  </div>
+                  <span
+                    className={`student-progress-friday-result ${
+                      item.attended ? "is-attended" : "is-absent"
+                    }`}
+                  >
+                    {item.attended
+                      ? formatTutorialPercent(item.percentage)
+                      : "Absent"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function ProgressPage() {
   const [results, setResults] = useState<any[]>([]);
   const [releasedHomework, setReleasedHomework] = useState<any[]>([]);
+  const [fridayTutorialProgress, setFridayTutorialProgress] =
+    useState<FridayTutorialProgressSummary>(() =>
+      getEmptyFridayTutorialProgressSummary()
+    );
   const [level, setLevel] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -179,15 +308,24 @@ export default function ProgressPage() {
           courseInfo.classroom.days
         ),
       ]);
+      let tutorialProgress = getEmptyFridayTutorialProgressSummary();
+
+      try {
+        tutorialProgress = await getStudentFridayTutorialProgress();
+      } catch (tutorialError) {
+        console.error(tutorialError);
+      }
 
       setLevel(courseInfo.level);
       setResults(studentResults);
       setReleasedHomework(homeworkItems);
+      setFridayTutorialProgress(tutorialProgress);
     } catch (loadError) {
       console.error(loadError);
       setError(true);
       setResults([]);
       setReleasedHomework([]);
+      setFridayTutorialProgress(getEmptyFridayTutorialProgressSummary());
     } finally {
       setLoading(false);
     }
@@ -333,6 +471,8 @@ export default function ProgressPage() {
                 />
               </div>
             </section>
+
+            <FridayTutorialProgressSection summary={fridayTutorialProgress} />
 
             <section className="student-progress-mock-section">
               <div className="student-progress-section-header">
