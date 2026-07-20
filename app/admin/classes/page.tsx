@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
 import {
@@ -69,6 +69,7 @@ const youngLearnerLevelOrder = [
 
 const unassignedTeacherFilter = "__unassigned";
 const missingLevelFilter = "__missing_level";
+const calendarSlotHeight = 22;
 
 const inputStyle = {
   width: "100%",
@@ -336,6 +337,261 @@ function getGroupTotalText(count: number) {
 
 function getSortText(value: string | null | undefined) {
   return normalizeSearchValue(value);
+}
+
+function formatCalendarTime(minutes: number) {
+  const normalizedMinutes = Math.max(0, Math.min(24 * 60, minutes));
+  const hour = Math.floor(normalizedMinutes / 60);
+  const minute = normalizedMinutes % 60;
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+function rangesOverlap(
+  firstStart: number,
+  firstEnd: number,
+  secondStart: number,
+  secondEnd: number
+) {
+  return firstStart < secondEnd && secondStart < firstEnd;
+}
+
+function getCalendarEventTitle(item: any) {
+  const showCourseType =
+    item.courseTypeLabel &&
+    (item.operationalGroup === "cambridge" ||
+      item.isOnline ||
+      item.courseType !== "regular");
+
+  return [item.levelName, showCourseType ? item.courseTypeLabel : ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getCalendarEventDetails(item: any) {
+  return [
+    getCalendarEventTitle(item),
+    item.className && item.className !== item.levelName ? item.className : "",
+    item.timeLabel,
+    item.classroomName,
+    pluralize(item.studentCount, "student", "students"),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function getTeacherClassRows(rows: any[], teacherId: string) {
+  if (teacherId === unassignedTeacherFilter) {
+    return rows.filter((item) => !item.teacherId);
+  }
+
+  return rows.filter((item) => item.teacherId === teacherId);
+}
+
+function getVisibleCalendarDays(events: any[]) {
+  const activeDayNames = new Set(events.map((event) => event.day));
+
+  return weekdayOptions.filter((weekday, index) => {
+    return index < 5 || activeDayNames.has(weekday.label);
+  });
+}
+
+function getTimeTicks(startMinutes: number, endMinutes: number) {
+  const ticks = [];
+
+  for (
+    let minute = startMinutes;
+    minute <= endMinutes;
+    minute += 60
+  ) {
+    ticks.push(minute);
+  }
+
+  return ticks;
+}
+
+function layoutCalendarDayEvents(dayEvents: any[]) {
+  const events = [...dayEvents].sort((first, second) => {
+    const startComparison = first.startMinutes - second.startMinutes;
+
+    if (startComparison !== 0) return startComparison;
+
+    const endComparison = first.endMinutes - second.endMinutes;
+
+    if (endComparison !== 0) return endComparison;
+
+    return first.item.id.localeCompare(second.item.id);
+  });
+  const clashingEventKeys = new Set<string>();
+  let clashCount = 0;
+
+  for (let firstIndex = 0; firstIndex < events.length; firstIndex += 1) {
+    for (
+      let secondIndex = firstIndex + 1;
+      secondIndex < events.length;
+      secondIndex += 1
+    ) {
+      const first = events[firstIndex];
+      const second = events[secondIndex];
+
+      if (
+        rangesOverlap(
+          first.startMinutes,
+          first.endMinutes,
+          second.startMinutes,
+          second.endMinutes
+        )
+      ) {
+        clashingEventKeys.add(first.key);
+        clashingEventKeys.add(second.key);
+        clashCount += 1;
+      }
+    }
+  }
+
+  const clusters: any[][] = [];
+  let currentCluster: any[] = [];
+  let currentClusterEnd = -1;
+
+  for (const event of events) {
+    if (currentCluster.length === 0 || event.startMinutes < currentClusterEnd) {
+      currentCluster.push(event);
+      currentClusterEnd = Math.max(currentClusterEnd, event.endMinutes);
+      continue;
+    }
+
+    clusters.push(currentCluster);
+    currentCluster = [event];
+    currentClusterEnd = event.endMinutes;
+  }
+
+  if (currentCluster.length > 0) {
+    clusters.push(currentCluster);
+  }
+
+  const laidOutEvents: any[] = [];
+
+  for (const cluster of clusters) {
+    const activeColumns: { column: number; endMinutes: number }[] = [];
+    const clusterEvents: any[] = [];
+    let maxColumns = 1;
+
+    for (const event of cluster) {
+      for (let index = activeColumns.length - 1; index >= 0; index -= 1) {
+        if (activeColumns[index].endMinutes <= event.startMinutes) {
+          activeColumns.splice(index, 1);
+        }
+      }
+
+      let column = 0;
+
+      while (activeColumns.some((active) => active.column === column)) {
+        column += 1;
+      }
+
+      activeColumns.push({
+        column,
+        endMinutes: event.endMinutes,
+      });
+      maxColumns = Math.max(maxColumns, column + 1);
+
+      clusterEvents.push({
+        ...event,
+        overlapColumn: column,
+      });
+    }
+
+    laidOutEvents.push(
+      ...clusterEvents.map((event) => ({
+        ...event,
+        hasClash: clashingEventKeys.has(event.key),
+        overlapColumns: maxColumns,
+      }))
+    );
+  }
+
+  return {
+    events: laidOutEvents,
+    clashCount,
+  };
+}
+
+function buildTeacherTimetable(rows: any[]) {
+  const rawEvents: any[] = [];
+  const scheduleNeedsAttention: any[] = [];
+  const teachingDays = new Set<string>();
+
+  for (const item of rows) {
+    const parsedDays = parseClassDays(item.rawDays || item.days);
+    const startMinutes = getTimeMinutes(item.startTime);
+    const endMinutes = getTimeMinutes(item.endTime);
+
+    parsedDays.forEach((day) => teachingDays.add(day));
+
+    if (
+      parsedDays.length === 0 ||
+      startMinutes === null ||
+      endMinutes === null ||
+      endMinutes <= startMinutes
+    ) {
+      scheduleNeedsAttention.push(item);
+      continue;
+    }
+
+    for (const day of parsedDays) {
+      const dayIndex = weekdayOptions.findIndex(
+        (weekday) => weekday.label === day
+      );
+
+      rawEvents.push({
+        key: `${item.id}-${day}`,
+        item,
+        day,
+        dayIndex,
+        startMinutes,
+        endMinutes,
+        durationMinutes: endMinutes - startMinutes,
+      });
+    }
+  }
+
+  const earliestStart = rawEvents.length
+    ? Math.min(...rawEvents.map((event) => event.startMinutes))
+    : 9 * 60;
+  const latestEnd = rawEvents.length
+    ? Math.max(...rawEvents.map((event) => event.endMinutes))
+    : 17 * 60;
+  const rangeStart = Math.max(0, Math.floor(earliestStart / 60) * 60);
+  const rangeEnd = Math.min(
+    24 * 60,
+    Math.max(rangeStart + 60, Math.ceil(latestEnd / 30) * 30)
+  );
+  const eventsByDay = new Map<string, any[]>();
+  let clashCount = 0;
+
+  for (const weekday of weekdayOptions) {
+    const dayEvents = rawEvents.filter((event) => event.day === weekday.label);
+    const laidOutDay = layoutCalendarDayEvents(dayEvents);
+
+    eventsByDay.set(weekday.label, laidOutDay.events);
+    clashCount += laidOutDay.clashCount;
+  }
+
+  return {
+    clashCount,
+    events: rawEvents,
+    eventsByDay,
+    rangeStart,
+    rangeEnd,
+    scheduleNeedsAttention,
+    teachingDayCount: teachingDays.size,
+    timeTicks: getTimeTicks(rangeStart, rangeEnd),
+    visibleDays: getVisibleCalendarDays(rawEvents),
+    pixelHeight: ((rangeEnd - rangeStart) / 15) * calendarSlotHeight,
+  };
 }
 
 const blockerLabels: Record<string, string> = {
@@ -949,6 +1205,17 @@ export default function AdminClassesPage() {
     const optionsByValue = new Map<string, { value: string; label: string }>();
     let hasUnassignedClasses = false;
 
+    for (const teacher of teachers) {
+      const teacherId = String(teacher.id || "");
+
+      if (teacherId && !optionsByValue.has(teacherId)) {
+        optionsByValue.set(teacherId, {
+          value: teacherId,
+          label: getTeacherName(teacher, "-"),
+        });
+      }
+    }
+
     for (const item of enrichedClasses) {
       if (!item.teacherId) {
         hasUnassignedClasses = true;
@@ -977,7 +1244,31 @@ export default function AdminClassesPage() {
     }
 
     return options;
-  }, [enrichedClasses]);
+  }, [teachers, enrichedClasses]);
+
+  const teacherCalendarOptions = useMemo(() => {
+    const options = teachers
+      .map((teacher) => ({
+        value: String(teacher.id || ""),
+        label: getTeacherName(teacher, "-"),
+      }))
+      .filter((option) => option.value && option.label !== "-")
+      .sort((first, second) =>
+        first.label.localeCompare(second.label, undefined, {
+          sensitivity: "base",
+        })
+      );
+    const hasUnassignedClasses = enrichedClasses.some((item) => !item.teacherId);
+
+    if (hasUnassignedClasses) {
+      options.push({
+        value: unassignedTeacherFilter,
+        label: "Unassigned",
+      });
+    }
+
+    return options;
+  }, [teachers, enrichedClasses]);
 
   const courseTypeFilterOptions = useMemo(() => {
     const knownCourseTypes = new Set(courseTypes.map((item) => item.value));
@@ -1261,6 +1552,341 @@ export default function AdminClassesPage() {
     );
   }
 
+  function renderTeacherViewSelector() {
+    return (
+      <div className="admin-classes-teacher-selector">
+        <label>
+          <span>Teacher</span>
+          <select
+            value={teacherFilter}
+            onChange={(event) => setTeacherFilter(event.target.value)}
+          >
+            <option value="all">All Teachers</option>
+            {teacherCalendarOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p>
+          Select a teacher to switch from grouped tables to a weekly timetable.
+        </p>
+      </div>
+    );
+  }
+
+  function getSelectedTeacherLabel() {
+    if (teacherFilter === unassignedTeacherFilter) {
+      return "Unassigned";
+    }
+
+    return (
+      teacherCalendarOptions.find((option) => option.value === teacherFilter)
+        ?.label || "Selected teacher"
+    );
+  }
+
+  function renderScheduleAttention(rows: any[]) {
+    if (rows.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="admin-classes-calendar-attention">
+        <div>
+          <h4>Schedule needs attention</h4>
+          <p>
+            These classes have missing or invalid days or times, so they cannot
+            be placed on the timetable.
+          </p>
+        </div>
+        <div className="admin-classes-calendar-attention-list">
+          {rows.map((item) => (
+            <button
+              type="button"
+              className="admin-classes-calendar-attention-item"
+              key={item.id}
+              onClick={() => startEdit(item.original)}
+            >
+              <strong>{getCalendarEventTitle(item) || item.levelName}</strong>
+              <span>
+                {item.days} · {item.timeLabel}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderCalendarEvent(event: any) {
+    const eventTop =
+      ((event.startMinutes - event.rangeStart) / 15) * calendarSlotHeight;
+    const eventHeight = Math.max(
+      (event.durationMinutes / 15) * calendarSlotHeight - 6,
+      44
+    );
+    const widthPercent = 100 / event.overlapColumns;
+    const leftPercent = event.overlapColumn * widthPercent;
+    const eventStyle: CSSProperties = {
+      top: `${eventTop}px`,
+      height: `${eventHeight}px`,
+      left: `calc(${leftPercent}% + 4px)`,
+      width: `calc(${widthPercent}% - 8px)`,
+    };
+    const title = getCalendarEventDetails(event.item);
+
+    return (
+      <button
+        type="button"
+        className={
+          event.hasClash
+            ? "admin-classes-calendar-event admin-classes-calendar-event-clash"
+            : "admin-classes-calendar-event"
+        }
+        key={event.key}
+        style={eventStyle}
+        title={title}
+        aria-label={`Edit ${title}`}
+        onClick={() => startEdit(event.item.original)}
+      >
+        <strong>{getCalendarEventTitle(event.item)}</strong>
+        <span>{event.item.timeLabel}</span>
+        <span>{event.item.classroomName}</span>
+        <span className="admin-classes-calendar-event-students">
+          {pluralize(event.item.studentCount, "student", "students")}
+        </span>
+        {event.hasClash && (
+          <em className="admin-classes-calendar-clash-label">
+            Schedule clash
+          </em>
+        )}
+      </button>
+    );
+  }
+
+  function renderTeacherWeeklyCalendar(timetable: any) {
+    const gridStyle: CSSProperties = {
+      gridTemplateColumns: `72px repeat(${timetable.visibleDays.length}, minmax(150px, 1fr))`,
+    };
+    const bodyStyle: CSSProperties = {
+      height: `${timetable.pixelHeight}px`,
+    };
+
+    return (
+      <div className="admin-classes-calendar-weekly">
+        <div className="admin-classes-calendar-scroll">
+          <div className="admin-classes-calendar-grid" style={gridStyle}>
+            <div className="admin-classes-calendar-corner" />
+            {timetable.visibleDays.map((weekday: any) => (
+              <div
+                className="admin-classes-calendar-day-header"
+                key={weekday.label}
+              >
+                <span>{weekday.shortLabel}</span>
+                <strong>{weekday.label}</strong>
+              </div>
+            ))}
+
+            <div
+              className="admin-classes-calendar-time-axis"
+              style={bodyStyle}
+            >
+              {timetable.timeTicks.map((minute: number) => (
+                <span
+                  key={minute}
+                  style={{
+                    top: `${
+                      ((minute - timetable.rangeStart) / 15) *
+                      calendarSlotHeight
+                    }px`,
+                  }}
+                >
+                  {formatCalendarTime(minute)}
+                </span>
+              ))}
+            </div>
+
+            {timetable.visibleDays.map((weekday: any) => {
+              const events = timetable.eventsByDay.get(weekday.label) || [];
+
+              return (
+                <div
+                  className="admin-classes-calendar-day-column"
+                  key={weekday.label}
+                  style={bodyStyle}
+                >
+                  {events.map((event: any) =>
+                    renderCalendarEvent({
+                      ...event,
+                      rangeStart: timetable.rangeStart,
+                    })
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderTeacherMobileAgenda(timetable: any) {
+    const dayGroups = timetable.visibleDays
+      .map((weekday: any) => ({
+        weekday,
+        events: timetable.eventsByDay.get(weekday.label) || [],
+      }))
+      .filter((group: any) => group.events.length > 0);
+
+    if (dayGroups.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="admin-classes-calendar-mobile-agenda">
+        {dayGroups.map((group: any) => (
+          <section
+            className="admin-classes-calendar-mobile-day"
+            key={group.weekday.label}
+          >
+            <h4>{group.weekday.label}</h4>
+            <div className="admin-classes-calendar-mobile-list">
+              {group.events.map((event: any) => (
+                <button
+                  type="button"
+                  className={
+                    event.hasClash
+                      ? "admin-classes-calendar-mobile-event admin-classes-calendar-mobile-event-clash"
+                      : "admin-classes-calendar-mobile-event"
+                  }
+                  key={event.key}
+                  onClick={() => startEdit(event.item.original)}
+                >
+                  <span className="admin-classes-calendar-mobile-time">
+                    {event.item.timeLabel}
+                  </span>
+                  <strong>{getCalendarEventTitle(event.item)}</strong>
+                  <span>{event.item.classroomName}</span>
+                  {event.hasClash && (
+                    <em className="admin-classes-calendar-clash-label">
+                      Schedule clash
+                    </em>
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    );
+  }
+
+  function renderSelectedTeacherCalendar() {
+    const selectedTeacherRows = filteredClasses;
+    const allRowsForSelectedTeacher = sortClassRows(
+      getTeacherClassRows(enrichedClasses, teacherFilter)
+    );
+    const hasAdditionalFilters =
+      Boolean(searchTerm.trim()) ||
+      levelFilter !== "all" ||
+      courseTypeFilter !== "all";
+    const selectedTeacherLabel = getSelectedTeacherLabel();
+
+    if (selectedTeacherRows.length === 0) {
+      return (
+        <div className="admin-classes-teacher-calendar">
+          <div className="admin-classes-calendar-heading">
+            <div>
+              <h3>{selectedTeacherLabel}</h3>
+              <p>
+                {allRowsForSelectedTeacher.length === 0 || !hasAdditionalFilters
+                  ? "No classes are currently assigned to this teacher."
+                  : "No classes match the current filters for this teacher."}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const timetable = buildTeacherTimetable(selectedTeacherRows);
+    const summaryParts = [
+      pluralize(selectedTeacherRows.length, "class", "classes"),
+      pluralize(timetable.teachingDayCount, "teaching day", "teaching days"),
+    ];
+
+    if (timetable.clashCount > 0) {
+      summaryParts.push(pluralize(timetable.clashCount, "clash", "clashes"));
+    }
+
+    return (
+      <div className="admin-classes-teacher-calendar">
+        <div className="admin-classes-calendar-heading">
+          <div>
+            <h3>{selectedTeacherLabel}</h3>
+            <p>{summaryParts.join(" · ")}</p>
+          </div>
+          {timetable.clashCount > 0 && (
+            <span className="admin-classes-calendar-clash-summary">
+              {pluralize(timetable.clashCount, "timetable clash", "timetable clashes")} detected
+            </span>
+          )}
+        </div>
+
+        {timetable.events.length > 0 ? (
+          <>
+            {renderTeacherWeeklyCalendar(timetable)}
+            {renderTeacherMobileAgenda(timetable)}
+          </>
+        ) : (
+          <div className="admin-classes-empty">
+            <p>No valid timetable events are available for this teacher.</p>
+          </div>
+        )}
+
+        {renderScheduleAttention(timetable.scheduleNeedsAttention)}
+      </div>
+    );
+  }
+
+  function renderTeacherView() {
+    if (teacherFilter !== "all") {
+      return (
+        <div className="admin-classes-teacher-view">
+          {renderTeacherViewSelector()}
+          {renderSelectedTeacherCalendar()}
+        </div>
+      );
+    }
+
+    return (
+      <div className="admin-classes-teacher-view">
+        {renderTeacherViewSelector()}
+        {teacherGroups.length === 0 ? (
+          <div className="admin-classes-empty">
+            <p>No classes match the current filters.</p>
+          </div>
+        ) : (
+          <div className="admin-classes-group-list">
+            {teacherGroups.map((group) => (
+              <section className="admin-classes-group" key={group.id}>
+                <div className="admin-classes-group-heading">
+                  <h3>{group.label}</h3>
+                  <span>{getGroupTotalText(group.rows.length)}</span>
+                </div>
+                {renderClassesTable(group.rows, {
+                  showTeacher: false,
+                })}
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderCurrentView() {
     if (loading) {
       return (
@@ -1276,6 +1902,10 @@ export default function AdminClassesPage() {
           <p>No classes found.</p>
         </div>
       );
+    }
+
+    if (classView === "teacher") {
+      return renderTeacherView();
     }
 
     if (filteredClasses.length === 0) {
@@ -1335,24 +1965,6 @@ export default function AdminClassesPage() {
                   </div>
                 ))}
               </div>
-            </section>
-          ))}
-        </div>
-      );
-    }
-
-    if (classView === "teacher") {
-      return (
-        <div className="admin-classes-group-list">
-          {teacherGroups.map((group) => (
-            <section className="admin-classes-group" key={group.id}>
-              <div className="admin-classes-group-heading">
-                <h3>{group.label}</h3>
-                <span>{getGroupTotalText(group.rows.length)}</span>
-              </div>
-              {renderClassesTable(group.rows, {
-                showTeacher: false,
-              })}
             </section>
           ))}
         </div>
@@ -1703,20 +2315,22 @@ export default function AdminClassesPage() {
               </select>
             </label>
 
-            <label className="admin-classes-filter">
-              <span>Teacher</span>
-              <select
-                value={teacherFilter}
-                onChange={(event) => setTeacherFilter(event.target.value)}
-              >
-                <option value="all">All teachers</option>
-                {teacherFilterOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {classView !== "teacher" && (
+              <label className="admin-classes-filter">
+                <span>Teacher</span>
+                <select
+                  value={teacherFilter}
+                  onChange={(event) => setTeacherFilter(event.target.value)}
+                >
+                  <option value="all">All teachers</option>
+                  {teacherFilterOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <label className="admin-classes-filter">
               <span>Course Type</span>
