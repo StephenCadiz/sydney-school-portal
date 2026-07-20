@@ -1,23 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
 import {
   createClass,
   getAdminClasses,
   getClassrooms,
+  getClassStudentCounts,
   getLevels,
   getTeachers,
   updateClass,
 } from "../../../lib/adminClasses";
 import { supabase } from "../../../lib/supabase";
 
+type ClassView = "all" | "level" | "schedule" | "teacher";
+
 const courseTypes = [
   { label: "Regular", value: "regular" },
   { label: "Intensive", value: "intensive" },
   { label: "Express", value: "express" },
   { label: "Online", value: "online" },
+];
+
+const classViewOptions: { label: string; value: ClassView }[] = [
+  { label: "All Classes", value: "all" },
+  { label: "By Level", value: "level" },
+  { label: "By Schedule", value: "schedule" },
+  { label: "By Teacher", value: "teacher" },
 ];
 
 const dayOptions = [
@@ -53,6 +63,9 @@ const youngLearnerLevelOrder = [
   "Teens 3",
 ];
 
+const unassignedTeacherFilter = "__unassigned";
+const missingLevelFilter = "__missing_level";
+
 const inputStyle = {
   width: "100%",
   padding: "12px",
@@ -71,24 +84,31 @@ const labelStyle = {
   color: "#333",
 };
 
-function getTeacherName(teacher: any) {
-  if (!teacher) return "-";
+function getTeacherName(teacher: any, fallback = "Unassigned") {
+  if (!teacher) return fallback;
 
-  return `${teacher.first_name || ""} ${
+  const name = `${teacher.first_name || ""} ${
     teacher.last_name || ""
   }`.trim();
+
+  return name || fallback;
 }
 
-function formatCourseType(courseType: string) {
+function formatCourseType(courseType: string | null | undefined) {
+  const normalizedCourseType = normalizeCourseType(courseType);
   const option = courseTypes.find(
-    (item) => item.value === courseType
+    (item) => item.value === normalizedCourseType
   );
 
-  return option?.label || courseType || "-";
+  return option?.label || String(courseType || "").trim() || "-";
 }
 
-function isOnlineCourse(courseType: string) {
-  return courseType === "online";
+function normalizeCourseType(courseType: string | null | undefined) {
+  return String(courseType ?? "").trim().toLowerCase();
+}
+
+function isOnlineCourse(courseType: string | null | undefined) {
+  return normalizeCourseType(courseType) === "online";
 }
 
 function isValidGoogleMeetLink(value: string) {
@@ -113,6 +133,40 @@ function normalizeLevelCategory(category: string | null | undefined) {
   return String(category || "").trim().toLowerCase();
 }
 
+function normalizeSearchValue(value: string | null | undefined) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function cleanText(value: string | null | undefined, fallback = "-") {
+  const text = String(value || "").trim();
+
+  return text || fallback;
+}
+
+function formatTimeValue(value: string | null | undefined) {
+  const timeValue = String(value || "").trim();
+
+  return timeValue ? timeValue.slice(0, 5) : "";
+}
+
+function formatTimeRange(
+  startTime: string | null | undefined,
+  endTime: string | null | undefined
+) {
+  const start = formatTimeValue(startTime);
+  const end = formatTimeValue(endTime);
+
+  if (start && end) {
+    return `${start}–${end}`;
+  }
+
+  return start || end || "Time not set";
+}
+
 function isCambridgeLevelName(levelName: string | null | undefined) {
   return cambridgeLevelOrder.includes(normalizeLevelName(levelName));
 }
@@ -124,13 +178,26 @@ function isSupportLevel(level: any) {
   );
 }
 
-function getOrderedLevelNames(groupedItems: Record<string, any[]>, order: string[]) {
-  const knownLevels = order.filter((level) => groupedItems[level]?.length > 0);
-  const otherLevels = Object.keys(groupedItems)
-    .filter((level) => !order.includes(level))
-    .sort((first, second) => first.localeCompare(second));
+function getCourseBadgeClass(courseType: string | null | undefined) {
+  const normalizedCourseType = normalizeCourseType(courseType);
 
-  return [...knownLevels, ...otherLevels];
+  if (["regular", "intensive", "express", "online"].includes(normalizedCourseType)) {
+    return `admin-classes-course-badge admin-classes-course-${normalizedCourseType}`;
+  }
+
+  return "admin-classes-course-badge";
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function getGroupTotalText(count: number) {
+  return pluralize(count, "class", "classes");
+}
+
+function getSortText(value: string | null | undefined) {
+  return normalizeSearchValue(value);
 }
 
 const blockerLabels: Record<string, string> = {
@@ -166,6 +233,9 @@ export default function AdminClassesPage() {
   const [levels, setLevels] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [studentCountsByClassId, setStudentCountsByClassId] = useState<
+    Record<string, number>
+  >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingClassId, setEditingClassId] = useState("");
@@ -173,6 +243,11 @@ export default function AdminClassesPage() {
   const [levelsMessage, setLevelsMessage] = useState("");
   const [teachersMessage, setTeachersMessage] = useState("");
   const [classroomsMessage, setClassroomsMessage] = useState("");
+  const [classView, setClassView] = useState<ClassView>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [levelFilter, setLevelFilter] = useState("all");
+  const [teacherFilter, setTeacherFilter] = useState("all");
+  const [courseTypeFilter, setCourseTypeFilter] = useState("all");
 
   const [form, setForm] = useState({
     level_id: "",
@@ -196,8 +271,18 @@ export default function AdminClassesPage() {
     try {
       const classData = await getAdminClasses();
       setClasses(classData);
+
+      try {
+        const studentCounts = await getClassStudentCounts();
+        setStudentCountsByClassId(studentCounts);
+      } catch (error) {
+        console.error("Unable to load class student counts:", error);
+        setStudentCountsByClassId({});
+      }
     } catch (error: any) {
       console.error("Unable to load classes:", error);
+      setClasses([]);
+      setStudentCountsByClassId({});
       setMessage("Unable to load classes.");
     }
 
@@ -361,7 +446,7 @@ export default function AdminClassesPage() {
 
   function getClassroomName(item: any) {
     if (isOnlineCourse(item.course_type)) {
-      return "Online Class";
+      return "Online";
     }
 
     const classroom = classrooms.find(
@@ -523,623 +608,921 @@ export default function AdminClassesPage() {
     }
   }
 
-  function groupClassesByLevel(items: any[]) {
-    return items.reduce((groups: Record<string, any[]>, item) => {
-      const levelName = getLevelName(item.level_id) || "Unknown Level";
+  function getLevelSortValue(levelName: string, levelId: string) {
+    const normalizedLevelName = normalizeLevelName(levelName);
+    const normalizedYoungLearnerOrder = youngLearnerLevelOrder.map((level) =>
+      normalizeLevelName(level)
+    );
+    const cambridgeIndex = cambridgeLevelOrder.indexOf(normalizedLevelName);
 
-      if (!groups[levelName]) {
-        groups[levelName] = [];
-      }
+    if (cambridgeIndex >= 0) {
+      return 100 + cambridgeIndex;
+    }
 
-      groups[levelName].push(item);
+    const youngLearnerIndex =
+      normalizedYoungLearnerOrder.indexOf(normalizedLevelName);
 
-      return groups;
-    }, {});
+    if (youngLearnerIndex >= 0) {
+      return 200 + youngLearnerIndex;
+    }
+
+    if (normalizedLevelName === "SUPPORT CLASSES") {
+      return 300;
+    }
+
+    const loadedLevelIndex = levels.findIndex(
+      (level) => String(level.id) === String(levelId)
+    );
+
+    return loadedLevelIndex >= 0 ? 400 + loadedLevelIndex : 999;
   }
 
-  function renderClassCard(item: any) {
+  const enrichedClasses = useMemo(() => {
+    return classes.map((item) => {
+      const level = levels.find(
+        (levelItem) => String(levelItem.id) === String(item.level_id)
+      );
+      const teacher = teachers.find(
+        (teacherItem) => String(teacherItem.id) === String(item.teacher_id)
+      );
+      const classId = String(item.id || "");
+      const levelName = cleanText(level?.name, "Unknown Level");
+      const className = cleanText(item.class_name, levelName);
+      const courseType = normalizeCourseType(item.course_type || "regular");
+      const courseTypeLabel = formatCourseType(courseType);
+      const teacherName = getTeacherName(teacher);
+      const classroomName = getClassroomName(item);
+      const days = cleanText(item.days, "Schedule not set");
+      const timeLabel = formatTimeRange(item.start_time, item.end_time);
+      const isOnline = isOnlineCourse(item.course_type);
+      const studentCount = Number(studentCountsByClassId[classId] || 0);
+      const searchableText = [
+        className,
+        levelName,
+        courseTypeLabel,
+        teacherName,
+        classroomName,
+        days,
+        timeLabel,
+      ].join(" ");
+
+      return {
+        id: classId,
+        original: item,
+        className,
+        levelId: String(item.level_id || ""),
+        levelName,
+        levelCategory: level?.catagory || "",
+        levelSortValue: getLevelSortValue(levelName, String(item.level_id || "")),
+        courseType,
+        courseTypeLabel,
+        days,
+        rawDays: String(item.days || "").trim(),
+        startTime: String(item.start_time || "").trim(),
+        endTime: String(item.end_time || "").trim(),
+        timeLabel,
+        teacherId: String(item.teacher_id || ""),
+        teacherName,
+        classroomId: String(item.classroom_id || ""),
+        classroomName,
+        isOnline,
+        meetLink: String(item.meet_link || "").trim(),
+        studentCount,
+        searchText: normalizeSearchValue(searchableText),
+      };
+    });
+  }, [classes, levels, teachers, classrooms, studentCountsByClassId]);
+
+  function sortClassRows(rows: any[]) {
+    return [...rows].sort((first, second) => {
+      const levelComparison = first.levelSortValue - second.levelSortValue;
+
+      if (levelComparison !== 0) return levelComparison;
+
+      const dayComparison = getSortText(first.days).localeCompare(
+        getSortText(second.days)
+      );
+
+      if (dayComparison !== 0) return dayComparison;
+
+      const timeComparison = first.startTime.localeCompare(second.startTime);
+
+      if (timeComparison !== 0) return timeComparison;
+
+      const teacherComparison = getSortText(first.teacherName).localeCompare(
+        getSortText(second.teacherName)
+      );
+
+      if (teacherComparison !== 0) return teacherComparison;
+
+      return first.id.localeCompare(second.id);
+    });
+  }
+
+  const filteredClasses = useMemo(() => {
+    const normalizedSearchTerm = normalizeSearchValue(searchTerm);
+
+    return sortClassRows(
+      enrichedClasses.filter((item) => {
+        const matchesSearch =
+          !normalizedSearchTerm || item.searchText.includes(normalizedSearchTerm);
+        const matchesLevel =
+          levelFilter === "all" ||
+          (levelFilter === missingLevelFilter && !item.levelId) ||
+          item.levelId === levelFilter;
+        const matchesTeacher =
+          teacherFilter === "all" ||
+          (teacherFilter === unassignedTeacherFilter && !item.teacherId) ||
+          item.teacherId === teacherFilter;
+        const matchesCourseType =
+          courseTypeFilter === "all" || item.courseType === courseTypeFilter;
+
+        return (
+          matchesSearch &&
+          matchesLevel &&
+          matchesTeacher &&
+          matchesCourseType
+        );
+      })
+    );
+  }, [
+    enrichedClasses,
+    searchTerm,
+    levelFilter,
+    teacherFilter,
+    courseTypeFilter,
+  ]);
+
+  const levelFilterOptions = useMemo(() => {
+    const optionsByValue = new Map<string, { value: string; label: string }>();
+
+    for (const item of enrichedClasses) {
+      const value = item.levelId || missingLevelFilter;
+
+      if (!optionsByValue.has(value)) {
+        optionsByValue.set(value, {
+          value,
+          label: item.levelName || "Unknown Level",
+        });
+      }
+    }
+
+    return Array.from(optionsByValue.values()).sort((first, second) => {
+      const firstRow = enrichedClasses.find((item) => {
+        return (item.levelId || missingLevelFilter) === first.value;
+      });
+      const secondRow = enrichedClasses.find((item) => {
+        return (item.levelId || missingLevelFilter) === second.value;
+      });
+
+      return (
+        (firstRow?.levelSortValue || 999) - (secondRow?.levelSortValue || 999)
+      );
+    });
+  }, [enrichedClasses]);
+
+  const teacherFilterOptions = useMemo(() => {
+    const optionsByValue = new Map<string, { value: string; label: string }>();
+    let hasUnassignedClasses = false;
+
+    for (const item of enrichedClasses) {
+      if (!item.teacherId) {
+        hasUnassignedClasses = true;
+        continue;
+      }
+
+      if (!optionsByValue.has(item.teacherId)) {
+        optionsByValue.set(item.teacherId, {
+          value: item.teacherId,
+          label: item.teacherName,
+        });
+      }
+    }
+
+    const options = Array.from(optionsByValue.values()).sort((first, second) =>
+      first.label.localeCompare(second.label, undefined, {
+        sensitivity: "base",
+      })
+    );
+
+    if (hasUnassignedClasses) {
+      options.push({
+        value: unassignedTeacherFilter,
+        label: "Unassigned",
+      });
+    }
+
+    return options;
+  }, [enrichedClasses]);
+
+  const courseTypeFilterOptions = useMemo(() => {
+    const knownCourseTypes = new Set(courseTypes.map((item) => item.value));
+    const unknownCourseTypes = Array.from(
+      new Set(
+        enrichedClasses
+          .map((item) => item.courseType)
+          .filter((courseType) => courseType && !knownCourseTypes.has(courseType))
+      )
+    ).sort();
+
+    return [
+      ...courseTypes,
+      ...unknownCourseTypes.map((courseType) => ({
+        value: courseType,
+        label: formatCourseType(courseType),
+      })),
+    ];
+  }, [enrichedClasses]);
+
+  const listSummary = useMemo(() => {
+    const assignedTeacherCount = new Set(
+      filteredClasses.map((item) => item.teacherId).filter(Boolean)
+    ).size;
+    const onlineCount = filteredClasses.filter((item) => item.isOnline).length;
+
+    return [
+      pluralize(filteredClasses.length, "class", "classes"),
+      pluralize(assignedTeacherCount, "teacher", "teachers"),
+      `${onlineCount} online`,
+    ].join(" · ");
+  }, [filteredClasses]);
+
+  const levelGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      { id: string; label: string; sortValue: number; rows: any[] }
+    >();
+
+    for (const item of filteredClasses) {
+      const groupId = item.levelId || missingLevelFilter;
+
+      if (!groups.has(groupId)) {
+        groups.set(groupId, {
+          id: groupId,
+          label: item.levelName || "Unknown Level",
+          sortValue: item.levelSortValue,
+          rows: [],
+        });
+      }
+
+      groups.get(groupId)?.rows.push(item);
+    }
+
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        rows: sortClassRows(group.rows),
+      }))
+      .sort((first, second) => first.sortValue - second.sortValue);
+  }, [filteredClasses]);
+
+  const scheduleGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        days: string;
+        sortText: string;
+        timeSlots: Map<
+          string,
+          { label: string; startTime: string; rows: any[] }
+        >;
+      }
+    >();
+
+    for (const item of filteredClasses) {
+      const days = item.rawDays || "Schedule not set";
+      const daysKey = days;
+      const timeKey = `${item.startTime || "missing"}|${
+        item.endTime || "missing"
+      }`;
+
+      if (!groups.has(daysKey)) {
+        groups.set(daysKey, {
+          days,
+          sortText: getSortText(days),
+          timeSlots: new Map(),
+        });
+      }
+
+      const group = groups.get(daysKey);
+
+      if (group && !group.timeSlots.has(timeKey)) {
+        group.timeSlots.set(timeKey, {
+          label: item.timeLabel,
+          startTime: item.startTime,
+          rows: [],
+        });
+      }
+
+      group?.timeSlots.get(timeKey)?.rows.push(item);
+    }
+
+    return Array.from(groups.values())
+      .sort((first, second) => first.sortText.localeCompare(second.sortText))
+      .map((group) => ({
+        days: group.days,
+        timeSlots: Array.from(group.timeSlots.values())
+          .map((timeSlot) => ({
+            ...timeSlot,
+            rows: sortClassRows(timeSlot.rows),
+          }))
+          .sort((first, second) => {
+            const timeComparison = first.startTime.localeCompare(
+              second.startTime
+            );
+
+            if (timeComparison !== 0) return timeComparison;
+
+            return first.label.localeCompare(second.label);
+          }),
+      }));
+  }, [filteredClasses]);
+
+  const teacherGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      { id: string; label: string; rows: any[]; isUnassigned: boolean }
+    >();
+
+    for (const item of filteredClasses) {
+      const groupId = item.teacherId || unassignedTeacherFilter;
+
+      if (!groups.has(groupId)) {
+        groups.set(groupId, {
+          id: groupId,
+          label: item.teacherId ? item.teacherName : "Unassigned",
+          rows: [],
+          isUnassigned: !item.teacherId,
+        });
+      }
+
+      groups.get(groupId)?.rows.push(item);
+    }
+
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        rows: sortClassRows(group.rows),
+      }))
+      .sort((first, second) => {
+        if (first.isUnassigned !== second.isUnassigned) {
+          return first.isUnassigned ? 1 : -1;
+        }
+
+        return first.label.localeCompare(second.label, undefined, {
+          sensitivity: "base",
+        });
+      });
+  }, [filteredClasses]);
+
+  function renderClassIdentity(item: any, includeLevel = true) {
+    const showClassName =
+      item.className &&
+      normalizeSearchValue(item.className) !== normalizeSearchValue(item.levelName);
+
     return (
-      <div
-        key={item.id}
-        style={{
-          border: "1px solid #e5e5e5",
-          borderRadius: "10px",
-          padding: "18px",
-          background: "#f8f9fc",
-        }}
-      >
-        <h3
-          style={{
-            color: "#1f3c88",
-            marginTop: 0,
-            marginBottom: "12px",
-          }}
-        >
-          {getLevelName(item.level_id)}
-        </h3>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: "12px",
-            color: "#555",
-          }}
-        >
-          <div>
-            <strong>Level</strong>
-            <br />
-            {getLevelName(item.level_id)}
-          </div>
-
-          <div>
-            <strong>Days</strong>
-            <br />
-            {item.days || "-"}
-          </div>
-
-          <div>
-            <strong>Time</strong>
-            <br />
-            {item.start_time || "-"} - {item.end_time || "-"}
-          </div>
-
-          <div>
-            <strong>Classroom</strong>
-            <br />
-            {getClassroomName(item)}
-          </div>
-
-          <div>
-            <strong>Teacher</strong>
-            <br />
-            {getTeacherName(getTeacherById(item.teacher_id))}
-          </div>
-
-          <div>
-            <strong>Course Type</strong>
-            <br />
-            {formatCourseType(item.course_type)}
-          </div>
-
-          <div>
-            <strong>Type</strong>
-            <br />
-            {item.is_cambridge ? "Cambridge" : "Non-Cambridge"}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            marginTop: "18px",
-          }}
-        >
-          <button
-            onClick={() => startEdit(item)}
-            style={{
-              background: "#1f3c88",
-              color: "#ffffff",
-              border: "none",
-              borderRadius: "8px",
-              padding: "10px 16px",
-              cursor: "pointer",
-              fontWeight: 700,
-            }}
-          >
-            Edit
-          </button>
-
-          <button
-            onClick={() => handleDeleteClass(item.id)}
-            style={{
-              background: "#d32f2f",
-              color: "#ffffff",
-              border: "none",
-              borderRadius: "8px",
-              padding: "10px 16px",
-              cursor: "pointer",
-              fontWeight: 700,
-            }}
-          >
-            Delete
-          </button>
-        </div>
+      <div className="admin-classes-class-cell">
+        <strong>{includeLevel ? item.levelName : item.className || item.levelName}</strong>
+        {includeLevel && showClassName && <span>{item.className}</span>}
+        {!includeLevel && !showClassName && (
+          <span>{item.isOnline ? "Online class" : "Teaching group"}</span>
+        )}
       </div>
     );
   }
 
-  function renderGroupedClassSection(
-    title: string,
-    items: any[],
-    levelOrder: string[],
-    emptyMessage: string
-  ) {
-    const groupedItems = groupClassesByLevel(items);
-    const orderedLevels = getOrderedLevelNames(groupedItems, levelOrder);
-
+  function renderActions(item: any) {
     return (
-      <section
-        style={{
-          display: "grid",
-          gap: "14px",
-        }}
-      >
-        <h3
-          style={{
-            color: "#1f3c88",
-            margin: 0,
-            fontSize: "22px",
-          }}
+      <div className="admin-classes-actions">
+        <button
+          className="admin-classes-action-button admin-classes-action-edit"
+          type="button"
+          onClick={() => startEdit(item.original)}
         >
-          {title}
-        </h3>
-
-        {items.length === 0 ? (
-          <p
-            style={{
-              color: "#333",
-              margin: 0,
-            }}
-          >
-            {emptyMessage}
-          </p>
-        ) : (
-          orderedLevels.map((levelName) => (
-            <div
-              key={`${title}-${levelName}`}
-              style={{
-                border: "1px solid #e6eaf2",
-                borderRadius: "12px",
-                padding: "16px",
-                background: "#ffffff",
-              }}
-            >
-              <h4
-                style={{
-                  color: "#333",
-                  margin: "0 0 12px",
-                  fontSize: "17px",
-                }}
-              >
-                {levelName}
-              </h4>
-
-              <div
-                style={{
-                  display: "grid",
-                  gap: "12px",
-                }}
-              >
-                {groupedItems[levelName].map(renderClassCard)}
-              </div>
-            </div>
-          ))
-        )}
-      </section>
+          Edit
+        </button>
+        <button
+          className="admin-classes-action-button admin-classes-action-delete"
+          type="button"
+          onClick={() => handleDeleteClass(item.id)}
+        >
+          Delete
+        </button>
+      </div>
     );
   }
 
-  const cambridgeClasses = classes.filter(
-    (item) =>
-      item.is_cambridge === true &&
-      !isSupportLevelId(item.level_id || "")
-  );
-  const youngLearnerClasses = classes.filter(
-    (item) =>
-      item.is_cambridge !== true &&
-      isYoungLearnerLevelId(item.level_id || "")
-  );
-  const supportClasses = classes.filter(
-    (item) => isSupportLevelId(item.level_id || "")
-  );
+  function renderClassesTable(
+    rows: any[],
+    options: {
+      firstColumnLabel?: string;
+      includeLevel?: boolean;
+      showDays?: boolean;
+      showTime?: boolean;
+      showTeacher?: boolean;
+      showClassroom?: boolean;
+    } = {}
+  ) {
+    const {
+      firstColumnLabel = "Level / Class",
+      includeLevel = true,
+      showDays = true,
+      showTime = true,
+      showTeacher = true,
+      showClassroom = true,
+    } = options;
+
+    return (
+      <div className="admin-classes-table-wrap">
+        <table className="admin-classes-table">
+          <caption>Admin class list</caption>
+          <thead>
+            <tr>
+              <th>{firstColumnLabel}</th>
+              <th>Course Type</th>
+              {showDays && <th>Days</th>}
+              {showTime && <th>Time</th>}
+              {showTeacher && <th>Teacher</th>}
+              {showClassroom && <th>Classroom</th>}
+              <th className="admin-classes-number-cell">Students</th>
+              <th className="admin-classes-actions-heading">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((item) => (
+              <tr key={item.id}>
+                <td>{renderClassIdentity(item, includeLevel)}</td>
+                <td>
+                  <span className={getCourseBadgeClass(item.courseType)}>
+                    {item.courseTypeLabel}
+                  </span>
+                </td>
+                {showDays && <td>{item.days}</td>}
+                {showTime && <td>{item.timeLabel}</td>}
+                {showTeacher && <td>{item.teacherName}</td>}
+                {showClassroom && (
+                  <td>
+                    <span
+                      className={
+                        item.isOnline
+                          ? "admin-classes-online-label"
+                          : undefined
+                      }
+                    >
+                      {item.classroomName}
+                    </span>
+                  </td>
+                )}
+                <td className="admin-classes-number-cell">
+                  {item.studentCount}
+                </td>
+                <td>{renderActions(item)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  function renderCurrentView() {
+    if (loading) {
+      return (
+        <div className="admin-classes-empty">
+          <p>Loading classes...</p>
+        </div>
+      );
+    }
+
+    if (classes.length === 0) {
+      return (
+        <div className="admin-classes-empty">
+          <p>No classes found.</p>
+        </div>
+      );
+    }
+
+    if (filteredClasses.length === 0) {
+      return (
+        <div className="admin-classes-empty">
+          <p>No classes match the current filters.</p>
+        </div>
+      );
+    }
+
+    if (classView === "level") {
+      return (
+        <div className="admin-classes-group-list">
+          {levelGroups.map((group) => (
+            <section className="admin-classes-group" key={group.id}>
+              <div className="admin-classes-group-heading">
+                <h3>{group.label}</h3>
+                <span>{getGroupTotalText(group.rows.length)}</span>
+              </div>
+              {renderClassesTable(group.rows, {
+                firstColumnLabel: "Class",
+                includeLevel: false,
+              })}
+            </section>
+          ))}
+        </div>
+      );
+    }
+
+    if (classView === "schedule") {
+      return (
+        <div className="admin-classes-group-list">
+          {scheduleGroups.map((daysGroup) => (
+            <section className="admin-classes-schedule-group" key={daysGroup.days}>
+              <div className="admin-classes-group-heading">
+                <h3>{daysGroup.days}</h3>
+                <span>
+                  {getGroupTotalText(
+                    daysGroup.timeSlots.reduce(
+                      (total, timeSlot) => total + timeSlot.rows.length,
+                      0
+                    )
+                  )}
+                </span>
+              </div>
+              <div className="admin-classes-time-slot-list">
+                {daysGroup.timeSlots.map((timeSlot) => (
+                  <div
+                    className="admin-classes-time-slot"
+                    key={`${daysGroup.days}-${timeSlot.label}`}
+                  >
+                    <h4>{timeSlot.label}</h4>
+                    {renderClassesTable(timeSlot.rows, {
+                      showDays: false,
+                      showTime: false,
+                    })}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      );
+    }
+
+    if (classView === "teacher") {
+      return (
+        <div className="admin-classes-group-list">
+          {teacherGroups.map((group) => (
+            <section className="admin-classes-group" key={group.id}>
+              <div className="admin-classes-group-heading">
+                <h3>{group.label}</h3>
+                <span>{getGroupTotalText(group.rows.length)}</span>
+              </div>
+              {renderClassesTable(group.rows, {
+                showTeacher: false,
+              })}
+            </section>
+          ))}
+        </div>
+      );
+    }
+
+    return renderClassesTable(filteredClasses);
+  }
+
   const selectedFormLevel = getLevelById(form.level_id);
   const selectedFormIsCambridge = isCambridgeLevelId(form.level_id);
   const selectedFormIsSupport = isSupportLevel(selectedFormLevel);
 
   return (
     <AdminLayout>
-      <h1
-        style={{
-          color: "#1f3c88",
-          marginBottom: "10px",
-        }}
-      >
-        Classes / Groups
-      </h1>
-
-      <p
-        style={{
-          color: "#666",
-          marginBottom: "30px",
-        }}
-      >
-        Create and manage teaching groups.
-      </p>
-
-      {message && (
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: "8px",
-            padding: "14px",
-            marginBottom: "20px",
-            color: "#333",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          }}
-        >
-          {message}
+      <div className="admin-classes-page">
+        <div className="admin-classes-page-heading">
+          <h1>Classes / Groups</h1>
+          <p>Create and manage teaching groups.</p>
         </div>
-      )}
 
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          background: "#ffffff",
-          padding: "30px",
-          borderRadius: "12px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          marginBottom: "30px",
-        }}
-      >
-        <h2
-          style={{
-            color: "#1f3c88",
-            marginTop: 0,
-            marginBottom: "25px",
-          }}
-        >
-          {editingClassId ? "Edit Class / Group" : "Create Class / Group"}
-        </h2>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: "20px",
-          }}
-        >
-          <div>
-            <label style={labelStyle}>Level</label>
-            <select
-              required
-              style={inputStyle}
-              value={form.level_id}
-              onChange={(event) =>
-                updateForm("level_id", event.target.value)
-              }
-            >
-              <option value="">Select level</option>
-              {levels.map((level) => (
-                <option key={level.id} value={level.id}>
-                  {level.name}
-                </option>
-              ))}
-            </select>
-            {levelsMessage && (
-              <p
-                style={{
-                  color: "#b00020",
-                  marginBottom: 0,
-                }}
-              >
-                {levelsMessage}
-              </p>
-            )}
+        {message && (
+          <div className="admin-classes-message">
+            {message}
           </div>
+        )}
 
-          <div>
-            <label style={labelStyle}>Teacher</label>
-            <select
-              required
-              style={inputStyle}
-              value={form.teacher_id}
-              onChange={(event) =>
-                updateForm("teacher_id", event.target.value)
-              }
-            >
-              <option value="">Select teacher</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {getTeacherName(teacher)}
-                </option>
-              ))}
-            </select>
-            {teachersMessage && (
-              <p
-                style={{
-                  color: "#b00020",
-                  marginBottom: 0,
-                }}
-              >
-                {teachersMessage}
-              </p>
-            )}
-          </div>
+        <form
+          className="admin-classes-form-card"
+          onSubmit={handleSubmit}
+        >
+          <h2>
+            {editingClassId ? "Edit Class / Group" : "Create Class / Group"}
+          </h2>
 
-          {isOnlineCourse(form.course_type) ? (
+          <div className="admin-classes-form-grid">
             <div>
-              <label style={labelStyle}>Classroom</label>
-              <div
-                style={{
-                  ...inputStyle,
-                  background: "#f5f7fa",
-                  color: "#1f3c88",
-                  fontWeight: 700,
-                }}
-              >
-                Online Class
-              </div>
-              <p
-                style={{
-                  color: "#667085",
-                  margin: "8px 0 0",
-                  fontSize: "13px",
-                }}
-              >
-                Online classes do not use a physical classroom.
-              </p>
-
-              <label style={{ ...labelStyle, marginTop: "14px" }}>
-                Google Meet link
-              </label>
-              <input
-                required
-                type="url"
-                style={inputStyle}
-                placeholder="https://meet.google.com/abc-defg-hij"
-                value={form.meet_link}
-                onChange={(event) =>
-                  updateForm("meet_link", event.target.value)
-                }
-              />
-            </div>
-          ) : (
-            <div>
-              <label style={labelStyle}>Classroom</label>
+              <label style={labelStyle}>Level</label>
               <select
                 required
                 style={inputStyle}
-                value={form.classroom_id}
+                value={form.level_id}
                 onChange={(event) =>
-                  updateForm("classroom_id", event.target.value)
+                  updateForm("level_id", event.target.value)
                 }
               >
-                <option value="">Select classroom</option>
-                {classrooms.map((classroom) => (
-                  <option key={classroom.id} value={classroom.id}>
-                    {classroom.name}
+                <option value="">Select level</option>
+                {levels.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {level.name}
                   </option>
                 ))}
               </select>
-              {classroomsMessage && (
-                <p
-                  style={{
-                    color: "#b00020",
-                    marginBottom: 0,
-                  }}
-                >
-                  {classroomsMessage}
+              {levelsMessage && (
+                <p className="admin-classes-field-error">
+                  {levelsMessage}
                 </p>
               )}
             </div>
-          )}
 
-          <div>
-            <label style={labelStyle}>Course Type</label>
-            <select
-              required
-              style={inputStyle}
-              value={form.course_type}
-              onChange={(event) =>
-                updateForm("course_type", event.target.value)
-              }
-            >
-              {courseTypes
-                .filter(
-                  (courseType) =>
-                    form.is_cambridge ||
-                    courseType.value === "regular"
-                )
-                .map((courseType) => (
-                  <option
-                    key={courseType.value}
-                    value={courseType.value}
-                  >
-                    {courseType.label}
+            <div>
+              <label style={labelStyle}>Teacher</label>
+              <select
+                required
+                style={inputStyle}
+                value={form.teacher_id}
+                onChange={(event) =>
+                  updateForm("teacher_id", event.target.value)
+                }
+              >
+                <option value="">Select teacher</option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.id}>
+                    {getTeacherName(teacher, "-")}
                   </option>
                 ))}
-            </select>
+              </select>
+              {teachersMessage && (
+                <p className="admin-classes-field-error">
+                  {teachersMessage}
+                </p>
+              )}
+            </div>
+
+            {isOnlineCourse(form.course_type) ? (
+              <div>
+                <label style={labelStyle}>Classroom</label>
+                <div className="admin-classes-online-form-note">
+                  Online Class
+                </div>
+                <p className="admin-classes-form-help">
+                  Online classes do not use a physical classroom.
+                </p>
+
+                <label style={{ ...labelStyle, marginTop: "14px" }}>
+                  Google Meet link
+                </label>
+                <input
+                  required
+                  type="url"
+                  style={inputStyle}
+                  placeholder="https://meet.google.com/abc-defg-hij"
+                  value={form.meet_link}
+                  onChange={(event) =>
+                    updateForm("meet_link", event.target.value)
+                  }
+                />
+              </div>
+            ) : (
+              <div>
+                <label style={labelStyle}>Classroom</label>
+                <select
+                  required
+                  style={inputStyle}
+                  value={form.classroom_id}
+                  onChange={(event) =>
+                    updateForm("classroom_id", event.target.value)
+                  }
+                >
+                  <option value="">Select classroom</option>
+                  {classrooms.map((classroom) => (
+                    <option key={classroom.id} value={classroom.id}>
+                      {classroom.name}
+                    </option>
+                  ))}
+                </select>
+                {classroomsMessage && (
+                  <p className="admin-classes-field-error">
+                    {classroomsMessage}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label style={labelStyle}>Course Type</label>
+              <select
+                required
+                style={inputStyle}
+                value={form.course_type}
+                onChange={(event) =>
+                  updateForm("course_type", event.target.value)
+                }
+              >
+                {courseTypes
+                  .filter(
+                    (courseType) =>
+                      form.is_cambridge ||
+                      courseType.value === "regular"
+                  )
+                  .map((courseType) => (
+                    <option
+                      key={courseType.value}
+                      value={courseType.value}
+                    >
+                      {courseType.label}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Days</label>
+              <select
+                required
+                style={inputStyle}
+                value={form.days}
+                onChange={(event) =>
+                  updateForm("days", event.target.value)
+                }
+              >
+                <option value="">Select days</option>
+                {dayOptions.map((days) => (
+                  <option key={days} value={days}>
+                    {days}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Time Slot</label>
+              <select
+                required
+                style={inputStyle}
+                value={form.time_slot}
+                onChange={(event) =>
+                  updateTimeSlot(event.target.value)
+                }
+              >
+                <option value="">Select time slot</option>
+                {timeSlotOptions.map((timeSlot) => (
+                  <option key={timeSlot} value={timeSlot}>
+                    {timeSlot}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>Days</label>
-            <select
-              required
-              style={inputStyle}
-              value={form.days}
-              onChange={(event) =>
-                updateForm("days", event.target.value)
-              }
+          {!selectedFormIsSupport && (
+            <label className="admin-classes-checkbox-label">
+              <input
+                type="checkbox"
+                checked={form.is_cambridge}
+                disabled={selectedFormIsCambridge}
+                onChange={(event) =>
+                  updateCambridge(event.target.checked)
+                }
+              />
+              Cambridge class
+            </label>
+          )}
+
+          {selectedFormIsCambridge && (
+            <p className="admin-classes-form-help">
+              B1, B2, C1 and C2 are always saved as Cambridge classes.
+            </p>
+          )}
+
+          {selectedFormIsSupport && (
+            <p className="admin-classes-form-help admin-classes-support-help">
+              Support Classes are saved separately from Cambridge and Young
+              Learner groups.
+            </p>
+          )}
+
+          <div className="admin-classes-form-actions">
+            <button
+              className="admin-classes-primary-button"
+              type="submit"
+              disabled={saving}
             >
-              <option value="">Select days</option>
-              {dayOptions.map((days) => (
-                <option key={days} value={days}>
-                  {days}
-                </option>
-              ))}
-            </select>
+              {saving
+                ? "Saving..."
+                : editingClassId
+                ? "Save Changes"
+                : "Create Class"}
+            </button>
+
+            {editingClassId && (
+              <button
+                className="admin-classes-secondary-button"
+                type="button"
+                onClick={cancelEdit}
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
+        </form>
+
+        <section className="admin-classes-list-card">
+          <div className="admin-classes-list-header">
+            <div>
+              <h2>Class Management</h2>
+              <p>
+                View classes by level, schedule or teacher without leaving this
+                page.
+              </p>
+            </div>
+            <span className="admin-classes-summary">{listSummary}</span>
           </div>
 
-          <div>
-            <label style={labelStyle}>Time Slot</label>
-            <select
-              required
-              style={inputStyle}
-              value={form.time_slot}
-              onChange={(event) =>
-                updateTimeSlot(event.target.value)
-              }
-            >
-              <option value="">Select time slot</option>
-              {timeSlotOptions.map((timeSlot) => (
-                <option key={timeSlot} value={timeSlot}>
-                  {timeSlot}
-                </option>
-              ))}
-            </select>
-          </div>
-
-        </div>
-
-        {!selectedFormIsSupport && (
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              marginTop: "20px",
-              color: "#333",
-              fontWeight: 600,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={form.is_cambridge}
-              disabled={selectedFormIsCambridge}
-              onChange={(event) =>
-                updateCambridge(event.target.checked)
-              }
-            />
-            Cambridge class
-          </label>
-        )}
-
-        {selectedFormIsCambridge && (
-          <p
-            style={{
-              color: "#667085",
-              margin: "8px 0 0",
-              fontSize: "13px",
-            }}
-          >
-            B1, B2, C1 and C2 are always saved as Cambridge classes.
-          </p>
-        )}
-
-        {selectedFormIsSupport && (
-          <p
-            style={{
-              color: "#667085",
-              margin: "20px 0 0",
-              fontSize: "13px",
-            }}
-          >
-            Support Classes are saved separately from Cambridge and Young
-            Learner groups.
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            background: "#1f3c88",
-            color: "#ffffff",
-            border: "none",
-            borderRadius: "8px",
-            padding: "12px 22px",
-            marginTop: "25px",
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-        >
-          {saving
-            ? "Saving..."
-            : editingClassId
-            ? "Save Changes"
-            : "Create Class"}
-        </button>
-
-        {editingClassId && (
-          <button
-            type="button"
-            onClick={cancelEdit}
-            style={{
-              background: "#ffffff",
-              color: "#1f3c88",
-              border: "1px solid #1f3c88",
-              borderRadius: "8px",
-              padding: "12px 22px",
-              marginTop: "25px",
-              marginLeft: "12px",
-              cursor: "pointer",
-              fontWeight: 700,
-            }}
-          >
-            Cancel Edit
-          </button>
-        )}
-      </form>
-
-      <div
-        style={{
-          background: "#ffffff",
-          padding: "30px",
-          borderRadius: "12px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-        }}
-      >
-        <h2
-          style={{
-            color: "#1f3c88",
-            marginTop: 0,
-            marginBottom: "20px",
-          }}
-        >
-          Existing Classes / Groups
-        </h2>
-
-        {loading ? (
-          <p>Loading classes...</p>
-        ) : classes.length === 0 ? (
-          <p
-            style={{
-              color: "#333",
-            }}
-          >
-            No classes found.
-          </p>
-        ) : (
           <div
-            style={{
-              display: "grid",
-              gap: "26px",
-            }}
+            className="admin-classes-view-selector"
+            role="tablist"
+            aria-label="Class views"
           >
-            {renderGroupedClassSection(
-              "Cambridge Classes",
-              cambridgeClasses,
-              cambridgeLevelOrder,
-              "No Cambridge classes created yet."
-            )}
-
-            {renderGroupedClassSection(
-              "Young Learners",
-              youngLearnerClasses,
-              youngLearnerLevelOrder,
-              "No Young Learner classes created yet."
-            )}
-
-            {renderGroupedClassSection(
-              "Support Classes",
-              supportClasses,
-              ["Support Classes"],
-              "No Support Classes have been created yet."
-            )}
+            {classViewOptions.map((option) => (
+              <button
+                aria-selected={classView === option.value}
+                className={
+                  classView === option.value
+                    ? "admin-classes-view-tab admin-classes-view-tab-active"
+                    : "admin-classes-view-tab"
+                }
+                key={option.value}
+                role="tab"
+                type="button"
+                onClick={() => setClassView(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
-        )}
+
+          <div className="admin-classes-toolbar">
+            <label className="admin-classes-search">
+              <span>Search</span>
+              <input
+                type="search"
+                placeholder="Search classes..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </label>
+
+            <label className="admin-classes-filter">
+              <span>Level</span>
+              <select
+                value={levelFilter}
+                onChange={(event) => setLevelFilter(event.target.value)}
+              >
+                <option value="all">All levels</option>
+                {levelFilterOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="admin-classes-filter">
+              <span>Teacher</span>
+              <select
+                value={teacherFilter}
+                onChange={(event) => setTeacherFilter(event.target.value)}
+              >
+                <option value="all">All teachers</option>
+                {teacherFilterOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="admin-classes-filter">
+              <span>Course Type</span>
+              <select
+                value={courseTypeFilter}
+                onChange={(event) => setCourseTypeFilter(event.target.value)}
+              >
+                <option value="all">All course types</option>
+                {courseTypeFilterOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {renderCurrentView()}
+        </section>
       </div>
     </AdminLayout>
   );

@@ -6815,3 +6815,555 @@ img {
     flex-basis: 100%;
   }
 }
+
+/* Admin Classes spreadsheet-style management */
+.admin-classes-page {
+  color: #1f2937;
+  display: grid;
+  gap: 22px;
+}
+
+.admin-classes-page-heading h1 {
+  color: var(--ss-blue-dark);
+  font-size: 32px;
+  line-height: 1.15;
+  margin: 0 0 8px;
+}
+
+.admin-classes-page-heading p {
+  color: #5f6b7a;
+  font-size: 16px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.admin-classes-message,
+.admin-classes-form-card,
+.admin-classes-list-card {
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.admin-classes-message {
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.45;
+  padding: 14px 16px;
+  white-space: pre-line;
+}
+
+.admin-classes-form-card,
+.admin-classes-list-card {
+  padding: 26px;
+}
+
+.admin-classes-form-card h2,
+.admin-classes-list-header h2 {
+  color: var(--ss-blue-dark);
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.admin-classes-form-card h2 {
+  margin-bottom: 22px;
+}
+
+.admin-classes-form-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-classes-field-error {
+  color: #b00020;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 8px 0 0;
+}
+
+.admin-classes-online-form-note {
+  background: #f5f7fa;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: var(--ss-blue-dark);
+  font-size: 15px;
+  font-weight: 800;
+  padding: 12px;
+  width: 100%;
+}
+
+.admin-classes-form-help {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+}
+
+.admin-classes-support-help {
+  margin-top: 20px;
+}
+
+.admin-classes-checkbox-label {
+  align-items: center;
+  color: #333333;
+  display: flex;
+  gap: 10px;
+  font-weight: 700;
+  margin-top: 20px;
+}
+
+.admin-classes-form-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.admin-classes-primary-button,
+.admin-classes-secondary-button,
+.admin-classes-action-button,
+.admin-classes-view-tab {
+  align-items: center;
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 900;
+  justify-content: center;
+  line-height: 1.2;
+  min-height: 40px;
+  text-decoration: none;
+}
+
+.admin-classes-primary-button {
+  background: var(--ss-blue);
+  border: 1px solid var(--ss-blue);
+  color: #ffffff;
+  padding: 11px 18px;
+}
+
+.admin-classes-primary-button:hover:not(:disabled) {
+  background: var(--ss-blue-hover);
+  border-color: var(--ss-blue-hover);
+}
+
+.admin-classes-secondary-button,
+.admin-classes-action-edit {
+  background: #ffffff;
+  border: 1px solid #cfdbe8;
+  color: var(--ss-blue-dark);
+  padding: 11px 18px;
+}
+
+.admin-classes-secondary-button:hover:not(:disabled),
+.admin-classes-action-edit:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.admin-classes-action-delete {
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.admin-classes-action-delete:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.admin-classes-primary-button:disabled,
+.admin-classes-secondary-button:disabled,
+.admin-classes-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.admin-classes-primary-button:focus-visible,
+.admin-classes-secondary-button:focus-visible,
+.admin-classes-action-button:focus-visible,
+.admin-classes-view-tab:focus-visible,
+.admin-classes-search input:focus,
+.admin-classes-filter select:focus {
+  outline: 3px solid rgba(47, 125, 184, 0.22);
+  outline-offset: 2px;
+}
+
+.admin-classes-list-header {
+  align-items: flex-start;
+  border-bottom: 1px solid #e6edf5;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+}
+
+.admin-classes-list-header p {
+  color: #5f6b7a;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 8px 0 0;
+  max-width: 720px;
+}
+
+.admin-classes-summary {
+  background: var(--ss-blue-light);
+  border: 1px solid #c8e1f4;
+  border-radius: 999px;
+  color: var(--ss-blue-dark);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.25;
+  padding: 8px 13px;
+  white-space: nowrap;
+}
+
+.admin-classes-view-selector {
+  background: #f4f7fb;
+  border: 1px solid #dfe8f2;
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 5px;
+}
+
+.admin-classes-view-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ss-blue-dark);
+  flex: 1 1 130px;
+  padding: 9px 12px;
+}
+
+.admin-classes-view-tab-active {
+  background: var(--ss-blue);
+  border-color: var(--ss-blue);
+  box-shadow: 0 8px 18px rgba(47, 125, 184, 0.18);
+  color: #ffffff;
+}
+
+.admin-classes-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(160px, 0.8fr));
+  margin-bottom: 18px;
+}
+
+.admin-classes-search,
+.admin-classes-filter {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-classes-search span,
+.admin-classes-filter span {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-classes-search input,
+.admin-classes-filter select {
+  background: #ffffff;
+  border: 1px solid #cfdbe8;
+  border-radius: 10px;
+  box-sizing: border-box;
+  color: #111827;
+  font-size: 15px;
+  min-height: 44px;
+  outline: none;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.admin-classes-table-wrap {
+  border: 1px solid #dfe8f2;
+  border-radius: 13px;
+  overflow: auto;
+  width: 100%;
+}
+
+.admin-classes-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 980px;
+  width: 100%;
+}
+
+.admin-classes-table caption {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.admin-classes-table th {
+  background: #f4f7fb;
+  border-bottom: 1px solid #dfe8f2;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  padding: 11px 12px;
+  position: sticky;
+  text-align: left;
+  text-transform: uppercase;
+  top: 0;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.admin-classes-table td {
+  background: #ffffff;
+  border-bottom: 1px solid #edf2f7;
+  color: #1f2937;
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 12px;
+  vertical-align: middle;
+}
+
+.admin-classes-table tbody tr:hover td {
+  background: #f8fbfe;
+}
+
+.admin-classes-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-classes-class-cell {
+  display: grid;
+  gap: 3px;
+  min-width: 190px;
+}
+
+.admin-classes-class-cell strong {
+  color: var(--ss-blue-dark);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.admin-classes-class-cell span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-classes-course-badge,
+.admin-classes-online-label {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.admin-classes-course-badge {
+  background: #f8fafc;
+  border: 1px solid #dbe7f3;
+  color: #334155;
+}
+
+.admin-classes-course-regular {
+  background: #eef6fd;
+  border-color: #c8e1f4;
+  color: var(--ss-blue-dark);
+}
+
+.admin-classes-course-intensive {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
+.admin-classes-course-express {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #5b21b6;
+}
+
+.admin-classes-course-online,
+.admin-classes-online-label {
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.admin-classes-number-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-classes-actions-heading {
+  text-align: right !important;
+}
+
+.admin-classes-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 138px;
+}
+
+.admin-classes-action-button {
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.admin-classes-group-list {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-classes-group,
+.admin-classes-schedule-group {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-classes-group-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.admin-classes-group-heading h3 {
+  color: var(--ss-blue-dark);
+  font-size: 18px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.admin-classes-group-heading span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-classes-time-slot-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-classes-time-slot {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-classes-time-slot h4 {
+  color: #334155;
+  font-size: 15px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.admin-classes-empty {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dfe8f2;
+  border-radius: 13px;
+  color: #64748b;
+  display: grid;
+  font-size: 15px;
+  font-weight: 800;
+  min-height: 160px;
+  padding: 26px;
+  text-align: center;
+}
+
+.admin-classes-empty p {
+  margin: 0;
+}
+
+@media (max-width: 1120px) {
+  .admin-classes-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-classes-page {
+    gap: 18px;
+  }
+
+  .admin-classes-page-heading h1 {
+    font-size: 28px;
+  }
+
+  .admin-classes-form-card,
+  .admin-classes-list-card {
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .admin-classes-form-card h2,
+  .admin-classes-list-header h2 {
+    font-size: 22px;
+  }
+
+  .admin-classes-form-grid,
+  .admin-classes-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-classes-list-header,
+  .admin-classes-group-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-classes-summary {
+    align-self: flex-start;
+    white-space: normal;
+  }
+
+  .admin-classes-view-selector {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .admin-classes-view-tab {
+    flex: 0 0 auto;
+    min-width: 138px;
+  }
+
+  .admin-classes-table {
+    min-width: 920px;
+  }
+
+  .admin-classes-form-actions,
+  .admin-classes-primary-button,
+  .admin-classes-secondary-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .admin-classes-form-card,
+  .admin-classes-list-card {
+    padding: 16px;
+  }
+
+  .admin-classes-table {
+    min-width: 860px;
+  }
+}

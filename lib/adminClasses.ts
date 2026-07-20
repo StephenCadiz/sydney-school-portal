@@ -1,7 +1,11 @@
 import { supabase } from "./supabase";
 
+function isOnlineCourse(courseType: string | null | undefined) {
+  return String(courseType ?? "").trim().toLowerCase() === "online";
+}
+
 function prepareClassData(classData: any) {
-  if (classData.course_type === "online") {
+  if (isOnlineCourse(classData.course_type)) {
     return {
       ...classData,
       classroom_id: null,
@@ -92,4 +96,97 @@ export async function updateClass(id: string, classData: any) {
     console.error("updateClass Supabase error:", error);
     throw error;
   }
+}
+
+export async function getClassStudentCounts() {
+  const countsByClassId: Record<string, number> = {};
+
+  try {
+    const { data: studentProfiles, error: studentsError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("role", "student");
+
+    if (studentsError) {
+      throw studentsError;
+    }
+
+    const studentIds = (studentProfiles || [])
+      .map((student) => student.id)
+      .filter(Boolean);
+
+    if (studentIds.length > 0) {
+      const { data: enrolments, error: enrolmentsError } = await supabase
+        .from("class_enrolments")
+        .select("student_id, class_id")
+        .in("student_id", studentIds);
+
+      if (enrolmentsError) {
+        throw enrolmentsError;
+      }
+
+      const countedCambridgeStudents: Record<string, Set<string>> = {};
+
+      for (const enrolment of enrolments || []) {
+        const classId = String(enrolment.class_id || "");
+        const studentId = String(enrolment.student_id || "");
+
+        if (!classId || !studentId) {
+          continue;
+        }
+
+        if (!countedCambridgeStudents[classId]) {
+          countedCambridgeStudents[classId] = new Set();
+        }
+
+        countedCambridgeStudents[classId].add(studentId);
+      }
+
+      for (const [classId, students] of Object.entries(
+        countedCambridgeStudents
+      )) {
+        countsByClassId[classId] =
+          (countsByClassId[classId] || 0) + students.size;
+      }
+    }
+  } catch (error) {
+    console.error("getClassStudentCounts Cambridge count error:", error);
+  }
+
+  try {
+    const { data: youngLearners, error: youngLearnersError } = await supabase
+      .from("young_learners")
+      .select("id, class_id")
+      .eq("active", true);
+
+    if (youngLearnersError) {
+      throw youngLearnersError;
+    }
+
+    const countedYoungLearners: Record<string, Set<string>> = {};
+
+    for (const learner of youngLearners || []) {
+      const classId = String(learner.class_id || "");
+      const learnerId = String(learner.id || "");
+
+      if (!classId || !learnerId) {
+        continue;
+      }
+
+      if (!countedYoungLearners[classId]) {
+        countedYoungLearners[classId] = new Set();
+      }
+
+      countedYoungLearners[classId].add(learnerId);
+    }
+
+    for (const [classId, learners] of Object.entries(countedYoungLearners)) {
+      countsByClassId[classId] =
+        (countsByClassId[classId] || 0) + learners.size;
+    }
+  } catch (error) {
+    console.error("getClassStudentCounts Young Learner count error:", error);
+  }
+
+  return countsByClassId;
 }
