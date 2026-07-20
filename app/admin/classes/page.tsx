@@ -30,19 +30,22 @@ const classViewOptions: { label: string; value: ClassView }[] = [
   { label: "By Teacher", value: "teacher" },
 ];
 
-const dayOptions = [
-  "Monday and Wednesday",
-  "Tuesday and Thursday",
-  "Monday, Wednesday and Friday",
+const weekdayOptions = [
+  { shortLabel: "Mon", label: "Monday" },
+  { shortLabel: "Tue", label: "Tuesday" },
+  { shortLabel: "Wed", label: "Wednesday" },
+  { shortLabel: "Thu", label: "Thursday" },
+  { shortLabel: "Fri", label: "Friday" },
+  { shortLabel: "Sat", label: "Saturday" },
+  { shortLabel: "Sun", label: "Sunday" },
 ];
 
-const timeSlotOptions = [
-  "16:00-17:00",
-  "17:00-18:00",
-  "16:30-18:00",
-  "18:00-19:30",
-  "19:30-21:00",
-];
+const quarterHourTimeOptions = Array.from({ length: 24 * 4 }, (_, index) => {
+  const hour = Math.floor(index / 4);
+  const minute = (index % 4) * 15;
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+});
 
 const cambridgeLevelOrder = ["B1", "B2", "C1", "C2"];
 
@@ -147,10 +150,75 @@ function cleanText(value: string | null | undefined, fallback = "-") {
   return text || fallback;
 }
 
-function formatTimeValue(value: string | null | undefined) {
-  const timeValue = String(value || "").trim();
+function getTimeParts(value: string | null | undefined) {
+  const match = String(value || "")
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})/);
 
-  return timeValue ? timeValue.slice(0, 5) : "";
+  if (!match) {
+    return null;
+  }
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+
+  return { hour, minute };
+}
+
+function normalizeTimeForForm(value: string | null | undefined) {
+  const parts = getTimeParts(value);
+
+  if (!parts) {
+    return "";
+  }
+
+  return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+function getTimeMinutes(value: string | null | undefined) {
+  const parts = getTimeParts(value);
+
+  if (!parts) {
+    return null;
+  }
+
+  return parts.hour * 60 + parts.minute;
+}
+
+function getTimeSelectOptions(currentValue: string | null | undefined) {
+  const normalizedCurrentValue = normalizeTimeForForm(currentValue);
+  const options = new Set(quarterHourTimeOptions);
+
+  if (normalizedCurrentValue) {
+    options.add(normalizedCurrentValue);
+  }
+
+  return Array.from(options).sort((first, second) => {
+    const firstMinutes = getTimeMinutes(first);
+    const secondMinutes = getTimeMinutes(second);
+
+    return (firstMinutes ?? 0) - (secondMinutes ?? 0);
+  });
+}
+
+function formatTimeValue(value: string | null | undefined) {
+  const timeValue = normalizeTimeForForm(value);
+
+  return timeValue;
 }
 
 function formatTimeRange(
@@ -165,6 +233,63 @@ function formatTimeRange(
   }
 
   return start || end || "Time not set";
+}
+
+function parseClassDays(days: string | null | undefined) {
+  const normalizedDays = String(days || "")
+    .replace(/,/g, " ")
+    .replace(/\band\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  return weekdayOptions
+    .filter((weekday) => {
+      const weekdayPattern = new RegExp(`\\b${weekday.label.toLowerCase()}\\b`);
+
+      return weekdayPattern.test(normalizedDays);
+    })
+    .map((weekday) => weekday.label);
+}
+
+function serializeClassDays(days: string[]) {
+  const orderedDays = weekdayOptions
+    .map((weekday) => weekday.label)
+    .filter((weekday) => days.includes(weekday));
+
+  if (orderedDays.length <= 2) {
+    return orderedDays.join(" and ");
+  }
+
+  return `${orderedDays.slice(0, -1).join(", ")} and ${
+    orderedDays[orderedDays.length - 1]
+  }`;
+}
+
+function canonicalizeClassDays(days: string | null | undefined) {
+  return serializeClassDays(parseClassDays(days));
+}
+
+function getClassDaysDisplay(days: string | null | undefined) {
+  return canonicalizeClassDays(days) || cleanText(days, "Schedule not set");
+}
+
+function getDaySortKey(days: string | null | undefined) {
+  const parsedDays = parseClassDays(days);
+
+  if (parsedDays.length === 0) {
+    return `z-${normalizeSearchValue(days)}`;
+  }
+
+  return parsedDays
+    .map((day) => {
+      const dayIndex = weekdayOptions.findIndex(
+        (weekday) => weekday.label === day
+      );
+
+      return String(dayIndex).padStart(2, "0");
+    })
+    .join("-");
 }
 
 function isCambridgeLevelName(levelName: string | null | undefined) {
@@ -257,7 +382,6 @@ export default function AdminClassesPage() {
     days: "",
     start_time: "",
     end_time: "",
-    time_slot: "",
     meet_link: "",
     is_cambridge: true,
   });
@@ -404,15 +528,18 @@ export default function AdminClassesPage() {
     });
   }
 
-  function updateTimeSlot(value: string) {
-    const [startTime = "", endTime = ""] = value.split("-");
+  function toggleClassDay(day: string) {
+    setForm((current) => {
+      const selectedDays = parseClassDays(current.days);
+      const nextDays = selectedDays.includes(day)
+        ? selectedDays.filter((selectedDay) => selectedDay !== day)
+        : [...selectedDays, day];
 
-    setForm((current) => ({
-      ...current,
-      time_slot: value,
-      start_time: startTime,
-      end_time: endTime,
-    }));
+      return {
+        ...current,
+        days: serializeClassDays(nextDays),
+      };
+    });
   }
 
   function resetForm() {
@@ -424,7 +551,6 @@ export default function AdminClassesPage() {
       days: "",
       start_time: "",
       end_time: "",
-      time_slot: "",
       meet_link: "",
       is_cambridge: true,
     });
@@ -467,13 +593,9 @@ export default function AdminClassesPage() {
       teacher_id: item.teacher_id || "",
       classroom_id: item.classroom_id || "",
       course_type: isForcedSupport ? "regular" : item.course_type || "regular",
-      days: item.days || "",
-      start_time: item.start_time || "",
-      end_time: item.end_time || "",
-      time_slot:
-        item.start_time && item.end_time
-          ? `${item.start_time}-${item.end_time}`
-          : "",
+      days: canonicalizeClassDays(item.days) || "",
+      start_time: normalizeTimeForForm(item.start_time),
+      end_time: normalizeTimeForForm(item.end_time),
       meet_link: item.meet_link || "",
       is_cambridge: isForcedSupport
         ? false
@@ -549,9 +671,37 @@ export default function AdminClassesPage() {
 
     const isOnlineClass = isOnlineCourse(form.course_type);
     const trimmedMeetLink = form.meet_link.trim();
+    const selectedDays = parseClassDays(form.days);
+    const savedDays = serializeClassDays(selectedDays);
+    const startMinutes = getTimeMinutes(form.start_time);
+    const endMinutes = getTimeMinutes(form.end_time);
 
     if (!isOnlineClass && !form.classroom_id) {
       setMessage("Please select a classroom for in-person classes.");
+      setSaving(false);
+      return;
+    }
+
+    if (selectedDays.length === 0) {
+      setMessage("Select at least one class day.");
+      setSaving(false);
+      return;
+    }
+
+    if (startMinutes === null) {
+      setMessage("Select a start time.");
+      setSaving(false);
+      return;
+    }
+
+    if (endMinutes === null) {
+      setMessage("Select an end time.");
+      setSaving(false);
+      return;
+    }
+
+    if (endMinutes <= startMinutes) {
+      setMessage("End time must be later than start time.");
       setSaving(false);
       return;
     }
@@ -574,9 +724,9 @@ export default function AdminClassesPage() {
       teacher_id: form.teacher_id,
       classroom_id: savedIsOnlineClass ? null : form.classroom_id,
       course_type: savedCourseType,
-      days: form.days,
-      start_time: form.start_time,
-      end_time: form.end_time,
+      days: savedDays,
+      start_time: normalizeTimeForForm(form.start_time),
+      end_time: normalizeTimeForForm(form.end_time),
       meet_link: savedIsOnlineClass ? trimmedMeetLink : null,
       is_cambridge: isForcedSupport
         ? false
@@ -652,7 +802,8 @@ export default function AdminClassesPage() {
       const courseTypeLabel = formatCourseType(courseType);
       const teacherName = getTeacherName(teacher);
       const classroomName = getClassroomName(item);
-      const days = cleanText(item.days, "Schedule not set");
+      const days = getClassDaysDisplay(item.days);
+      const canonicalDays = canonicalizeClassDays(item.days);
       const timeLabel = formatTimeRange(item.start_time, item.end_time);
       const isOnline = isOnlineCourse(item.course_type);
       const studentCount = Number(studentCountsByClassId[classId] || 0);
@@ -677,9 +828,10 @@ export default function AdminClassesPage() {
         courseType,
         courseTypeLabel,
         days,
+        canonicalDays,
         rawDays: String(item.days || "").trim(),
-        startTime: String(item.start_time || "").trim(),
-        endTime: String(item.end_time || "").trim(),
+        startTime: normalizeTimeForForm(item.start_time),
+        endTime: normalizeTimeForForm(item.end_time),
         timeLabel,
         teacherId: String(item.teacher_id || ""),
         teacherName,
@@ -699,8 +851,8 @@ export default function AdminClassesPage() {
 
       if (levelComparison !== 0) return levelComparison;
 
-      const dayComparison = getSortText(first.days).localeCompare(
-        getSortText(second.days)
+      const dayComparison = getDaySortKey(first.days).localeCompare(
+        getDaySortKey(second.days)
       );
 
       if (dayComparison !== 0) return dayComparison;
@@ -890,7 +1042,7 @@ export default function AdminClassesPage() {
     >();
 
     for (const item of filteredClasses) {
-      const days = item.rawDays || "Schedule not set";
+      const days = item.canonicalDays || item.rawDays || "Schedule not set";
       const daysKey = days;
       const timeKey = `${item.startTime || "missing"}|${
         item.endTime || "missing"
@@ -899,7 +1051,7 @@ export default function AdminClassesPage() {
       if (!groups.has(daysKey)) {
         groups.set(daysKey, {
           days,
-          sortText: getSortText(days),
+          sortText: getDaySortKey(days),
           timeSlots: new Map(),
         });
       }
@@ -1189,6 +1341,9 @@ export default function AdminClassesPage() {
   const selectedFormLevel = getLevelById(form.level_id);
   const selectedFormIsCambridge = isCambridgeLevelId(form.level_id);
   const selectedFormIsSupport = isSupportLevel(selectedFormLevel);
+  const selectedFormDays = parseClassDays(form.days);
+  const startTimeOptions = getTimeSelectOptions(form.start_time);
+  const endTimeOptions = getTimeSelectOptions(form.end_time);
 
   return (
     <AdminLayout>
@@ -1338,42 +1493,76 @@ export default function AdminClassesPage() {
               </select>
             </div>
 
-            <div>
-              <label style={labelStyle}>Days</label>
-              <select
-                required
-                style={inputStyle}
-                value={form.days}
-                onChange={(event) =>
-                  updateForm("days", event.target.value)
-                }
+            <div className="admin-classes-day-field">
+              <span className="admin-classes-day-label">Days</span>
+              <div
+                className="admin-classes-day-toggle-group"
+                role="group"
+                aria-label="Class days"
               >
-                <option value="">Select days</option>
-                {dayOptions.map((days) => (
-                  <option key={days} value={days}>
-                    {days}
-                  </option>
-                ))}
-              </select>
+                {weekdayOptions.map((weekday) => {
+                  const isSelected = selectedFormDays.includes(weekday.label);
+
+                  return (
+                    <button
+                      aria-pressed={isSelected}
+                      className={
+                        isSelected
+                          ? "admin-classes-day-toggle admin-classes-day-toggle-selected"
+                          : "admin-classes-day-toggle"
+                      }
+                      key={weekday.label}
+                      type="button"
+                      onClick={() => toggleClassDay(weekday.label)}
+                    >
+                      {weekday.shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="admin-classes-form-help">
+                {form.days || "Select at least one class day."}
+              </p>
             </div>
 
-            <div>
-              <label style={labelStyle}>Time Slot</label>
-              <select
-                required
-                style={inputStyle}
-                value={form.time_slot}
-                onChange={(event) =>
-                  updateTimeSlot(event.target.value)
-                }
-              >
-                <option value="">Select time slot</option>
-                {timeSlotOptions.map((timeSlot) => (
-                  <option key={timeSlot} value={timeSlot}>
-                    {timeSlot}
-                  </option>
-                ))}
-              </select>
+            <div className="admin-classes-time-field">
+              <div>
+                <label style={labelStyle}>Start time</label>
+                <select
+                  required
+                  style={inputStyle}
+                  value={form.start_time}
+                  onChange={(event) =>
+                    updateForm("start_time", event.target.value)
+                  }
+                >
+                  <option value="">Select start</option>
+                  {startTimeOptions.map((timeOption) => (
+                    <option key={timeOption} value={timeOption}>
+                      {timeOption}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>End time</label>
+                <select
+                  required
+                  style={inputStyle}
+                  value={form.end_time}
+                  onChange={(event) =>
+                    updateForm("end_time", event.target.value)
+                  }
+                >
+                  <option value="">Select end</option>
+                  {endTimeOptions.map((timeOption) => (
+                    <option key={timeOption} value={timeOption}>
+                      {timeOption}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 

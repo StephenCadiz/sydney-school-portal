@@ -6919,6 +6919,60 @@ img {
   margin-top: 20px;
 }
 
+.admin-classes-day-field {
+  display: grid;
+  gap: 7px;
+}
+
+.admin-classes-day-label {
+  color: #333333;
+  font-weight: 600;
+}
+
+.admin-classes-day-toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-classes-day-toggle {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cfdbe8;
+  border-radius: 10px;
+  color: var(--ss-blue-dark);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 42px;
+  min-width: 54px;
+  padding: 9px 12px;
+}
+
+.admin-classes-day-toggle:hover {
+  background: #f8fafc;
+}
+
+.admin-classes-day-toggle-selected {
+  background: var(--ss-blue);
+  border-color: var(--ss-blue);
+  box-shadow: 0 8px 18px rgba(47, 125, 184, 0.16);
+  color: #ffffff;
+}
+
+.admin-classes-day-toggle-selected:hover {
+  background: var(--ss-blue-hover);
+  border-color: var(--ss-blue-hover);
+}
+
+.admin-classes-time-field {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .admin-classes-form-actions {
   align-items: center;
   display: flex;
@@ -6989,6 +7043,7 @@ img {
 .admin-classes-secondary-button:focus-visible,
 .admin-classes-action-button:focus-visible,
 .admin-classes-view-tab:focus-visible,
+.admin-classes-day-toggle:focus-visible,
 .admin-classes-search input:focus,
 .admin-classes-filter select:focus {
   outline: 3px solid rgba(47, 125, 184, 0.22);
@@ -7321,7 +7376,8 @@ img {
   }
 
   .admin-classes-form-grid,
-  .admin-classes-toolbar {
+  .admin-classes-toolbar,
+  .admin-classes-time-field {
     grid-template-columns: 1fr;
   }
 
