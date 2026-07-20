@@ -7079,7 +7079,7 @@ img {
   font-weight: 900;
   line-height: 1.25;
   padding: 8px 13px;
-  white-space: nowrap;
+  text-align: right;
 }
 
 .admin-classes-view-selector {

@@ -64,6 +64,7 @@ const youngLearnerLevelOrder = [
   "Teens 1",
   "Teens 2",
   "Teens 3",
+  "Support Classes",
 ];
 
 const unassignedTeacherFilter = "__unassigned";
@@ -301,6 +302,18 @@ function isSupportLevel(level: any) {
     normalizeLevelCategory(level?.catagory) === "support" ||
     normalizeLevelName(level?.name) === "SUPPORT CLASSES"
   );
+}
+
+function getOperationalGroup(item: any, level: any) {
+  if (isSupportLevel(level)) {
+    return "youngLearners";
+  }
+
+  if (item?.is_cambridge === true) {
+    return "cambridge";
+  }
+
+  return "youngLearners";
 }
 
 function getCourseBadgeClass(courseType: string | null | undefined) {
@@ -776,10 +789,6 @@ export default function AdminClassesPage() {
       return 200 + youngLearnerIndex;
     }
 
-    if (normalizedLevelName === "SUPPORT CLASSES") {
-      return 300;
-    }
-
     const loadedLevelIndex = levels.findIndex(
       (level) => String(level.id) === String(levelId)
     );
@@ -806,10 +815,12 @@ export default function AdminClassesPage() {
       const canonicalDays = canonicalizeClassDays(item.days);
       const timeLabel = formatTimeRange(item.start_time, item.end_time);
       const isOnline = isOnlineCourse(item.course_type);
+      const operationalGroup = getOperationalGroup(item, level);
       const studentCount = Number(studentCountsByClassId[classId] || 0);
       const searchableText = [
         className,
         levelName,
+        operationalGroup === "cambridge" ? "Cambridge" : "Young Learners",
         courseTypeLabel,
         teacherName,
         classroomName,
@@ -837,6 +848,7 @@ export default function AdminClassesPage() {
         teacherName,
         classroomId: String(item.classroom_id || ""),
         classroomName,
+        operationalGroup,
         isOnline,
         meetLink: String(item.meet_link || "").trim(),
         studentCount,
@@ -990,10 +1002,22 @@ export default function AdminClassesPage() {
     const assignedTeacherCount = new Set(
       filteredClasses.map((item) => item.teacherId).filter(Boolean)
     ).size;
+    const cambridgeClassCount = filteredClasses.filter(
+      (item) => item.operationalGroup === "cambridge"
+    ).length;
+    const youngLearnerClassCount = filteredClasses.filter(
+      (item) => item.operationalGroup === "youngLearners"
+    ).length;
     const onlineCount = filteredClasses.filter((item) => item.isOnline).length;
 
     return [
       pluralize(filteredClasses.length, "class", "classes"),
+      pluralize(cambridgeClassCount, "Cambridge class", "Cambridge classes"),
+      pluralize(
+        youngLearnerClassCount,
+        "Young Learner class",
+        "Young Learner classes"
+      ),
       pluralize(assignedTeacherCount, "teacher", "teachers"),
       `${onlineCount} online`,
     ].join(" · ");
@@ -1588,8 +1612,8 @@ export default function AdminClassesPage() {
 
           {selectedFormIsSupport && (
             <p className="admin-classes-form-help admin-classes-support-help">
-              Support Classes are saved separately from Cambridge and Young
-              Learner groups.
+              Support Classes are managed with Young Learner groups while
+              keeping their Support Classes level name.
             </p>
           )}
 
