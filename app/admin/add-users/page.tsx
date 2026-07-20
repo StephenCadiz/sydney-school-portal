@@ -2123,7 +2123,7 @@ export default function AddUsersPage() {
 
               <div className="add-users-young-info">
                 <InfoIcon />
-                <span>Cambridge and Support Classes are excluded from this list.</span>
+                <span>Cambridge classes are excluded from this list.</span>
               </div>
             </section>
 

@@ -477,8 +477,7 @@ export async function getAdminYoungLearnerDirectory(): Promise<
 
     if (
       !classroom ||
-      classroom.is_cambridge === true ||
-      classroom.is_support === true
+      classroom.is_cambridge === true
     ) {
       continue;
     }
@@ -748,8 +747,7 @@ export async function getYoungLearnerClassesForStudentCreate() {
     })
     .filter(
       (classroom) =>
-        classroom.is_cambridge !== true &&
-        !isSupportLevel(classroom.level_name, classroom.level_catagory)
+        classroom.is_cambridge !== true
     );
 }
 
@@ -838,7 +836,7 @@ export async function getYoungLearnerClassesForBulkCreate(): Promise<
     })
     .filter(
       (classroom) =>
-        classroom.is_cambridge !== true && classroom.is_support !== true
+        classroom.is_cambridge !== true
     )
     .sort((first, second) =>
       first.class_label.localeCompare(second.class_label, undefined, {

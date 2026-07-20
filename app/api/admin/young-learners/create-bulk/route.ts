@@ -85,17 +85,6 @@ function normalizeLevelName(levelName: unknown) {
   return String(levelName || "").trim().toUpperCase();
 }
 
-function normalizeLevelCategory(category: unknown) {
-  return String(category || "").trim().toLowerCase();
-}
-
-function isSupportLevel(levelName: unknown, category: unknown) {
-  return (
-    normalizeLevelCategory(category) === "support" ||
-    normalizeLevelName(levelName) === "SUPPORT CLASSES"
-  );
-}
-
 function normalizeFullName(firstName: string, lastName: string) {
   return `${firstName} ${lastName}`
     .trim()
@@ -237,7 +226,7 @@ export async function POST(request: NextRequest) {
       return jsonError("Unable to verify the selected class level.", 500);
     }
 
-    if (classroom.is_cambridge === true || isSupportLevel(level.name, level.catagory)) {
+    if (classroom.is_cambridge === true) {
       return jsonError("The selected class is not valid for Young Learners.", 400);
     }
 

@@ -52,6 +52,7 @@ const youngLearnerPreferredLevelOrder = [
   "JUNIOR 3",
   "JUNIOR 4",
   "TEENS 1",
+  "SUPPORT CLASSES",
 ];
 
 function normalizeLevelName(levelName: string | null | undefined) {
