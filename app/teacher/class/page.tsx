@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import TeacherLayout from "../../components/layout/TeacherLayout";
@@ -14,6 +14,10 @@ import FridayTutorialResultsTab from "./FridayTutorialResultsTab";
 import UnitExamResultsTab from "./UnitExamResultsTab";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
+import ClassStudentsControlSheet, {
+  type ClassStudentControlStudent,
+  type ClassStudentShortcutAction,
+} from "./ClassStudentsControlSheet";
 import ClassHeader from "../../components/class/ClassHeader";
 import TeacherHomework from "../../components/teacher/TeacherHomework";
 import { isClassExamLevel } from "../../../lib/classExams";
@@ -37,6 +41,18 @@ const tabs = [
   { id: "progress", label: "Student Progress" },
 ];
 
+type ShortcutRequest = {
+  key: number;
+  targetTab: string;
+  studentId: string | null;
+  studentType: ClassStudentControlStudent["student_type"] | null;
+  resultSection: "homework" | "mock" | null;
+};
+
+function normalizeLevelName(levelName: string | null | undefined) {
+  return String(levelName || "").trim().toUpperCase();
+}
+
 function ClassPageContent() {
   const searchParams = useSearchParams();
 
@@ -56,6 +72,9 @@ function ClassPageContent() {
 
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementContent, setAnnouncementContent] = useState("");
+  const [shortcutRequest, setShortcutRequest] =
+    useState<ShortcutRequest | null>(null);
+  const shortcutKeyRef = useRef(0);
 
   async function loadData() {
     const classId = searchParams.get("id");
@@ -216,22 +235,23 @@ if (classResult.data) {
   const showUnitExamResultsTab = isUnitExamLevel(levelName);
   const showFridayTutorialResultsTab =
     classData?.is_cambridge === true && isFridayTutorialCambridgeLevel(levelName);
-  const classStudentList = [
-    ...students.map((student) => ({
-      id: `cambridge-${student.id}`,
-      first_name: student.first_name,
-      last_name: student.last_name,
-    })),
-    ...youngLearners.map((student) => ({
-      id: `young-learner-${student.id}`,
-      first_name: student.first_name,
-      last_name: student.last_name,
-    })),
-  ].sort((first, second) =>
-    `${first.first_name || ""} ${first.last_name || ""}`.localeCompare(
-      `${second.first_name || ""} ${second.last_name || ""}`
-    )
-  );
+  const isCambridgeClass = classData?.is_cambridge === true;
+  const isSupportClass = normalizeLevelName(levelName) === "SUPPORT CLASSES";
+  const controlSheetStudents: ClassStudentControlStudent[] = isCambridgeClass
+    ? students.map((student) => ({
+        id: student.id,
+        first_name: student.first_name,
+        last_name: student.last_name,
+        student_type: "cambridge",
+        active: student.active,
+      }))
+    : youngLearners.map((student) => ({
+        id: student.id,
+        first_name: student.first_name,
+        last_name: student.last_name,
+        student_type: "young_learner",
+        active: student.active,
+      }));
   const followUpStudents = [
     ...students.map((student) => ({
       id: student.id,
@@ -246,6 +266,62 @@ if (classResult.data) {
       student_type: "young_learner",
     })),
   ];
+
+  function openStudentShortcut(
+    action: ClassStudentShortcutAction,
+    student?: ClassStudentControlStudent
+  ) {
+    shortcutKeyRef.current += 1;
+
+    let targetTab = "students";
+    let resultSection: ShortcutRequest["resultSection"] = null;
+
+    if (action === "notes") {
+      targetTab = "notes";
+    } else if (action === "homework") {
+      targetTab = "results";
+      resultSection = "homework";
+    } else if (action === "friday-tutorial") {
+      targetTab = "friday-tutorial-results";
+    } else if (action === "mock-exams") {
+      targetTab = "results";
+      resultSection = "mock";
+    } else if (action === "progress") {
+      targetTab = "progress";
+    } else if (action === "follow-up") {
+      targetTab = "follow-up";
+    } else if (action === "message") {
+      targetTab = "messages";
+    } else if (action === "class-exams") {
+      targetTab = "class-exams";
+    } else if (action === "unit-exams") {
+      targetTab = "unit-exam-results";
+    }
+
+    setShortcutRequest({
+      key: shortcutKeyRef.current,
+      targetTab,
+      studentId: student?.id || null,
+      studentType: student?.student_type || null,
+      resultSection,
+    });
+    setActiveTab(targetTab);
+  }
+
+  const resultsShortcut =
+    shortcutRequest?.targetTab === "results" ? shortcutRequest : null;
+  const fridayTutorialShortcut =
+    shortcutRequest?.targetTab === "friday-tutorial-results"
+      ? shortcutRequest
+      : null;
+  const notesShortcut =
+    shortcutRequest?.targetTab === "notes" ? shortcutRequest : null;
+  const messagesShortcut =
+    shortcutRequest?.targetTab === "messages" ? shortcutRequest : null;
+  const followUpShortcut =
+    shortcutRequest?.targetTab === "follow-up" ? shortcutRequest : null;
+  const progressShortcut =
+    shortcutRequest?.targetTab === "progress" ? shortcutRequest : null;
 
   return (
    <TeacherLayout>
@@ -321,66 +397,15 @@ if (classResult.data) {
       >
 
       {activeTab === "students" && (
-        <div
-          style={{
-            display: "grid",
-            gap: "16px",
-          }}
-        >
-          <h3
-            style={{
-              color: "var(--ss-blue-dark)",
-              margin: 0,
-              fontSize: "20px",
-            }}
-          >
-            Class Students
-          </h3>
-
-          {classStudentList.length === 0 ? (
-            <div
-              style={{
-                background: "#f8fafd",
-                border: "1px dashed var(--ss-border)",
-                borderRadius: "12px",
-                padding: "20px",
-                color: "#667085",
-              }}
-            >
-              No students have been added to this class yet.
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gap: "10px",
-              }}
-            >
-              {classStudentList.map((student) => {
-                const studentName = `${student.first_name || ""} ${
-                  student.last_name || ""
-                }`.trim() || "Unnamed student";
-
-                return (
-                  <div
-                    key={student.id}
-                    style={{
-                      background: "#ffffff",
-                      border: "1px solid var(--ss-border)",
-                      borderRadius: "10px",
-                      padding: "12px 14px",
-                      color: "#111827",
-                      fontWeight: 700,
-                      boxShadow: "0 2px 8px rgba(31,60,136,0.04)",
-                    }}
-                  >
-                    {studentName}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <ClassStudentsControlSheet
+          students={controlSheetStudents}
+          isCambridgeClass={isCambridgeClass}
+          isSupportClass={isSupportClass}
+          showClassExams={showClassExamsTab}
+          showUnitExamResults={showUnitExamResultsTab}
+          showFridayTutorialResults={showFridayTutorialResultsTab}
+          onShortcut={openStudentShortcut}
+        />
       )}
 
       {activeTab === "resources" && (
@@ -532,6 +557,9 @@ if (classResult.data) {
     courseType={classData.course_type}
     classDays={classData.days}
     teacherId={teacherId}
+    initialStudentId={resultsShortcut?.studentId || null}
+    initialSection={resultsShortcut?.resultSection || null}
+    shortcutRequestKey={resultsShortcut?.key || 0}
   />
 )}
 
@@ -541,6 +569,8 @@ if (classResult.data) {
   <FridayTutorialResultsTab
     classId={classData.id}
     levelName={levelName}
+    initialStudentId={fridayTutorialShortcut?.studentId || null}
+    shortcutRequestKey={fridayTutorialShortcut?.key || 0}
   />
 )}
 
@@ -548,6 +578,8 @@ if (classResult.data) {
   <TeacherNotesTab
   classId={classData?.id}
     students={students}
+    initialStudentId={notesShortcut?.studentId || null}
+    shortcutRequestKey={notesShortcut?.key || 0}
   />
 )}
 
@@ -555,6 +587,8 @@ if (classResult.data) {
   <ClassMessagesTab
     students={students}
     teacherId={teacherId}
+    initialStudentId={messagesShortcut?.studentId || null}
+    shortcutRequestKey={messagesShortcut?.key || 0}
   />
 )}
 
@@ -563,6 +597,9 @@ if (classResult.data) {
     classId={classData.id}
     students={followUpStudents}
     teacherId={teacherId}
+    initialStudentId={followUpShortcut?.studentId || null}
+    initialStudentType={followUpShortcut?.studentType || null}
+    shortcutRequestKey={followUpShortcut?.key || 0}
   />
 )}
 
@@ -570,6 +607,8 @@ if (classResult.data) {
   <StudentProgressTab
     classId={classData.id}
     students={students}
+    initialStudentId={progressShortcut?.studentId || null}
+    shortcutRequestKey={progressShortcut?.key || 0}
   />
 )}
       </section>

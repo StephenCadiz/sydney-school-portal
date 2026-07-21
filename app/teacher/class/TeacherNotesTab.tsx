@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
 export default function TeacherNotesTab({
   classId,
   students,
+  initialStudentId = null,
+  shortcutRequestKey = 0,
 }: {
   classId: string;
   students: any[];
+  initialStudentId?: string | null;
+  shortcutRequestKey?: number;
 }) {
   const [studentId, setStudentId] = useState("");
   const [note, setNote] = useState("");
   const [notes, setNotes] = useState<any[]>([]);
+  const noteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   async function loadNotes() {
     const { data, error } = await supabase
@@ -96,6 +101,29 @@ export default function TeacherNotesTab({
     }
   }, [classId]);
 
+  useEffect(() => {
+    if (
+      !initialStudentId ||
+      !students.some((student) => student.id === initialStudentId)
+    ) {
+      return;
+    }
+
+    setStudentId(initialStudentId);
+
+    const focusTimer = window.setTimeout(() => {
+      noteTextareaRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      noteTextareaRef.current?.focus();
+    }, 80);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+    };
+  }, [initialStudentId, shortcutRequestKey, students]);
+
   return (
     <div>
       <h3>Teacher Notes</h3>
@@ -125,6 +153,7 @@ export default function TeacherNotesTab({
       <br />
 
       <textarea
+        ref={noteTextareaRef}
         rows={5}
         value={note}
         onChange={(e) =>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { supabase } from "../../../lib/supabase";
 import {
@@ -14,6 +14,8 @@ import {
 type FridayTutorialResultsTabProps = {
   classId: string;
   levelName: string;
+  initialStudentId?: string | null;
+  shortcutRequestKey?: number;
 };
 
 function formatDate(value: string | null | undefined) {
@@ -63,6 +65,8 @@ function getSessionLabel(session: FridayTutorialScheduledSessionSummary) {
 export default function FridayTutorialResultsTab({
   classId,
   levelName,
+  initialStudentId = null,
+  shortcutRequestKey = 0,
 }: FridayTutorialResultsTabProps) {
   const [sessions, setSessions] = useState<FridayTutorialScheduledSessionSummary[]>(
     []
@@ -81,6 +85,9 @@ export default function FridayTutorialResultsTab({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [focusedStudentId, setFocusedStudentId] = useState("");
+  const tableRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const mobileCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const requestJson = useCallback(async (url: string, init?: RequestInit) => {
     const {
@@ -217,6 +224,37 @@ export default function FridayTutorialResultsTab({
       [studentId]: value,
     }));
   }
+
+  useEffect(() => {
+    if (
+      !initialStudentId ||
+      !students.some((student) => student.student_id === initialStudentId)
+    ) {
+      return;
+    }
+
+    setFocusedStudentId(initialStudentId);
+
+    const scrollTimer = window.setTimeout(() => {
+      const useMobileTarget = window.matchMedia("(max-width: 768px)").matches;
+      const target = useMobileTarget
+        ? mobileCardRefs.current[initialStudentId]
+        : tableRowRefs.current[initialStudentId];
+
+      target?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 80);
+    const highlightTimer = window.setTimeout(() => {
+      setFocusedStudentId("");
+    }, 2800);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(highlightTimer);
+    };
+  }, [initialStudentId, shortcutRequestKey, students]);
 
   function buildPayloadResults() {
     const payloadResults = [];
@@ -399,7 +437,17 @@ export default function FridayTutorialResultsTab({
                       </thead>
                       <tbody>
                         {students.map((student) => (
-                          <tr key={student.student_id}>
+                          <tr
+                            key={student.student_id}
+                            ref={(element) => {
+                              tableRowRefs.current[student.student_id] = element;
+                            }}
+                            className={
+                              focusedStudentId === student.student_id
+                                ? "friday-tutorial-results-focused-row"
+                                : undefined
+                            }
+                          >
                             <td>{getStudentName(student)}</td>
                             <td>
                               <input
@@ -430,7 +478,14 @@ export default function FridayTutorialResultsTab({
                     {students.map((student) => (
                       <div
                         key={student.student_id}
-                        className="friday-tutorial-results-mobile-card"
+                        ref={(element) => {
+                          mobileCardRefs.current[student.student_id] = element;
+                        }}
+                        className={`friday-tutorial-results-mobile-card ${
+                          focusedStudentId === student.student_id
+                            ? "friday-tutorial-results-focused-card"
+                            : ""
+                        }`}
                       >
                         <label>
                           <span>{getStudentName(student)}</span>

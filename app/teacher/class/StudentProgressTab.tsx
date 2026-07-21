@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
 export default function StudentProgressTab({
   classId,
   students,
+  initialStudentId = null,
+  shortcutRequestKey = 0,
 }: {
   classId: string;
   students: any[];
+  initialStudentId?: string | null;
+  shortcutRequestKey?: number;
 }) {
   const [studentId, setStudentId] = useState("");
   const [results, setResults] = useState<any[]>([]);
@@ -63,6 +67,18 @@ console.log("Notes:", notesData);
 
 setNotes(notesData || []);
   }
+
+  useEffect(() => {
+    if (
+      !initialStudentId ||
+      !students.some((student) => student.id === initialStudentId)
+    ) {
+      return;
+    }
+
+    setStudentId(initialStudentId);
+    loadProgress(initialStudentId);
+  }, [initialStudentId, shortcutRequestKey, students]);
 
   return (
     <div>

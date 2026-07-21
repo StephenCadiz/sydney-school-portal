@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createFollowUpDocument,
   deleteFollowUpDocument,
@@ -75,6 +75,9 @@ type Props = {
   classId: string;
   students: any[];
   teacherId: string;
+  initialStudentId?: string | null;
+  initialStudentType?: "cambridge" | "young_learner" | null;
+  shortcutRequestKey?: number;
 };
 
 function formatDate(date: string | null | undefined) {
@@ -114,7 +117,14 @@ function getStatusBadgeStyle(itemStatus: string) {
   };
 }
 
-export default function FollowUpsTab({ classId, students, teacherId }: Props) {
+export default function FollowUpsTab({
+  classId,
+  students,
+  teacherId,
+  initialStudentId = null,
+  initialStudentType = null,
+  shortcutRequestKey = 0,
+}: Props) {
   const [followUps, setFollowUps] = useState<any[]>([]);
   const [selectedStudentKey, setSelectedStudentKey] = useState("");
   const [category, setCategory] = useState("Academic");
@@ -130,6 +140,7 @@ export default function FollowUpsTab({ classId, students, teacherId }: Props) {
   >({});
   const [fridayStatusLoading, setFridayStatusLoading] = useState(false);
   const [fridayStatusUnavailable, setFridayStatusUnavailable] = useState(false);
+  const formSectionRef = useRef<HTMLElement | null>(null);
 
   function getStudentKey(student: any) {
     return `${student.student_type || "cambridge"}:${student.id}`;
@@ -447,6 +458,35 @@ export default function FollowUpsTab({ classId, students, teacherId }: Props) {
     loadFollowUps();
   }, [classId]);
 
+  useEffect(() => {
+    if (!initialStudentId) {
+      return;
+    }
+
+    const requestedType = initialStudentType || "cambridge";
+    const requestedKey = `${requestedType}:${initialStudentId}`;
+    const hasStudent = students.some(
+      (student) => getStudentKey(student) === requestedKey
+    );
+
+    if (!hasStudent) {
+      return;
+    }
+
+    setSelectedStudentKey(requestedKey);
+
+    const scrollTimer = window.setTimeout(() => {
+      formSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+    };
+  }, [initialStudentId, initialStudentType, shortcutRequestKey, students]);
+
   return (
     <div style={{ display: "grid", gap: "22px" }}>
       <section>
@@ -482,7 +522,7 @@ export default function FollowUpsTab({ classId, students, teacherId }: Props) {
           alignItems: "start",
         }}
       >
-        <section style={cardStyle}>
+        <section ref={formSectionRef} style={cardStyle}>
           <h3 style={{ color: "var(--ss-blue-dark)", margin: "0 0 6px", fontSize: "20px" }}>
             Add Follow-Up Entry
           </h3>

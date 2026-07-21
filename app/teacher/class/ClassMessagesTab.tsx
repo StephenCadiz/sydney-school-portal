@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   formatMessageDateTime,
@@ -11,6 +11,8 @@ import {
 type Props = {
   students: any[];
   teacherId: string;
+  initialStudentId?: string | null;
+  shortcutRequestKey?: number;
 };
 
 const inputStyle = {
@@ -34,6 +36,8 @@ function getPreview(message: string) {
 export default function ClassMessagesTab({
   students,
   teacherId,
+  initialStudentId = null,
+  shortcutRequestKey = 0,
 }: Props) {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [subject, setSubject] = useState("");
@@ -43,6 +47,7 @@ export default function ClassMessagesTab({
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const subjectInputRef = useRef<HTMLInputElement | null>(null);
 
   function getStudentName(studentId: string) {
     const student = students.find((item) => item.id === studentId);
@@ -75,6 +80,29 @@ export default function ClassMessagesTab({
   useEffect(() => {
     loadSentMessages();
   }, [teacherId, students]);
+
+  useEffect(() => {
+    if (
+      !initialStudentId ||
+      !students.some((student) => student.id === initialStudentId)
+    ) {
+      return;
+    }
+
+    setSelectedStudentId(initialStudentId);
+
+    const focusTimer = window.setTimeout(() => {
+      subjectInputRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      subjectInputRef.current?.focus();
+    }, 80);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+    };
+  }, [initialStudentId, shortcutRequestKey, students]);
 
   async function handleSendMessage() {
     setStatusMessage("");
@@ -215,6 +243,7 @@ export default function ClassMessagesTab({
         </label>
 
         <input
+          ref={subjectInputRef}
           value={subject}
           onChange={(event) => setSubject(event.target.value)}
           placeholder="Message subject"

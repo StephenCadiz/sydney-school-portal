@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   adjustHomeworkDatesForClassDays,
   getCambridgeReadingSkillLabel,
@@ -98,6 +98,9 @@ type Props = {
   courseType?: string;
   classDays?: string;
   teacherId?: string;
+  initialStudentId?: string | null;
+  initialSection?: "homework" | "mock" | null;
+  shortcutRequestKey?: number;
 };
 
 function toNumber(value: any) {
@@ -225,6 +228,9 @@ export default function ResultsTab({
   courseType = "",
   classDays = "",
   teacherId = "",
+  initialStudentId = null,
+  initialSection = null,
+  shortcutRequestKey = 0,
 }: Props) {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [results, setResults] = useState<any[]>([]);
@@ -252,6 +258,11 @@ export default function ResultsTab({
   const [unpublishingMockId, setUnpublishingMockId] = useState("");
   const [pendingUnpublishResult, setPendingUnpublishResult] =
     useState<any>(null);
+  const [shortcutSection, setShortcutSection] = useState<
+    "homework" | "mock" | ""
+  >("");
+  const homeworkSectionRef = useRef<HTMLElement | null>(null);
+  const mockSectionRef = useRef<HTMLElement | null>(null);
 
   const selectedStudent = students.find(
     (student) => student.id === selectedStudentId
@@ -322,6 +333,60 @@ export default function ResultsTab({
       setSelectedStudentId("");
     }
   }, [students, selectedStudentId]);
+
+  useEffect(() => {
+    const requestedSection =
+      initialSection === "homework" || initialSection === "mock"
+        ? initialSection
+        : "";
+
+    if (initialStudentId && students.some((student) => student.id === initialStudentId)) {
+      if (selectedStudentId !== initialStudentId) {
+        clearPracticeForm();
+        clearMockForm();
+      }
+
+      setSelectedStudentId(initialStudentId);
+      setMessage("");
+      setErrorMessage("");
+    }
+
+    if (requestedSection) {
+      setShortcutSection(requestedSection);
+    }
+  }, [
+    initialStudentId,
+    initialSection,
+    shortcutRequestKey,
+    students,
+    selectedStudentId,
+  ]);
+
+  useEffect(() => {
+    if (!shortcutSection) {
+      return;
+    }
+
+    const scrollTimer = window.setTimeout(() => {
+      const target =
+        shortcutSection === "mock"
+          ? mockSectionRef.current
+          : homeworkSectionRef.current;
+
+      target?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+    const highlightTimer = window.setTimeout(() => {
+      setShortcutSection("");
+    }, 2400);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(highlightTimer);
+    };
+  }, [shortcutSection, selectedStudentId, shortcutRequestKey]);
 
   useEffect(() => {
     async function loadHomework() {
@@ -805,7 +870,13 @@ export default function ResultsTab({
             </h3>
           </section>
 
-          <section style={cardStyle}>
+          <section
+            ref={homeworkSectionRef}
+            className={
+              shortcutSection === "homework" ? "teacher-shortcut-focus" : undefined
+            }
+            style={cardStyle}
+          >
             <div
               style={{
                 display: "flex",
@@ -983,7 +1054,13 @@ export default function ResultsTab({
             )}
           </section>
 
-          <section style={cardStyle}>
+          <section
+            ref={mockSectionRef}
+            className={
+              shortcutSection === "mock" ? "teacher-shortcut-focus" : undefined
+            }
+            style={cardStyle}
+          >
             <h3
               style={{
                 color: "#1f3c88",
