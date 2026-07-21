@@ -18,6 +18,9 @@ import ClassStudentsControlSheet, {
   type ClassStudentControlStudent,
   type ClassStudentShortcutAction,
 } from "./ClassStudentsControlSheet";
+import StudentWorkspacePanel, {
+  type StudentWorkspaceSection,
+} from "./StudentWorkspacePanel";
 import ClassHeader from "../../components/class/ClassHeader";
 import TeacherHomework from "../../components/teacher/TeacherHomework";
 import { isClassExamLevel } from "../../../lib/classExams";
@@ -49,8 +52,37 @@ type ShortcutRequest = {
   resultSection: "homework" | "mock" | null;
 };
 
+type StudentWorkspacePanelState = {
+  open: boolean;
+  studentId: string | null;
+  studentName: string;
+  studentType: ClassStudentControlStudent["student_type"] | null;
+  section: StudentWorkspaceSection;
+  requestKey: number;
+};
+
 function normalizeLevelName(levelName: string | null | undefined) {
   return String(levelName || "").trim().toUpperCase();
+}
+
+function getStudentName(student: {
+  first_name?: string | null;
+  last_name?: string | null;
+}) {
+  return `${student.first_name || ""} ${student.last_name || ""}`.trim() ||
+    "Unnamed student";
+}
+
+function getPanelSectionForAction(
+  action: ClassStudentShortcutAction
+): StudentWorkspaceSection | null {
+  if (action === "notes") return "notes";
+  if (action === "homework") return "homework";
+  if (action === "mock-exams") return "mocks";
+  if (action === "follow-up") return "follow-up";
+  if (action === "message") return "message";
+
+  return null;
 }
 
 function ClassPageContent() {
@@ -74,6 +106,14 @@ function ClassPageContent() {
   const [announcementContent, setAnnouncementContent] = useState("");
   const [shortcutRequest, setShortcutRequest] =
     useState<ShortcutRequest | null>(null);
+  const [studentPanel, setStudentPanel] = useState<StudentWorkspacePanelState>({
+    open: false,
+    studentId: null,
+    studentName: "",
+    studentType: null,
+    section: "notes",
+    requestKey: 0,
+  });
   const shortcutKeyRef = useRef(0);
 
   async function loadData() {
@@ -272,6 +312,25 @@ if (classResult.data) {
     student?: ClassStudentControlStudent
   ) {
     shortcutKeyRef.current += 1;
+    const requestKey = shortcutKeyRef.current;
+    const panelSection = getPanelSectionForAction(action);
+
+    if (
+      student?.student_type === "cambridge" &&
+      panelSection &&
+      student.id
+    ) {
+      setStudentPanel({
+        open: true,
+        studentId: student.id,
+        studentName: getStudentName(student),
+        studentType: student.student_type,
+        section: panelSection,
+        requestKey,
+      });
+      setActiveTab("students");
+      return;
+    }
 
     let targetTab = "students";
     let resultSection: ShortcutRequest["resultSection"] = null;
@@ -299,12 +358,16 @@ if (classResult.data) {
     }
 
     setShortcutRequest({
-      key: shortcutKeyRef.current,
+      key: requestKey,
       targetTab,
       studentId: student?.id || null,
       studentType: student?.student_type || null,
       resultSection,
     });
+    setStudentPanel((current) => ({
+      ...current,
+      open: false,
+    }));
     setActiveTab(targetTab);
   }
 
@@ -322,6 +385,12 @@ if (classResult.data) {
     shortcutRequest?.targetTab === "follow-up" ? shortcutRequest : null;
   const progressShortcut =
     shortcutRequest?.targetTab === "progress" ? shortcutRequest : null;
+  const selectedPanelStudent = studentPanel.studentId
+    ? students.find((student) => student.id === studentPanel.studentId)
+    : null;
+  const selectedPanelStudentName = selectedPanelStudent
+    ? getStudentName(selectedPanelStudent)
+    : studentPanel.studentName;
 
   return (
    <TeacherLayout>
@@ -612,6 +681,28 @@ if (classResult.data) {
   />
 )}
       </section>
+
+      {classData && (
+        <StudentWorkspacePanel
+          open={studentPanel.open}
+          classId={classData.id}
+          classLevel={levelName}
+          courseType={classData.course_type || ""}
+          classDays={classData.days || ""}
+          teacherId={teacherId}
+          studentId={studentPanel.studentId}
+          studentName={selectedPanelStudentName}
+          studentType={studentPanel.studentType}
+          initialSection={studentPanel.section}
+          requestKey={studentPanel.requestKey}
+          onClose={() =>
+            setStudentPanel((current) => ({
+              ...current,
+              open: false,
+            }))
+          }
+        />
+      )}
     </div>
     </TeacherLayout>
   );

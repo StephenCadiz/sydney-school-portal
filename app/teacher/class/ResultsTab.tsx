@@ -1054,13 +1054,7 @@ export default function ResultsTab({
             )}
           </section>
 
-          <section
-            ref={mockSectionRef}
-            className={
-              shortcutSection === "mock" ? "teacher-shortcut-focus" : undefined
-            }
-            style={cardStyle}
-          >
+          <section style={cardStyle}>
             <h3
               style={{
                 color: "#1f3c88",
@@ -1126,7 +1120,13 @@ export default function ResultsTab({
             )}
           </section>
 
-          <section style={cardStyle}>
+          <section
+            ref={mockSectionRef}
+            className={
+              shortcutSection === "mock" ? "teacher-shortcut-focus" : undefined
+            }
+            style={cardStyle}
+          >
             <h3
               style={{
                 color: "#1f3c88",
