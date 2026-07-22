@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 export type ClassStudentShortcutAction =
   | "notes"
   | "homework"
@@ -17,14 +19,6 @@ export type ClassStudentControlStudent = {
   last_name?: string | null;
   student_type: "cambridge" | "young_learner";
   active?: boolean | null;
-};
-
-type ActionConfig = {
-  action: ClassStudentShortcutAction;
-  header: string;
-  label: string;
-  mobileLabel: string;
-  title: (studentName: string) => string;
 };
 
 type ToolbarAction = {
@@ -76,125 +70,6 @@ function compareStudents(
   }
 
   return String(first.id || "").localeCompare(String(second.id || ""));
-}
-
-function getActionConfigs({
-  isCambridgeClass,
-  isSupportClass,
-  showClassExams,
-  showUnitExamResults,
-  showFridayTutorialResults,
-}: {
-  isCambridgeClass: boolean;
-  isSupportClass: boolean;
-  showClassExams: boolean;
-  showUnitExamResults: boolean;
-  showFridayTutorialResults: boolean;
-}): ActionConfig[] {
-  if (isCambridgeClass) {
-    return [
-      {
-        action: "notes",
-        header: "Notes",
-        label: "Open",
-        mobileLabel: "Notes",
-        title: (studentName) => `Open notes for ${studentName}`,
-      },
-      {
-        action: "homework",
-        header: "Homework",
-        label: "Enter/Edit",
-        mobileLabel: "Homework",
-        title: (studentName) => `Open homework results for ${studentName}`,
-      },
-      ...(showFridayTutorialResults
-        ? [
-            {
-              action: "friday-tutorial" as const,
-              header: "Friday Tutorial",
-              label: "Enter/Edit",
-              mobileLabel: "Friday",
-              title: (studentName: string) =>
-                `Open Friday Tutorial sheet for ${studentName}`,
-            },
-          ]
-        : []),
-      {
-        action: "mock-exams",
-        header: "Mock Exams",
-        label: "Enter/Edit",
-        mobileLabel: "Mocks",
-        title: (studentName) => `Open mock exams for ${studentName}`,
-      },
-      {
-        action: "progress",
-        header: "Progress",
-        label: "View",
-        mobileLabel: "Progress",
-        title: (studentName) => `View progress for ${studentName}`,
-      },
-      {
-        action: "follow-up",
-        header: "Follow-up",
-        label: "Open",
-        mobileLabel: "Follow-up",
-        title: (studentName) => `Open follow-up for ${studentName}`,
-      },
-      {
-        action: "message",
-        header: "Message",
-        label: "Message",
-        mobileLabel: "Message",
-        title: (studentName) => `Message ${studentName}`,
-      },
-    ];
-  }
-
-  if (isSupportClass) {
-    return [
-      {
-        action: "follow-up",
-        header: "Follow-up",
-        label: "Open",
-        mobileLabel: "Follow-up",
-        title: (studentName) => `Open follow-up for ${studentName}`,
-      },
-    ];
-  }
-
-  return [
-    ...(showClassExams
-      ? [
-          {
-            action: "class-exams" as const,
-            header: "Class Exams",
-            label: "Open",
-            mobileLabel: "Class Exams",
-            title: (studentName: string) =>
-              `Open class exams for ${studentName}`,
-          },
-        ]
-      : []),
-    ...(showUnitExamResults
-      ? [
-          {
-            action: "unit-exams" as const,
-            header: "Unit Exams",
-            label: "Enter/Edit",
-            mobileLabel: "Unit Exams",
-            title: (studentName: string) =>
-              `Open unit exams for ${studentName}`,
-          },
-        ]
-      : []),
-    {
-      action: "follow-up",
-      header: "Follow-up",
-      label: "Open",
-      mobileLabel: "Follow-up",
-      title: (studentName) => `Open follow-up for ${studentName}`,
-    },
-  ];
 }
 
 function getToolbarActions({
@@ -269,16 +144,21 @@ export default function ClassStudentsControlSheet({
   showFridayTutorialResults,
   onShortcut,
 }: Props) {
-  const visibleStudents = students
-    .filter((student) => student.active !== false)
-    .sort(compareStudents);
-  const actionConfigs = getActionConfigs({
-    isCambridgeClass,
-    isSupportClass,
-    showClassExams,
-    showUnitExamResults,
-    showFridayTutorialResults,
-  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const visibleStudents = useMemo(
+    () => students
+      .filter((student) => student.active !== false)
+      .sort(compareStudents),
+    [students]
+  );
+  const filteredStudents = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+    if (!normalizedQuery) return visibleStudents;
+
+    return visibleStudents.filter((student) =>
+      getStudentName(student).toLocaleLowerCase().includes(normalizedQuery)
+    );
+  }, [searchQuery, visibleStudents]);
   const toolbarActions = getToolbarActions({
     isCambridgeClass,
     isSupportClass,
@@ -290,27 +170,28 @@ export default function ClassStudentsControlSheet({
   return (
     <div className="teacher-class-students-sheet">
       <header className="teacher-class-students-header">
-        <div>
+        <div className="teacher-class-students-heading">
           <h3>Class Students</h3>
-          <p>Open student workspaces without leaving this class.</p>
+          <span>{visibleStudents.length} {visibleStudents.length === 1 ? "student" : "students"}</span>
+          <p>Manage individual student records and progress.</p>
         </div>
 
         {toolbarActions.length > 0 && (
-          <div
-            className="teacher-class-students-toolbar"
-            aria-label="Class workflows"
-          >
-            {toolbarActions.map((item) => (
-              <button
-                key={item.action}
-                type="button"
-                className="teacher-class-students-toolbar-button"
-                onClick={() => onShortcut(item.action)}
-                title={item.title}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="teacher-class-students-actions">
+            <span>Class actions</span>
+            <div className="teacher-class-students-toolbar" aria-label="Class actions">
+              {toolbarActions.map((item) => (
+                <button
+                  key={item.action}
+                  type="button"
+                  className="teacher-class-students-toolbar-button"
+                  onClick={() => onShortcut(item.action)}
+                  title={item.title}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </header>
@@ -321,73 +202,43 @@ export default function ClassStudentsControlSheet({
         </div>
       ) : (
         <>
-          <div className="teacher-class-students-table-wrap">
-            <table className="teacher-class-students-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  {actionConfigs.map((item) => (
-                    <th key={item.action}>{item.header}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleStudents.map((student) => {
-                  const studentName = getStudentName(student);
-
-                  return (
-                    <tr key={`${student.student_type}-${student.id}`}>
-                      <td>
-                        <strong>{studentName}</strong>
-                      </td>
-                      {actionConfigs.map((item) => (
-                        <td key={item.action}>
-                          <button
-                            type="button"
-                            className="teacher-student-control-button"
-                            onClick={() => onShortcut(item.action, student)}
-                            aria-label={item.title(studentName)}
-                            title={item.title(studentName)}
-                          >
-                            {item.label}
-                          </button>
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="teacher-class-students-search">
+            <label htmlFor="teacher-class-student-search">Search students</label>
+            <input
+              id="teacher-class-student-search"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search students..."
+              autoComplete="off"
+            />
           </div>
 
-          <div className="teacher-class-students-mobile-list">
-            {visibleStudents.map((student) => {
-              const studentName = getStudentName(student);
+          {filteredStudents.length === 0 ? (
+            <div className="teacher-class-students-empty">No students found.</div>
+          ) : (
+            <div className="teacher-class-students-list">
+              {filteredStudents.map((student) => {
+                const studentName = getStudentName(student);
 
-              return (
-                <article
-                  className="teacher-class-students-mobile-card"
-                  key={`${student.student_type}-${student.id}`}
-                >
-                  <h4>{studentName}</h4>
-                  <div className="teacher-class-students-mobile-actions">
-                    {actionConfigs.map((item) => (
-                      <button
-                        key={item.action}
-                        type="button"
-                        className="teacher-student-control-button"
-                        onClick={() => onShortcut(item.action, student)}
-                        aria-label={item.title(studentName)}
-                        title={item.title(studentName)}
-                      >
-                        {item.mobileLabel}
-                      </button>
-                    ))}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    type="button"
+                    className="teacher-class-student-row"
+                    key={`${student.student_type}-${student.id}`}
+                    onClick={() => onShortcut(
+                      student.student_type === "cambridge" ? "notes" : "follow-up",
+                      student
+                    )}
+                    aria-label={`Open ${studentName}`}
+                  >
+                    <strong>{studentName}</strong>
+                    <span aria-hidden="true">›</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
     </div>
