@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import {
@@ -360,7 +360,13 @@ function PlaceholderCard({ title }: { title: string }) {
   );
 }
 
-function CambridgeResults({ student }: { student: any }) {
+function CambridgeResults({
+  student,
+  section,
+}: {
+  student: any;
+  section: "homework" | "friday" | "mocks";
+}) {
   const practice = student.results_summary?.practice || {};
   const mock = student.results_summary?.mock || {};
   const fridayTutorial = student.results_summary?.friday_tutorial || {};
@@ -380,10 +386,16 @@ function CambridgeResults({ student }: { student: any }) {
 
   return (
     <section style={cardStyle}>
-      <SectionTitle>Results Summary</SectionTitle>
+      <SectionTitle>
+        {section === "homework"
+          ? "Homework Results"
+          : section === "friday"
+            ? "Friday Tutorial Results"
+            : "Mock Exam Results"}
+      </SectionTitle>
 
       <div style={{ display: "grid", gap: "18px" }}>
-        <div>
+        {section === "homework" && <div>
           <h3 style={{ color: "#111827", margin: "0 0 12px", fontSize: "17px" }}>
             Practice / Homework Results
           </h3>
@@ -413,11 +425,13 @@ function CambridgeResults({ student }: { student: any }) {
               No practice results found.
             </p>
           )}
-        </div>
+        </div>}
 
-        <FridayTutorialAdminSummary summary={fridayTutorial} />
+        {section === "friday" && (
+          <FridayTutorialAdminSummary summary={fridayTutorial} />
+        )}
 
-        <div>
+        {section === "mocks" && <div>
           <h3 style={{ color: "#111827", margin: "0 0 12px", fontSize: "17px" }}>
             Mock Exam Results
           </h3>
@@ -514,7 +528,7 @@ function CambridgeResults({ student }: { student: any }) {
               No Mock Exam results found.
             </p>
           )}
-        </div>
+        </div>}
       </div>
     </section>
   );
@@ -801,6 +815,7 @@ function ClassSearchTab({
                   <button
                     key={`${student.student_type}-${student.id}`}
                     onClick={() => onOpenStudent(student)}
+                    className="admin-student-information-student-trigger"
                     style={{
                       width: "100%",
                       textAlign: "left",
@@ -1227,79 +1242,191 @@ function FollowUpsSection({ followUps }: { followUps: any[] }) {
   );
 }
 
-function StudentProfilePanel({ student }: { student: any }) {
+type StudentDetailSection =
+  | "overview"
+  | "homework"
+  | "friday"
+  | "mocks"
+  | "unit-exams"
+  | "follow-up";
+
+function StudentOverview({ student }: { student: any }) {
   return (
-    <div style={{ display: "grid", gap: "18px" }}>
-      <section
-        style={{
-          ...cardStyle,
-          borderLeft: "5px solid var(--ss-blue)",
-        }}
-      >
+    <section
+      style={{
+        ...cardStyle,
+        borderLeft: "5px solid var(--ss-blue)",
+      }}
+    >
+      <SectionTitle>Student Overview</SectionTitle>
+      <div className="admin-student-detail-modal-overview">
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: "16px",
-            flexWrap: "wrap",
-            alignItems: "flex-start",
+            display: "grid",
+            gap: "8px",
           }}
         >
+          <span style={getBadgeStyle(student.student_type)}>
+            {getTypeLabel(student.student_type)}
+          </span>
           <div>
-            <h2
-              style={{
-                color: "var(--ss-blue-dark)",
-                margin: "0 0 8px",
-                fontSize: "26px",
-              }}
-            >
-              {student.full_name}
-            </h2>
-            <span style={getBadgeStyle(student.student_type)}>
-              {getTypeLabel(student.student_type)}
-            </span>
+            <strong>Level</strong>
+            <p>{student.level_name || "Unknown Level"}</p>
           </div>
-
-          <div style={{ color: "#667085", lineHeight: 1.8 }}>
-            <div>
-              <strong style={{ color: "#111827" }}>Level:</strong>{" "}
-              {student.level_name || "Unknown Level"}
-            </div>
-            <div>
-              <strong style={{ color: "#111827" }}>Teacher:</strong>{" "}
-              {student.teacher_name || "No teacher assigned"}
-            </div>
-            <div>
-              <strong style={{ color: "#111827" }}>Days/time:</strong>{" "}
+          <div>
+            <strong>Class</strong>
+            <p>{student.class_label || "Class not found"}</p>
+          </div>
+          <div>
+            <strong>Teacher</strong>
+            <p>{student.teacher_name || "No teacher assigned"}</p>
+          </div>
+          <div>
+            <strong>Days/time</strong>
+            <p>
               {student.class_days || "-"}{" "}
               {student.start_time && student.end_time
                 ? `${student.start_time}-${student.end_time}`
                 : ""}
-            </div>
+            </p>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
 
-        <div
-          style={{
-            marginTop: "18px",
-            padding: "14px",
-            borderRadius: "12px",
-            background: "#f8fafd",
-            color: "#111827",
-            border: "1px solid var(--ss-border)",
-          }}
-        >
-          <strong>Class:</strong> {student.class_label || "Class not found"}
+function getStudentDetailSubtitle(student: any) {
+  const level = String(student?.level_name || "").trim();
+  const classLabel = String(student?.class_label || "").trim();
+  const normalizedLevel = level.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const normalizedClass = classLabel.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const parts = [level];
+
+  if (classLabel && normalizedClass !== normalizedLevel) parts.push(classLabel);
+
+  return parts.filter(Boolean).join(" · ") || "Student information";
+}
+
+function StudentDetailModal({
+  student,
+  loading,
+  onClose,
+  returnFocusTo,
+}: {
+  student: any | null;
+  loading: boolean;
+  onClose: () => void;
+  returnFocusTo: HTMLElement | null;
+}) {
+  const [activeSection, setActiveSection] = useState<StudentDetailSection>("overview");
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const isCambridge = student?.student_type === "cambridge";
+  const sections: Array<{ id: StudentDetailSection; label: string }> = isCambridge
+    ? [
+        { id: "overview", label: "Overview" },
+        { id: "homework", label: "Homework" },
+        { id: "friday", label: "Friday Tutorials" },
+        { id: "mocks", label: "Mock Exams" },
+        { id: "follow-up", label: "Follow-up" },
+      ]
+    : [
+        { id: "overview", label: "Overview" },
+        { id: "unit-exams", label: "Unit Exams" },
+        { id: "follow-up", label: "Follow-up" },
+      ];
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 30);
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      returnFocusTo?.focus();
+    };
+  }, [onClose, returnFocusTo]);
+
+  return (
+    <div className="admin-student-detail-modal-layer">
+      <button
+        type="button"
+        className="admin-student-detail-modal-backdrop"
+        onClick={onClose}
+        aria-label="Close student details"
+      />
+      <section
+        className="admin-student-detail-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-student-detail-modal-title"
+      >
+        <div className="admin-student-detail-modal-sticky">
+          <header className="admin-student-detail-modal-header">
+            <div>
+              <h2 id="admin-student-detail-modal-title">
+                {student?.full_name || (loading ? "Loading student…" : "Student details")}
+              </h2>
+              {student && <p>{getStudentDetailSubtitle(student)}</p>}
+            </div>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              className="admin-student-detail-modal-close"
+              onClick={onClose}
+              aria-label="Close student details"
+            >
+              ×
+            </button>
+          </header>
+
+          {student && (
+            <nav className="admin-student-detail-modal-tabs" aria-label="Student detail sections">
+              {sections.map((section) => (
+                <button
+                  type="button"
+                  key={section.id}
+                  className={activeSection === section.id ? "is-active" : ""}
+                  onClick={() => setActiveSection(section.id)}
+                  aria-current={activeSection === section.id ? "page" : undefined}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+
+        <div className="admin-student-detail-modal-content">
+          {loading && <div className="admin-student-detail-modal-state">Loading student profile…</div>}
+          {!loading && student && activeSection === "overview" && (
+            <StudentOverview student={student} />
+          )}
+          {!loading && student && isCambridge && activeSection === "homework" && (
+            <CambridgeResults student={student} section="homework" />
+          )}
+          {!loading && student && isCambridge && activeSection === "friday" && (
+            <CambridgeResults student={student} section="friday" />
+          )}
+          {!loading && student && isCambridge && activeSection === "mocks" && (
+            <CambridgeResults student={student} section="mocks" />
+          )}
+          {!loading && student && !isCambridge && activeSection === "unit-exams" && (
+            <YoungLearnerResults student={student} />
+          )}
+          {!loading && student && activeSection === "follow-up" && (
+            <FollowUpsSection followUps={student.follow_ups || []} />
+          )}
         </div>
       </section>
-
-      {student.student_type === "cambridge" ? (
-        <CambridgeResults student={student} />
-      ) : (
-        <YoungLearnerResults student={student} />
-      )}
-
-      <FollowUpsSection followUps={student.follow_ups || []} />
     </div>
   );
 }
@@ -1323,6 +1450,13 @@ export default function StudentInformationPage() {
   const [levelAnalysis, setLevelAnalysis] = useState<any | null>(null);
   const [loadingLevelOptions, setLoadingLevelOptions] = useState(false);
   const [loadingLevelAnalysis, setLoadingLevelAnalysis] = useState(false);
+  const [studentModalOpen, setStudentModalOpen] = useState(false);
+  const studentModalReturnFocusRef = useRef<HTMLElement | null>(null);
+
+  const closeStudentModal = useCallback(() => {
+    setStudentModalOpen(false);
+    setSelectedStudent(null);
+  }, []);
 
   useEffect(() => {
     if (activeTab !== "Student Search") {
@@ -1404,6 +1538,10 @@ export default function StudentInformationPage() {
   }, [activeTab, levelOptions.length]);
 
   async function openStudent(student: any) {
+    studentModalReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedStudent(null);
+    setStudentModalOpen(true);
     setLoadingStudent(true);
     setError("");
 
@@ -1414,6 +1552,7 @@ export default function StudentInformationPage() {
       console.error("Unable to load student information:", loadError);
       setError(loadError?.message || "Unable to load student information.");
       setSelectedStudent(null);
+      setStudentModalOpen(false);
     } finally {
       setLoadingStudent(false);
     }
@@ -1473,6 +1612,7 @@ export default function StudentInformationPage() {
 
   return (
     <AdminLayout>
+      <>
       <div style={{ display: "grid", gap: "24px" }}>
         <header>
           <h1
@@ -1550,17 +1690,6 @@ export default function StudentInformationPage() {
               </div>
             )}
 
-            {loadingStudent && (
-              <section style={cardStyle}>
-                <p style={{ color: "#667085", margin: 0 }}>
-                  Loading student profile...
-                </p>
-              </section>
-            )}
-
-            {selectedStudent && !loadingStudent && (
-              <StudentProfilePanel student={selectedStudent} />
-            )}
           </>
         )}
 
@@ -1638,6 +1767,7 @@ export default function StudentInformationPage() {
                       <button
                         key={`${student.student_type}-${student.id}`}
                         onClick={() => openStudent(student)}
+                        className="admin-student-information-student-trigger"
                         style={{
                           width: "100%",
                           textAlign: "left",
@@ -1683,20 +1813,18 @@ export default function StudentInformationPage() {
               </section>
             )}
 
-            {loadingStudent && (
-              <section style={cardStyle}>
-                <p style={{ color: "#667085", margin: 0 }}>
-                  Loading student profile...
-                </p>
-              </section>
-            )}
-
-            {selectedStudent && !loadingStudent && (
-              <StudentProfilePanel student={selectedStudent} />
-            )}
           </>
         )}
       </div>
+      {studentModalOpen && (
+        <StudentDetailModal
+          student={selectedStudent}
+          loading={loadingStudent}
+          onClose={closeStudentModal}
+          returnFocusTo={studentModalReturnFocusRef.current}
+        />
+      )}
+      </>
     </AdminLayout>
   );
 }

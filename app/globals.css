@@ -9337,3 +9337,221 @@ img {
     font-size: 0.66rem;
   }
 }
+.admin-student-information-student-trigger {
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-student-information-student-trigger:hover {
+  background: #f2f7fc !important;
+  border-color: #c6d8e8 !important;
+}
+
+.admin-student-information-student-trigger:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.26);
+  outline-offset: 2px;
+}
+
+.admin-student-detail-modal-layer {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 4vh 5vw;
+  position: fixed;
+  z-index: 120;
+}
+
+.admin-student-detail-modal-backdrop {
+  backdrop-filter: blur(3px);
+  background: rgba(17, 24, 39, 0.52);
+  border: 0;
+  cursor: default;
+  inset: 0;
+  padding: 0;
+  position: absolute;
+}
+
+.admin-student-detail-modal-panel {
+  background: #f7f9fc;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 20px;
+  box-shadow: 0 28px 70px rgba(17, 35, 61, 0.3);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: 91vh;
+  max-width: 1100px;
+  overflow: hidden;
+  position: relative;
+  width: 90vw;
+  z-index: 1;
+}
+
+.admin-student-detail-modal-sticky {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+  z-index: 2;
+}
+
+.admin-student-detail-modal-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding: 22px 26px 16px;
+}
+
+.admin-student-detail-modal-header h2 {
+  color: var(--ss-blue-dark);
+  font-size: clamp(22px, 3vw, 29px);
+  line-height: 1.15;
+  margin: 0;
+}
+
+.admin-student-detail-modal-header p {
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 7px 0 0;
+}
+
+.admin-student-detail-modal-close {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #667085;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 40px;
+  font-size: 29px;
+  height: 40px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 0 3px;
+}
+
+.admin-student-detail-modal-close:hover {
+  background: #f2f5f9;
+  color: #111827;
+}
+
+.admin-student-detail-modal-close:focus-visible,
+.admin-student-detail-modal-tabs button:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.26);
+  outline-offset: 2px;
+}
+
+.admin-student-detail-modal-tabs {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  padding: 0 26px;
+  scrollbar-width: thin;
+}
+
+.admin-student-detail-modal-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #667085;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 750;
+  padding: 11px 1px 12px;
+  white-space: nowrap;
+}
+
+.admin-student-detail-modal-tabs button:hover {
+  color: var(--ss-blue-dark);
+}
+
+.admin-student-detail-modal-tabs button.is-active {
+  border-bottom-color: var(--ss-blue);
+  color: var(--ss-blue-dark);
+}
+
+.admin-student-detail-modal-content {
+  min-height: 260px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 24px 26px 30px;
+}
+
+.admin-student-detail-modal-state {
+  align-items: center;
+  color: #667085;
+  display: flex;
+  justify-content: center;
+  min-height: 260px;
+}
+
+.admin-student-detail-modal-overview {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-student-detail-modal-overview > div {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-student-detail-modal-overview > div > span {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-bottom: 4px;
+}
+
+.admin-student-detail-modal-overview > div > div {
+  background: #f8fafd;
+  border: 1px solid var(--ss-border);
+  border-radius: 11px;
+  padding: 14px;
+}
+
+.admin-student-detail-modal-overview strong {
+  color: #475467;
+  display: block;
+  font-size: 12px;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.admin-student-detail-modal-overview p {
+  color: #111827;
+  line-height: 1.45;
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .admin-student-detail-modal-layer {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .admin-student-detail-modal-panel {
+    border: 0;
+    border-radius: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    width: 100%;
+  }
+
+  .admin-student-detail-modal-header {
+    padding: 17px 16px 12px;
+  }
+
+  .admin-student-detail-modal-tabs {
+    gap: 20px;
+    padding: 0 16px;
+  }
+
+  .admin-student-detail-modal-content {
+    padding: 18px 14px 24px;
+  }
+
+  .admin-student-detail-modal-overview > div {
+    grid-template-columns: 1fr;
+  }
+}
