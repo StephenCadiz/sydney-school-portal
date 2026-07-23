@@ -149,21 +149,37 @@ function getMockSortValue(row: any) {
     : Number.POSITIVE_INFINITY;
 }
 
-function MockScoreCell({ label, value }: { label: string; value: any }) {
+function formatMockScore(value: any) {
+  const formatted = formatAverage(value);
+  return formatted === "-" ? formatted : `${formatted}%`;
+}
+
+function MockScoreCell({
+  label,
+  value,
+  emphasized = false,
+}: {
+  label: string;
+  value: any;
+  emphasized?: boolean;
+}) {
   return (
     <div
       style={{
-        border: "1px solid var(--ss-border)",
+        border: emphasized
+          ? "1px solid #b9d8f0"
+          : "1px solid var(--ss-border)",
         borderRadius: "10px",
         padding: "12px",
-        background: "#ffffff",
+        background: emphasized ? "#eef6fd" : "#ffffff",
         minWidth: 0,
       }}
     >
       <p
         style={{
-          color: "#667085",
+          color: emphasized ? "var(--ss-blue-dark)" : "#667085",
           fontSize: "13px",
+          fontWeight: emphasized ? 800 : 400,
           lineHeight: 1.35,
           margin: "0 0 6px",
         }}
@@ -171,7 +187,7 @@ function MockScoreCell({ label, value }: { label: string; value: any }) {
         {label}
       </p>
       <strong style={{ color: "var(--ss-blue-dark)", fontSize: "22px" }}>
-        {formatAverage(value)}
+        {formatMockScore(value)}
       </strong>
     </div>
   );
@@ -484,6 +500,11 @@ function CambridgeResults({ student }: { student: any }) {
                     <MockScoreCell label="Writing" value={row.writing} />
                     <MockScoreCell label="Listening" value={row.listening} />
                     <MockScoreCell label="Speaking" value={row.speaking} />
+                    <MockScoreCell
+                      label="Average"
+                      value={row.row_average}
+                      emphasized
+                    />
                   </div>
                 );
               })}

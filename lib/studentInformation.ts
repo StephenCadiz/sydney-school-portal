@@ -52,6 +52,18 @@ export function formatAverage(value: any) {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
+function getStudentMockAverage(row: any) {
+  const components = [row.reading, row.writing, row.listening, row.speaking].map(
+    toNumber
+  );
+
+  if (components.every((value) => value !== null)) {
+    return components.reduce((total, value) => total + (value as number), 0) / 4;
+  }
+
+  return toNumber(row.overall);
+}
+
 function getFullName(person: any) {
   return `${person?.first_name || ""} ${person?.last_name || ""}`.trim() ||
     "Unnamed student";
@@ -492,20 +504,11 @@ export async function getCambridgeStudentResultsSummary(studentId: string) {
     ),
   }));
 
-  const enrichedMockRows = mockRows.map((row) => {
-    const calculatedOverall = calculateAverage([
-      row.reading,
-      row.writing,
-      row.listening,
-      row.speaking,
-    ]);
-
-    return {
-      ...row,
-      published_at: row.published_at ?? null,
-      row_average: toNumber(row.overall) ?? calculatedOverall,
-    };
-  });
+  const enrichedMockRows = mockRows.map((row) => ({
+    ...row,
+    published_at: row.published_at ?? null,
+    row_average: getStudentMockAverage(row),
+  }));
 
   return {
     type: "cambridge",
