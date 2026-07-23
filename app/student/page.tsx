@@ -27,6 +27,7 @@ import {
 } from "../../lib/studentNotifications";
 import { supabase } from "../../lib/supabase";
 import StudentAnnouncementBanner from "../components/student/StudentAnnouncementBanner";
+import StudentFridayTutorialReminder from "../components/student/StudentFridayTutorialReminder";
 
 function formatCourseType(courseType: string) {
   if (!courseType) return "-";
@@ -276,6 +277,8 @@ export default function StudentDashboard() {
             Unable to load all dashboard information.
           </section>
         )}
+
+        <StudentFridayTutorialReminder />
 
         <StudentAnnouncementBanner
           userId={studentId}
