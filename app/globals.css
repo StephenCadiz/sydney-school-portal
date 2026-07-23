@@ -9702,6 +9702,7 @@ img {
   box-shadow: 0 18px 42px rgba(31, 60, 136, 0.18);
   display: grid;
   gap: 10px;
+  grid-template-rows: auto minmax(0, 1fr);
   left: 0;
   max-height: min(580px, 68vh);
   overflow: hidden;
@@ -9724,6 +9725,7 @@ img {
 }
 
 .admin-student-class-picker-results {
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
