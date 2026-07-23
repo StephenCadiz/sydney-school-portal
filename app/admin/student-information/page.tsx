@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import {
@@ -714,6 +714,352 @@ function ClassSummaryCard({ summary, levelName }: { summary: any; levelName: str
   );
 }
 
+type ClassPickerProgramme = "all" | "cambridge" | "young-learners" | "support";
+
+const classPickerDayOrder = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+const classPickerDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function getClassPickerProgramme(option: any): Exclude<ClassPickerProgramme, "all"> {
+  if (String(option.level_name || "").trim().toLowerCase() === "support classes") {
+    return "support";
+  }
+
+  return option.is_cambridge ? "cambridge" : "young-learners";
+}
+
+function formatClassPickerCourseType(value: any) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : "";
+}
+
+function getClassPickerDayIndexes(value: any) {
+  const normalized = String(value || "").toLowerCase();
+  return classPickerDayOrder
+    .map((day, index) => normalized.includes(day) ? index : -1)
+    .filter((index) => index >= 0);
+}
+
+function formatClassPickerDays(value: any) {
+  const indexes = getClassPickerDayIndexes(value);
+  if (indexes.length === 0) return String(value || "").trim();
+
+  const consecutive = indexes.length >= 3 && indexes.every(
+    (index, position) => position === 0 || index === indexes[position - 1] + 1
+  );
+  if (consecutive) {
+    return `${classPickerDayLabels[indexes[0]]}–${classPickerDayLabels[indexes[indexes.length - 1]]}`;
+  }
+
+  const labels = indexes.map((index) => classPickerDayLabels[index]);
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} & ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")} & ${labels.at(-1)}`;
+}
+
+function formatClassPickerTime(value: any) {
+  const match = String(value || "").match(/^(\d{1,2}:\d{2})/);
+  return match?.[1] || "";
+}
+
+function getClassPickerSchedule(option: any) {
+  const days = formatClassPickerDays(option.days);
+  const start = formatClassPickerTime(option.start_time);
+  const end = formatClassPickerTime(option.end_time);
+  const time = start && end ? `${start}–${end}` : start || end;
+  return [days, time].filter(Boolean).join(" · ");
+}
+
+function getClassPickerPrimaryLabel(option: any) {
+  const level = String(option.level_name || "Unknown level").trim();
+  const className = String(option.class_name || "").trim();
+  const normalizeName = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const classNameContainsSchedule =
+    /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(className) ||
+    /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(className);
+  const name = className &&
+    normalizeName(className) !== normalizeName(level) &&
+    !classNameContainsSchedule
+      ? `${level} — ${className}`
+      : level;
+  const courseType = getClassPickerProgramme(option) === "cambridge"
+    ? formatClassPickerCourseType(option.course_type)
+    : "";
+  return [name, courseType].filter(Boolean).join(" ");
+}
+
+function getClassPickerLevelRank(option: any) {
+  const level = String(option.level_name || "").trim().toLowerCase();
+  const programme = getClassPickerProgramme(option);
+  if (programme === "cambridge") {
+    const rank = ["b1", "b2", "c1", "c2"].indexOf(level);
+    return rank === -1 ? 99 : rank;
+  }
+  if (programme === "support") return 0;
+
+  const match = /^(pre[-\s]?kids|kids|junior|teens?)\s*(\d+)?/i.exec(level);
+  const familyRank: Record<string, number> = {
+    "pre-kids": 0,
+    "pre kids": 0,
+    kids: 1,
+    junior: 2,
+    teen: 3,
+    teens: 3,
+  };
+  const family = match?.[1]?.toLowerCase() || "";
+  return (familyRank[family] ?? 90) * 100 + Number(match?.[2] || 0);
+}
+
+function compareClassPickerOptions(first: any, second: any) {
+  const programmeOrder = { cambridge: 0, "young-learners": 1, support: 2 };
+  const firstProgramme = getClassPickerProgramme(first);
+  const secondProgramme = getClassPickerProgramme(second);
+  const programmeDifference = programmeOrder[firstProgramme] - programmeOrder[secondProgramme];
+  if (programmeDifference !== 0) return programmeDifference;
+
+  const levelDifference = getClassPickerLevelRank(first) - getClassPickerLevelRank(second);
+  if (levelDifference !== 0) return levelDifference;
+
+  const levelNameDifference = String(first.level_name || "").localeCompare(
+    String(second.level_name || ""), undefined, { numeric: true, sensitivity: "base" }
+  );
+  if (levelNameDifference !== 0) return levelNameDifference;
+
+  const courseOrder = { regular: 0, intensive: 1, express: 2, online: 3 };
+  const firstCourse = String(first.course_type || "").toLowerCase();
+  const secondCourse = String(second.course_type || "").toLowerCase();
+  const courseDifference = (courseOrder[firstCourse as keyof typeof courseOrder] ?? 9) -
+    (courseOrder[secondCourse as keyof typeof courseOrder] ?? 9);
+  if (courseDifference !== 0) return courseDifference;
+
+  const dayDifference = getClassPickerDayIndexes(first.days).join("").localeCompare(
+    getClassPickerDayIndexes(second.days).join("")
+  );
+  if (dayDifference !== 0) return dayDifference;
+
+  const timeDifference = String(first.start_time || "").localeCompare(String(second.start_time || ""));
+  if (timeDifference !== 0) return timeDifference;
+
+  return `${first.teacher_name || ""}:${first.class_id || ""}`.localeCompare(
+    `${second.teacher_name || ""}:${second.class_id || ""}`,
+    undefined,
+    { numeric: true, sensitivity: "base" }
+  );
+}
+
+function ClassSearchPicker({
+  classOptions,
+  selectedClassId,
+  loadingOptions,
+  onSelectClass,
+}: {
+  classOptions: any[];
+  selectedClassId: string;
+  loadingOptions: boolean;
+  onSelectClass: (classId: string) => void;
+}) {
+  const [teacherFilter, setTeacherFilter] = useState("all");
+  const [programmeFilter, setProgrammeFilter] = useState<ClassPickerProgramme>("all");
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedOption = classOptions.find((option) => option.class_id === selectedClassId);
+  const teachers = useMemo(
+    () => Array.from(new Set(classOptions.map((option) => option.teacher_name).filter(Boolean)))
+      .sort((first, second) => String(first).localeCompare(String(second), undefined, { sensitivity: "base" })),
+    [classOptions]
+  );
+  const filteredOptions = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return [...classOptions]
+      .filter((option) => teacherFilter === "all" || option.teacher_name === teacherFilter)
+      .filter((option) => programmeFilter === "all" || getClassPickerProgramme(option) === programmeFilter)
+      .filter((option) => {
+        if (!normalizedSearch) return true;
+        return [
+          option.level_name,
+          option.class_name,
+          option.class_label,
+          option.teacher_name,
+          option.course_type,
+          option.days,
+          option.start_time,
+          option.end_time,
+          option.option_label,
+        ].some((value) => String(value || "").toLowerCase().includes(normalizedSearch));
+      })
+      .sort(compareClassPickerOptions);
+  }, [classOptions, programmeFilter, search, teacherFilter]);
+  const groups = useMemo(() => {
+    const grouped = new Map<string, { programme: string; level: string; options: any[] }>();
+    const programmeLabels = {
+      cambridge: "Cambridge",
+      "young-learners": "Young Learners",
+      support: "Support",
+    };
+    filteredOptions.forEach((option) => {
+      const programme = getClassPickerProgramme(option);
+      const level = String(option.level_name || "Unknown level");
+      const key = `${programme}:${level}`;
+      const existing = grouped.get(key);
+      if (existing) existing.options.push(option);
+      else grouped.set(key, { programme: programmeLabels[programme], level, options: [option] });
+    });
+    return Array.from(grouped.values());
+  }, [filteredOptions]);
+
+  useEffect(() => {
+    if (!open) return;
+    const focusTimer = window.setTimeout(() => searchInputRef.current?.focus(), 20);
+    function handlePointerDown(event: PointerEvent) {
+      if (!pickerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!selectedOption) return;
+    const matchesTeacher = teacherFilter === "all" || selectedOption.teacher_name === teacherFilter;
+    const matchesProgramme = programmeFilter === "all" ||
+      getClassPickerProgramme(selectedOption) === programmeFilter;
+    if (!matchesTeacher || !matchesProgramme) onSelectClass("");
+  }, [onSelectClass, programmeFilter, selectedOption, teacherFilter]);
+
+  function selectClass(classId: string) {
+    onSelectClass(classId);
+    setOpen(false);
+    setSearch("");
+  }
+
+  return (
+    <div className="admin-student-class-picker-controls">
+      <div className="admin-student-class-picker-filters">
+        <label>
+          <span>Teacher</span>
+          <select value={teacherFilter} onChange={(event) => setTeacherFilter(event.target.value)}>
+            <option value="all">All Teachers</option>
+            {teachers.map((teacher) => <option value={teacher} key={teacher}>{teacher}</option>)}
+          </select>
+        </label>
+        <fieldset>
+          <legend>Programme</legend>
+          <div className="admin-student-class-picker-programmes">
+            {([
+              ["all", "All"],
+              ["cambridge", "Cambridge"],
+              ["young-learners", "Young Learners"],
+              ["support", "Support"],
+            ] as Array<[ClassPickerProgramme, string]>).map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={programmeFilter === value ? "is-active" : ""}
+                onClick={() => setProgrammeFilter(value)}
+                aria-pressed={programmeFilter === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+
+      <div className="admin-student-class-picker-field" ref={pickerRef}>
+        <label id="admin-student-class-picker-label">Class</label>
+        <button
+          type="button"
+          className="admin-student-class-picker-trigger"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+          aria-controls="admin-student-class-picker-popover"
+          aria-labelledby="admin-student-class-picker-label admin-student-class-picker-value"
+          disabled={loadingOptions}
+        >
+          <span id="admin-student-class-picker-value">
+            {loadingOptions
+              ? "Loading classes..."
+              : selectedOption
+                ? [getClassPickerPrimaryLabel(selectedOption), getClassPickerSchedule(selectedOption)]
+                    .filter(Boolean)
+                    .join(" · ")
+                : "Search or select a class..."}
+          </span>
+          <span aria-hidden="true">⌄</span>
+        </button>
+
+        {open && (
+          <div
+            id="admin-student-class-picker-popover"
+            className="admin-student-class-picker-popover"
+            role="dialog"
+            aria-label="Choose a class"
+          >
+            <input
+              ref={searchInputRef}
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search classes..."
+              aria-label="Search classes"
+              autoComplete="off"
+            />
+            <div className="admin-student-class-picker-results">
+              {groups.length === 0 ? (
+                <p>No matching classes found.</p>
+              ) : groups.map((group, index) => {
+                const showProgramme = index === 0 || groups[index - 1].programme !== group.programme;
+                return (
+                  <section key={`${group.programme}:${group.level}`}>
+                    {showProgramme && <h3>{group.programme}</h3>}
+                    <h4>{group.level}</h4>
+                    {group.options.map((option) => {
+                      const selected = option.class_id === selectedClassId;
+                      return (
+                        <button
+                          type="button"
+                          key={option.class_id}
+                          className={selected ? "is-selected" : ""}
+                          onClick={() => selectClass(option.class_id)}
+                          aria-label={`Select ${getClassPickerPrimaryLabel(option)}, ${getClassPickerSchedule(option)}, ${option.teacher_name}`}
+                        >
+                          <span className="admin-student-class-picker-row-copy">
+                            <strong>{getClassPickerPrimaryLabel(option)}</strong>
+                            <span>{getClassPickerSchedule(option) || "Schedule not available"}</span>
+                            <small>{option.teacher_name || "Teacher not assigned"}</small>
+                          </span>
+                          {selected && <span className="admin-student-class-picker-check" aria-hidden="true">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ClassSearchTab({
   classOptions,
   selectedClassId,
@@ -740,30 +1086,12 @@ function ClassSearchTab({
     <div style={{ display: "grid", gap: "18px" }}>
       <section style={cardStyle}>
         <SectionTitle>Class Search</SectionTitle>
-        <label
-          style={{
-            display: "block",
-            color: "#333333",
-            fontWeight: 700,
-            marginBottom: "8px",
-          }}
-        >
-          Select class/group
-        </label>
-        <select
-          value={selectedClassId}
-          onChange={(event) => onSelectClass(event.target.value)}
-          style={inputStyle}
-        >
-          <option value="">
-            {loadingOptions ? "Loading classes..." : "Select class/group"}
-          </option>
-          {classOptions.map((option) => (
-            <option key={option.class_id} value={option.class_id}>
-              {option.option_label}
-            </option>
-          ))}
-        </select>
+        <ClassSearchPicker
+          classOptions={classOptions}
+          selectedClassId={selectedClassId}
+          loadingOptions={loadingOptions}
+          onSelectClass={onSelectClass}
+        />
       </section>
 
       {loadingClass && (

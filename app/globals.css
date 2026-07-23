@@ -9555,3 +9555,286 @@ img {
     grid-template-columns: 1fr;
   }
 }
+.admin-student-class-picker-controls {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-student-class-picker-filters {
+  align-items: end;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.2fr);
+}
+
+.admin-student-class-picker-filters label,
+.admin-student-class-picker-filters fieldset,
+.admin-student-class-picker-field {
+  min-width: 0;
+}
+
+.admin-student-class-picker-filters label,
+.admin-student-class-picker-field {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-student-class-picker-filters label > span,
+.admin-student-class-picker-filters legend,
+.admin-student-class-picker-field > label {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.admin-student-class-picker-filters select {
+  appearance: none;
+  background: #ffffff
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20'%3E%3Cpath fill='%23667085' d='m5.5 7.5 4.5 4.5 4.5-4.5'/%3E%3C/svg%3E")
+    no-repeat right 12px center;
+  border: 1px solid #d5dee9;
+  border-radius: 10px;
+  color: #111827;
+  font: inherit;
+  min-height: 43px;
+  padding: 9px 38px 9px 12px;
+  width: 100%;
+}
+
+.admin-student-class-picker-filters fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-student-class-picker-filters legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.admin-student-class-picker-programmes {
+  background: #f2f5f9;
+  border: 1px solid #dfe6ef;
+  border-radius: 10px;
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+  padding: 3px;
+}
+
+.admin-student-class-picker-programmes button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #667085;
+  cursor: pointer;
+  flex: 1 0 auto;
+  font-size: 12px;
+  font-weight: 750;
+  min-height: 35px;
+  padding: 8px 11px;
+  white-space: nowrap;
+}
+
+.admin-student-class-picker-programmes button:hover {
+  color: var(--ss-blue-dark);
+}
+
+.admin-student-class-picker-programmes button.is-active {
+  background: #ffffff;
+  border-color: #d5dee9;
+  box-shadow: 0 1px 3px rgba(31, 60, 136, 0.08);
+  color: var(--ss-blue-dark);
+}
+
+.admin-student-class-picker-field {
+  position: relative;
+}
+
+.admin-student-class-picker-trigger {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cfd9e5;
+  border-radius: 11px;
+  color: #344054;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 14px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 11px 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.admin-student-class-picker-trigger:disabled {
+  background: #f8fafc;
+  color: #98a2b3;
+  cursor: wait;
+}
+
+.admin-student-class-picker-trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-student-class-picker-trigger > span:last-child {
+  color: #667085;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.admin-student-class-picker-filters select:focus-visible,
+.admin-student-class-picker-programmes button:focus-visible,
+.admin-student-class-picker-trigger:focus-visible,
+.admin-student-class-picker-popover input:focus-visible,
+.admin-student-class-picker-results section > button:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.25);
+  outline-offset: 2px;
+}
+
+.admin-student-class-picker-popover {
+  background: #ffffff;
+  border: 1px solid #d7e0ea;
+  border-radius: 13px;
+  box-shadow: 0 18px 42px rgba(31, 60, 136, 0.18);
+  display: grid;
+  gap: 10px;
+  left: 0;
+  max-height: min(580px, 68vh);
+  overflow: hidden;
+  padding: 10px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 7px);
+  z-index: 40;
+}
+
+.admin-student-class-picker-popover > input {
+  background: #f8fafc;
+  border: 1px solid #d8e1ec;
+  border-radius: 9px;
+  color: #111827;
+  font: inherit;
+  min-height: 42px;
+  padding: 9px 12px;
+  width: 100%;
+}
+
+.admin-student-class-picker-results {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 2px 3px;
+}
+
+.admin-student-class-picker-results > p {
+  color: #667085;
+  margin: 0;
+  padding: 22px 12px;
+  text-align: center;
+}
+
+.admin-student-class-picker-results section {
+  display: grid;
+}
+
+.admin-student-class-picker-results h3 {
+  color: var(--ss-blue-dark);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  margin: 15px 10px 5px;
+  text-transform: uppercase;
+}
+
+.admin-student-class-picker-results section:first-child h3 {
+  margin-top: 5px;
+}
+
+.admin-student-class-picker-results h4 {
+  color: #667085;
+  font-size: 12px;
+  margin: 9px 10px 4px;
+}
+
+.admin-student-class-picker-results section > button {
+  align-items: center;
+  background: #ffffff;
+  border: 0;
+  border-radius: 9px;
+  color: #111827;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 72px;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.admin-student-class-picker-results section > button:hover {
+  background: #f4f8fc;
+}
+
+.admin-student-class-picker-results section > button.is-selected {
+  background: #eef6fd;
+  box-shadow: inset 3px 0 0 var(--ss-blue);
+}
+
+.admin-student-class-picker-row-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-student-class-picker-row-copy strong {
+  color: var(--ss-blue-dark);
+  font-size: 14px;
+}
+
+.admin-student-class-picker-row-copy > span {
+  color: #475467;
+  font-size: 13px;
+}
+
+.admin-student-class-picker-row-copy small {
+  color: #7b8798;
+  font-size: 12px;
+}
+
+.admin-student-class-picker-check {
+  color: var(--ss-blue);
+  flex: 0 0 auto;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .admin-student-class-picker-filters {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .admin-student-class-picker-programmes {
+    justify-content: flex-start;
+  }
+
+  .admin-student-class-picker-programmes button {
+    flex-grow: 0;
+  }
+
+  .admin-student-class-picker-popover {
+    max-height: 66vh;
+  }
+
+  .admin-student-class-picker-results section > button {
+    min-height: 70px;
+    padding: 10px;
+  }
+}

@@ -281,6 +281,7 @@ function buildClassDetails(classRow: any, reference: any) {
 
   return {
     class_id: classRow?.id || "",
+    class_name: classRow?.class_name || "",
     level_name: levelName,
     teacher_name: teacherName,
     days: classRow?.days || "-",
