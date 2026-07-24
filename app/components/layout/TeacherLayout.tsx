@@ -227,7 +227,7 @@ export default function TeacherLayout({
           background: "var(--ss-page-bg)",
         }}
       >
-        <PortalHeader title="Teacher Dashboard" />
+        <PortalHeader title="Teacher Portal" />
 
         {children}
       </main>

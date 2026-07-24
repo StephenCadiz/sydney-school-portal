@@ -80,122 +80,39 @@ export default function TeacherAnnouncementBanner({ teacherId }: Props) {
   const remainingCount = announcements.length - 1;
 
   return (
-    <section
-      style={{
-        background: "#ffffff",
-        border: "1px solid #dbe6fb",
-        borderLeft: "6px solid #1f3c88",
-        borderRadius: "14px",
-        padding: "22px",
-        marginBottom: "24px",
-        boxShadow: "0 8px 24px rgba(31,60,136,0.08)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: "18px",
-          alignItems: "flex-start",
-        }}
-      >
-        <div style={{ flex: 1 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              marginBottom: "10px",
-            }}
-          >
-            <h2
-              style={{
-                color: "#1f3c88",
-                margin: 0,
-                fontSize: "20px",
-              }}
-            >
-              Staff Announcement
-            </h2>
-
-            <span
-              style={{
-                background: "#eaf0fb",
-                color: "#1f3c88",
-                borderRadius: "999px",
-                padding: "4px 10px",
-                fontSize: "12px",
-                fontWeight: 800,
-              }}
-            >
-              New
-            </span>
-          </div>
-
-          <h3
-            style={{
-              color: "#333",
-              margin: "0 0 8px",
-              fontSize: "18px",
-            }}
-          >
-            {announcement.title || "Announcement"}
-          </h3>
-
-          <p
-            style={{
-              color: "#555",
-              lineHeight: 1.55,
-              margin: "0 0 10px",
-              whiteSpace: "pre-line",
-            }}
-          >
+    <section className="teacher-dashboard-section teacher-dashboard-announcement">
+      <div className="teacher-dashboard-section-title">
+        <h2>Announcements</h2>
+        <span>New</span>
+      </div>
+      <div className="teacher-dashboard-announcement-content">
+        <div>
+          <h3>{announcement.title || "Announcement"}</h3>
+          <p>
             {expanded
               ? announcement.content || ""
               : getPreview(announcement.content)}
           </p>
 
           {announcement.created_at && (
-            <div
-              style={{
-                color: "#667085",
-                fontSize: "13px",
-                fontWeight: 600,
-              }}
-            >
+            <small>
               Posted {formatDate(announcement.created_at)}
-            </div>
+            </small>
           )}
 
           {remainingCount > 0 && (
-            <div
-              style={{
-                color: "#667085",
-                fontSize: "13px",
-                marginTop: "8px",
-              }}
-            >
+            <small>
               {remainingCount} more unread staff announcement
               {remainingCount === 1 ? "" : "s"}
-            </div>
+            </small>
           )}
         </div>
 
-        <div>
+        <div className="teacher-dashboard-announcement-action">
           {!expanded ? (
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              style={{
-                background: "#1f3c88",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: "8px",
-                padding: "10px 14px",
-                cursor: "pointer",
-                fontWeight: 800,
-                whiteSpace: "nowrap",
-              }}
             >
               Read Announcement
             </button>
@@ -204,16 +121,6 @@ export default function TeacherAnnouncementBanner({ teacherId }: Props) {
               type="button"
               disabled={saving}
               onClick={handleMarkAsRead}
-              style={{
-                background: "#1f3c88",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: "8px",
-                padding: "10px 14px",
-                cursor: saving ? "not-allowed" : "pointer",
-                fontWeight: 800,
-                whiteSpace: "nowrap",
-              }}
             >
               {saving ? "Saving..." : "Mark as Read"}
             </button>

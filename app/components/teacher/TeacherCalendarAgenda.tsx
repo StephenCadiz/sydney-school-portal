@@ -59,8 +59,8 @@ export default function TeacherCalendarAgenda() {
   }, []);
 
   return (
-    <section className="teacher-dashboard-card teacher-dashboard-calendar">
-      <div className="teacher-dashboard-section-header">
+    <section className="teacher-dashboard-section teacher-dashboard-calendar">
+      <div className="teacher-dashboard-section-title">
         <div>
           <h2>Teacher Calendar</h2>
           <p>
@@ -70,9 +70,9 @@ export default function TeacherCalendarAgenda() {
 
         <Link
           href="/teacher/calendar"
-          className="teacher-dashboard-secondary-link"
+          className="teacher-dashboard-section-link"
         >
-          View Full Calendar
+          View Calendar
         </Link>
       </div>
 

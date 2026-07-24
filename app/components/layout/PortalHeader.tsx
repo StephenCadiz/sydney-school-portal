@@ -7,37 +7,30 @@ type Props = {
 };
 
 export default function PortalHeader({ title }: Props) {
-  const today = new Date().toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
   return (
     <div
+      className="teacher-portal-header"
       style={{
         background: "#ffffff",
-        padding: "25px 30px",
+        padding: "18px 24px",
         borderRadius: "12px",
-        marginBottom: "30px",
+        marginBottom: "24px",
         display: "flex",
-        justifyContent: "space-between",
         alignItems: "center",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        border: "1px solid #e3e8ef",
       }}
     >
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "20px",
+          gap: "16px",
         }}
       >
         <Image
           src="/LOGO and NAME.png"
           alt="Sydney School"
-          width={220}
+          width={190}
           height={70}
           style={{
             height: "auto",
@@ -66,14 +59,6 @@ export default function PortalHeader({ title }: Props) {
         </div>
       </div>
 
-      <div
-        style={{
-          color: "#666",
-          fontWeight: 600,
-        }}
-      >
-        {today}
-      </div>
     </div>
   );
 }

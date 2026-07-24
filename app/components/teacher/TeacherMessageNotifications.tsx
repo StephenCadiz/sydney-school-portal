@@ -87,89 +87,34 @@ export default function TeacherMessageNotifications({
   const latestMessages = messages.slice(0, 3);
 
   return (
-    <section
-      style={{
-        background: "#ffffff",
-        border: "1px solid #dbe3f0",
-        borderRadius: "12px",
-        padding: "18px",
-        marginBottom: "18px",
-        boxShadow: "0 8px 22px rgba(31, 60, 136, 0.08)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: "16px",
-          alignItems: "flex-start",
-          marginBottom: "14px",
-        }}
-      >
+    <section className="teacher-dashboard-section teacher-dashboard-messages">
+      <div className="teacher-dashboard-section-title">
         <div>
-          <h2
-            style={{
-              color: "#1f3c88",
-              fontSize: "18px",
-              margin: "0 0 4px",
-            }}
-          >
-            Messages
-          </h2>
-          <p style={{ color: "#5f6f89", margin: 0, fontSize: "14px" }}>
-            {messages.length} unread message{messages.length === 1 ? "" : "s"}
-          </p>
+          <h2>Messages</h2>
+          <p>{messages.length} unread staff message{messages.length === 1 ? "" : "s"}</p>
         </div>
 
         <Link
           href="/teacher/messages"
-          style={{
-            color: "#1f3c88",
-            fontWeight: 700,
-            textDecoration: "none",
-            fontSize: "14px",
-            whiteSpace: "nowrap",
-          }}
+          className="teacher-dashboard-section-link"
         >
-          Open Messages →
+          Open Messages
         </Link>
       </div>
 
-      <div style={{ display: "grid", gap: "10px" }}>
+      <div className="teacher-dashboard-message-list">
         {latestMessages.map((message) => (
           <Link
             href="/teacher/messages"
             key={message.id}
-            style={{
-              display: "block",
-              border: "1px solid #edf1f7",
-              borderRadius: "10px",
-              padding: "12px",
-              background: "#f8fafd",
-              textDecoration: "none",
-            }}
+            className="teacher-dashboard-message-row"
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "12px",
-                marginBottom: "4px",
-              }}
-            >
-              <strong style={{ color: "#1f3c88", fontSize: "14px" }}>
-                {getSenderName(message)}
-              </strong>
-              <span style={{ color: "#718096", fontSize: "12px" }}>
-                {formatMessageDateTime(message.created_at)}
-              </span>
+            <div>
+              <strong>{message.subject || "No subject"}</strong>
+              <span>{getSenderName(message)} · {formatMessageDateTime(message.created_at)}</span>
+              <p>{previewText(message.message)}</p>
             </div>
-            <div style={{ color: "#334155", fontWeight: 700, fontSize: "14px" }}>
-              {message.subject || "No subject"}
-            </div>
-            <p style={{ color: "#475569", fontSize: "13px", margin: "6px 0 0" }}>
-              {previewText(message.message)}
-            </p>
+            <span aria-hidden="true">›</span>
           </Link>
         ))}
       </div>

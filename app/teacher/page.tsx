@@ -1,38 +1,51 @@
 "use client";
 
-import TeacherLayout from "../components/layout/TeacherLayout";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
-import TodaySchedule from "../components/dashboard/TodaySchedule";
+
+import TeacherLayout from "../components/layout/TeacherLayout";
 import TeacherCalendarAgenda from "../components/teacher/TeacherCalendarAgenda";
 import TeacherMessageNotifications from "../components/teacher/TeacherMessageNotifications";
 import TeacherAnnouncementBanner from "../components/teacher/TeacherAnnouncementBanner";
 import FridayExamPracticeCard from "../components/teacher/FridayExamPracticeCard";
 import FridayAt6DutyCard from "../components/teacher/FridayAt6DutyCard";
+import { supabase } from "../../lib/supabase";
 import {
   getFridayAt6DutyForDate,
   getFridayExamPracticeSessionsForDate,
 } from "../../lib/fridayExamPractice";
 
-function getLocalDateString(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+const tools = [
+  {
+    icon: "users",
+    title: "Aqadem",
+    description: "Student administration platform",
+    href: "https://sydneyschool.aqadem.com/profesores",
+    external: true,
+  },
+  {
+    icon: "book",
+    title: "Cambridge One",
+    description: "Cambridge course materials and digital resources",
+    href: "https://www.cambridgeone.org/",
+    external: true,
+  },
+  {
+    icon: "folder",
+    title: "Teacher Resources",
+    description: "Teaching materials and shared resources",
+    href: "/teacher/resources",
+    external: false,
+  },
+];
 
-  return `${year}-${month}-${day}`;
-}
-
-function TeacherDashboardIcon({
-  name,
-}: {
-  name: "classes" | "status";
-}) {
+function ToolIcon({ name }: { name: string }) {
   const commonProps = {
     "aria-hidden": true,
-    width: 24,
-    height: 24,
+    width: 18,
+    height: 18,
     viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
@@ -41,34 +54,81 @@ function TeacherDashboardIcon({
     strokeLinejoin: "round" as const,
   };
 
-  if (name === "classes") {
+  if (name === "users") {
+    return (
+      <svg {...commonProps}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
+
+  if (name === "book") {
     return (
       <svg {...commonProps}>
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
         <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z" />
-        <path d="M9 7h6" />
-        <path d="M9 11h6" />
       </svg>
     );
   }
 
   return (
     <svg {...commonProps}>
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
-      <path d="m9 12 2 2 4-5" />
+      <path d="M3 7h5l2 2h11v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+      <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2" />
     </svg>
   );
 }
 
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getMadridHeader(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const hour = Number(values.hour || 12);
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  return {
+    greeting,
+    date: `${values.weekday || ""}, ${values.day || ""} ${values.month || ""} ${
+      values.year || ""
+    }`.trim(),
+  };
+}
+
 export default function TeacherPage() {
   const router = useRouter();
-
-  const [classes, setClasses] = useState<any[]>([]);
   const [teacherName, setTeacherName] = useState("");
   const [teacherId, setTeacherId] = useState("");
+  const [classroom, setClassroom] = useState<{
+    name: string;
+    logo: string;
+  } | null>(null);
   const [fridayExamPracticeSessions, setFridayExamPracticeSessions] =
     useState<any[]>([]);
   const [fridayAt6Duty, setFridayAt6Duty] = useState<any | null>(null);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const header = getMadridHeader(currentTime);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -83,7 +143,7 @@ export default function TeacherPage() {
 
       const profile = await supabase
         .from("profiles")
-        .select("*")
+        .select("first_name, last_name, role")
         .eq("id", session.user.id)
         .single();
 
@@ -93,67 +153,40 @@ export default function TeacherPage() {
       }
 
       setTeacherName(
-        `${profile.data.first_name || ""} ${
-          profile.data.last_name || ""
-        }`
+        `${profile.data.first_name || ""} ${profile.data.last_name || ""}`.trim()
       );
       setTeacherId(session.user.id);
 
       const teacherClasses = await supabase
-  .from("classes")
-  .select(`
-    *,
-    classrooms (
-      id,
-      name,
-      logo,
-      theme_colour
-    )
-  `)
-  .eq("teacher_id", session.user.id);
+        .from("classes")
+        .select(`
+          id,
+          classrooms (
+            id,
+            name,
+            logo,
+            theme_colour
+          )
+        `)
+        .eq("teacher_id", session.user.id);
 
-if (teacherClasses.error) {
-  console.error("Unable to load teacher classes:", teacherClasses.error);
-}
-
-console.log("Teacher Classes:", teacherClasses.data);
-
-const classData = teacherClasses.data || [];
-let classesWithLevels = classData;
-
-if (!teacherClasses.error && classData.length > 0) {
-  const levelIds = Array.from(
-    new Map(
-      classData
-        .map((item) => item.level_id)
-        .filter((levelId) => levelId !== null && levelId !== undefined)
-        .map((levelId) => [String(levelId), levelId])
-    ).values()
-  );
-
-  if (levelIds.length > 0) {
-    const { data: levels, error: levelsError } = await supabase
-      .from("levels")
-      .select("id, name")
-      .in("id", levelIds);
-
-    if (levelsError) {
-      console.error("Unable to load teacher class levels:", levelsError);
-    } else {
-      const levelNameById = new Map(
-        (levels || []).map((level) => [String(level.id), level.name])
-      );
-
-      classesWithLevels = classData.map((item) => ({
-        ...item,
-        level_name:
-          levelNameById.get(String(item.level_id)) || item.level_name,
-      }));
-    }
-  }
-}
-
-setClasses(classesWithLevels);
+      if (teacherClasses.error) {
+        console.error(
+          "Unable to load teacher classroom identity:",
+          teacherClasses.error
+        );
+        setClassroom(null);
+      } else {
+        const assignedClassroom = (teacherClasses.data?.[0] as any)?.classrooms;
+        setClassroom(
+          assignedClassroom?.name && assignedClassroom?.logo
+            ? {
+                name: assignedClassroom.name,
+                logo: assignedClassroom.logo,
+              }
+            : null
+        );
+      }
 
       try {
         const today = getLocalDateString();
@@ -163,97 +196,94 @@ setClasses(classesWithLevels);
         ]);
 
         setFridayExamPracticeSessions(examPracticeSessions);
-        setFridayAt6Duty(
-          duty?.teacher_id === session.user.id ? duty : null
-        );
+        setFridayAt6Duty(duty?.teacher_id === session.user.id ? duty : null);
       } catch (error) {
         console.error("Unable to load Friday @ 6 dashboard items:", error);
         setFridayExamPracticeSessions([]);
         setFridayAt6Duty(null);
       }
-
     }
 
     loadData();
   }, [router]);
 
-  const classroomName = classes[0]?.classrooms?.name || "-";
-  const classroomLogo = classes[0]?.classrooms?.logo || "/Emu Logo.png";
-
   return (
-  <TeacherLayout>
-     
-     <div className="teacher-dashboard-page">
-      <section
-        className="teacher-dashboard-overview"
-        aria-label="Teacher overview"
-      >
-        <article className="teacher-dashboard-card teacher-dashboard-welcome-card">
-          <div>
-            <p className="teacher-dashboard-card-label">Welcome back</p>
-            <h2 className="teacher-dashboard-teacher-name">{teacherName}</h2>
+    <TeacherLayout>
+      <main className="teacher-dashboard-page">
+        <header className="teacher-dashboard-header">
+          <div className="teacher-dashboard-header-copy">
+            <h1>
+              {header.greeting}
+              {teacherName ? `, ${teacherName.split(" ")[0]}` : ""}
+            </h1>
+            <p>{header.date}</p>
+            <span>Your teaching workspace</span>
           </div>
 
-          <p className="teacher-dashboard-welcome-text">
-            <span className="teacher-dashboard-welcome-long-text">
-              Ready for another great day of teaching.
-            </span>
-            <span className="teacher-dashboard-welcome-short-text">
-              Ready to teach.
-            </span>
-          </p>
-        </article>
-
-        <article className="teacher-dashboard-card teacher-dashboard-classroom-card">
-          <p className="teacher-dashboard-card-label">Classroom</p>
-          <div className="teacher-dashboard-classroom-content">
-            <span className="teacher-dashboard-classroom-image">
+          {classroom && (
+            <div className="teacher-dashboard-classroom-identity">
               <Image
-                src={classroomLogo}
-                alt={`${classroomName} classroom`}
-                width={62}
-                height={62}
+                src={classroom.logo}
+                alt=""
+                width={56}
+                height={56}
               />
-            </span>
-            <strong>{classroomName}</strong>
+              <strong>{classroom.name}</strong>
+            </div>
+          )}
+        </header>
+
+        <div className="teacher-dashboard-feed">
+          <TeacherAnnouncementBanner teacherId={teacherId} />
+          <TeacherMessageNotifications teacherId={teacherId} />
+          <FridayAt6DutyCard duty={fridayAt6Duty} />
+          <FridayExamPracticeCard sessions={fridayExamPracticeSessions} />
+          <TeacherCalendarAgenda />
+        </div>
+
+        <section className="teacher-dashboard-tools" aria-labelledby="teacher-tools-heading">
+          <div className="teacher-dashboard-section-title">
+            <h2 id="teacher-tools-heading">Tools</h2>
           </div>
-        </article>
-
-        <article className="teacher-dashboard-card teacher-dashboard-kpi-card">
-          <span className="teacher-dashboard-card-icon">
-            <TeacherDashboardIcon name="classes" />
-          </span>
-          <div>
-            <p className="teacher-dashboard-card-label">Assigned Classes</p>
-            <strong className="teacher-dashboard-kpi-value">
-              {classes.length}
-            </strong>
+          <div className="teacher-dashboard-tool-list">
+            {tools.map((tool) =>
+              tool.external ? (
+                <a
+                  key={tool.title}
+                  className="teacher-dashboard-tool-row"
+                  href={tool.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span className="teacher-dashboard-tool-icon">
+                    <ToolIcon name={tool.icon} />
+                  </span>
+                  <span className="teacher-dashboard-tool-copy">
+                    <strong>{tool.title}</strong>
+                    <small>{tool.description}</small>
+                  </span>
+                  <span aria-hidden="true">›</span>
+                </a>
+              ) : (
+                <Link
+                  key={tool.title}
+                  className="teacher-dashboard-tool-row"
+                  href={tool.href}
+                >
+                  <span className="teacher-dashboard-tool-icon">
+                    <ToolIcon name={tool.icon} />
+                  </span>
+                  <span className="teacher-dashboard-tool-copy">
+                    <strong>{tool.title}</strong>
+                    <small>{tool.description}</small>
+                  </span>
+                  <span aria-hidden="true">›</span>
+                </Link>
+              )
+            )}
           </div>
-        </article>
-
-        <article className="teacher-dashboard-card teacher-dashboard-kpi-card">
-          <span className="teacher-dashboard-card-icon teacher-dashboard-status-icon">
-            <TeacherDashboardIcon name="status" />
-          </span>
-          <div>
-            <p className="teacher-dashboard-card-label">Account Status</p>
-            <strong className="teacher-dashboard-status-value">Active</strong>
-          </div>
-        </article>
-      </section>
-
-     <TeacherAnnouncementBanner teacherId={teacherId} />
-
-     <TeacherMessageNotifications teacherId={teacherId} />
-
-     <FridayAt6DutyCard duty={fridayAt6Duty} />
-
-     <FridayExamPracticeCard sessions={fridayExamPracticeSessions} />
-
-     <TeacherCalendarAgenda />
-
-     <TodaySchedule classes={classes} /> 
-     </div>
+        </section>
+      </main>
     </TeacherLayout>
   );
 }
