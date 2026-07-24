@@ -15,6 +15,24 @@ function isSupportLevelName(levelName: string | null | undefined) {
   return normalizeLevelName(levelName) === "SUPPORT CLASSES";
 }
 
+function formatTime(value: string | null | undefined) {
+  const parts = String(value || "").trim().split(":");
+  return parts.length >= 2 ? parts.slice(0, 2).join(":") : parts[0];
+}
+
+function formatDays(value: string | null | undefined) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+and\s+/gi, " & ");
+}
+
+function formatCourseType(value: string | null | undefined) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized
+    ? normalized.charAt(0).toUpperCase() + normalized.slice(1)
+    : "";
+}
+
 export default function ClassHeader({
   classData,
   studentCount,
@@ -39,6 +57,47 @@ export default function ClassHeader({
   const classroomLogo = isOnlineClass
     ? "/On-Line Logo.png"
     : classroom?.logo || "/Emu Logo.png";
+
+  if (classData.is_cambridge === true) {
+    const days = formatDays(classData.days);
+    const startTime = formatTime(classData.start_time);
+    const endTime = formatTime(classData.end_time);
+    const time = startTime && endTime ? `${startTime}–${endTime}` : "";
+    const schedule = [days, time].filter(Boolean).join(" · ");
+    const courseType = formatCourseType(classData.course_type);
+
+    return (
+      <header
+        className="teacher-class-header teacher-class-header-cambridge"
+        style={{ borderLeftColor: themeColour }}
+      >
+        <div className="teacher-class-header-main">
+          <div className="teacher-class-header-logo">
+            <Image
+              src={classroomLogo}
+              alt={classroomName}
+              width={64}
+              height={64}
+            />
+          </div>
+
+          <div className="teacher-class-header-copy">
+            <p className="teacher-class-header-eyebrow">Class Workspace</p>
+            <h1>{levelName || "Cambridge"}</h1>
+            {schedule && <p className="teacher-class-header-schedule">{schedule}</p>}
+          </div>
+        </div>
+
+        <div className="teacher-class-header-details" aria-label="Class details">
+          {courseType && <span>{courseType}</span>}
+          <span>{classroomName}</span>
+          <span>
+            {studentCount} {studentCount === 1 ? "student" : "students"}
+          </span>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <div

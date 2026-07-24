@@ -44,6 +44,15 @@ const tabs = [
   { id: "progress", label: "Student Progress" },
 ];
 
+const cambridgeClassTabs = [
+  { id: "students", label: "Students" },
+  { id: "homework", label: "Homework" },
+  { id: "resources", label: "Class Resources" },
+  { id: "shared-resources", label: "Shared Resources" },
+  { id: "official-resources", label: "Official Resources" },
+  { id: "announcements", label: "Announcements" },
+];
+
 type ShortcutRequest = {
   key: number;
   targetTab: string;
@@ -391,14 +400,25 @@ if (classResult.data) {
   const selectedPanelStudentName = selectedPanelStudent
     ? getStudentName(selectedPanelStudent)
     : studentPanel.studentName;
+  const selectedPanelControlStudent = studentPanel.studentId
+    ? controlSheetStudents.find(
+        (student) => student.id === studentPanel.studentId
+      )
+    : null;
+  const visibleTabs = (isCambridgeClass ? cambridgeClassTabs : tabs)
+    .filter((tab) => tab.id !== "class-exams" || showClassExamsTab)
+    .filter(
+      (tab) => tab.id !== "unit-exam-results" || showUnitExamResultsTab
+    )
+    .filter(
+      (tab) =>
+        tab.id !== "friday-tutorial-results" ||
+        showFridayTutorialResultsTab
+    );
 
   return (
    <TeacherLayout>
-    <div
-      style={{
-        color: "#000000",
-      }}
-    >
+    <div className="teacher-class-workspace">
   <ClassHeader
   classData={
     classData
@@ -410,59 +430,36 @@ if (classResult.data) {
   }
   studentCount={totalStudentCount}
 />
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          flexWrap: "wrap",
-          marginBottom: "20px",
-        }}
+      <nav
+        className="teacher-class-workspace-nav"
+        aria-label="Class workspace sections"
+        role="tablist"
       >
-        {tabs
-          .filter((tab) => tab.id !== "class-exams" || showClassExamsTab)
-          .filter(
-            (tab) =>
-              tab.id !== "unit-exam-results" || showUnitExamResultsTab
-          )
-          .filter(
-            (tab) =>
-              tab.id !== "friday-tutorial-results" ||
-              showFridayTutorialResultsTab
-          )
-          .map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.id;
 
           return (
             <button
               key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-controls="teacher-class-workspace-content"
+              className={`teacher-class-workspace-nav-button ${
+                isActive ? "is-active" : ""
+              }`}
               onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: isActive ? "#1f3c88" : "#ffffff",
-                color: isActive ? "#ffffff" : "#1f3c88",
-                border: isActive ? "1px solid #1f3c88" : "1px solid #dbe3f0",
-                borderRadius: "999px",
-                padding: "10px 16px",
-                cursor: "pointer",
-                fontWeight: 700,
-                boxShadow: isActive
-                  ? "0 6px 14px rgba(31,60,136,0.18)"
-                  : "0 2px 8px rgba(31,60,136,0.04)",
-              }}
             >
               {tab.label}
             </button>
           );
         })}
-      </div>
+      </nav>
 
       <section
-        style={{
-          background: "#ffffff",
-          border: "1px solid #e6eaf2",
-          borderRadius: "14px",
-          padding: "26px",
-          boxShadow: "0 6px 18px rgba(31,60,136,0.06)",
-        }}
+        id="teacher-class-workspace-content"
+        className="teacher-class-workspace-content"
+        role="tabpanel"
       >
 
       {activeTab === "students" && (
@@ -479,7 +476,7 @@ if (classResult.data) {
 
       {activeTab === "resources" && (
         <>
-          <h3>Resources</h3>
+          <h3>Class Resources</h3>
 
           {resources.length === 0 ? (
             <p>No resources yet</p>
@@ -503,7 +500,7 @@ if (classResult.data) {
             ))
           )}
 
-          <h3>Add Resource</h3>
+          <h3>Add Class Resource</h3>
 
           <input
             placeholder="Title"
@@ -695,6 +692,20 @@ if (classResult.data) {
           studentType={studentPanel.studentType}
           initialSection={studentPanel.section}
           requestKey={studentPanel.requestKey}
+          showFridayTutorial={showFridayTutorialResultsTab}
+          onOpenFridayTutorial={() => {
+            if (selectedPanelControlStudent) {
+              openStudentShortcut(
+                "friday-tutorial",
+                selectedPanelControlStudent
+              );
+            }
+          }}
+          onOpenProgress={() => {
+            if (selectedPanelControlStudent) {
+              openStudentShortcut("progress", selectedPanelControlStudent);
+            }
+          }}
           onClose={() =>
             setStudentPanel((current) => ({
               ...current,

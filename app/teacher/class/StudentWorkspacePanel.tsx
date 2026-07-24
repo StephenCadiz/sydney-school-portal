@@ -27,13 +27,23 @@ type StudentWorkspacePanelProps = {
   studentType: "cambridge" | "young_learner" | null;
   initialSection: StudentWorkspaceSection;
   requestKey: number;
+  showFridayTutorial: boolean;
+  onOpenFridayTutorial: () => void;
+  onOpenProgress: () => void;
   onClose: () => void;
 };
 
-const sections: Array<{ id: StudentWorkspaceSection; label: string }> = [
+type StudentWorkspaceNavigationItem = {
+  id: StudentWorkspaceSection | "friday-tutorial" | "progress";
+  label: string;
+};
+
+const sections: StudentWorkspaceNavigationItem[] = [
   { id: "notes", label: "Notes" },
   { id: "homework", label: "Homework" },
+  { id: "friday-tutorial", label: "Friday Tutorial" },
   { id: "mocks", label: "Mock Exams" },
+  { id: "progress", label: "Progress" },
   { id: "follow-up", label: "Follow-up" },
   { id: "message", label: "Message" },
 ];
@@ -64,6 +74,9 @@ export default function StudentWorkspacePanel({
   studentType,
   initialSection,
   requestKey,
+  showFridayTutorial,
+  onOpenFridayTutorial,
+  onOpenProgress,
   onClose,
 }: StudentWorkspacePanelProps) {
   const [activeSection, setActiveSection] =
@@ -143,21 +156,34 @@ export default function StudentWorkspacePanel({
         </header>
 
         <nav className="student-workspace-nav" aria-label="Student workspace sections">
-          {sections.map((section) => {
-            const active = activeSection === section.id;
+          {sections
+            .filter(
+              (section) =>
+                section.id !== "friday-tutorial" || showFridayTutorial
+            )
+            .map((section) => {
+              const active = activeSection === section.id;
 
-            return (
-              <button
-                key={section.id}
-                type="button"
-                className={`student-workspace-nav-button ${active ? "is-active" : ""}`}
-                onClick={() => setActiveSection(section.id)}
-                aria-current={active ? "page" : undefined}
-              >
-                {section.label}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`student-workspace-nav-button ${active ? "is-active" : ""}`}
+                  onClick={() => {
+                    if (section.id === "friday-tutorial") {
+                      onOpenFridayTutorial();
+                    } else if (section.id === "progress") {
+                      onOpenProgress();
+                    } else {
+                      setActiveSection(section.id);
+                    }
+                  }}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {section.label}
+                </button>
+              );
+            })}
         </nav>
 
         <div className="student-workspace-body">
