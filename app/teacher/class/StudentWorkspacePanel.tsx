@@ -7,11 +7,13 @@ import StudentHomeworkResultsSection from "./StudentHomeworkResultsSection";
 import StudentMessagePanelSection from "./StudentMessagePanelSection";
 import StudentMockResultsSection from "./StudentMockResultsSection";
 import StudentNotesPanelSection from "./StudentNotesPanelSection";
+import StudentProgressPanelSection from "./StudentProgressPanelSection";
 
 export type StudentWorkspaceSection =
   | "notes"
   | "homework"
   | "mocks"
+  | "progress"
   | "follow-up"
   | "message";
 
@@ -28,13 +30,13 @@ type StudentWorkspacePanelProps = {
   initialSection: StudentWorkspaceSection;
   requestKey: number;
   showFridayTutorial: boolean;
+  showProgress: boolean;
   onOpenFridayTutorial: () => void;
-  onOpenProgress: () => void;
   onClose: () => void;
 };
 
 type StudentWorkspaceNavigationItem = {
-  id: StudentWorkspaceSection | "friday-tutorial" | "progress";
+  id: StudentWorkspaceSection | "friday-tutorial";
   label: string;
 };
 
@@ -75,8 +77,8 @@ export default function StudentWorkspacePanel({
   initialSection,
   requestKey,
   showFridayTutorial,
+  showProgress,
   onOpenFridayTutorial,
-  onOpenProgress,
   onClose,
 }: StudentWorkspacePanelProps) {
   const [activeSection, setActiveSection] =
@@ -159,7 +161,8 @@ export default function StudentWorkspacePanel({
           {sections
             .filter(
               (section) =>
-                section.id !== "friday-tutorial" || showFridayTutorial
+                (section.id !== "friday-tutorial" || showFridayTutorial) &&
+                (section.id !== "progress" || showProgress)
             )
             .map((section) => {
               const active = activeSection === section.id;
@@ -172,8 +175,6 @@ export default function StudentWorkspacePanel({
                   onClick={() => {
                     if (section.id === "friday-tutorial") {
                       onOpenFridayTutorial();
-                    } else if (section.id === "progress") {
-                      onOpenProgress();
                     } else {
                       setActiveSection(section.id);
                     }
@@ -214,6 +215,17 @@ export default function StudentWorkspacePanel({
               studentName={studentName}
               levelName={classLevel}
               teacherId={teacherId}
+            />
+          )}
+
+          {activeSection === "progress" && (
+            <StudentProgressPanelSection
+              classId={classId}
+              studentId={studentId}
+              onOpenHomework={() => setActiveSection("homework")}
+              onOpenFridayTutorial={onOpenFridayTutorial}
+              onOpenMocks={() => setActiveSection("mocks")}
+              onOpenFollowUp={() => setActiveSection("follow-up")}
             />
           )}
 

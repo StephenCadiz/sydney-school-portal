@@ -88,6 +88,7 @@ function getPanelSectionForAction(
   if (action === "notes") return "notes";
   if (action === "homework") return "homework";
   if (action === "mock-exams") return "mocks";
+  if (action === "progress") return "progress";
   if (action === "follow-up") return "follow-up";
   if (action === "message") return "message";
 
@@ -693,17 +694,13 @@ if (classResult.data) {
           initialSection={studentPanel.section}
           requestKey={studentPanel.requestKey}
           showFridayTutorial={showFridayTutorialResultsTab}
+          showProgress={showFridayTutorialResultsTab}
           onOpenFridayTutorial={() => {
             if (selectedPanelControlStudent) {
               openStudentShortcut(
                 "friday-tutorial",
                 selectedPanelControlStudent
               );
-            }
-          }}
-          onOpenProgress={() => {
-            if (selectedPanelControlStudent) {
-              openStudentShortcut("progress", selectedPanelControlStudent);
             }
           }}
           onClose={() =>
