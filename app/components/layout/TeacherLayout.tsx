@@ -5,6 +5,7 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import TeacherSidebar from "./TeacherSidebar";
 import PortalHeader from "./PortalHeader";
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
+import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
 import { getTeacherUnreadStaffMessageCount } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
 
@@ -145,6 +146,13 @@ export default function TeacherLayout({
     intervalMs: 60000,
     customEventName: TEACHER_MESSAGES_CHANGED_EVENT,
     channelName: "teacher-layout-messages",
+  });
+
+  useStaffMessageNotifications({
+    userId: teacherId,
+    role: "teacher",
+    enabled: Boolean(teacherId),
+    refreshEventName: TEACHER_MESSAGES_CHANGED_EVENT,
   });
 
   const unreadAccessibleLabel =

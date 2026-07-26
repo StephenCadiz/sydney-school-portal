@@ -30,6 +30,56 @@ body {
   box-sizing: border-box;
 }
 
+.staff-messages-page-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.staff-message-sound-toggle {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--ss-border);
+  border-radius: 10px;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 11px;
+}
+
+.staff-message-sound-toggle.is-on {
+  background: var(--ss-blue-light);
+  border-color: #b9d9ed;
+  color: var(--ss-blue-dark);
+}
+
+.staff-message-sound-toggle:hover {
+  border-color: var(--ss-blue);
+}
+
+.staff-message-sound-toggle:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.3);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .staff-messages-page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .staff-message-sound-toggle {
+    align-self: flex-start;
+  }
+}
+
 button,
 input,
 select,

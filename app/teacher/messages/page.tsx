@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import TeacherLayout from "../../components/layout/TeacherLayout";
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
+import { useStaffMessageSoundPreference } from "../../hooks/useStaffMessageNotifications";
+import { Volume2, VolumeX } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import {
   formatMessageDateTime,
@@ -208,6 +210,8 @@ export default function TeacherMessagesPage() {
   const [recipientsError, setRecipientsError] = useState("");
   const [sending, setSending] = useState(false);
   const [deletingMessageId, setDeletingMessageId] = useState("");
+  const { soundEnabled, setSoundEnabled } =
+    useStaffMessageSoundPreference();
 
   const hasStaffRecipients =
     recipients.admins.length > 0 || recipients.teachers.length > 0;
@@ -578,11 +582,29 @@ export default function TeacherMessagesPage() {
         }}
       >
         <div style={{ maxWidth: "980px", margin: "0 auto" }}>
-          <header style={{ marginBottom: "22px" }}>
-            <h1 style={{ color: "#1f3c88", margin: "0 0 6px" }}>Messages</h1>
-            <p style={{ color: "#5f6f89", margin: 0 }}>
-              Send and receive staff messages with admin and other teachers.
-            </p>
+          <header className="staff-messages-page-header">
+            <div>
+              <h1 style={{ color: "#1f3c88", margin: "0 0 6px" }}>Messages</h1>
+              <p style={{ color: "#5f6f89", margin: 0 }}>
+                Send and receive staff messages with admin and other teachers.
+              </p>
+            </div>
+            <button
+              type="button"
+              className={`staff-message-sound-toggle ${
+                soundEnabled ? "is-on" : "is-off"
+              }`}
+              aria-pressed={soundEnabled}
+              aria-label={`Turn message sounds ${soundEnabled ? "off" : "on"}`}
+              onClick={() => setSoundEnabled(!soundEnabled)}
+            >
+              {soundEnabled ? (
+                <Volume2 size={17} aria-hidden="true" />
+              ) : (
+                <VolumeX size={17} aria-hidden="true" />
+              )}
+              <span>Message sounds: {soundEnabled ? "On" : "Off"}</span>
+            </button>
           </header>
 
           <div

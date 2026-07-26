@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
+import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
 import { getAdminUnreadTeacherMessageCount } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
 
@@ -214,12 +215,37 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [adminId, setAdminId] = useState("");
   const [unreadTeacherMessages, setUnreadTeacherMessages] = useState(0);
   const mountedRef = useRef(false);
   const unreadCountErrorLoggedRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
+
+    async function loadAdmin() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.user?.id) return;
+
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .single();
+
+        if (!error && profile?.role === "admin" && mountedRef.current) {
+          setAdminId(session.user.id);
+        }
+      } catch {
+        // The layout remains usable if notification initialization fails.
+      }
+    }
+
+    void loadAdmin();
 
     return () => {
       mountedRef.current = false;
@@ -255,10 +281,17 @@ export default function AdminLayout({
 
   useMessageRealtimeRefresh({
     onRefresh: loadUnreadCount,
-    enabled: true,
+    enabled: Boolean(adminId),
     intervalMs: 60000,
     customEventName: "admin-unread-messages-changed",
     channelName: "admin-layout-messages",
+  });
+
+  useStaffMessageNotifications({
+    userId: adminId,
+    role: "admin",
+    enabled: Boolean(adminId),
+    refreshEventName: "admin-unread-messages-changed",
   });
 
   const menuItems = [

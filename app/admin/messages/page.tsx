@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
+import { useStaffMessageSoundPreference } from "../../hooks/useStaffMessageNotifications";
+import { Volume2, VolumeX } from "lucide-react";
 import { getTeachers } from "../../../lib/adminTeachers";
 import {
   formatMessageDateTime,
@@ -78,6 +80,8 @@ export default function AdminMessagesPage() {
   const mountedRef = useRef(false);
   const messagesRequestRef = useRef(0);
   const selectedMessageRef = useRef<any | null>(null);
+  const { soundEnabled, setSoundEnabled } =
+    useStaffMessageSoundPreference();
 
   const loadMessages = useCallback(async (currentAdminId: string) => {
     if (!currentAdminId) return;
@@ -320,11 +324,29 @@ export default function AdminMessagesPage() {
   return (
     <AdminLayout>
       <div style={{ maxWidth: "1100px" }}>
-        <header style={{ marginBottom: "22px" }}>
-          <h1 style={{ color: "#1f3c88", margin: "0 0 6px" }}>Messages</h1>
-          <p style={{ color: "#5f6f89", margin: 0 }}>
-            Send messages to teachers and manage school communication.
-          </p>
+        <header className="staff-messages-page-header">
+          <div>
+            <h1 style={{ color: "#1f3c88", margin: "0 0 6px" }}>Messages</h1>
+            <p style={{ color: "#5f6f89", margin: 0 }}>
+              Send messages to teachers and manage school communication.
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`staff-message-sound-toggle ${
+              soundEnabled ? "is-on" : "is-off"
+            }`}
+            aria-pressed={soundEnabled}
+            aria-label={`Turn message sounds ${soundEnabled ? "off" : "on"}`}
+            onClick={() => setSoundEnabled(!soundEnabled)}
+          >
+            {soundEnabled ? (
+              <Volume2 size={17} aria-hidden="true" />
+            ) : (
+              <VolumeX size={17} aria-hidden="true" />
+            )}
+            <span>Message sounds: {soundEnabled ? "On" : "Off"}</span>
+          </button>
         </header>
 
         <div style={{ display: "flex", gap: "10px", marginBottom: "18px" }}>
