@@ -56,13 +56,47 @@ function formatTime(value: string | null) {
 }
 
 function formatClassLabel(classroom: AdminTeacherClass) {
-  const context = [
-    clean(classroom.class_name) || "Unnamed class",
-    clean(classroom.course_type)
-      ? clean(classroom.course_type).replace(/\b\w/g, (letter) =>
-          letter.toUpperCase()
-        )
+  const className = clean(classroom.class_name);
+  const levelName = clean(classroom.level_name);
+  const normalizedClassName = className
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  const normalizedLevelName = levelName
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  const classNameContainsSchedule =
+    /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(
+      className
+    ) || /\b\d{1,2}:\d{2}(?::\d{2})?\b/.test(className);
+  const meaningfulClassName =
+    className &&
+    !classNameContainsSchedule &&
+    normalizedClassName !== normalizedLevelName
+      ? className
+      : "";
+  const primaryName = meaningfulClassName || levelName || className || "Class";
+  const courseType = clean(classroom.course_type);
+  const normalizedCourseType = courseType.toLocaleLowerCase();
+  const isSupportClass =
+    normalizedLevelName === "support classes" ||
+    normalizedClassName === "support classes";
+  const showCourseType =
+    classroom.is_cambridge === true &&
+    !isSupportClass &&
+    courseType &&
+    !new RegExp(`\\b${normalizedCourseType}\\b`, "i").test(primaryName);
+  const primaryLabel = [
+    primaryName,
+    showCourseType
+      ? courseType.replace(/\b\w/g, (letter) => letter.toUpperCase())
       : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const context = [
+    primaryLabel,
     clean(classroom.days),
     classroom.start_time || classroom.end_time
       ? [formatTime(classroom.start_time), formatTime(classroom.end_time)]
@@ -101,6 +135,8 @@ export default function AdminTeachersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [classRecordsAvailable, setClassRecordsAvailable] = useState(true);
+  const [classLabelsAvailable, setClassLabelsAvailable] = useState(true);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [menuTeacherId, setMenuTeacherId] = useState("");
   const [editTeacher, setEditTeacher] = useState<AdminTeacher | null>(null);
@@ -120,8 +156,11 @@ export default function AdminTeachersPage() {
   const deleteTriggerRef = useRef<HTMLElement | null>(null);
   const editDialogRef = useRef<HTMLDivElement | null>(null);
   const deleteDialogRef = useRef<HTMLDivElement | null>(null);
+  const loadInFlightRef = useRef(false);
 
   async function loadPage() {
+    if (loadInFlightRef.current) return;
+    loadInFlightRef.current = true;
     setLoading(true);
     setLoadError("");
 
@@ -133,10 +172,13 @@ export default function AdminTeachersPage() {
 
       setTeachers(managementData.teachers);
       setClasses(managementData.classes);
+      setClassRecordsAvailable(managementData.classRecordsAvailable);
+      setClassLabelsAvailable(managementData.classLabelsAvailable);
       setCurrentUserId(sessionResult.data.session?.user.id || "");
     } catch {
       setLoadError("Unable to load teacher accounts. Please try again.");
     } finally {
+      loadInFlightRef.current = false;
       setLoading(false);
     }
   }
@@ -423,7 +465,9 @@ export default function AdminTeachersPage() {
             <p>Manage teacher accounts and staff information.</p>
             <div className="admin-teachers-summary">
               {teachers.length} {teachers.length === 1 ? "teacher" : "teachers"} ·{" "}
-              {pluralizeClasses(assignedClassCount, true)}
+              {classRecordsAvailable
+                ? pluralizeClasses(assignedClassCount, true)
+                : "Assigned-class information unavailable"}
             </div>
           </div>
           <Link href="/admin/add-users" className="admin-teachers-add-button">
@@ -439,6 +483,15 @@ export default function AdminTeachersPage() {
             {feedback.text}
           </div>
         )}
+
+        {!loading &&
+          !loadError &&
+          (!classRecordsAvailable || !classLabelsAvailable) && (
+            <div className="admin-teachers-feedback is-error" role="status">
+              Teacher accounts loaded, but assigned-class information is
+              temporarily unavailable.
+            </div>
+          )}
 
         <section className="admin-teachers-controls" aria-label="Teacher search">
           <label htmlFor="admin-teachers-search">Search teachers</label>
@@ -520,7 +573,9 @@ export default function AdminTeachersPage() {
                         <span className="admin-teachers-mobile-label">
                           Assigned Classes
                         </span>
-                        {pluralizeClasses(teacherClasses.length)}
+                        {classRecordsAvailable
+                          ? pluralizeClasses(teacherClasses.length)
+                          : "Unavailable"}
                       </div>
                       <div className="admin-teachers-actions" role="cell">
                         <button
@@ -699,7 +754,11 @@ export default function AdminTeachersPage() {
                     <h3>Assigned Classes</h3>
                     <Link href="/admin/classes">Manage in Classes</Link>
                   </div>
-                  {(classesByTeacher.get(editTeacher.id) || []).length === 0 ? (
+                  {!classRecordsAvailable ? (
+                    <p className="admin-teachers-empty-classes">
+                      Assigned-class information is temporarily unavailable.
+                    </p>
+                  ) : (classesByTeacher.get(editTeacher.id) || []).length === 0 ? (
                     <p className="admin-teachers-empty-classes">
                       No classes currently assigned.
                     </p>
@@ -782,6 +841,12 @@ export default function AdminTeachersPage() {
                   <Link href="/admin/classes">Manage Classes</Link>
                 </div>
               )}
+              {!classRecordsAvailable && (
+                <div className="admin-teachers-delete-warning">
+                  Assigned-class information is temporarily unavailable. Retry
+                  loading the page before deleting this account.
+                </div>
+              )}
               {modalError && (
                 <p className="admin-teachers-dialog-error" role="alert">
                   {modalError}
@@ -803,6 +868,7 @@ export default function AdminTeachersPage() {
                 onClick={() => void handleDelete()}
                 disabled={
                   deleting ||
+                  !classRecordsAvailable ||
                   (classesByTeacher.get(deleteTeacher.id) || []).length > 0
                 }
               >
