@@ -56,6 +56,10 @@ export async function POST(request: NextRequest) {
       return jsonError("teacher_id is required.", 400);
     }
 
+    if (teacherId === user.id) {
+      return jsonError("You cannot delete your own account.", 403);
+    }
+
     const { data: teacherProfile, error: teacherProfileError } =
       await supabaseAdmin
         .from("profiles")
@@ -85,7 +89,11 @@ export async function POST(request: NextRequest) {
 
     if (assignedClasses && assignedClasses.length > 0) {
       return jsonError(
-        "Cannot delete teacher while classes are assigned.",
+        `This teacher still has ${assignedClasses.length} assigned ${
+          assignedClasses.length === 1 ? "class" : "classes"
+        }. Reassign ${
+          assignedClasses.length === 1 ? "it" : "them"
+        } in Classes before deleting the account.`,
         400
       );
     }
