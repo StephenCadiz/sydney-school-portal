@@ -12,6 +12,111 @@
   --ss-border: #dbe7f3;
 }
 
+/* Cambridge Exam Bank */
+.exam-bank-page { max-width: 1480px; margin: 0 auto; color: #172b4d; }
+.exam-bank-page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+.exam-bank-page-header h1 { margin: 0 0 7px; color: #17366f; font-size: 28px; line-height: 1.2; }
+.exam-bank-page-header p { margin: 0; color: #5f6b7a; font-size: 15px; }
+.exam-bank-back { display: inline-block; margin-bottom: 18px; color: #2856a6; font-size: 14px; font-weight: 700; text-decoration: none; }
+.exam-bank-button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 1px solid #2454a4; border-radius: 9px; background: #2454a4; color: #fff; padding: 10px 17px; font: inherit; font-size: 15px; font-weight: 800; text-decoration: none; cursor: pointer; }
+.exam-bank-button.is-secondary { border-color: #c7d3e3; background: #fff; color: #24446f; }
+.exam-bank-button:disabled { cursor: wait; opacity: .65; }
+.exam-bank-summary { margin-bottom: 14px; color: #43536b; font-size: 14px; font-weight: 750; }
+.exam-bank-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; padding: 13px; border: 1px solid #dbe4ef; border-radius: 12px; background: #fff; }
+.exam-bank-filter-group { display: flex; flex-wrap: wrap; gap: 5px; }
+.exam-bank-filter-group button { min-height: 40px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #4b5c72; padding: 8px 11px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.exam-bank-filter-group button.is-active { border-color: #b8cceb; background: #edf4ff; color: #173f80; }
+.exam-bank-search { min-width: 230px; margin-left: auto; }
+.exam-bank-search input, .exam-bank-field input, .exam-bank-field select { width: 100%; min-height: 44px; box-sizing: border-box; border: 1px solid #c9d5e4; border-radius: 8px; background: #fff; color: #172b4d; padding: 10px 12px; font: inherit; font-size: 15px; }
+.exam-bank-sheet { overflow: visible; border: 1px solid #d8e2ee; border-radius: 12px; background: #fff; }
+.exam-bank-sheet-head, .exam-bank-row { display: grid; grid-template-columns: minmax(220px, 1.35fr) 80px minmax(220px, 1.2fr) 105px 125px 110px; gap: 16px; align-items: center; }
+.exam-bank-sheet-head { min-height: 42px; padding: 0 18px; border-bottom: 1px solid #d8e2ee; background: #f4f7fb; color: #526176; font-size: 13px; font-weight: 800; }
+.exam-bank-row { min-height: 82px; padding: 12px 18px; border-bottom: 1px solid #e3e9f0; font-size: 14px; }
+.exam-bank-row:last-child { border-bottom: 0; }
+.exam-bank-row > div { min-width: 0; }
+.exam-bank-row strong { display: block; color: #203656; font-size: 14px; }
+.exam-bank-row-title strong { font-size: 16px; }
+.exam-bank-row span:not(.exam-bank-status) { display: block; margin-top: 3px; overflow: hidden; color: #68768a; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.exam-bank-status { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 9px; font-size: 13px; font-weight: 800; }
+.exam-bank-status.is-ready { background: #e8f5ee; color: #17603d; }
+.exam-bank-status.is-incomplete { background: #fff4dc; color: #805911; }
+.exam-bank-status.is-archived { background: #edf0f4; color: #546174; }
+.exam-bank-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.exam-bank-row-actions > a { color: #2454a4; font-weight: 800; text-decoration: none; }
+.exam-bank-actions-menu { position: relative; }
+.exam-bank-actions-menu > button { min-width: 42px; min-height: 42px; border: 1px solid #ccd7e5; border-radius: 8px; background: #fff; color: #294769; cursor: pointer; }
+.exam-bank-actions-menu [role="menu"] { position: absolute; z-index: 8; top: 45px; right: 0; min-width: 150px; padding: 5px; border: 1px solid #cdd8e6; border-radius: 9px; background: #fff; box-shadow: 0 10px 25px rgba(31, 60, 100, .14); }
+.exam-bank-actions-menu [role="menu"] button { width: 100%; min-height: 40px; border: 0; border-radius: 6px; background: #fff; color: #253d5e; padding: 8px 10px; text-align: left; cursor: pointer; }
+.exam-bank-empty, .exam-bank-local-error { padding: 50px 24px; border: 1px solid #dae3ed; border-radius: 12px; background: #fff; text-align: center; }
+.exam-bank-empty h2, .exam-bank-local-error h1 { margin: 0 0 8px; color: #203d68; font-size: 19px; }
+.exam-bank-empty p, .exam-bank-local-error p { margin: 0 0 18px; color: #637187; }
+.exam-bank-notice { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; padding: 12px 14px; border: 1px solid #c8d9ec; border-radius: 9px; background: #eff6ff; font-size: 14px; }
+.exam-bank-notice.is-error { border-color: #efc7c7; background: #fff3f3; color: #842727; }
+.exam-bank-notice.is-success { border-color: #b9ddc9; background: #edf9f2; color: #145b38; }
+.exam-bank-notice button { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+.exam-bank-list-skeleton > div, .exam-bank-editor-skeleton > div { height: 78px; margin-bottom: 8px; border-radius: 10px; background: linear-gradient(90deg, #edf1f5 25%, #f7f9fb 50%, #edf1f5 75%); background-size: 200% 100%; animation: exam-bank-loading 1.4s infinite; }
+@keyframes exam-bank-loading { to { background-position: -200% 0; } }
+.exam-bank-editor { padding-bottom: 90px; }
+.exam-bank-meta-grid { display: grid; grid-template-columns: minmax(160px, .65fr) minmax(160px, .65fr) minmax(260px, 1.7fr); gap: 16px; margin-bottom: 18px; padding: 20px; border: 1px solid #d8e2ed; border-radius: 12px; background: #fff; }
+.exam-bank-field { min-width: 0; }
+.exam-bank-field label { display: block; margin-bottom: 7px; color: #263d5c; font-size: 14px; font-weight: 800; }
+.exam-bank-field input:focus, .exam-bank-field select:focus, .exam-bank-button:focus-visible, .exam-bank-part-toggle:focus-visible, .exam-bank-filter-group button:focus-visible { outline: 3px solid rgba(41, 101, 190, .24); outline-offset: 2px; border-color: #386db9; }
+.exam-bank-field-label-row { display: flex; justify-content: space-between; gap: 12px; }
+.exam-bank-field-label-row a { color: #2454a4; font-size: 13px; font-weight: 800; }
+.exam-bank-field-error { display: block; margin-top: 6px; color: #a52d2d; font-size: 13px; }
+.exam-bank-readiness { display: grid; grid-template-columns: 1fr auto; gap: 7px 18px; margin-bottom: 18px; padding: 17px 19px; border: 1px solid #ead19c; border-left: 4px solid #d09b2c; border-radius: 10px; background: #fffaf0; }
+.exam-bank-readiness.is-ready { border-color: #acd6bd; border-left-color: #30905c; background: #f3fbf6; }
+.exam-bank-readiness h2 { margin: 0 0 4px; color: #263d5c; font-size: 18px; }
+.exam-bank-readiness strong, .exam-bank-readiness > span { font-size: 14px; }
+.exam-bank-readiness ul { grid-column: 1 / -1; margin: 5px 0 0; padding-left: 20px; color: #5c6675; font-size: 14px; }
+.exam-bank-parts { display: grid; gap: 12px; }
+.exam-bank-part { overflow: hidden; border: 1px solid #d8e2ed; border-radius: 11px; background: #fff; }
+.exam-bank-part-toggle { display: flex; width: 100%; min-height: 58px; align-items: center; justify-content: space-between; gap: 16px; border: 0; background: #f8fafc; color: #203858; padding: 14px 18px; font: inherit; text-align: left; cursor: pointer; }
+.exam-bank-part-toggle > span:first-child { font-size: 18px; font-weight: 850; }
+.exam-bank-part-toggle > span:last-child { color: #657286; font-size: 13px; font-weight: 750; }
+.exam-bank-part-toggle b { margin-left: 10px; font-size: 19px; }
+.exam-bank-resource-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; padding: 19px; border-top: 1px solid #e0e7ef; }
+.exam-bank-editor-actions { position: sticky; z-index: 4; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 22px; padding: 13px 0; border-top: 1px solid #d8e2ed; background: rgba(247, 249, 252, .96); }
+.exam-bank-editor-actions > div { margin-right: auto; }
+.exam-bank-editor-actions > div strong, .exam-bank-editor-actions > div span { display: block; font-size: 13px; }
+.exam-bank-editor-actions > div span { margin-top: 2px; color: #677487; }
+.exam-bank-dialog-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(16, 31, 55, .48); }
+.exam-bank-dialog { width: min(440px, 100%); padding: 24px; border-radius: 13px; background: #fff; box-shadow: 0 22px 55px rgba(0, 0, 0, .2); }
+.exam-bank-dialog h2 { margin: 0 0 9px; color: #203858; font-size: 21px; }
+.exam-bank-dialog p { margin: 0 0 22px; color: #5e6b7d; line-height: 1.55; }
+.exam-bank-dialog > div { display: flex; justify-content: flex-end; gap: 9px; }
+
+@media (max-width: 1050px) {
+  .exam-bank-sheet-head { display: none; }
+  .exam-bank-sheet { display: grid; gap: 10px; border: 0; background: transparent; }
+  .exam-bank-row { grid-template-columns: 1.6fr .5fr 1.2fr .7fr; border: 1px solid #d8e2ee; border-radius: 11px; background: #fff; }
+  .exam-bank-row > div:nth-child(5), .exam-bank-row-actions { grid-column: auto; }
+  .exam-bank-meta-grid { grid-template-columns: 1fr 1fr; }
+  .exam-bank-field.is-wide { grid-column: 1 / -1; }
+}
+
+@media (max-width: 700px) {
+  .exam-bank-page-header { align-items: stretch; flex-direction: column; gap: 16px; }
+  .exam-bank-page-header h1 { font-size: 24px; }
+  .exam-bank-page-header .exam-bank-button { width: 100%; }
+  .exam-bank-controls { align-items: stretch; flex-direction: column; }
+  .exam-bank-search { min-width: 0; margin-left: 0; }
+  .exam-bank-filter-group { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .exam-bank-filter-group:first-child { grid-template-columns: repeat(3, 1fr); }
+  .exam-bank-row { grid-template-columns: 1fr 1fr; gap: 13px; padding: 16px; }
+  .exam-bank-row-title, .exam-bank-row > div:nth-child(3), .exam-bank-row-actions { grid-column: 1 / -1; }
+  .exam-bank-row-actions { justify-content: flex-start; }
+  .exam-bank-meta-grid, .exam-bank-resource-grid { grid-template-columns: 1fr; padding: 16px; }
+  .exam-bank-field.is-wide { grid-column: auto; }
+  .exam-bank-readiness { grid-template-columns: 1fr; }
+  .exam-bank-readiness ul { grid-column: auto; }
+  .exam-bank-part-toggle { padding: 13px 15px; }
+  .exam-bank-part-toggle > span:first-child { font-size: 17px; }
+  .exam-bank-editor-actions { flex-wrap: wrap; }
+  .exam-bank-editor-actions > div { width: 100%; margin-right: 0; }
+  .exam-bank-editor-actions .exam-bank-button { flex: 1; }
+}
+
 /* Shared public authentication pages */
 .auth-page {
   align-items: center;

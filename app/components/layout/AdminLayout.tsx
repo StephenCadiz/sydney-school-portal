@@ -311,6 +311,11 @@ export default function AdminLayout({
       icon: "clipboard" as AdminNavIconName,
     },
     {
+      name: "Cambridge Exam Bank",
+      href: "/admin/exam-bank",
+      icon: "clipboard" as AdminNavIconName,
+    },
+    {
       name: "Print Class Exams",
       href: "/admin/print-class-exams",
       icon: "printer" as AdminNavIconName,
