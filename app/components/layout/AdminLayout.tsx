@@ -321,6 +321,11 @@ export default function AdminLayout({
       icon: "users" as AdminNavIconName,
     },
     {
+      name: "Admin Staff",
+      href: "/admin/admin-staff",
+      icon: "users" as AdminNavIconName,
+    },
+    {
       name: "Add Users",
       href: "/admin/add-users",
       icon: "userPlus" as AdminNavIconName,

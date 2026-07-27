@@ -226,6 +226,471 @@
   }
 }
 
+/* Admin account password management */
+.account-password-dialog-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 1100;
+}
+
+.account-password-dialog {
+  background: #ffffff;
+  border: 1px solid #dce4ed;
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+  max-height: calc(100vh - 40px);
+  max-width: 540px;
+  overflow: auto;
+  width: 100%;
+}
+
+.account-password-dialog > header {
+  align-items: flex-start;
+  border-bottom: 1px solid #e7ebf1;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 20px 22px;
+}
+
+.account-password-dialog h2 {
+  color: #172b55;
+  font-size: 22px;
+  margin: 0;
+}
+
+.account-password-dialog header p {
+  color: #526174;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
+.account-password-dialog-close {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: #667085;
+  cursor: pointer;
+  font-size: 26px;
+  height: 38px;
+  line-height: 1;
+  width: 38px;
+}
+
+.account-password-dialog form {
+  display: grid;
+  gap: 18px;
+  padding: 20px 22px 0;
+}
+
+.account-password-identity {
+  background: #f8fafc;
+  border: 1px solid #e4e9ef;
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.account-password-identity dt {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.account-password-identity dd {
+  color: #243044;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.account-password-self-warning,
+.account-password-request-error {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 9px;
+  color: #8a4716;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 11px 12px;
+}
+
+.account-password-fields {
+  display: grid;
+  gap: 7px;
+}
+
+.account-password-fields label {
+  color: #344054;
+  font-size: 14px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.account-password-fields input {
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  color: #243044;
+  font: inherit;
+  font-size: 15px;
+  min-height: 44px;
+  padding: 9px 11px;
+  width: 100%;
+}
+
+.account-password-fields input[aria-invalid="true"] {
+  border-color: #c2410c;
+}
+
+.account-password-input-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.account-password-input-wrap input {
+  border-radius: 9px 0 0 9px;
+}
+
+.account-password-input-wrap button {
+  background: #eef6fd;
+  border: 1px solid #cbd5e1;
+  border-left: 0;
+  border-radius: 0 9px 9px 0;
+  color: #126fae;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 13px;
+}
+
+.account-password-fields small {
+  color: #667085;
+  font-size: 13px;
+}
+
+.account-password-fields .account-password-field-error {
+  color: #b42318;
+}
+
+.account-password-dialog footer {
+  align-items: center;
+  background: #fbfcfe;
+  border-top: 1px solid #e7ebf1;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin: 2px -22px 0;
+  padding: 15px 22px;
+}
+
+.account-password-dialog button {
+  min-height: 42px;
+}
+
+.account-password-primary,
+.account-password-secondary {
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 9px 15px;
+}
+
+.account-password-primary {
+  background: #2f7db8;
+  border: 1px solid #2f7db8;
+  color: #ffffff;
+}
+
+.account-password-secondary {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #344054;
+}
+
+.account-password-dialog button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.account-password-dialog button:focus-visible,
+.account-password-dialog input:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.28);
+  outline-offset: 2px;
+}
+
+.admin-teachers-account-action {
+  margin-top: 12px;
+}
+
+.admin-teachers-password-feedback,
+.admin-students-password-feedback {
+  color: #236b3b;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 10px 0 0;
+}
+
+.admin-students-password-reconciliation {
+  color: #9a3412;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 10px 0 0;
+}
+
+.admin-students-account-section {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e4e9ef;
+  border-radius: 10px;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding: 14px;
+}
+
+.admin-students-account-section h3 {
+  color: #243044;
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+
+.admin-students-account-section p {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.admin-staff-page {
+  margin: 0 auto;
+  max-width: 1480px;
+  padding: 32px 28px 48px;
+}
+
+.admin-staff-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.admin-staff-header h1 {
+  color: #172b55;
+  font-size: 28px;
+  margin: 0;
+}
+
+.admin-staff-header p {
+  color: #667085;
+  font-size: 15px;
+  margin: 7px 0 0;
+}
+
+.admin-staff-header > span {
+  background: #eaf5fc;
+  border: 1px solid #c8e1f5;
+  border-radius: 999px;
+  color: #1f3c88;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 7px 11px;
+}
+
+.admin-staff-feedback {
+  background: #effaf3;
+  border: 1px solid #b7e3c6;
+  border-radius: 9px;
+  color: #236b3b;
+  font-size: 14px;
+  margin-top: 20px;
+  padding: 11px 12px;
+}
+
+.admin-staff-search {
+  display: grid;
+  gap: 6px;
+  margin: 26px 0 18px;
+  max-width: 430px;
+}
+
+.admin-staff-search label {
+  color: #344054;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-staff-search input {
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  color: #243044;
+  font: inherit;
+  font-size: 15px;
+  min-height: 44px;
+  padding: 9px 11px;
+}
+
+.admin-staff-sheet {
+  background: #ffffff;
+  border: 1px solid #dce4ed;
+  border-radius: 13px;
+  overflow: hidden;
+}
+
+.admin-staff-sheet-heading {
+  align-items: center;
+  background: #f8fafc;
+  border-bottom: 1px solid #e7ebf1;
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 18px;
+}
+
+.admin-staff-sheet-heading h2 {
+  color: #243044;
+  font-size: 17px;
+  margin: 0;
+}
+
+.admin-staff-sheet-heading span {
+  color: #667085;
+  font-size: 13px;
+}
+
+.admin-staff-list {
+  display: grid;
+}
+
+.admin-staff-row {
+  align-items: center;
+  border-bottom: 1px solid #e7ebf1;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  padding: 14px 18px;
+}
+
+.admin-staff-row:last-child {
+  border-bottom: 0;
+}
+
+.admin-staff-avatar {
+  align-items: center;
+  background: #eaf5fc;
+  border-radius: 50%;
+  color: #1f3c88;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 900;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.admin-staff-identity {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-staff-identity strong {
+  color: #243044;
+  font-size: 15px;
+}
+
+.admin-staff-identity span,
+.admin-staff-identity small {
+  color: #667085;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.admin-staff-row > button,
+.admin-staff-state button {
+  background: #ffffff;
+  border: 1px solid #9fc8e5;
+  border-radius: 8px;
+  color: #126fae;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 8px 13px;
+}
+
+.admin-staff-row > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.admin-staff-state {
+  color: #667085;
+  font-size: 15px;
+  margin: 0;
+  padding: 28px 18px;
+  text-align: center;
+}
+
+.admin-staff-search input:focus-visible,
+.admin-staff-row button:focus-visible,
+.admin-staff-state button:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.28);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .account-password-dialog-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .account-password-dialog {
+    border-radius: 14px 14px 0 0;
+    max-height: 94vh;
+  }
+
+  .admin-students-account-section,
+  .admin-staff-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-staff-page {
+    padding: 22px 14px 36px;
+  }
+
+  .admin-staff-header h1 {
+    font-size: 24px;
+  }
+
+  .admin-staff-header > span {
+    align-self: flex-start;
+  }
+
+  .admin-staff-row {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .admin-staff-row > button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

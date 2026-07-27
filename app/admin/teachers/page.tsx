@@ -11,6 +11,9 @@ import {
 } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
+import SetPasswordDialog, {
+  PasswordAccountTarget,
+} from "../../components/admin/SetPasswordDialog";
 import {
   AdminTeacher,
   AdminTeacherClass,
@@ -160,6 +163,9 @@ export default function AdminTeachersPage() {
   const [modalError, setModalError] = useState("");
   const [reconciliationError, setReconciliationError] = useState(false);
   const [emailConfirmationOpen, setEmailConfirmationOpen] = useState(false);
+  const [passwordTarget, setPasswordTarget] =
+    useState<PasswordAccountTarget | null>(null);
+  const [passwordFeedback, setPasswordFeedback] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -301,13 +307,13 @@ export default function AdminTeachersPage() {
   }
 
   useEffect(() => {
-    if (!editTeacher || emailConfirmationOpen) return;
+    if (!editTeacher || emailConfirmationOpen || passwordTarget) return;
     const handleKeyDown = (event: KeyboardEvent) =>
       trapDialogFocus(event, editDialogRef.current, closeEditModal, saving);
     document.addEventListener("keydown", handleKeyDown);
     window.setTimeout(() => editDialogRef.current?.querySelector("input")?.focus());
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [editTeacher, emailConfirmationOpen, saving]);
+  }, [editTeacher, emailConfirmationOpen, passwordTarget, saving]);
 
   useEffect(() => {
     if (!emailConfirmationOpen) return;
@@ -355,6 +361,7 @@ export default function AdminTeachersPage() {
     setModalError("");
     setReconciliationError(false);
     setEmailConfirmationOpen(false);
+    setPasswordFeedback("");
   }
 
   function closeEditModal() {
@@ -778,7 +785,9 @@ export default function AdminTeachersPage() {
             className="admin-teachers-dialog"
             role="dialog"
             aria-modal="true"
-            aria-hidden={emailConfirmationOpen || undefined}
+            aria-hidden={
+              emailConfirmationOpen || passwordTarget ? true : undefined
+            }
             aria-labelledby="admin-teachers-edit-title"
             aria-describedby="admin-teachers-edit-description"
             ref={editDialogRef}
@@ -876,6 +885,32 @@ export default function AdminTeachersPage() {
                     Changing this updates the email the teacher uses to sign
                     in. Their password will remain unchanged.
                   </p>
+                  <button
+                    type="button"
+                    className="admin-teachers-secondary-button admin-teachers-account-action"
+                    disabled={!clean(editTeacher.email)}
+                    onClick={() => {
+                      setPasswordFeedback("");
+                      setPasswordTarget({
+                        id: editTeacher.id,
+                        name: getTeacherName(editTeacher),
+                        email: clean(editTeacher.email),
+                        accountType: "Teacher",
+                      });
+                    }}
+                  >
+                    Set New Password
+                  </button>
+                  {!clean(editTeacher.email) && (
+                    <p className="admin-teachers-dialog-error" role="status">
+                      Account requires reconciliation.
+                    </p>
+                  )}
+                  {passwordFeedback && (
+                    <p className="admin-teachers-password-feedback" role="status">
+                      {passwordFeedback}
+                    </p>
+                  )}
                 </section>
 
                 <section>
@@ -1001,6 +1036,17 @@ export default function AdminTeachersPage() {
             </footer>
           </div>
         </div>
+      )}
+
+      {passwordTarget && (
+        <SetPasswordDialog
+          target={passwordTarget}
+          onClose={() => setPasswordTarget(null)}
+          onSuccess={(message) => {
+            setPasswordTarget(null);
+            setPasswordFeedback(message);
+          }}
+        />
       )}
 
       {deleteTeacher && (

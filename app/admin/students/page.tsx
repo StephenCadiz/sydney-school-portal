@@ -4,6 +4,9 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
+import SetPasswordDialog, {
+  PasswordAccountTarget,
+} from "../../components/admin/SetPasswordDialog";
 import {
   getAdminCambridgeStudentDirectory,
   getAdminYoungLearnerDirectory,
@@ -341,6 +344,9 @@ export default function AdminStudentsPage() {
   const [pendingConfirmation, setPendingConfirmation] =
     useState<PendingConfirmation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [passwordTarget, setPasswordTarget] =
+    useState<PasswordAccountTarget | null>(null);
+  const [passwordFeedback, setPasswordFeedback] = useState("");
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -481,6 +487,9 @@ export default function AdminStudentsPage() {
   const editingYoungLearner = youngLearners.find(
     (student) => student.id === editingYoungLearnerId
   );
+  const editingCambridgeStudent = cambridgeStudents.find(
+    (student) => student.id === editingStudentId
+  );
 
   function updateForm(field: string, value: string) {
     setForm((current) => ({
@@ -590,6 +599,7 @@ export default function AdminStudentsPage() {
     setEditingYoungLearnerId("");
     resetYoungLearnerForm();
     setEditingStudentId(student.id);
+    setPasswordFeedback("");
     setForm({
       first_name: student.first_name || "",
       last_name: student.last_name || "",
@@ -1161,6 +1171,7 @@ export default function AdminStudentsPage() {
             className="admin-students-dialog"
             role="dialog"
             aria-modal="true"
+            aria-hidden={passwordTarget ? true : undefined}
             aria-labelledby="admin-students-edit-title"
           >
             <form onSubmit={handleCambridgeSubmit}>
@@ -1218,6 +1229,45 @@ export default function AdminStudentsPage() {
                   </select>
                 </label>
               </div>
+
+              <section className="admin-students-account-section">
+                <div>
+                  <h3>Account</h3>
+                  <p>
+                    Set a new portal password without changing this student’s
+                    email or class assignment.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="admin-students-secondary-button"
+                  disabled={!editingCambridgeStudent?.email}
+                  onClick={() => {
+                    if (!editingCambridgeStudent) return;
+                    setPasswordFeedback("");
+                    setPasswordTarget({
+                      id: editingCambridgeStudent.id,
+                      name:
+                        getStudentName(editingCambridgeStudent) ||
+                        editingCambridgeStudent.email,
+                      email: editingCambridgeStudent.email,
+                      accountType: "Cambridge Student",
+                    });
+                  }}
+                >
+                  Set New Password
+                </button>
+              </section>
+              {editingCambridgeStudent && !editingCambridgeStudent.email && (
+                <p className="admin-students-password-reconciliation" role="status">
+                  Account requires reconciliation.
+                </p>
+              )}
+              {passwordFeedback && (
+                <p className="admin-students-password-feedback" role="status">
+                  {passwordFeedback}
+                </p>
+              )}
 
               <div className="admin-students-dialog-actions">
                 <button
@@ -1520,6 +1570,17 @@ export default function AdminStudentsPage() {
       </main>
 
       {renderEditDialog()}
+
+      {passwordTarget && (
+        <SetPasswordDialog
+          target={passwordTarget}
+          onClose={() => setPasswordTarget(null)}
+          onSuccess={(message) => {
+            setPasswordTarget(null);
+            setPasswordFeedback(message);
+          }}
+        />
+      )}
 
       {pendingConfirmation && (
         <div className="admin-students-dialog-backdrop">
