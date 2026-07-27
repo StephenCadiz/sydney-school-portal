@@ -6,6 +6,30 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
+function normalizeEmail(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isDuplicateAuthEmailError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const authError = error as { code?: unknown; message?: unknown };
+  const code = String(authError.code || "").toLowerCase();
+  const message = String(authError.message || "").toLowerCase();
+
+  return (
+    code === "email_exists" ||
+    code === "user_already_exists" ||
+    message.includes("already been registered") ||
+    message.includes("email address is already") ||
+    message.includes("email already exists")
+  );
+}
+
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -75,6 +99,7 @@ export async function PATCH(
       typeof body.first_name === "string" ? body.first_name.trim() : "";
     const lastName =
       typeof body.last_name === "string" ? body.last_name.trim() : "";
+    const email = normalizeEmail(body.email);
 
     if (!firstName) {
       return jsonError("First name is required.", 400);
@@ -84,11 +109,115 @@ export async function PATCH(
       return jsonError("Last name is required.", 400);
     }
 
+    if (!email || !isValidEmail(email)) {
+      return jsonError("Enter a valid email address.", 422);
+    }
+
+    const {
+      data: { user: targetAuthUser },
+      error: targetAuthError,
+    } = await supabaseAdmin.auth.admin.getUserById(teacherId);
+
+    if (targetAuthError || !targetAuthUser) {
+      return jsonError(
+        "The teacher’s login account could not be found. No changes were made.",
+        404
+      );
+    }
+
+    const previousAuthEmail = normalizeEmail(targetAuthUser.email);
+
+    if (!previousAuthEmail) {
+      return jsonError(
+        "The teacher’s login account has no email address. No changes were made.",
+        409
+      );
+    }
+
+    const profileEmail = normalizeEmail(targetProfile.email);
+    const emailChanged = email !== profileEmail;
+    const authEmailChanged = emailChanged && email !== previousAuthEmail;
+
+    if (emailChanged) {
+      const { data: duplicateProfiles, error: duplicateProfileError } =
+        await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .ilike("email", email)
+          .neq("id", teacherId)
+          .limit(1);
+
+      if (duplicateProfileError) {
+        return jsonError("Unable to verify the new email address.", 500);
+      }
+
+      if (duplicateProfiles && duplicateProfiles.length > 0) {
+        return jsonError(
+          "Another portal account already uses this email address.",
+          409
+        );
+      }
+    }
+
+    if (authEmailChanged) {
+      const { data: authUpdateData, error: authUpdateError } =
+        await supabaseAdmin.auth.admin.updateUserById(teacherId, {
+          email,
+          email_confirm: true,
+        });
+
+      if (authUpdateError) {
+        if (isDuplicateAuthEmailError(authUpdateError)) {
+          return jsonError(
+            "This email address is already used by another account.",
+            409
+          );
+        }
+
+        return jsonError(
+          "The teacher’s login email could not be updated. No changes were made.",
+          500
+        );
+      }
+
+      if (normalizeEmail(authUpdateData.user?.email) !== email) {
+        const { data: rollbackData, error: rollbackError } =
+          await supabaseAdmin.auth.admin.updateUserById(teacherId, {
+            email: previousAuthEmail,
+            email_confirm: true,
+          });
+        const rollbackSucceeded =
+          !rollbackError &&
+          normalizeEmail(rollbackData.user?.email) === previousAuthEmail;
+
+        if (!rollbackSucceeded) {
+          console.error("Teacher email reconciliation failed:", {
+            stage: "auth-verification-and-auth-rollback",
+            teacherId,
+          });
+          return NextResponse.json(
+            {
+              error:
+                "The login email could not be verified or restored. Do not retry this email change. Contact portal support.",
+              code: "TEACHER_EMAIL_RECONCILIATION_REQUIRED",
+            },
+            { status: 502 }
+          );
+        }
+
+        return jsonError(
+          "The teacher’s login email could not be verified. The original login email has been restored.",
+          502
+        );
+      }
+    }
+
     const { data: updatedTeacher, error: updateError } = await supabaseAdmin
       .from("profiles")
       .update({
         first_name: firstName,
         last_name: lastName,
+        email,
       })
       .eq("id", teacherId)
       .eq("role", "teacher")
@@ -96,12 +225,49 @@ export async function PATCH(
       .single();
 
     if (updateError || !updatedTeacher) {
+      if (authEmailChanged) {
+        const { data: rollbackData, error: rollbackError } =
+          await supabaseAdmin.auth.admin.updateUserById(teacherId, {
+            email: previousAuthEmail,
+            email_confirm: true,
+          });
+        const rollbackSucceeded =
+          !rollbackError &&
+          normalizeEmail(rollbackData.user?.email) === previousAuthEmail;
+
+        if (!rollbackSucceeded) {
+          console.error("Teacher email reconciliation failed:", {
+            stage: "profile-update-and-auth-rollback",
+            teacherId,
+          });
+          return NextResponse.json(
+            {
+              error:
+                "The login email changed, but the staff profile could not be synchronized. Do not retry this email change. Contact portal support.",
+              code: "TEACHER_EMAIL_RECONCILIATION_REQUIRED",
+            },
+            { status: 502 }
+          );
+        }
+
+        console.error("Teacher profile update failed after Auth email update:", {
+          stage: "profile-update-auth-rollback-succeeded",
+          teacherId,
+        });
+        return jsonError(
+          "The teacher account could not be updated. The original login email has been restored.",
+          500
+        );
+      }
+
       return jsonError("Unable to update teacher information.", 500);
     }
 
     return NextResponse.json({
       success: true,
-      message: "Teacher information updated.",
+      message: emailChanged
+        ? "Teacher information and login email updated."
+        : "Teacher information updated.",
       teacher: updatedTeacher,
     });
   } catch {

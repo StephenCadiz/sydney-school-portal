@@ -27,6 +27,14 @@ function clean(value: string | null | undefined) {
   return String(value || "").trim();
 }
 
+function normalizeEmail(value: string | null | undefined) {
+  return clean(value).toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function getTeacherName(teacher: AdminTeacher) {
   const name = [clean(teacher.first_name), clean(teacher.last_name)]
     .filter(Boolean)
@@ -143,11 +151,15 @@ export default function AdminTeachersPage() {
   const [deleteTeacher, setDeleteTeacher] = useState<AdminTeacher | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{
     firstName?: string;
     lastName?: string;
+    email?: string;
   }>({});
   const [modalError, setModalError] = useState("");
+  const [reconciliationError, setReconciliationError] = useState(false);
+  const [emailConfirmationOpen, setEmailConfirmationOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -155,6 +167,8 @@ export default function AdminTeachersPage() {
   const editTriggerRef = useRef<HTMLElement | null>(null);
   const deleteTriggerRef = useRef<HTMLElement | null>(null);
   const editDialogRef = useRef<HTMLDivElement | null>(null);
+  const emailConfirmationDialogRef = useRef<HTMLDivElement | null>(null);
+  const saveButtonRef = useRef<HTMLButtonElement | null>(null);
   const deleteDialogRef = useRef<HTMLDivElement | null>(null);
   const loadInFlightRef = useRef(false);
 
@@ -287,13 +301,34 @@ export default function AdminTeachersPage() {
   }
 
   useEffect(() => {
-    if (!editTeacher) return;
+    if (!editTeacher || emailConfirmationOpen) return;
     const handleKeyDown = (event: KeyboardEvent) =>
       trapDialogFocus(event, editDialogRef.current, closeEditModal, saving);
     document.addEventListener("keydown", handleKeyDown);
     window.setTimeout(() => editDialogRef.current?.querySelector("input")?.focus());
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [editTeacher, saving]);
+  }, [editTeacher, emailConfirmationOpen, saving]);
+
+  useEffect(() => {
+    if (!emailConfirmationOpen) return;
+    const closeConfirmation = () => {
+      if (saving) return;
+      setEmailConfirmationOpen(false);
+      window.setTimeout(() => saveButtonRef.current?.focus());
+    };
+    const handleKeyDown = (event: KeyboardEvent) =>
+      trapDialogFocus(
+        event,
+        emailConfirmationDialogRef.current,
+        closeConfirmation,
+        saving
+      );
+    document.addEventListener("keydown", handleKeyDown);
+    window.setTimeout(() =>
+      emailConfirmationDialogRef.current?.querySelector("button")?.focus()
+    );
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [emailConfirmationOpen, saving]);
 
   useEffect(() => {
     if (!deleteTeacher) return;
@@ -315,14 +350,24 @@ export default function AdminTeachersPage() {
     setEditTeacher(teacher);
     setFirstName(clean(teacher.first_name));
     setLastName(clean(teacher.last_name));
+    setEmail(clean(teacher.email));
     setFieldErrors({});
     setModalError("");
+    setReconciliationError(false);
+    setEmailConfirmationOpen(false);
   }
 
   function closeEditModal() {
     if (saving) return;
+    setEmailConfirmationOpen(false);
     setEditTeacher(null);
     window.setTimeout(() => editTriggerRef.current?.focus());
+  }
+
+  function closeEmailConfirmation() {
+    if (saving) return;
+    setEmailConfirmationOpen(false);
+    window.setTimeout(() => saveButtonRef.current?.focus());
   }
 
   function openDeleteDialog(teacher: AdminTeacher, trigger: HTMLElement) {
@@ -339,19 +384,40 @@ export default function AdminTeachersPage() {
     window.setTimeout(() => deleteTriggerRef.current?.focus());
   }
 
-  async function handleSave(event: FormEvent) {
-    event.preventDefault();
-    if (!editTeacher || saving) return;
-
+  function getValidatedEditValues() {
     const nextFirstName = firstName.trim();
     const nextLastName = lastName.trim();
+    const nextEmail = normalizeEmail(email);
     const nextErrors = {
       firstName: nextFirstName ? undefined : "Enter the teacher’s first name.",
       lastName: nextLastName ? undefined : "Enter the teacher’s last name.",
+      email:
+        nextEmail && isValidEmail(nextEmail)
+          ? undefined
+          : "Enter a valid email address.",
     };
+
     setFieldErrors(nextErrors);
     setModalError("");
-    if (nextErrors.firstName || nextErrors.lastName) return;
+    setReconciliationError(false);
+
+    if (nextErrors.firstName || nextErrors.lastName || nextErrors.email) {
+      return null;
+    }
+
+    return { nextFirstName, nextLastName, nextEmail };
+  }
+
+  async function saveTeacher(values: {
+    nextFirstName: string;
+    nextLastName: string;
+    nextEmail: string;
+  }) {
+    if (!editTeacher || saving) return;
+
+    setEmailConfirmationOpen(false);
+    setModalError("");
+    setReconciliationError(false);
 
     setSaving(true);
     try {
@@ -367,13 +433,18 @@ export default function AdminTeachersPage() {
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          first_name: nextFirstName,
-          last_name: nextLastName,
+          first_name: values.nextFirstName,
+          last_name: values.nextLastName,
+          email: values.nextEmail,
         }),
       });
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || "Unable to update teacher information.");
+        const requestError = new Error(
+          result.error || "Unable to update teacher information."
+        ) as Error & { code?: string };
+        requestError.code = result.code;
+        throw requestError;
       }
 
       setTeachers((current) =>
@@ -388,6 +459,11 @@ export default function AdminTeachersPage() {
       });
       window.setTimeout(() => editTriggerRef.current?.focus());
     } catch (error) {
+      setReconciliationError(
+        error instanceof Error &&
+          "code" in error &&
+          error.code === "TEACHER_EMAIL_RECONCILIATION_REQUIRED"
+      );
       setModalError(
         error instanceof Error
           ? error.message
@@ -396,6 +472,32 @@ export default function AdminTeachersPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleSave(event: FormEvent) {
+    event.preventDefault();
+    if (!editTeacher || saving) return;
+
+    const values = getValidatedEditValues();
+    if (!values) return;
+
+    if (values.nextEmail !== normalizeEmail(editTeacher.email)) {
+      setEmail(values.nextEmail);
+      setEmailConfirmationOpen(true);
+      return;
+    }
+
+    void saveTeacher(values);
+  }
+
+  function confirmEmailChange() {
+    const values = getValidatedEditValues();
+    if (!values) {
+      setEmailConfirmationOpen(false);
+      return;
+    }
+
+    void saveTeacher(values);
   }
 
   async function handleDelete() {
@@ -455,6 +557,12 @@ export default function AdminTeachersPage() {
         : (currentIndex - 1 + items.length) % items.length;
     items[nextIndex]?.focus();
   }
+
+  const editHasChanges =
+    editTeacher !== null &&
+    (firstName.trim() !== clean(editTeacher.first_name) ||
+      lastName.trim() !== clean(editTeacher.last_name) ||
+      normalizeEmail(email) !== normalizeEmail(editTeacher.email));
 
   return (
     <AdminLayout>
@@ -670,6 +778,7 @@ export default function AdminTeachersPage() {
             className="admin-teachers-dialog"
             role="dialog"
             aria-modal="true"
+            aria-hidden={emailConfirmationOpen || undefined}
             aria-labelledby="admin-teachers-edit-title"
             aria-describedby="admin-teachers-edit-description"
             ref={editDialogRef}
@@ -737,15 +846,35 @@ export default function AdminTeachersPage() {
 
                 <section>
                   <h3>Account</h3>
-                  <dl className="admin-teachers-account-row">
-                    <div>
-                      <dt>Email address</dt>
-                      <dd>{clean(editTeacher.email) || "No email recorded"}</dd>
-                    </div>
-                  </dl>
-                  <p className="admin-teachers-help">
-                    This is the teacher’s login email. Secure email changes are
-                    not available in this version.
+                  <div className="admin-teachers-form-grid admin-teachers-account-fields">
+                    <label>
+                      <span>Login email</span>
+                      <input
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        aria-invalid={Boolean(fieldErrors.email)}
+                        aria-describedby={[
+                          "admin-teacher-email-help",
+                          fieldErrors.email ? "admin-teacher-email-error" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      />
+                      {fieldErrors.email && (
+                        <small id="admin-teacher-email-error">
+                          {fieldErrors.email}
+                        </small>
+                      )}
+                    </label>
+                  </div>
+                  <p
+                    className="admin-teachers-help"
+                    id="admin-teacher-email-help"
+                  >
+                    Changing this updates the email the teacher uses to sign
+                    in. Their password will remain unchanged.
                   </p>
                 </section>
 
@@ -774,7 +903,12 @@ export default function AdminTeachersPage() {
                 </section>
 
                 {modalError && (
-                  <p className="admin-teachers-dialog-error" role="alert">
+                  <p
+                    className={`admin-teachers-dialog-error${
+                      reconciliationError ? " is-reconciliation" : ""
+                    }`}
+                    role="alert"
+                  >
                     {modalError}
                   </p>
                 )}
@@ -790,14 +924,81 @@ export default function AdminTeachersPage() {
                   Cancel
                 </button>
                 <button
+                  ref={saveButtonRef}
                   type="submit"
                   className="admin-teachers-primary-button"
-                  disabled={saving}
+                  disabled={saving || !editHasChanges}
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
               </footer>
             </form>
+          </div>
+        </div>
+      )}
+
+      {editTeacher && emailConfirmationOpen && (
+        <div
+          className="admin-teachers-dialog-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeEmailConfirmation();
+            }
+          }}
+        >
+          <div
+            className="admin-teachers-dialog admin-teachers-email-confirmation"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-teachers-email-confirmation-title"
+            aria-describedby="admin-teachers-email-confirmation-description"
+            ref={emailConfirmationDialogRef}
+          >
+            <header className="admin-teachers-dialog-header">
+              <div>
+                <h2 id="admin-teachers-email-confirmation-title">
+                  Change login email?
+                </h2>
+                <p id="admin-teachers-email-confirmation-description">
+                  Confirm the new address before updating this teacher’s
+                  account.
+                </p>
+              </div>
+            </header>
+            <div className="admin-teachers-dialog-body">
+              <dl className="admin-teachers-email-change">
+                <div>
+                  <dt>Current email</dt>
+                  <dd>{clean(editTeacher.email)}</dd>
+                </div>
+                <div>
+                  <dt>New email</dt>
+                  <dd>{normalizeEmail(email)}</dd>
+                </div>
+              </dl>
+              <p className="admin-teachers-help">
+                The teacher will use the new address the next time they sign
+                in. Their password will remain unchanged.
+              </p>
+            </div>
+            <footer className="admin-teachers-dialog-footer">
+              <button
+                type="button"
+                className="admin-teachers-secondary-button"
+                onClick={closeEmailConfirmation}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-teachers-primary-button"
+                onClick={confirmEmailChange}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Change Email and Save"}
+              </button>
+            </footer>
           </div>
         </div>
       )}

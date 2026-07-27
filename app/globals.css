@@ -3123,6 +3123,10 @@ img {
   max-width: 520px;
 }
 
+.admin-teachers-email-confirmation {
+  max-width: 520px;
+}
+
 .admin-teachers-dialog-header {
   align-items: flex-start;
   border-bottom: 1px solid #e7ebf1;
@@ -3186,6 +3190,10 @@ img {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.admin-teachers-account-fields {
+  grid-template-columns: 1fr;
+}
+
 .admin-teachers-form-grid label > span {
   color: #344054;
   display: block;
@@ -3231,6 +3239,33 @@ img {
 }
 
 .admin-teachers-account-row dd {
+  color: #243044;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-teachers-email-change {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.admin-teachers-email-change div {
+  background: #f8fafc;
+  border: 1px solid #e4e9ef;
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+
+.admin-teachers-email-change dt {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-teachers-email-change dd {
   color: #243044;
   font-size: 15px;
   font-weight: 700;
@@ -3296,6 +3331,11 @@ img {
   line-height: 1.5;
   margin: 0;
   padding: 11px 12px;
+}
+
+.admin-teachers-dialog-error.is-reconciliation {
+  border-left: 4px solid #c2410c;
+  font-weight: 700;
 }
 
 .admin-teachers-delete-warning {
@@ -3444,6 +3484,15 @@ img {
     max-height: 100vh;
     max-width: none;
     min-height: 100vh;
+  }
+
+  .admin-teachers-email-confirmation {
+    align-self: center;
+    border: 1px solid #dce4ed;
+    border-radius: 14px;
+    margin: 16px;
+    max-height: calc(100vh - 32px);
+    min-height: 0;
   }
 
   .admin-teachers-dialog form {
