@@ -1,146 +1,151 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
+
 import { supabase } from "../../lib/supabase";
 
-export default function LoginPage() {
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
+  const passwordResetSucceeded =
+    searchParams.get("password_reset") === "success";
 
-   const router = useRouter();
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (signingIn) return;
 
-  async function handleLogin() {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    setErrorMessage("");
+    setSigningIn(true);
 
-    if (error) {
-      alert(error.message);
-      return;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error || !data.user) {
+        setErrorMessage(
+          "Unable to sign in. Check your email and password and try again."
+        );
+        return;
+      }
+
+      setPassword("");
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profileError || !profile?.role) {
+        await supabase.auth.signOut();
+        setErrorMessage("Unable to access your portal account. Please try again.");
+        return;
+      }
+
+      if (profile.role === "admin") {
+        router.push("/admin");
+        return;
+      }
+
+      if (profile.role === "teacher") {
+        router.push("/teacher");
+        return;
+      }
+
+      if (profile.role === "student") {
+        router.push("/student");
+        return;
+      }
+
+      await supabase.auth.signOut();
+      setErrorMessage("Unable to access your portal account. Please try again.");
+    } catch {
+      setErrorMessage(
+        "Unable to sign in. Check your email and password and try again."
+      );
+    } finally {
+      setSigningIn(false);
     }
-
-  const profile = await supabase
-  .from("profiles")
-  .select("*")
-  .eq("id", data.user.id);
-
-console.log("PROFILE FULL:", JSON.stringify(profile, null, 2));
-
-if (profile.data && profile.data.length > 0) {
-  const role = profile.data[0].role;
-
-  if (role === "admin") {
-    router.push("/admin");
   }
-
-  if (role === "teacher") {
-    router.push("/teacher");
-  }
-
-  if (role === "student") {
-    router.push("/student");
-  }
-}
-}
 
   return (
-  <main
-    style={{
-      minHeight: "100vh",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      background:
-        "linear-gradient(135deg,#1695e8 0%,#0b6fb8 100%)",
-      padding: "20px",
-    }}
-  >
-    <div
-      style={{
-        background: "#ffffff",
-        padding: "50px",
-        borderRadius: "20px",
-        width: "100%",
-        maxWidth: "500px",
-        boxShadow:
-          "0 25px 60px rgba(0,0,0,0.2)",
-        textAlign: "center",
-      }}
+    <main className="auth-page">
+      <section className="auth-card" aria-labelledby="login-title">
+        <img
+          className="auth-logo"
+          src="/LOGO and NAME.png"
+          alt="Sydney School"
+        />
+        <h1 id="login-title" className="auth-title">
+          Sign in
+        </h1>
+        <p className="auth-intro">Teacher · Student · Admin Portal</p>
+
+        {passwordResetSucceeded && (
+          <div className="auth-message is-success" role="status" aria-live="polite">
+            Your password has been updated. Sign in with your new password.
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="auth-message is-error" role="alert">
+            {errorMessage}
+          </div>
+        )}
+
+        <form className="auth-form" onSubmit={handleLogin}>
+          <label htmlFor="login-email">Email address</label>
+          <input
+            id="login-email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+
+          <div className="auth-password-heading">
+            <label htmlFor="login-password">Password</label>
+            <Link href="/forgot-password">Forgot your password?</Link>
+          </div>
+          <input
+            id="login-password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+
+          <button type="submit" disabled={signingIn}>
+            {signingIn ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="auth-page">
+          <section className="auth-card" aria-busy="true">
+            <p className="auth-checking">Loading sign in…</p>
+          </section>
+        </main>
+      }
     >
-      <img
-        src="/LOGO and NAME.png"
-        alt="Sydney School"
-        style={{
-          width: "100%",
-          maxWidth: "350px",
-          marginBottom: "20px",
-        }}
-      />
-
-      <p
-        style={{
-          color: "#666",
-          marginBottom: "30px",
-        }}
-      >
-        Teacher • Student • Admin Portal
-      </p>
-
-      <input
-        type="email"
-        placeholder="Email Address"
-        value={email}
-        onChange={(e) =>
-          setEmail(e.target.value)
-        }
-        style={{
-          width: "100%",
-          padding: "14px",
-          marginBottom: "15px",
-          border: "1px solid #ddd",
-          borderRadius: "10px",
-          fontSize: "16px",
-          color: "#333",
-        }}
-      />
-
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) =>
-          setPassword(e.target.value)
-        }
-        style={{
-          width: "100%",
-          padding: "14px",
-          marginBottom: "20px",
-          border: "1px solid #ddd",
-          borderRadius: "10px",
-          fontSize: "16px",
-          color: "#333",
-        }}
-      />
-
-      <button
-        onClick={handleLogin}
-        style={{
-          width: "100%",
-          padding: "14px",
-          background: "#1695e8",
-          color: "white",
-          border: "none",
-          borderRadius: "10px",
-          fontSize: "16px",
-          fontWeight: 600,
-          cursor: "pointer",
-        }}
-      >
-        Sign In
-      </button>
-    </div>
-  </main>
-);
+      <LoginForm />
+    </Suspense>
+  );
 }
