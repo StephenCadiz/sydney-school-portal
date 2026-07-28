@@ -85,6 +85,53 @@
 .exam-bank-dialog h2 { margin: 0 0 9px; color: #203858; font-size: 21px; }
 .exam-bank-dialog p { margin: 0 0 22px; color: #5e6b7d; line-height: 1.55; }
 .exam-bank-dialog > div { display: flex; justify-content: flex-end; gap: 9px; }
+.exam-bank-tabs { display: flex; gap: 5px; margin-bottom: 24px; border-bottom: 1px solid #ccd8e6; }
+.exam-bank-tabs a { min-height: 44px; padding: 11px 15px 9px; border-bottom: 3px solid transparent; color: #596b82; font-size: 15px; font-weight: 800; text-decoration: none; }
+.exam-bank-tabs a.is-active { border-bottom-color: #2454a4; color: #173f80; }
+.exam-assignment-filters { display: grid; grid-template-columns: repeat(4, minmax(135px, .7fr)) minmax(210px, 1.4fr); gap: 10px; margin-bottom: 18px; padding: 13px; border: 1px solid #dbe4ef; border-radius: 12px; background: #fff; }
+.exam-assignment-filters select, .exam-assignment-filters input, .exam-assignment-fields select, .exam-assignment-fields input { width: 100%; min-height: 44px; box-sizing: border-box; border: 1px solid #c9d5e4; border-radius: 8px; background: #fff; color: #172b4d; padding: 9px 11px; font: inherit; font-size: 15px; }
+.exam-assignment-sheet { border: 1px solid #d8e2ee; border-radius: 12px; background: #fff; }
+.exam-assignment-sheet-head, .exam-assignment-row { display: grid; grid-template-columns: 65px minmax(165px, 1.2fr) minmax(155px, 1.1fr) 90px 100px 100px 90px 130px; gap: 12px; align-items: center; }
+.exam-assignment-sheet-head { min-height: 42px; padding: 0 15px; border-bottom: 1px solid #d8e2ee; background: #f4f7fb; color: #526176; font-size: 13px; font-weight: 800; }
+.exam-assignment-row { min-height: 74px; padding: 11px 15px; border-bottom: 1px solid #e3e9f0; color: #34465f; font-size: 14px; }
+.exam-assignment-row:last-child { border-bottom: 0; }
+.exam-assignment-row > div { min-width: 0; overflow-wrap: anywhere; }
+.exam-assignment-row small { display: block; margin-top: 3px; color: #9a5b18; }
+.exam-assignment-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 18px; }
+.exam-assignment-pagination button { min-height: 40px; padding: 8px 14px; border: 1px solid #c8d5e4; border-radius: 8px; background: #fff; color: #2454a4; font: inherit; font-weight: 800; cursor: pointer; }
+.exam-assignment-pagination button:disabled { color: #8a96a6; cursor: not-allowed; }
+.exam-assignment-pagination span { color: #526176; font-size: 14px; font-weight: 750; }
+.exam-bank-row-actions button { min-height: 40px; border: 0; background: transparent; color: #2454a4; font: inherit; font-weight: 800; cursor: pointer; }
+.exam-bank-status.is-draft { background: #eef1f5; color: #526176; }
+.exam-bank-status.is-scheduled { background: #e9f2ff; color: #24518d; }
+.exam-bank-status.is-active { background: #e8f5ee; color: #17603d; }
+.exam-bank-status.is-past { background: #fff2df; color: #845516; }
+.exam-assignment-editor { padding-bottom: 80px; }
+.exam-assignment-section, .exam-assignment-context, .exam-assignment-review { margin-bottom: 16px; padding: 20px; border: 1px solid #d8e2ed; border-radius: 12px; background: #fff; }
+.exam-assignment-section h2, .exam-assignment-section legend, .exam-assignment-review h2 { margin: 0 0 16px; color: #203858; font-size: 18px; font-weight: 850; }
+.exam-assignment-section legend { padding: 0 4px; }
+.exam-assignment-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.exam-assignment-fields label { color: #2c4260; font-size: 14px; font-weight: 800; }
+.exam-assignment-fields label > input, .exam-assignment-fields label > select { display: block; margin-top: 7px; }
+.exam-assignment-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 15px; }
+.exam-assignment-options.is-courses { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.exam-assignment-options > label { display: flex; min-height: 58px; align-items: flex-start; gap: 10px; padding: 13px; border: 1px solid #cedae8; border-radius: 9px; background: #fbfcfe; cursor: pointer; }
+.exam-assignment-options > label.is-disabled { background: #f3f4f6; color: #6d7785; cursor: not-allowed; }
+.exam-assignment-options input { width: 19px; height: 19px; margin-top: 2px; accent-color: #2454a4; }
+.exam-assignment-options strong, .exam-assignment-options small { display: block; }
+.exam-assignment-options small { margin-top: 4px; color: #66758a; font-size: 13px; }
+.exam-assignment-empty-note { display: block; margin-top: 6px; color: #66758a; font-size: 13px; font-weight: 500; }
+.exam-assignment-dialog-error { padding: 10px 12px; border: 1px solid #f0b6b6; border-radius: 8px; background: #fff2f2; color: #8f2525 !important; }
+.exam-assignment-status-choice { margin-top: 17px; padding: 0; border: 0; }
+.exam-assignment-status-choice legend { margin-bottom: 9px; font-size: 15px; }
+.exam-assignment-status-choice label { display: inline-flex; min-height: 42px; align-items: center; gap: 8px; margin-right: 20px; font-size: 15px; font-weight: 700; }
+.exam-assignment-status-choice p { margin: 7px 0 0; color: #66758a; font-size: 13px; }
+.exam-assignment-context { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 15px; }
+.exam-assignment-context span, .exam-assignment-context strong { display: block; }
+.exam-assignment-context span { margin-bottom: 5px; color: #6a7789; font-size: 13px; }
+.exam-assignment-context strong { color: #263e60; font-size: 15px; }
+.exam-assignment-review { border-left: 4px solid #2f7db8; background: #f7fbff; }
+.exam-assignment-review p { margin: 7px 0; color: #526176; font-size: 14px; }
 
 @media (max-width: 1050px) {
   .exam-bank-sheet-head { display: none; }
@@ -93,6 +140,12 @@
   .exam-bank-row > div:nth-child(5), .exam-bank-row-actions { grid-column: auto; }
   .exam-bank-meta-grid { grid-template-columns: 1fr 1fr; }
   .exam-bank-field.is-wide { grid-column: 1 / -1; }
+  .exam-assignment-sheet-head { display: none; }
+  .exam-assignment-sheet { display: grid; gap: 10px; border: 0; background: transparent; }
+  .exam-assignment-row { grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #d8e2ee; border-radius: 10px; background: #fff; }
+  .exam-assignment-row .exam-bank-row-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .exam-assignment-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .exam-assignment-options.is-courses, .exam-assignment-context { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 700px) {
@@ -115,6 +168,11 @@
   .exam-bank-editor-actions { flex-wrap: wrap; }
   .exam-bank-editor-actions > div { width: 100%; margin-right: 0; }
   .exam-bank-editor-actions .exam-bank-button { flex: 1; }
+  .exam-assignment-filters, .exam-assignment-fields, .exam-assignment-options, .exam-assignment-options.is-courses, .exam-assignment-context { grid-template-columns: 1fr; }
+  .exam-assignment-row { grid-template-columns: 1fr 1fr; padding: 15px; }
+  .exam-assignment-row > div:nth-child(2), .exam-assignment-row > div:nth-child(3), .exam-assignment-row .exam-bank-row-actions { grid-column: 1 / -1; }
+  .exam-assignment-section, .exam-assignment-context, .exam-assignment-review { padding: 16px; }
+  .exam-bank-tabs a { flex: 1; text-align: center; }
 }
 
 /* Shared public authentication pages */

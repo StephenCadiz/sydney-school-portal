@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
+import CambridgeExamBankTabs from "../../components/admin/CambridgeExamBankTabs";
 import { CambridgeExamRecord, formatExamName } from "../../../lib/cambridgeExamBank";
 import { supabase } from "../../../lib/supabase";
 
@@ -147,6 +148,7 @@ export default function CambridgeExamBankPage() {
   return (
     <AdminLayout>
       <div className="exam-bank-page">
+        <CambridgeExamBankTabs />
         <header className="exam-bank-page-header">
           <div>
             <h1>Cambridge Exam Bank</h1>

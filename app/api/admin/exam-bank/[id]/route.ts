@@ -83,6 +83,35 @@ export async function PATCH(
         (body as Record<string, unknown>).action === "restore")
     ) {
       const archive = (body as Record<string, unknown>).action === "archive";
+      if (archive) {
+        const { data: parts, error: partsError } = await supabaseAdmin
+          .from("cambridge_exam_parts")
+          .select("id")
+          .eq("exam_set_id", examId)
+          .limit(4);
+        if (partsError) {
+          return examBankJsonError("Unable to verify current assignments.", 500);
+        }
+        const partIds = (parts || []).map((part) => part.id);
+        if (partIds.length > 0) {
+          const { data: assignment, error: assignmentError } = await supabaseAdmin
+            .from("cambridge_exam_assignments")
+            .select("id")
+            .in("exam_part_id", partIds)
+            .is("archived_at", null)
+            .limit(1)
+            .maybeSingle();
+          if (assignmentError) {
+            return examBankJsonError("Unable to verify current assignments.", 500);
+          }
+          if (assignment) {
+            return examBankJsonError(
+              "This exam has current assignments. Archive those assignments before archiving the exam.",
+              409
+            );
+          }
+        }
+      }
       const { data, error } = await supabaseAdmin
         .from("cambridge_exam_sets")
         .update({
@@ -95,6 +124,12 @@ export async function PATCH(
         .maybeSingle();
 
       if (error) {
+        if (String(error.message || "").includes("EXAM_HAS_CURRENT_ASSIGNMENTS")) {
+          return examBankJsonError(
+            "This exam has current assignments. Archive those assignments before archiving the exam.",
+            409
+          );
+        }
         console.error("Exam Bank status update failed:", {
           stage: "status-update",
           actorId: admin.userId,
@@ -180,6 +215,12 @@ export async function PATCH(
     );
 
     if (saveError || !savedId) {
+      if (String(saveError?.message || "").includes("ASSIGNED_PART_MUST_REMAIN_COMPLETE")) {
+        return examBankJsonError(
+          "This exam part is currently assigned and must remain complete.",
+          409
+        );
+      }
       if (isDuplicateError(saveError)) {
         return examBankJsonError(
           `An Exam Bank entry already exists for ${level.name} Exam ${input.examNumber}.`,

@@ -12,11 +12,46 @@ export const CAMBRIDGE_EXAM_RESOURCE_TYPES = [
   "sample_writing",
 ] as const;
 export const CAMBRIDGE_EXAM_URL_MAX_LENGTH = 2048;
+export const CAMBRIDGE_EXAM_COURSE_TYPES = [
+  "regular",
+  "intensive",
+  "express",
+  "online",
+] as const;
 
 export type CambridgeExamLevel = (typeof CAMBRIDGE_EXAM_LEVELS)[number];
 export type CambridgeExamPartType = (typeof CAMBRIDGE_EXAM_PARTS)[number];
 export type CambridgeExamResourceType =
   (typeof CAMBRIDGE_EXAM_RESOURCE_TYPES)[number];
+export type CambridgeExamCourseType =
+  (typeof CAMBRIDGE_EXAM_COURSE_TYPES)[number];
+export type CambridgeExamAssignmentStatus =
+  | "archived"
+  | "draft"
+  | "scheduled"
+  | "active"
+  | "past";
+
+export const CAMBRIDGE_EXAM_COURSE_LABELS: Record<
+  CambridgeExamCourseType,
+  string
+> = {
+  regular: "Regular",
+  intensive: "Intensive",
+  express: "Express",
+  online: "Online",
+};
+
+export const CAMBRIDGE_EXAM_ASSIGNMENT_STATUS_LABELS: Record<
+  CambridgeExamAssignmentStatus,
+  string
+> = {
+  archived: "Archived",
+  draft: "Draft",
+  scheduled: "Scheduled",
+  active: "Active",
+  past: "Past",
+};
 
 export type CambridgeExamFormParts = Record<
   CambridgeExamPartType,
@@ -56,6 +91,27 @@ export type CambridgeExamRecord = {
       external_url: string;
     }>;
   }>;
+};
+
+export type CambridgeExamAssignmentRecord = {
+  id: string;
+  level: { id: number; name: string };
+  exam: { id: string; exam_number: number; title: string | null };
+  part: {
+    id: string;
+    part_type: CambridgeExamPartType;
+    display_label: string;
+    complete: boolean;
+    missing_resources: CambridgeExamResourceType[];
+  };
+  course_type: CambridgeExamCourseType;
+  release_date: string | null;
+  due_date: string | null;
+  active: boolean;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  status: CambridgeExamAssignmentStatus;
 };
 
 export const REQUIRED_RESOURCES: Record<
@@ -101,6 +157,35 @@ export function isEligibleCambridgeExamLevel(
   return CAMBRIDGE_EXAM_LEVELS.includes(
     normalizeCambridgeExamLevel(value) as CambridgeExamLevel
   );
+}
+
+export function isCambridgeExamCourseType(
+  value: unknown
+): value is CambridgeExamCourseType {
+  return CAMBRIDGE_EXAM_COURSE_TYPES.includes(
+    value as CambridgeExamCourseType
+  );
+}
+
+export function isDateOnly(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+}
+
+export function getCambridgeExamAssignmentStatus(input: {
+  active: boolean;
+  archived_at: string | null;
+  release_date: string | null;
+  due_date: string | null;
+}, today = new Date().toISOString().slice(0, 10)): CambridgeExamAssignmentStatus {
+  if (input.archived_at) return "archived";
+  if (!input.active) return "draft";
+  if (input.release_date && input.release_date > today) return "scheduled";
+  if (input.due_date && input.due_date < today) return "past";
+  return "active";
 }
 
 export function getExamPartLabel(
