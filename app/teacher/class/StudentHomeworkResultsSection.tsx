@@ -8,6 +8,7 @@ import {
   getHomework,
 } from "../../../lib/homework";
 import { supabase } from "../../../lib/supabase";
+import AssignmentHomeworkResultsSection from "./AssignmentHomeworkResultsSection";
 
 type StudentHomeworkResultsSectionProps = {
   classId: string;
@@ -79,12 +80,6 @@ function getWeekFromTitle(title: string | null | undefined) {
 }
 
 function getResultWeekNumber(result: any) {
-  const storedWeek = Number(result?.week_number);
-
-  if (Number.isFinite(storedWeek) && storedWeek > 0) {
-    return storedWeek;
-  }
-
   return getWeekFromTitle(result?.title);
 }
 
@@ -242,7 +237,13 @@ export default function StudentHomeworkResultsSection({
       .from("results")
       .select("*")
       .eq("class_id", classId)
-      .eq("student_id", studentId);
+      .eq("student_id", studentId)
+      .eq("result_type", "homework")
+      .is("cambridge_exam_assignment_id", null)
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .order("exam_date", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: false })
+      .limit(500);
 
     if (error) {
       console.error("Failed to load homework results", error);
@@ -330,6 +331,7 @@ export default function StudentHomeworkResultsSection({
       title: `Homework Week ${weekNumber}`,
       skill,
       percentage: score,
+      cambridge_exam_assignment_id: null,
     };
 
     if (currentTeacherId) {
@@ -337,7 +339,12 @@ export default function StudentHomeworkResultsSection({
     }
 
     const { error } = editingPracticeId
-      ? await supabase.from("results").update(payload).eq("id", editingPracticeId)
+      ? await supabase
+          .from("results")
+          .update(payload)
+          .eq("id", editingPracticeId)
+          .eq("result_type", "homework")
+          .is("cambridge_exam_assignment_id", null)
       : await supabase.from("results").insert([payload]);
 
     if (error) {
@@ -374,7 +381,12 @@ export default function StudentHomeworkResultsSection({
     setMessage("");
     setErrorMessage("");
 
-    const { error } = await supabase.from("results").delete().eq("id", id);
+    const { error } = await supabase
+      .from("results")
+      .delete()
+      .eq("id", id)
+      .eq("result_type", "homework")
+      .is("cambridge_exam_assignment_id", null);
 
     if (error) {
       console.error("Unable to delete homework result:", error);
@@ -394,6 +406,11 @@ export default function StudentHomeworkResultsSection({
 
   return (
     <section className="student-workspace-section">
+      <AssignmentHomeworkResultsSection
+        classId={classId}
+        studentId={studentId}
+        studentName={studentName}
+      />
       <div className="student-workspace-section-header">
         <h3>Homework Results</h3>
         <p>Enter and review weekly practice results for {studentName}.</p>

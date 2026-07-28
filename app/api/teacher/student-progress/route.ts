@@ -11,6 +11,7 @@ import {
   type FollowUpProgressSource,
   type FridayProgressSource,
 } from "../../../../lib/teacherStudentProgress";
+import { loadTeacherClassHomework } from "../../../../lib/teacherHomeworkServer";
 
 function jsonError(error: string, status: number) {
   return NextResponse.json({ error }, { status });
@@ -140,19 +141,63 @@ export async function GET(request: NextRequest) {
     const normalizedCourseType = String(classRow.course_type || "")
       .trim()
       .toLowerCase();
-    const [resultsResult, homeworkResult, sheetsResult, followUpsResult] =
+    const teacherHomework = await loadTeacherClassHomework({
+      actorId: auth.actorId,
+      role: auth.role as "teacher" | "admin",
+      classId,
+      classDays: String(classRow.days || ""),
+      levelId: Number(classRow.level_id),
+      level,
+      courseType: normalizedCourseType,
+      supported: true,
+    });
+    const [
+      legacyResultsResult,
+      assignmentResultsResult,
+      mockResultsResult,
+      homeworkResult,
+      sheetsResult,
+      followUpsResult,
+    ] =
       await Promise.all([
         supabaseAdmin
           .from("results")
           .select("*")
           .eq("class_id", classId)
           .eq("student_id", studentId)
-          .in("result_type", ["homework", "mock"]),
+          .eq("result_type", "homework")
+          .is("cambridge_exam_assignment_id", null)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .order("exam_date", { ascending: false, nullsFirst: false })
+          .order("id", { ascending: false })
+          .limit(500),
+        supabaseAdmin
+          .from("results")
+          .select("*")
+          .eq("class_id", classId)
+          .eq("student_id", studentId)
+          .eq("result_type", "homework")
+          .not("cambridge_exam_assignment_id", "is", null)
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .order("exam_date", { ascending: false, nullsFirst: false })
+          .order("id", { ascending: false })
+          .limit(500),
+        supabaseAdmin
+          .from("results")
+          .select("*")
+          .eq("class_id", classId)
+          .eq("student_id", studentId)
+          .eq("result_type", "mock")
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .order("exam_date", { ascending: false, nullsFirst: false })
+          .order("id", { ascending: false })
+          .limit(500),
         supabaseAdmin
           .from("cambridge_homework")
           .select("*")
           .eq("level", level)
           .eq("course_type", normalizedCourseType)
+          .lt("release_date", "2026-07-28")
           .order("week_number")
           .order("homework_order"),
         supabaseAdmin
@@ -170,11 +215,116 @@ export async function GET(request: NextRequest) {
       ]);
 
     const loadError =
-      resultsResult.error ||
+      legacyResultsResult.error ||
+      assignmentResultsResult.error ||
+      mockResultsResult.error ||
       homeworkResult.error ||
       sheetsResult.error ||
       followUpsResult.error;
     if (loadError) throw loadError;
+
+    const assignmentResults = assignmentResultsResult.data || [];
+    const historicalAssignmentIds = Array.from(
+      new Set(
+        assignmentResults
+          .map((row) => String(row.cambridge_exam_assignment_id || ""))
+          .filter(Boolean)
+      )
+    );
+    const historicalAssignmentsResult = historicalAssignmentIds.length
+      ? await supabaseAdmin
+          .from("cambridge_exam_assignments")
+          .select(`
+            id,
+            course_type,
+            release_date,
+            due_date,
+            active,
+            archived_at,
+            part:cambridge_exam_parts!cambridge_exam_assignments_exam_part_id_fkey (
+              id,
+              part_type,
+              exam:cambridge_exam_sets!cambridge_exam_parts_exam_set_id_fkey (
+                id,
+                exam_number,
+                title,
+                active,
+                archived_at,
+                level:levels!cambridge_exam_sets_level_id_fkey (
+                  name
+                )
+              )
+            )
+          `)
+          .in("id", historicalAssignmentIds)
+          .limit(500)
+      : { data: [], error: null };
+    if (historicalAssignmentsResult.error) {
+      console.error(
+        "Teacher historical assignment metadata load failed:",
+        formatError(historicalAssignmentsResult.error)
+      );
+    }
+
+    const one = (value: any) => (Array.isArray(value) ? value[0] : value);
+    const currentAssignments = teacherHomework.homework
+      .filter((item) => item.source === "assignment")
+      .map((item) => ({ ...item, progress_current: true }));
+    const assignmentMetadataById = new Map<string, any>(
+      currentAssignments.map((item) => [String(item.id), item])
+    );
+    for (const row of historicalAssignmentsResult.data || []) {
+      const assignmentId = String(row.id);
+      if (assignmentMetadataById.has(assignmentId)) continue;
+      const part = one(row.part);
+      const exam = one(part?.exam);
+      const historicalLevel = one(exam?.level);
+      assignmentMetadataById.set(assignmentId, {
+        id: assignmentId,
+        source: "assignment",
+        exam: {
+          id: String(exam?.id || ""),
+          number: Number(exam?.exam_number),
+          title: exam?.title ? String(exam.title) : null,
+        },
+        part: {
+          id: String(part?.id || ""),
+          type: String(part?.part_type || ""),
+          label: String(part?.part_type || ""),
+        },
+        level: String(historicalLevel?.name || ""),
+        course_type: String(row.course_type || ""),
+        release_date: row.release_date || null,
+        due_date: row.due_date || null,
+        active: row.active === true,
+        archived_at: row.archived_at || null,
+        exam_active: exam?.active === true,
+        exam_archived_at: exam?.archived_at || null,
+        progress_current: false,
+      });
+    }
+    for (const assignmentId of historicalAssignmentIds) {
+      if (assignmentMetadataById.has(assignmentId)) continue;
+      console.error(
+        "Teacher historical assignment metadata unavailable:",
+        assignmentId
+      );
+      assignmentMetadataById.set(assignmentId, {
+        id: assignmentId,
+        source: "assignment",
+        exam: { id: "", number: null, title: null },
+        part: { id: "", type: "", label: "Historical assignment details unavailable" },
+        release_date: null,
+        due_date: null,
+        progress_current: false,
+        metadata_unavailable: true,
+      });
+    }
+    const results = [
+      ...(legacyResultsResult.data || []),
+      ...assignmentResults,
+      ...(mockResultsResult.data || []),
+    ];
 
     const sheets = sheetsResult.data || [];
     const followUpDocuments = followUpsResult.data || [];
@@ -331,8 +481,9 @@ export async function GET(request: NextRequest) {
         },
         classDays: classRow.days || "",
         todayMadrid,
-        results: resultsResult.data || [],
+        results,
         homeworkMetadata: homeworkResult.data || [],
+        assignmentMetadata: Array.from(assignmentMetadataById.values()),
         fridayRows,
         followUps,
       }),

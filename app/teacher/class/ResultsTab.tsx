@@ -6,6 +6,7 @@ import {
   getCambridgeReadingSkillLabel,
   getHomework,
 } from "../../../lib/homework";
+import AssignmentHomeworkResultsSection from "./AssignmentHomeworkResultsSection";
 import { supabase } from "../../../lib/supabase";
 
 const cardStyle = {
@@ -436,21 +437,39 @@ export default function ResultsTab({
     setLoadingResults(true);
     setErrorMessage("");
 
-    const { data, error } = await supabase
-      .from("results")
-      .select("*")
-      .eq("class_id", classId)
-      .eq("student_id", selectedStudentId);
+    const [legacyHomeworkResult, mockResult] = await Promise.all([
+      supabase
+        .from("results")
+        .select("*")
+        .eq("class_id", classId)
+        .eq("student_id", selectedStudentId)
+        .eq("result_type", "homework")
+        .is("cambridge_exam_assignment_id", null)
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .order("exam_date", { ascending: false, nullsFirst: false })
+        .order("id", { ascending: false })
+        .limit(500),
+      supabase
+        .from("results")
+        .select("*")
+        .eq("class_id", classId)
+        .eq("student_id", selectedStudentId)
+        .eq("result_type", "mock"),
+    ]);
 
-    if (error) {
-      console.error(error);
+    const loadError = legacyHomeworkResult.error || mockResult.error;
+    if (loadError) {
+      console.error(loadError);
       setResults([]);
       setErrorMessage("Unable to load results.");
       setLoadingResults(false);
       return;
     }
 
-    setResults(data || []);
+    setResults([
+      ...(legacyHomeworkResult.data || []),
+      ...(mockResult.data || []),
+    ]);
     setLoadingResults(false);
   }
 
@@ -496,6 +515,7 @@ export default function ResultsTab({
       title: `Homework Week ${weekNumber}`,
       skill,
       percentage: score,
+      cambridge_exam_assignment_id: null,
     };
 
     if (currentTeacherId) {
@@ -507,6 +527,8 @@ export default function ResultsTab({
           .from("results")
           .update(payload)
           .eq("id", editingPracticeId)
+          .eq("result_type", "homework")
+          .is("cambridge_exam_assignment_id", null)
       : await supabase.from("results").insert([payload]);
 
     if (error) {
@@ -543,10 +565,13 @@ export default function ResultsTab({
       return;
     }
 
-    const { error } = await supabase
-      .from("results")
-      .delete()
-      .eq("id", id);
+    let deleteQuery = supabase.from("results").delete().eq("id", id);
+    if (label === "practice result") {
+      deleteQuery = deleteQuery
+        .eq("result_type", "homework")
+        .is("cambridge_exam_assignment_id", null);
+    }
+    const { error } = await deleteQuery;
 
     if (error) {
       setErrorMessage(error.message);
@@ -869,6 +894,14 @@ export default function ResultsTab({
               {selectedStudent.first_name} {selectedStudent.last_name}
             </h3>
           </section>
+
+          <AssignmentHomeworkResultsSection
+            classId={classId}
+            studentId={selectedStudent.id}
+            studentName={`${selectedStudent.first_name || ""} ${
+              selectedStudent.last_name || ""
+            }`.trim()}
+          />
 
           <section
             ref={homeworkSectionRef}

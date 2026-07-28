@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import TeacherLayout from "../../components/layout/TeacherLayout";
 import ResultsTab from "./ResultsTab";
@@ -47,6 +47,7 @@ const tabs = [
 const cambridgeClassTabs = [
   { id: "students", label: "Students" },
   { id: "homework", label: "Homework" },
+  { id: "results", label: "Results" },
   { id: "resources", label: "Class Resources" },
   { id: "shared-resources", label: "Shared Resources" },
   { id: "official-resources", label: "Official Resources" },
@@ -97,6 +98,8 @@ function getPanelSectionForAction(
 
 function ClassPageContent() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const [classData, setClassData] = useState<any>(null);
   const [levelName, setLevelName] = useState("");
@@ -286,6 +289,9 @@ if (classResult.data) {
   const showFridayTutorialResultsTab =
     classData?.is_cambridge === true && isFridayTutorialCambridgeLevel(levelName);
   const isCambridgeClass = classData?.is_cambridge === true;
+  const showResultsTab =
+    isCambridgeClass &&
+    ["B1", "B2", "C1", "C2"].includes(normalizeLevelName(levelName));
   const isSupportClass = normalizeLevelName(levelName) === "SUPPORT CLASSES";
   const controlSheetStudents: ClassStudentControlStudent[] = isCambridgeClass
     ? students.map((student) => ({
@@ -338,7 +344,7 @@ if (classResult.data) {
         section: panelSection,
         requestKey,
       });
-      setActiveTab("students");
+      selectTab("students");
       return;
     }
 
@@ -378,7 +384,7 @@ if (classResult.data) {
       ...current,
       open: false,
     }));
-    setActiveTab(targetTab);
+    selectTab(targetTab);
   }
 
   const resultsShortcut =
@@ -407,6 +413,11 @@ if (classResult.data) {
       )
     : null;
   const visibleTabs = (isCambridgeClass ? cambridgeClassTabs : tabs)
+    .filter(
+      (tab) =>
+        tab.id !== "results" ||
+        (isCambridgeClass ? showResultsTab : !isSupportClass)
+    )
     .filter((tab) => tab.id !== "class-exams" || showClassExamsTab)
     .filter(
       (tab) => tab.id !== "unit-exam-results" || showUnitExamResultsTab
@@ -416,6 +427,30 @@ if (classResult.data) {
         tab.id !== "friday-tutorial-results" ||
         showFridayTutorialResultsTab
     );
+  const visibleTabIds = visibleTabs.map((tab) => tab.id).join("|");
+  const requestedTab = String(searchParams.get("tab") || "").trim();
+  const resultsTabIsVisible = visibleTabs.some((tab) => tab.id === "results");
+
+  function selectTab(tabId: string) {
+    const nextTab = visibleTabs.some((tab) => tab.id === tabId)
+      ? tabId
+      : "students";
+    if (activeTab === nextTab && requestedTab === nextTab) return;
+    setActiveTab(nextTab);
+    if (requestedTab === nextTab) return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("tab", nextTab);
+    router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
+  }
+
+  useEffect(() => {
+    if (!classData) return;
+    const nextTab =
+      requestedTab && visibleTabs.some((tab) => tab.id === requestedTab)
+        ? requestedTab
+        : "students";
+    setActiveTab((current) => (current === nextTab ? current : nextTab));
+  }, [classData, requestedTab, visibleTabIds]);
 
   return (
    <TeacherLayout>
@@ -449,7 +484,7 @@ if (classResult.data) {
               className={`teacher-class-workspace-nav-button ${
                 isActive ? "is-active" : ""
               }`}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectTab(tab.id)}
             >
               {tab.label}
             </button>
@@ -552,8 +587,7 @@ if (classResult.data) {
 
      {activeTab === "homework" && (
   <TeacherHomework
-    level={classData?.level_name ?? ""}
-    courseType={classData?.course_type ?? ""}
+    classId={classData?.id ?? ""}
   />
 )}
 
@@ -616,7 +650,7 @@ if (classResult.data) {
         </>
       )}
 
-      {activeTab === "results" && classData && (
+      {activeTab === "results" && resultsTabIsVisible && classData && (
   <ResultsTab
     classId={classData.id}
     students={students}

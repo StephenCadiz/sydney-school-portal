@@ -14062,3 +14062,149 @@ img {
     width: 100%;
   }
 }
+.teacher-homework-state,
+.teacher-homework-directory,
+.assignment-homework-results {
+  background: var(--ss-card-bg, #fff);
+  border: 1px solid var(--ss-border, #e3e8f0);
+  border-radius: 14px;
+  padding: 22px;
+}
+
+.teacher-homework-state.is-error {
+  color: #a62222;
+}
+
+.teacher-homework-heading,
+.teacher-homework-card-header,
+.assignment-homework-results-heading,
+.assignment-homework-result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.teacher-homework-heading h2,
+.teacher-homework-card h3,
+.assignment-homework-results h3 {
+  margin: 4px 0;
+  color: #1f3c88;
+}
+
+.teacher-homework-grid,
+.assignment-homework-result-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.teacher-homework-card,
+.assignment-homework-result-row,
+.assignment-homework-result-form {
+  border: 1px solid #e6eaf2;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.teacher-homework-status {
+  border-radius: 999px;
+  padding: 6px 11px;
+  background: #e8f5ec;
+  color: #236b3b;
+}
+
+.teacher-homework-status.is-overdue {
+  background: #fff0ed;
+  color: #a33a2b;
+}
+
+.teacher-homework-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.teacher-homework-dates div {
+  background: #f6f8fb;
+  border-radius: 9px;
+  padding: 12px;
+}
+
+.teacher-homework-dates dt,
+.teacher-homework-resource-groups h4 {
+  color: #667085;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.teacher-homework-dates dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+
+.teacher-homework-resource-groups {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.teacher-homework-links,
+.assignment-homework-result-row > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.teacher-homework-links a,
+.assignment-homework-results button {
+  border: 0;
+  border-radius: 8px;
+  background: #1f3c88;
+  color: #fff;
+  cursor: pointer;
+  padding: 9px 13px;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.assignment-homework-result-row > div {
+  display: grid;
+  gap: 5px;
+}
+
+.assignment-homework-result-row span {
+  color: #667085;
+}
+
+.assignment-homework-result-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.assignment-homework-result-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.assignment-homework-result-form input,
+.assignment-homework-result-form textarea {
+  border: 1px solid #d9e2ef;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+@media (max-width: 720px) {
+  .teacher-homework-heading,
+  .teacher-homework-card-header,
+  .assignment-homework-results-heading,
+  .assignment-homework-result-row {
+    display: grid;
+  }
+
+  .teacher-homework-dates {
+    grid-template-columns: 1fr;
+  }
+}
