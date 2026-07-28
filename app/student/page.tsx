@@ -6,23 +6,11 @@ import Image from "next/image";
 
 import StudentMenu from "./StudentMenu";
 import {
-  getHomeworkTimingStatus,
-  getReleasedStudentHomework,
-  getHomeworkSkillLabel,
-} from "../../lib/homework";
-import {
-  buildHomeworkResultMap,
-  getHomeworkResultKey,
-  getHomeworkWeekNumber,
-  getStudentResults,
-} from "../../lib/progress";
-import {
   getCurrentStudentCourseInfo,
   getCurrentTeacher,
   getCurrentUser,
 } from "../../lib/user";
 import {
-  getUnreadHomeworkForStudent,
   getUnreadMessagesForStudent,
 } from "../../lib/studentNotifications";
 import { supabase } from "../../lib/supabase";
@@ -135,39 +123,21 @@ export default function StudentDashboard() {
         );
         setMeetLink(String(classroom.meet_link ?? "").trim());
 
-        const releasedHomework = await getReleasedStudentHomework(
-          courseInfo.level,
-          courseInfo.courseType,
-          courseInfo.classroom.days
-        );
-        const studentResults = await getStudentResults(user.id);
-        const homeworkResultMap = buildHomeworkResultMap(
-          studentResults,
-          releasedHomework
-        );
-        const dashboardHomework = releasedHomework
-          .filter((item) => getHomeworkTimingStatus(item) === "Current")
-          .slice(0, 4)
-          .map((item) => {
-            const resultKey = getHomeworkResultKey(
-              getHomeworkWeekNumber(item),
-              item.homework_skill
-            );
-
-            return {
-              ...item,
-              homework_result: resultKey
-                ? homeworkResultMap.get(resultKey) || null
-                : null,
-            };
-          });
-
-        setCurrentHomework(dashboardHomework);
-
-        const homeworkIds = releasedHomework.map((item) => item.id);
-        const unreadHomeworkIds = await getUnreadHomeworkForStudent(
-          user.id,
-          homeworkIds
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error("Your session has expired.");
+        const homeworkResponse = await fetch("/api/student/homework?summary=1", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const homeworkPayload = await homeworkResponse.json().catch(() => ({}));
+        if (!homeworkResponse.ok) {
+          throw new Error(homeworkPayload.error || "Unable to load homework.");
+        }
+        setCurrentHomework(
+          (homeworkPayload.homework || [])
+            .filter((item: any) => item.status === "Current")
+            .slice(0, 4)
         );
 
         const unreadMessages = await getUnreadMessagesForStudent(
@@ -175,7 +145,7 @@ export default function StudentDashboard() {
           teacher.id
         );
 
-        setUnreadHomeworkCount(unreadHomeworkIds.length);
+        setUnreadHomeworkCount(Number(homeworkPayload.unread_count || 0));
         setUnreadMessageCount(unreadMessages.length);
       } catch (error) {
         console.error("Unable to load student dashboard:", error);
@@ -381,22 +351,19 @@ export default function StudentDashboard() {
           ) : (
             <div className="student-dashboard-homework-list">
               {currentHomework.map((item) => {
-                const skillLabel = getHomeworkSkillLabel(
-                  level,
-                  item.homework_skill
-                );
-                const homeworkStatus = getHomeworkTimingStatus(
-                  item,
-                  undefined,
-                  Boolean(item.homework_result)
-                );
+                const skillLabel =
+                  item.source === "assignment"
+                    ? item.part.label
+                    : String(item.skill || "");
+                const homeworkTitle =
+                  item.source === "assignment"
+                    ? `Exam ${item.exam.number} · ${item.part.label}`
+                    : item.title || `Week ${item.week_number} Homework`;
 
                 return (
-                  <div className="student-dashboard-homework-row" key={item.id}>
+                  <div className="student-dashboard-homework-row" key={`${item.source}-${item.id}`}>
                     <div>
-                      <strong>
-                        {item.title || "Homework"}
-                      </strong>
+                      <strong>{homeworkTitle}</strong>
 
                       <div className="student-dashboard-homework-meta">
                         {skillLabel && <span>{skillLabel}</span>}
@@ -405,9 +372,9 @@ export default function StudentDashboard() {
                           {formatDateOnly(item.due_date)}
                         </span>
                         <span
-                          className={`student-homework-status is-${homeworkStatus.toLowerCase()}`}
+                          className="student-homework-status is-current"
                         >
-                          {homeworkStatus}
+                          Current
                         </span>
                       </div>
                     </div>

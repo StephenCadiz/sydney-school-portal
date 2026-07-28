@@ -55,6 +55,25 @@ export async function markHomeworkAsViewed(
   }
 }
 
+export async function markAssignmentHomeworkAsViewed(
+  accessToken: string,
+  assignmentIds: string[]
+) {
+  if (assignmentIds.length === 0) return;
+  const response = await fetch("/api/student/homework/read", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ assignment_ids: assignmentIds }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "Unable to mark assignment homework as viewed.");
+  }
+}
+
 export async function getUnreadMessagesForStudent(
   studentId: string,
   teacherId: string
