@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import TeacherLayout from "../../components/layout/TeacherLayout";
@@ -14,6 +14,7 @@ import FridayTutorialResultsTab from "./FridayTutorialResultsTab";
 import UnitExamResultsTab from "./UnitExamResultsTab";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
+import GoogleMeetTab, { type GoogleMeetState } from "./GoogleMeetTab";
 import ClassStudentsControlSheet, {
   type ClassStudentControlStudent,
   type ClassStudentShortcutAction,
@@ -53,6 +54,8 @@ const cambridgeClassTabs = [
   { id: "official-resources", label: "Official Resources" },
   { id: "announcements", label: "Announcements" },
 ];
+
+const googleMeetTab = { id: "google-meet", label: "Google Meet" };
 
 type ShortcutRequest = {
   key: number;
@@ -108,6 +111,13 @@ function ClassPageContent() {
   const [youngLearners, setYoungLearners] = useState<any[]>([]);
   const [resources, setResources] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [googleMeet, setGoogleMeet] = useState<GoogleMeetState>({
+    classId: "",
+    loading: false,
+    error: "",
+    supported: false,
+    meetLink: null,
+  });
 
   const [activeTab, setActiveTab] = useState("students");
 
@@ -222,6 +232,86 @@ if (classResult.data) {
   useEffect(() => {
     loadData();
   }, []);
+
+  const requestedClassId = String(searchParams.get("id") || "").trim();
+  const loadGoogleMeet = useCallback(async () => {
+    if (!requestedClassId) {
+      setGoogleMeet({
+        classId: "",
+        loading: false,
+        error: "",
+        supported: false,
+        meetLink: null,
+      });
+      return;
+    }
+
+    setGoogleMeet((current) => ({
+      classId: requestedClassId,
+      loading: true,
+      error: "",
+      supported:
+        current.classId === requestedClassId ? current.supported : false,
+      meetLink: null,
+    }));
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("AUTHENTICATION_REQUIRED");
+
+      const response = await fetch(
+        `/api/teacher/classes/${encodeURIComponent(
+          requestedClassId
+        )}/google-meet`,
+        {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+
+      if (response.status === 404) {
+        setGoogleMeet({
+          classId: requestedClassId,
+          loading: false,
+          error: "",
+          supported: false,
+          meetLink: null,
+        });
+        return;
+      }
+      if (!response.ok) throw new Error("GOOGLE_MEET_LOAD_FAILED");
+
+      setGoogleMeet({
+        classId: requestedClassId,
+        loading: false,
+        error: "",
+        supported:
+          payload?.class?.id === requestedClassId &&
+          payload?.class?.course_type === "online",
+        meetLink:
+          typeof payload?.class?.meet_link === "string"
+            ? payload.class.meet_link
+            : null,
+      });
+    } catch (error) {
+      console.error("Google Meet information load failed:", error);
+      setGoogleMeet((current) => ({
+        classId: requestedClassId,
+        loading: false,
+        error: "Google Meet information could not be loaded. Please try again.",
+        supported:
+          current.classId === requestedClassId && current.supported,
+        meetLink: null,
+      }));
+    }
+  }, [requestedClassId]);
+
+  useEffect(() => {
+    void loadGoogleMeet();
+  }, [loadGoogleMeet]);
 
   async function handleSaveResource() {
     const classId = searchParams.get("id");
@@ -412,7 +502,15 @@ if (classResult.data) {
         (student) => student.id === studentPanel.studentId
       )
     : null;
-  const visibleTabs = (isCambridgeClass ? cambridgeClassTabs : tabs)
+  const googleMeetIsVisible =
+    googleMeet.classId === requestedClassId && googleMeet.supported;
+  const classTabs = (isCambridgeClass ? cambridgeClassTabs : tabs).flatMap(
+    (tab) =>
+      tab.id === "students" && googleMeetIsVisible
+        ? [tab, googleMeetTab]
+        : [tab]
+  );
+  const visibleTabs = classTabs
     .filter(
       (tab) =>
         tab.id !== "results" ||
@@ -509,6 +607,12 @@ if (classResult.data) {
           onShortcut={openStudentShortcut}
         />
       )}
+
+      {activeTab === "google-meet" &&
+        googleMeetIsVisible &&
+        classData && (
+          <GoogleMeetTab state={googleMeet} onRetry={loadGoogleMeet} />
+        )}
 
       {activeTab === "resources" && (
         <>
