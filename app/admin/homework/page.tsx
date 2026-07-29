@@ -1,82 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
-import HomeworkForm from "../../components/admin/HomeworkForm";
 import HomeworkList from "../../components/admin/HomeworkList";
+import { getAllHomework } from "../../../lib/homework";
 
-import {
-  getAllHomework,
-  createHomework,
-  updateHomework,
-  deleteHomework,
-} from "../../../lib/homework";
-import { upsertCambridgeExamKey } from "../../../lib/cambridgeExamKeys";
+const LEGACY_HOMEWORK_CUTOVER_DATE = "2026-07-28";
+
+function isStoredLegacyReleaseDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match || value >= LEGACY_HOMEWORK_CUTOVER_DATE) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
 
 export default function HomeworkPage() {
   const [homework, setHomework] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingHomework, setEditingHomework] = useState<any>(null);
+  const [error, setError] = useState("");
 
-  async function loadHomework() {
+  const loadHomework = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
       const data = await getAllHomework();
-      setHomework(data);
-    } catch (error) {
-      console.error(error);
+      setHomework(data.filter((item) => isStoredLegacyReleaseDate(item.release_date)));
+    } catch (loadError) {
+      console.error("Unable to load legacy Cambridge homework:", loadError);
+      setHomework([]);
+      setError("Unable to load legacy Cambridge homework.");
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    loadHomework();
   }, []);
 
-  async function handleSave(homeworkData: any) {
-  try {
-    const { teacher_key_url, ...homeworkPayload } = homeworkData;
-
-    if (editingHomework) {
-      await updateHomework(editingHomework.id, homeworkPayload);
-
-      setEditingHomework(null);
-    } else {
-      await createHomework(homeworkPayload);
-    }
-
-    await upsertCambridgeExamKey(
-      homeworkPayload.level,
-      homeworkPayload.course_type,
-      homeworkPayload.exam_number,
-      teacher_key_url
-    );
-
-    alert(
-      editingHomework
-        ? "Homework updated successfully."
-        : "Homework saved successfully."
-    );
-
-    await loadHomework();
-  } catch (error: any) {
-    console.error(error);
-    alert(error.message);
-  }
-}
-
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this homework?")) return;
-
-    try {
-      await deleteHomework(id);
-      loadHomework();
-    } catch (error) {
-      console.error(error);
-      alert("Unable to delete homework.");
-    }
-  }
+  useEffect(() => {
+    void loadHomework();
+  }, [loadHomework]);
 
   return (
     <AdminLayout>
@@ -86,23 +58,23 @@ export default function HomeworkPage() {
           marginBottom: "10px",
         }}
       >
-        Cambridge Homework Manager
+        Legacy Cambridge Homework
       </h1>
 
-      <p
-        style={{
-          color: "#666",
-          marginBottom: "30px",
-        }}
-      >
-        Create and manage Cambridge homework for all courses.
-      </p>
+      <section className="exam-bank-notice" style={{ marginBottom: "24px" }}>
+        <p>
+          New Cambridge homework is now created through Cambridge Exam Bank →
+          Assigned Exams. The records below are retained for historical
+          reference.
+        </p>
+        <Link
+          className="exam-bank-button"
+          href="/admin/exam-bank/assignments"
+        >
+          Open Assigned Exams
+        </Link>
+      </section>
 
-      <HomeworkForm
-  onSave={handleSave}
-  editingHomework={editingHomework}
-  onCancelEdit={() => setEditingHomework(null)}
-/>
       {loading ? (
         <div
           style={{
@@ -112,14 +84,17 @@ export default function HomeworkPage() {
             textAlign: "center",
           }}
         >
-          Loading homework...
+          Loading legacy homework...
+        </div>
+      ) : error ? (
+        <div className="exam-bank-notice is-error" role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={() => void loadHomework()}>
+            Retry
+          </button>
         </div>
       ) : (
-        <HomeworkList
-  homework={homework}
-  onDelete={handleDelete}
-  onEdit={(item) => setEditingHomework(item)}
-/>
+        <HomeworkList homework={homework} readOnly />
       )}
     </AdminLayout>
   );

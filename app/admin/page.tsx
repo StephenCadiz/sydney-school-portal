@@ -38,9 +38,10 @@ const quickActions = [
     icon: "addUsers" as IconName,
   },
   {
-    label: "Add Homework",
-    href: "/admin/homework",
-    description: "Publish Cambridge homework.",
+    label: "Assigned Exams",
+    href: "/admin/exam-bank/assignments",
+    description:
+      "Manage Cambridge weekly homework by level, course type, release date and due date.",
     icon: "homework" as IconName,
   },
   {

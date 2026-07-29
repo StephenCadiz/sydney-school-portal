@@ -301,8 +301,8 @@ export default function AdminLayout({
       icon: "home" as AdminNavIconName,
     },
     {
-      name: "Homework",
-      href: "/admin/homework",
+      name: "Assigned Exams",
+      href: "/admin/exam-bank/assignments",
       icon: "book" as AdminNavIconName,
     },
     {
@@ -387,8 +387,16 @@ export default function AdminLayout({
     },
   ];
 
-  const isActive = (href: string) =>
-    href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+  const isActive = (href: string) => {
+    if (href === "/admin") return pathname === "/admin";
+    if (href === "/admin/exam-bank") {
+      return (
+        pathname.startsWith(href) &&
+        !pathname.startsWith("/admin/exam-bank/assignments")
+      );
+    }
+    return pathname.startsWith(href);
+  };
 
   const hasUnreadTeacherMessages = unreadTeacherMessages > 0;
   const unreadAccessibleLabel = hasUnreadTeacherMessages
@@ -474,6 +482,7 @@ export default function AdminLayout({
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive(item.href) ? "page" : undefined}
               aria-label={isMessagesItem ? unreadAccessibleLabel : item.name}
               className="ss-sidebar-link admin-sidebar-link"
               onClick={() => setMenuOpen(false)}

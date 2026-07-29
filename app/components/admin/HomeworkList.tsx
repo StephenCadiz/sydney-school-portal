@@ -8,11 +8,23 @@ import {
   normalizeHomeworkSkill,
 } from "../../../lib/homework";
 
-type Props = {
-  homework: any[];
-  onDelete: (id: string) => void;
-  onEdit: (homework: any) => void;
+type Homework = Record<string, any>;
+
+type ReadOnlyHomeworkListProps = {
+  homework: Homework[];
+  readOnly: true;
+  onDelete?: never;
+  onEdit?: never;
 };
+
+type EditableHomeworkListProps = {
+  homework: Homework[];
+  readOnly?: false;
+  onDelete: (id: string) => void;
+  onEdit: (homework: Homework) => void;
+};
+
+type Props = ReadOnlyHomeworkListProps | EditableHomeworkListProps;
 
 type HomeworkStatus = "Released" | "Scheduled" | "Inactive" | "Date missing";
 type StatusFilter = "all" | HomeworkStatus;
@@ -111,11 +123,9 @@ function compareHomework(first: any, second: any) {
   return String(first.id || "").localeCompare(String(second.id || ""));
 }
 
-export default function HomeworkList({
-  homework,
-  onDelete,
-  onEdit,
-}: Props) {
+export default function HomeworkList(props: Props) {
+  const { homework } = props;
+  const readOnly = props.readOnly === true;
   const [levelFilter, setLevelFilter] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -177,8 +187,12 @@ export default function HomeworkList({
   if (homework.length === 0) {
     return (
       <section className="admin-homework-sheet-empty">
-        <h2>Saved Homework</h2>
-        <p>No homework has been created yet.</p>
+        <h2>{readOnly ? "Historical Homework" : "Saved Homework"}</h2>
+        <p>
+          {readOnly
+            ? "No pre-cutover Cambridge homework records were found."
+            : "No homework has been created yet."}
+        </p>
       </section>
     );
   }
@@ -187,7 +201,7 @@ export default function HomeworkList({
     <section className="admin-homework-sheet">
       <header className="admin-homework-sheet-header">
         <div>
-          <h2>Saved Homework</h2>
+          <h2>{readOnly ? "Historical Homework" : "Saved Homework"}</h2>
           <p>
             {visibleHomework.length} homework{" "}
             {visibleHomework.length === 1 ? "item" : "items"}
@@ -271,6 +285,7 @@ export default function HomeworkList({
               <tr>
                 <th>Level</th>
                 <th>Course</th>
+                <th>Exam</th>
                 <th>Week</th>
                 <th>Skill</th>
                 <th>Title</th>
@@ -278,7 +293,7 @@ export default function HomeworkList({
                 <th>Due</th>
                 <th>Status</th>
                 <th>Resources</th>
-                <th>Actions</th>
+                {props.readOnly !== true && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -294,6 +309,9 @@ export default function HomeworkList({
                   >
                     <td><strong>{item.level || "—"}</strong></td>
                     <td>{getCourseTypeLabel(item.course_type)}</td>
+                    <td>
+                      {item.exam_number ? `Exam ${item.exam_number}` : "—"}
+                    </td>
                     <td>Week {item.week_number ?? "—"}</td>
                     <td>
                       {getHomeworkSkillLabel(item.level, item.homework_skill) ||
@@ -338,20 +356,25 @@ export default function HomeworkList({
                         )}
                       </div>
                     </td>
-                    <td>
-                      <div className="admin-homework-sheet-actions">
-                        <button type="button" onClick={() => onEdit(item)}>
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="is-delete"
-                          onClick={() => onDelete(item.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+                    {props.readOnly !== true && (
+                      <td>
+                        <div className="admin-homework-sheet-actions">
+                          <button
+                            type="button"
+                            onClick={() => props.onEdit(item)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="is-delete"
+                            onClick={() => props.onDelete(item.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
