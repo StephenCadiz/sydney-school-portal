@@ -7,7 +7,6 @@ import {
   GraduationCap,
   Calendar,
   BookOpen,
-  ClipboardList,
   BarChart3,
   MessageSquare,
   Settings,
@@ -72,22 +71,6 @@ export default function TeacherSidebar({
         icon={<BookOpen size={20} />}
         title="Resources"
         active={isActive("/teacher/resources")}
-        onClick={onClose}
-      />
-
-      <SidebarItem
-        href="/teacher/cambridge-exams"
-        icon={<BookOpen size={20} />}
-        title="Cambridge Exams"
-        active={isActive("/teacher/cambridge-exams")}
-        onClick={onClose}
-      />
-
-      <SidebarItem
-        href="/teacher/homework"
-        icon={<ClipboardList size={20} />}
-        title="Homework"
-        active={isActive("/teacher/homework")}
         onClick={onClose}
       />
 
@@ -181,6 +164,7 @@ function SidebarItem({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       aria-label={ariaLabel}
       className="ss-sidebar-link"
       onClick={onClick}

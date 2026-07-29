@@ -1,16 +1,8 @@
 import {
-  adjustHomeworkDatesForClassDays,
-  getCambridgeReadingSkillLabel,
   getHomeworkSkillLabel,
   normalizeHomeworkSkill,
 } from "./homework";
-import {
-  buildProgressHomeworkResultMap,
-  getHomeworkResultKey,
-  getHomeworkWeekNumber,
-  getResultWeekNumber,
-  toResultNumber,
-} from "./progress";
+import { toResultNumber } from "./progress";
 import {
   calculateFridayTutorialAttendance,
   formatFridayTutorialPracticeKey,
@@ -28,8 +20,7 @@ export type HomeworkAssignmentStatus = "completed" | "outstanding" | "pending";
 
 type HomeworkProgressRow = {
   id: string;
-  source: "legacy" | "assignment";
-  week: number | null;
+  source: "assignment";
   title: string;
   skill: string;
   skill_label: string;
@@ -38,8 +29,7 @@ type HomeworkProgressRow = {
 
 type HomeworkProgressAssignment = {
   id: string;
-  source: "legacy" | "assignment";
-  week: number | null;
+  source: "assignment";
   title: string;
   skill: string;
   skill_label: string;
@@ -47,7 +37,7 @@ type HomeworkProgressAssignment = {
   status: HomeworkAssignmentStatus;
 };
 
-type HomeworkProgressEra = {
+type HomeworkProgress = {
   overall: number | null;
   result_count: number;
   target_status: ReturnType<typeof getTargetStatus>;
@@ -66,7 +56,6 @@ export type TeacherStudentProgressPayload = {
   };
   target: number;
   summary: {
-    legacy_homework: ProgressMetric;
     assigned_homework: ProgressMetric;
     latest_mock: ProgressMetric & { mock_number: number | null };
     friday_average: ProgressMetric;
@@ -77,11 +66,7 @@ export type TeacherStudentProgressPayload = {
   };
   attention: Array<{ id: string; text: string }>;
   snapshot: string[];
-  homework: {
-    legacy: HomeworkProgressEra;
-    assigned: HomeworkProgressEra;
-    history: HomeworkProgressRow[];
-  };
+  homework: HomeworkProgress;
   mocks: {
     latest: MockProgressRow | null;
     progression: number | null;
@@ -176,10 +161,8 @@ export type FollowUpProgressEntry = {
 
 type BuildInput = {
   student: TeacherStudentProgressPayload["student"];
-  classDays: string;
   todayMadrid: string;
   results: any[];
-  homeworkMetadata: any[];
   assignmentMetadata?: any[];
   fridayRows: FridayProgressSource[];
   followUps: FollowUpProgressSource[];
@@ -372,48 +355,11 @@ export function buildTeacherStudentProgress(
   const target = getCambridgeTarget(input.student.level);
   if (target === null) throw new Error("Unsupported Cambridge level.");
 
-  const adjustedMetadata = adjustHomeworkDatesForClassDays(
-    input.homeworkMetadata,
-    input.classDays
-  );
-  const legacyResults = input.results.filter(
-    (row) =>
-      row?.result_type === "homework" &&
-      !row?.cambridge_exam_assignment_id
-  );
   const assignmentResults = input.results.filter(
     (row) =>
       row?.result_type === "homework" &&
       Boolean(row?.cambridge_exam_assignment_id)
   );
-  const homeworkMap = buildProgressHomeworkResultMap(
-    legacyResults,
-    adjustedMetadata,
-    input.todayMadrid
-  );
-  const homeworkHistory = Array.from(homeworkMap.values())
-    .map((row) => {
-      const week = getResultWeekNumber(row);
-      const skill = normalizeHomeworkSkill(row.skill);
-      const percentage = toResultNumber(row.percentage);
-      return week && skill && percentage !== null
-        ? {
-            id: String(row.id),
-            source: "legacy" as const,
-            week,
-            title: String(row.title || `Homework Week ${week}`),
-            skill,
-            skill_label: getHomeworkSkillLabel(input.student.level, skill),
-            percentage,
-          }
-        : null;
-    })
-    .filter((row): row is NonNullable<typeof row> => row !== null)
-    .sort(
-      (first, second) =>
-        second.week - first.week ||
-        first.skill_label.localeCompare(second.skill_label)
-    );
   const assignmentResultById = new Map(
     assignmentResults.map((row) => [
       String(row.cambridge_exam_assignment_id),
@@ -444,7 +390,6 @@ export function buildTeacherStudentProgress(
       return {
         id: String(result.id),
         source: "assignment" as const,
-        week: null,
         title,
         skill: metadataUnavailable ? "unavailable" : partType,
         skill_label: partLabel,
@@ -452,25 +397,10 @@ export function buildTeacherStudentProgress(
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
-  const combinedHistory = [...assignmentHistory, ...homeworkHistory];
-  const legacyOverall =
-    homeworkHistory.length > 0
-      ? round(average(homeworkHistory.map((row) => row.percentage)) as number)
-      : null;
   const assignedOverall =
     assignmentHistory.length > 0
       ? round(average(assignmentHistory.map((row) => row.percentage)) as number)
       : null;
-  const legacySkills = ["reading", "listening", "writing"].map((skill) => {
-    const values = homeworkHistory
-      .filter((row) => row.skill === skill)
-      .map((row) => row.percentage);
-    return {
-      skill,
-      label: getHomeworkSkillLabel(input.student.level, skill),
-      average: values.length ? round(average(values) as number) : null,
-    };
-  });
   const assignedSkills = ["reading", "listening", "writing", "speaking"].map(
     (skill) => {
       const values = assignmentHistory
@@ -483,43 +413,6 @@ export function buildTeacherStudentProgress(
       };
     }
   );
-  const legacyAssignments: HomeworkProgressAssignment[] = adjustedMetadata
-    .filter(
-      (item) =>
-        item.active !== false &&
-        item.release_date &&
-        item.release_date <= input.todayMadrid
-    )
-    .map((item) => {
-      const week = getHomeworkWeekNumber(item);
-      const skill = normalizeHomeworkSkill(item.homework_skill);
-      if (!week || !skill) return null;
-      const result = homeworkMap.get(getHomeworkResultKey(week, skill));
-      const status: HomeworkAssignmentStatus = result
-        ? "completed"
-        : item.due_date && item.due_date < input.todayMadrid
-        ? "outstanding"
-        : "pending";
-      return {
-        id: String(item.id),
-        source: "legacy" as const,
-        week,
-        title:
-          String(item.title || "").trim() ||
-          `${getHomeworkSkillLabel(input.student.level, skill)} Week ${week}`,
-        skill,
-        skill_label: getHomeworkSkillLabel(input.student.level, skill),
-        due_date: item.due_date || null,
-        status,
-      };
-    })
-    .filter((row): row is NonNullable<typeof row> => row !== null)
-    .sort(
-      (first, second) =>
-        String(first.due_date || "9999-12-31").localeCompare(
-          String(second.due_date || "9999-12-31")
-        ) || first.week - second.week
-    );
   const assignmentRows = (input.assignmentMetadata || [])
     .filter((item) => item.progress_current !== false)
     .map((item) => {
@@ -527,7 +420,6 @@ export function buildTeacherStudentProgress(
       return {
         id: String(item.id),
         source: "assignment" as const,
-        week: null,
         title: `Exam ${item.exam.number} · ${item.part.label}`,
         skill: String(item.part.type),
         skill_label: String(item.part.label),
@@ -545,7 +437,6 @@ export function buildTeacherStudentProgress(
           String(second.due_date || "9999-12-31")
         ) || first.id.localeCompare(second.id)
     );
-  const assignments = [...assignmentRows, ...legacyAssignments];
 
   const mocks = buildMocks(input.results);
   const latestMock = mocks.at(-1) || null;
@@ -556,7 +447,7 @@ export function buildTeacherStudentProgress(
       : null;
   const friday = buildFriday(input.fridayRows);
   const followUps = buildFollowUps(input.followUps);
-  const outstandingCount = assignments.filter(
+  const outstandingCount = assignmentRows.filter(
     (item) => item.status === "outstanding"
   ).length;
   const unresolvedFollowUps = followUps.counts.open + followUps.counts.in_progress;
@@ -591,17 +482,7 @@ export function buildTeacherStudentProgress(
   }
 
   const snapshot: string[] = [];
-  const legacyTargetStatus = getTargetStatus(legacyOverall, target);
   const assignedTargetStatus = getTargetStatus(assignedOverall, target);
-  if (legacyOverall !== null && legacyTargetStatus) {
-    snapshot.push(
-      `Legacy Homework average: ${legacyOverall}% — ${formatDifference(
-        legacyTargetStatus.difference
-      )} points ${
-        legacyTargetStatus.difference >= 0 ? "above target" : "to target"
-      }.`
-    );
-  }
   if (assignedOverall !== null && assignedTargetStatus) {
     snapshot.push(
       `Assigned Homework average: ${assignedOverall}% — ${formatDifference(
@@ -644,13 +525,6 @@ export function buildTeacherStudentProgress(
     student: input.student,
     target,
     summary: {
-      legacy_homework: {
-        value: legacyOverall,
-        context:
-          legacyOverall === null
-            ? "No legacy results"
-            : `${homeworkHistory.length} completed`,
-      },
       assigned_homework: {
         value: assignedOverall,
         context:
@@ -685,23 +559,12 @@ export function buildTeacherStudentProgress(
     attention,
     snapshot,
     homework: {
-      legacy: {
-        overall: legacyOverall,
-        result_count: homeworkHistory.length,
-        target_status: legacyTargetStatus,
-        skills: legacySkills,
-        assignments: legacyAssignments,
-        history: homeworkHistory,
-      },
-      assigned: {
-        overall: assignedOverall,
-        result_count: assignmentHistory.length,
-        target_status: assignedTargetStatus,
-        skills: assignedSkills,
-        assignments: assignmentRows,
-        history: assignmentHistory,
-      },
-      history: combinedHistory,
+      overall: assignedOverall,
+      result_count: assignmentHistory.length,
+      target_status: assignedTargetStatus,
+      skills: assignedSkills,
+      assignments: assignmentRows,
+      history: assignmentHistory,
     },
     mocks: {
       latest: latestMock,

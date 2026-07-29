@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import AssignmentHomeworkResultsSection from "./AssignmentHomeworkResultsSection";
 import StudentFollowUpPanelSection from "./StudentFollowUpPanelSection";
-import StudentHomeworkResultsSection from "./StudentHomeworkResultsSection";
 import StudentMessagePanelSection from "./StudentMessagePanelSection";
 import StudentMockResultsSection from "./StudentMockResultsSection";
 import StudentNotesPanelSection from "./StudentNotesPanelSection";
@@ -197,14 +197,10 @@ export default function StudentWorkspacePanel({
           )}
 
           {activeSection === "homework" && (
-            <StudentHomeworkResultsSection
+            <AssignmentHomeworkResultsSection
               classId={classId}
               studentId={studentId}
               studentName={studentName}
-              levelName={classLevel}
-              courseType={courseType}
-              classDays={classDays}
-              teacherId={teacherId}
             />
           )}
 

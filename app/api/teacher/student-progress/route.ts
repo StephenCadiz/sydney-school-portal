@@ -152,25 +152,12 @@ export async function GET(request: NextRequest) {
       supported: true,
     });
     const [
-      legacyResultsResult,
       assignmentResultsResult,
       mockResultsResult,
-      homeworkResult,
       sheetsResult,
       followUpsResult,
     ] =
       await Promise.all([
-        supabaseAdmin
-          .from("results")
-          .select("*")
-          .eq("class_id", classId)
-          .eq("student_id", studentId)
-          .eq("result_type", "homework")
-          .is("cambridge_exam_assignment_id", null)
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .order("exam_date", { ascending: false, nullsFirst: false })
-          .order("id", { ascending: false })
-          .limit(500),
         supabaseAdmin
           .from("results")
           .select("*")
@@ -193,14 +180,6 @@ export async function GET(request: NextRequest) {
           .order("id", { ascending: false })
           .limit(500),
         supabaseAdmin
-          .from("cambridge_homework")
-          .select("*")
-          .eq("level", level)
-          .eq("course_type", normalizedCourseType)
-          .lt("release_date", "2026-07-28")
-          .order("week_number")
-          .order("homework_order"),
-        supabaseAdmin
           .from("friday_tutorial_result_sheets")
           .select("id, tutorial_session_id, submitted_at")
           .eq("class_id", classId)
@@ -215,10 +194,8 @@ export async function GET(request: NextRequest) {
       ]);
 
     const loadError =
-      legacyResultsResult.error ||
       assignmentResultsResult.error ||
       mockResultsResult.error ||
-      homeworkResult.error ||
       sheetsResult.error ||
       followUpsResult.error;
     if (loadError) throw loadError;
@@ -321,7 +298,6 @@ export async function GET(request: NextRequest) {
       });
     }
     const results = [
-      ...(legacyResultsResult.data || []),
       ...assignmentResults,
       ...(mockResultsResult.data || []),
     ];
@@ -479,10 +455,8 @@ export async function GET(request: NextRequest) {
             .filter(Boolean)
             .join(" · "),
         },
-        classDays: classRow.days || "",
         todayMadrid,
         results,
-        homeworkMetadata: homeworkResult.data || [],
         assignmentMetadata: Array.from(assignmentMetadataById.values()),
         fridayRows,
         followUps,

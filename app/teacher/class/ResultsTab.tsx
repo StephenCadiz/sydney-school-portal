@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  adjustHomeworkDatesForClassDays,
-  getCambridgeReadingSkillLabel,
-  getHomework,
-} from "../../../lib/homework";
+import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import AssignmentHomeworkResultsSection from "./AssignmentHomeworkResultsSection";
 import { supabase } from "../../../lib/supabase";
 
@@ -124,39 +120,6 @@ function formatPercent(value: any) {
   return `${Math.round(number)}%`;
 }
 
-function formatDateOnly(value: string | null | undefined) {
-  if (!value) {
-    return "-";
-  }
-
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-
-  if (!match) {
-    return value;
-  }
-
-  return `${match[3]}/${match[2]}/${match[1]}`;
-}
-
-function getTodayDateOnly() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getWeekFromTitle(title: string | null | undefined) {
-  if (!title) {
-    return null;
-  }
-
-  const match = /week\s+(\d+)/i.exec(title);
-
-  return match ? Number(match[1]) : null;
-}
-
 function getMockAverage(result: any) {
   const reading = toNumber(result.reading);
   const writing = toNumber(result.writing);
@@ -226,8 +189,6 @@ export default function ResultsTab({
   classId,
   students,
   levelName = "",
-  courseType = "",
-  classDays = "",
   teacherId = "",
   initialStudentId = null,
   initialSection = null,
@@ -235,17 +196,9 @@ export default function ResultsTab({
 }: Props) {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [results, setResults] = useState<any[]>([]);
-  const [homework, setHomework] = useState<any[]>([]);
   const [loadingResults, setLoadingResults] = useState(false);
-  const [loadingHomework, setLoadingHomework] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-
-  const [weekNumber, setWeekNumber] = useState("1");
-  const [skill, setSkill] = useState("reading");
-  const [percentage, setPercentage] = useState("");
-  const [savingPractice, setSavingPractice] = useState(false);
-  const [editingPracticeId, setEditingPracticeId] = useState("");
 
   const [mockNumber, setMockNumber] = useState("1");
   const [reading, setReading] = useState("");
@@ -262,7 +215,7 @@ export default function ResultsTab({
   const [shortcutSection, setShortcutSection] = useState<
     "homework" | "mock" | ""
   >("");
-  const homeworkSectionRef = useRef<HTMLElement | null>(null);
+  const homeworkSectionRef = useRef<HTMLDivElement | null>(null);
   const mockSectionRef = useRef<HTMLElement | null>(null);
 
   const selectedStudent = students.find(
@@ -271,15 +224,6 @@ export default function ResultsTab({
 
   const readingLabel = getCambridgeReadingSkillLabel(levelName);
 
-  const skillOptions = [
-    { value: "reading", label: readingLabel },
-    { value: "listening", label: "Listening" },
-    { value: "writing", label: "Writing" },
-  ];
-
-  const practiceResults = results.filter(
-    (result) => result.result_type === "homework"
-  );
   const mockResults = results.filter(
     (result) => result.result_type === "mock"
   );
@@ -299,36 +243,6 @@ export default function ResultsTab({
     ) / 4;
   }, [reading, writing, listening, speaking]);
 
-  const outstandingHomework = useMemo(() => {
-    const today = getTodayDateOnly();
-
-    return homework.filter((item) => {
-      if (!item.due_date || item.due_date >= today) {
-        return false;
-      }
-
-      const homeworkWeek = Number(item.week_number);
-
-      if (!Number.isFinite(homeworkWeek)) {
-        return false;
-      }
-
-      return !practiceResults.some((result) => {
-        const resultWeek = getWeekFromTitle(result.title);
-
-        if (resultWeek !== homeworkWeek) {
-          return false;
-        }
-
-        if (item.homework_skill) {
-          return result.skill === item.homework_skill;
-        }
-
-        return true;
-      });
-    });
-  }, [homework, practiceResults]);
-
   useEffect(() => {
     if (!students.some((student) => student.id === selectedStudentId)) {
       setSelectedStudentId("");
@@ -343,7 +257,6 @@ export default function ResultsTab({
 
     if (initialStudentId && students.some((student) => student.id === initialStudentId)) {
       if (selectedStudentId !== initialStudentId) {
-        clearPracticeForm();
         clearMockForm();
       }
 
@@ -390,29 +303,6 @@ export default function ResultsTab({
   }, [shortcutSection, selectedStudentId, shortcutRequestKey]);
 
   useEffect(() => {
-    async function loadHomework() {
-      if (!levelName || !courseType) {
-        setHomework([]);
-        return;
-      }
-
-      setLoadingHomework(true);
-
-      try {
-        const data = await getHomework(levelName, courseType);
-        setHomework(adjustHomeworkDatesForClassDays(data, classDays));
-      } catch (error) {
-        console.error(error);
-        setHomework([]);
-      } finally {
-        setLoadingHomework(false);
-      }
-    }
-
-    loadHomework();
-  }, [levelName, courseType, classDays]);
-
-  useEffect(() => {
     loadResults();
   }, [classId, selectedStudentId]);
 
@@ -437,47 +327,23 @@ export default function ResultsTab({
     setLoadingResults(true);
     setErrorMessage("");
 
-    const [legacyHomeworkResult, mockResult] = await Promise.all([
-      supabase
-        .from("results")
-        .select("*")
-        .eq("class_id", classId)
-        .eq("student_id", selectedStudentId)
-        .eq("result_type", "homework")
-        .is("cambridge_exam_assignment_id", null)
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .order("exam_date", { ascending: false, nullsFirst: false })
-        .order("id", { ascending: false })
-        .limit(500),
-      supabase
-        .from("results")
-        .select("*")
-        .eq("class_id", classId)
-        .eq("student_id", selectedStudentId)
-        .eq("result_type", "mock"),
-    ]);
+    const { data, error } = await supabase
+      .from("results")
+      .select("*")
+      .eq("class_id", classId)
+      .eq("student_id", selectedStudentId)
+      .eq("result_type", "mock");
 
-    const loadError = legacyHomeworkResult.error || mockResult.error;
-    if (loadError) {
-      console.error(loadError);
+    if (error) {
+      console.error(error);
       setResults([]);
       setErrorMessage("Unable to load results.");
       setLoadingResults(false);
       return;
     }
 
-    setResults([
-      ...(legacyHomeworkResult.data || []),
-      ...(mockResult.data || []),
-    ]);
+    setResults(data || []);
     setLoadingResults(false);
-  }
-
-  function clearPracticeForm() {
-    setWeekNumber("1");
-    setSkill("reading");
-    setPercentage("");
-    setEditingPracticeId("");
   }
 
   function clearMockForm() {
@@ -490,74 +356,6 @@ export default function ResultsTab({
     setEditingMockId("");
   }
 
-  async function savePracticeResult() {
-    if (!selectedStudent) {
-      setErrorMessage("Select a student first.");
-      return;
-    }
-
-    const score = toNumber(percentage);
-
-    if (score === null) {
-      setErrorMessage("Enter a valid percentage.");
-      return;
-    }
-
-    setSavingPractice(true);
-    setMessage("");
-    setErrorMessage("");
-
-    const currentTeacherId = await getSafeTeacherId();
-    const payload: any = {
-      student_id: selectedStudent.id,
-      class_id: classId,
-      result_type: "homework",
-      title: `Homework Week ${weekNumber}`,
-      skill,
-      percentage: score,
-      cambridge_exam_assignment_id: null,
-    };
-
-    if (currentTeacherId) {
-      payload.teacher_id = currentTeacherId;
-    }
-
-    const { error } = editingPracticeId
-      ? await supabase
-          .from("results")
-          .update(payload)
-          .eq("id", editingPracticeId)
-          .eq("result_type", "homework")
-          .is("cambridge_exam_assignment_id", null)
-      : await supabase.from("results").insert([payload]);
-
-    if (error) {
-      setErrorMessage(error.message);
-      setSavingPractice(false);
-      return;
-    }
-
-    setMessage(
-      editingPracticeId
-        ? "Practice result updated."
-        : "Practice result saved."
-    );
-    clearPracticeForm();
-    setSavingPractice(false);
-    loadResults();
-  }
-
-  function editPractice(result: any) {
-    setEditingPracticeId(result.id);
-    setWeekNumber(String(getWeekFromTitle(result.title) || 1));
-    setSkill(result.skill || "reading");
-    setPercentage(
-      result.percentage === null || result.percentage === undefined
-        ? ""
-        : String(result.percentage)
-    );
-  }
-
   async function deleteResult(id: string, label: string) {
     const confirmed = confirm(`Delete this ${label}?`);
 
@@ -565,13 +363,7 @@ export default function ResultsTab({
       return;
     }
 
-    let deleteQuery = supabase.from("results").delete().eq("id", id);
-    if (label === "practice result") {
-      deleteQuery = deleteQuery
-        .eq("result_type", "homework")
-        .is("cambridge_exam_assignment_id", null);
-    }
-    const { error } = await deleteQuery;
+    const { error } = await supabase.from("results").delete().eq("id", id);
 
     if (error) {
       setErrorMessage(error.message);
@@ -755,13 +547,6 @@ export default function ResultsTab({
     setComments(result.comments || "");
   }
 
-  function skillLabel(value: string | null | undefined) {
-    return (
-      skillOptions.find((option) => option.value === value)?.label ||
-      "Practice"
-    );
-  }
-
   function mockTitle(result: any) {
     if (result.mock_number) {
       return `Mock ${result.mock_number}`;
@@ -794,8 +579,8 @@ export default function ResultsTab({
             margin: "0 0 18px",
           }}
         >
-          Select a student to add results, review previous work and check
-          outstanding homework.
+          Select a student to grade assigned homework and manage Mock Exam
+          results.
         </p>
 
         {students.length === 0 ? (
@@ -811,7 +596,6 @@ export default function ResultsTab({
                 setSelectedStudentId(event.target.value);
                 setMessage("");
                 setErrorMessage("");
-                clearPracticeForm();
                 clearMockForm();
               }}
               style={inputStyle}
@@ -895,263 +679,20 @@ export default function ResultsTab({
             </h3>
           </section>
 
-          <AssignmentHomeworkResultsSection
-            classId={classId}
-            studentId={selectedStudent.id}
-            studentName={`${selectedStudent.first_name || ""} ${
-              selectedStudent.last_name || ""
-            }`.trim()}
-          />
-
-          <section
+          <div
             ref={homeworkSectionRef}
             className={
               shortcutSection === "homework" ? "teacher-shortcut-focus" : undefined
             }
-            style={cardStyle}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "16px",
-                alignItems: "center",
-                marginBottom: "18px",
-              }}
-            >
-              <div>
-                <h3
-                  style={{
-                    color: "#1f3c88",
-                    margin: "0 0 5px",
-                    fontSize: "20px",
-                  }}
-                >
-                  Practice / Homework Results
-                </h3>
-                <p style={{ color: "#667085", margin: 0 }}>
-                  Weekly exam-part practice for this student.
-                </p>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                gap: "14px",
-                alignItems: "end",
-                marginBottom: "24px",
-              }}
-            >
-              <div>
-                <label style={labelStyle}>Week number</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={weekNumber}
-                  onChange={(event) => setWeekNumber(event.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Skill</label>
-                <select
-                  value={skill}
-                  onChange={(event) => setSkill(event.target.value)}
-                  style={inputStyle}
-                >
-                  {skillOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Percentage</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={percentage}
-                  onChange={(event) => setPercentage(event.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: "10px",
-                  flexWrap: "wrap",
-                }}
-              >
-                <button
-                  onClick={savePracticeResult}
-                  disabled={savingPractice}
-                  style={buttonStyle}
-                >
-                  {savingPractice
-                    ? "Saving..."
-                    : editingPracticeId
-                    ? "Save Changes"
-                    : "Save Result"}
-                </button>
-
-                {editingPracticeId && (
-                  <button
-                    onClick={clearPracticeForm}
-                    style={secondaryButtonStyle}
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <h4
-              style={{
-                color: "#1f3c88",
-                margin: "0 0 12px",
-                fontSize: "16px",
-              }}
-            >
-              Previous Practice Results
-            </h4>
-
-            {loadingResults ? (
-              <p style={{ color: "#667085" }}>Loading results...</p>
-            ) : practiceResults.length === 0 ? (
-              <p style={{ color: "#667085", margin: 0 }}>
-                No practice results yet.
-              </p>
-            ) : (
-              <div style={{ display: "grid", gap: "10px" }}>
-                {practiceResults.map((result) => (
-                  <div
-                    key={result.id}
-                    style={{
-                      border: "1px solid #edf1f7",
-                      borderRadius: "11px",
-                      padding: "13px",
-                      display: "grid",
-                      gridTemplateColumns:
-                        "minmax(140px, 1.4fr) minmax(150px, 1fr) minmax(120px, 1fr) auto",
-                      gap: "14px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <strong style={{ color: "#333333" }}>
-                      {result.title || "Homework Result"}
-                    </strong>
-
-                    <span style={{ color: "#667085" }}>
-                      {skillLabel(result.skill)}
-                    </span>
-
-                    <div>
-                      <strong style={{ color: "#1f3c88" }}>
-                        {formatPercent(result.percentage)}
-                      </strong>
-                      <ProgressBar value={result.percentage} />
-                    </div>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      <button
-                        onClick={() => editPractice(result)}
-                        style={secondaryButtonStyle}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() =>
-                          deleteResult(result.id, "practice result")
-                        }
-                        style={secondaryButtonStyle}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section style={cardStyle}>
-            <h3
-              style={{
-                color: "#1f3c88",
-                margin: "0 0 5px",
-                fontSize: "20px",
-              }}
-            >
-              Outstanding Homework
-            </h3>
-
-            <p style={{ color: "#667085", margin: "0 0 16px" }}>
-              Past-due homework with no matching practice result entered yet.
-            </p>
-
-            {loadingHomework ? (
-              <p style={{ color: "#667085" }}>Loading homework...</p>
-            ) : outstandingHomework.length === 0 ? (
-              <p style={{ color: "#667085", margin: 0 }}>
-                No outstanding homework.
-              </p>
-            ) : (
-              <div style={{ display: "grid", gap: "10px" }}>
-                {outstandingHomework.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      border: "1px solid #edf1f7",
-                      borderRadius: "11px",
-                      padding: "13px",
-                      display: "grid",
-                      gridTemplateColumns:
-                        "minmax(180px, 1.4fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr)",
-                      gap: "14px",
-                    }}
-                  >
-                    <div>
-                      <strong style={{ color: "#333333" }}>
-                        {item.title || `Week ${item.week_number}`}
-                      </strong>
-                      <p
-                        style={{
-                          color: "#667085",
-                          margin: "5px 0 0",
-                          fontSize: "13px",
-                        }}
-                      >
-                        No result entered yet
-                      </p>
-                    </div>
-
-                    <span style={{ color: "#667085" }}>
-                      {item.homework_skill
-                        ? skillLabel(item.homework_skill)
-                        : "Homework"}
-                    </span>
-
-                    <span style={{ color: "#667085" }}>
-                      Due {formatDateOnly(item.due_date)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+            <AssignmentHomeworkResultsSection
+              classId={classId}
+              studentId={selectedStudent.id}
+              studentName={`${selectedStudent.first_name || ""} ${
+                selectedStudent.last_name || ""
+              }`.trim()}
+            />
+          </div>
 
           <section
             ref={mockSectionRef}

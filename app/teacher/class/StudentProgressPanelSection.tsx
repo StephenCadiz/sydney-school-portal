@@ -132,10 +132,7 @@ export default function StudentProgressPanelSection({
     );
   }
 
-  const legacyIncomplete = progress.homework.legacy.assignments.filter(
-    (item) => item.status !== "completed"
-  );
-  const assignedIncomplete = progress.homework.assigned.assignments.filter(
+  const assignedIncomplete = progress.homework.assignments.filter(
     (item) => item.status !== "completed"
   );
 
@@ -157,11 +154,6 @@ export default function StudentProgressPanelSection({
 
       <div className="teacher-student-progress-metrics">
         {[
-          {
-            label: "Legacy Homework",
-            value: progress.summary.legacy_homework.value,
-            context: progress.summary.legacy_homework.context,
-          },
           {
             label: "Assigned Homework",
             value: progress.summary.assigned_homework.value,
@@ -217,80 +209,63 @@ export default function StudentProgressPanelSection({
         </section>
       )}
 
-      {[
-        {
-          key: "legacy",
-          label: "Legacy Homework",
-          subtitle: "Historical week-based performance",
-          data: progress.homework.legacy,
-          incomplete: legacyIncomplete,
-        },
-        {
-          key: "assigned",
-          label: "Assigned Homework",
-          subtitle: "Current assignment-based performance",
-          data: progress.homework.assigned,
-          incomplete: assignedIncomplete,
-        },
-      ].map((era) => (
-        <section className="teacher-student-progress-panel" key={era.key}>
-          <div className="teacher-student-progress-section-heading is-split">
-            <div><p>{era.label}</p><h4>{era.subtitle}</h4></div>
-            <div className="teacher-student-progress-key-result">
-              <strong>{formatPercent(era.data.overall)}</strong>
-              <span>{era.data.result_count} completed</span>
-              <TargetContext status={era.data.target_status} />
-            </div>
+      <section className="teacher-student-progress-panel">
+        <div className="teacher-student-progress-section-heading is-split">
+          <div><p>Assigned Homework</p><h4>Current assignment progress</h4></div>
+          <div className="teacher-student-progress-key-result">
+            <strong>{formatPercent(progress.homework.overall)}</strong>
+            <span>{progress.homework.result_count} completed</span>
+            <TargetContext status={progress.homework.target_status} />
           </div>
+        </div>
 
-          <div className="teacher-student-progress-skill-grid">
-            {era.data.skills.map((skill) => (
-              <div key={skill.skill}>
-                <span>{skill.label}</span>
-                <strong>{formatPercent(skill.average)}</strong>
-              </div>
-            ))}
+        <div className="teacher-student-progress-skill-grid">
+          {progress.homework.skills.map((skill) => (
+            <div key={skill.skill}>
+              <span>{skill.label}</span>
+              <strong>{formatPercent(skill.average)}</strong>
+            </div>
+          ))}
+        </div>
+
+        <h5>Outstanding and pending work ({assignedIncomplete.length})</h5>
+        {assignedIncomplete.length === 0 ? (
+          <p className="teacher-student-progress-muted">
+            No outstanding or pending Assigned Homework.
+          </p>
+        ) : (
+          <div className="teacher-student-progress-table-wrap">
+            <table>
+              <thead><tr><th>Homework</th><th>Due</th><th>Status</th></tr></thead>
+              <tbody>
+                {assignedIncomplete.map((item) => (
+                  <tr key={item.id}>
+                    <th scope="row">{item.title}</th>
+                    <td>{formatDate(item.due_date)}</td>
+                    <td><span className={`teacher-student-progress-status is-${item.status}`}>{item.status === "outstanding" ? "Outstanding" : "Pending"}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        )}
 
-          <h5>Outstanding and pending work ({era.incomplete.length})</h5>
-          {era.incomplete.length === 0 ? (
-            <p className="teacher-student-progress-muted">
-              No outstanding or pending {era.label}.
-            </p>
-          ) : (
-            <div className="teacher-student-progress-table-wrap">
-              <table>
-                <thead><tr><th>Homework</th><th>Due</th><th>Status</th></tr></thead>
-                <tbody>
-                  {era.incomplete.map((item) => (
-                    <tr key={`${era.key}-${item.id}`}>
-                      <th scope="row">{item.title}</th>
-                      <td>{formatDate(item.due_date)}</td>
-                      <td><span className={`teacher-student-progress-status is-${item.status}`}>{item.status === "outstanding" ? "Outstanding" : "Pending"}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <h5>{era.label} history</h5>
-          {era.data.history.length === 0 ? (
-            <p className="teacher-student-progress-muted">No {era.label} results.</p>
-          ) : (
-            <div className="teacher-student-progress-table-wrap">
-              <table>
-                <thead><tr><th>Homework</th><th>Skill</th><th>Result</th></tr></thead>
-                <tbody>
-                  {era.data.history.map((item) => (
-                    <tr key={`${era.key}-${item.id}`}><th scope="row">{item.source === "assignment" ? item.title : `Week ${item.week}`}</th><td>{item.skill_label}</td><td>{formatScore(item.percentage)}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      ))}
+        <h5>Assigned Homework history</h5>
+        {progress.homework.history.length === 0 ? (
+          <p className="teacher-student-progress-muted">No Assigned Homework results.</p>
+        ) : (
+          <div className="teacher-student-progress-table-wrap">
+            <table>
+              <thead><tr><th>Homework</th><th>Skill</th><th>Result</th></tr></thead>
+              <tbody>
+                {progress.homework.history.map((item) => (
+                  <tr key={item.id}><th scope="row">{item.title}</th><td>{item.skill_label}</td><td>{formatScore(item.percentage)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="teacher-student-progress-panel">
         <div className="teacher-student-progress-section-heading is-split">
