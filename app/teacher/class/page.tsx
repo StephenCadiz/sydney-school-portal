@@ -580,6 +580,7 @@ if (classResult.data) {
 
       {activeTab === "official-resources" && classData && (
         <OfficialResourcesTab
+          classId={classData.id}
           levelId={classData.level_id}
           levelName={levelName}
         />

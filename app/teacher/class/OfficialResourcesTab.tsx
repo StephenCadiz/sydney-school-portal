@@ -6,6 +6,7 @@ import {
   type TeacherResource,
 } from "../../../lib/teacherResources";
 import TeacherResourceCard from "./TeacherResourceCard";
+import CambridgeExamLibrary from "./CambridgeExamLibrary";
 
 const sectionStyle = {
   display: "grid",
@@ -33,11 +34,13 @@ const retryButtonStyle = {
 } as const;
 
 type OfficialResourcesTabProps = {
+  classId: string;
   levelId: string | number | null | undefined;
   levelName: string;
 };
 
 export default function OfficialResourcesTab({
+  classId,
   levelId,
   levelName,
 }: OfficialResourcesTabProps) {
@@ -127,6 +130,8 @@ export default function OfficialResourcesTab({
           ))}
         </div>
       )}
+
+      <CambridgeExamLibrary classId={classId} />
     </div>
   );
 }
