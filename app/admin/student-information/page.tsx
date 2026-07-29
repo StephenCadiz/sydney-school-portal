@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
+import AdminStudentsTabs from "../../components/admin/AdminStudentsTabs";
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import {
   formatAverage,
@@ -1942,6 +1943,7 @@ export default function StudentInformationPage() {
     <AdminLayout>
       <>
       <div style={{ display: "grid", gap: "24px" }}>
+        <AdminStudentsTabs />
         <header>
           <h1
             style={{

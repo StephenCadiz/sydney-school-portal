@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
+import AdminStudentsTabs from "../../components/admin/AdminStudentsTabs";
 import SetPasswordDialog, {
   PasswordAccountTarget,
 } from "../../components/admin/SetPasswordDialog";
@@ -1396,6 +1397,7 @@ export default function AdminStudentsPage() {
   return (
     <AdminLayout>
       <main className="admin-students-page">
+        <AdminStudentsTabs />
         <div className="admin-students-page-heading">
           <h1>Students</h1>
           <p>

@@ -294,101 +294,79 @@ export default function AdminLayout({
     refreshEventName: "admin-unread-messages-changed",
   });
 
-  const menuItems = [
+  const menuGroups = [
     {
-      name: "Dashboard",
-      href: "/admin",
-      icon: "home" as AdminNavIconName,
+      label: "Dashboard",
+      showHeading: false,
+      items: [
+        {
+          name: "Dashboard",
+          href: "/admin",
+          icon: "home" as AdminNavIconName,
+        },
+      ],
     },
     {
-      name: "Assigned Exams",
-      href: "/admin/exam-bank/assignments",
-      icon: "book" as AdminNavIconName,
+      label: "People & Classes",
+      items: [
+        { name: "Classes", href: "/admin/classes", icon: "school" as AdminNavIconName },
+        { name: "Students", href: "/admin/students", icon: "graduation" as AdminNavIconName },
+        { name: "Teachers", href: "/admin/teachers", icon: "users" as AdminNavIconName },
+        { name: "Admin Staff", href: "/admin/admin-staff", icon: "users" as AdminNavIconName },
+        { name: "User Management", href: "/admin/add-users", icon: "userPlus" as AdminNavIconName },
+      ],
     },
     {
-      name: "Class Exams",
-      href: "/admin/class-exams",
-      icon: "clipboard" as AdminNavIconName,
+      label: "Cambridge Programme",
+      items: [
+        { name: "Exam Bank", href: "/admin/exam-bank", icon: "clipboard" as AdminNavIconName },
+        { name: "Assigned Exams", href: "/admin/exam-bank/assignments", icon: "book" as AdminNavIconName },
+      ],
     },
     {
-      name: "Cambridge Exam Bank",
-      href: "/admin/exam-bank",
-      icon: "clipboard" as AdminNavIconName,
+      label: "Young Learner Exams",
+      items: [
+        { name: "Class Exams", href: "/admin/class-exams", icon: "clipboard" as AdminNavIconName },
+        { name: "Print Class Exams", href: "/admin/print-class-exams", icon: "printer" as AdminNavIconName },
+      ],
     },
     {
-      name: "Print Class Exams",
-      href: "/admin/print-class-exams",
-      icon: "printer" as AdminNavIconName,
+      label: "Scheduling & Activities",
+      items: [
+        { name: "Teacher Calendar", href: "/admin/teacher-calendar", icon: "calendar" as AdminNavIconName },
+        { name: "Friday Tutorials", href: "/admin/friday-tutorials", icon: "calendarCheck" as AdminNavIconName },
+        { name: "Friday @ 6", href: "/admin/friday-exam-practice", icon: "clock" as AdminNavIconName },
+      ],
     },
     {
-      name: "Teachers",
-      href: "/admin/teachers",
-      icon: "users" as AdminNavIconName,
+      label: "Student Support",
+      items: [
+        { name: "Follow Ups", href: "/admin/follow-ups", icon: "clipboardCheck" as AdminNavIconName },
+      ],
     },
     {
-      name: "Admin Staff",
-      href: "/admin/admin-staff",
-      icon: "users" as AdminNavIconName,
+      label: "Communication",
+      items: [
+        { name: "Messages", href: "/admin/messages", icon: "envelope" as AdminNavIconName },
+        { name: "Announcements", href: "/admin/announcements", icon: "megaphone" as AdminNavIconName },
+      ],
     },
     {
-      name: "Add Users",
-      href: "/admin/add-users",
-      icon: "userPlus" as AdminNavIconName,
-    },
-    {
-      name: "Teacher Calendar",
-      href: "/admin/teacher-calendar",
-      icon: "calendar" as AdminNavIconName,
-    },
-    {
-      name: "Classes",
-      href: "/admin/classes",
-      icon: "school" as AdminNavIconName,
-    },
-    {
-      name: "Students",
-      href: "/admin/students",
-      icon: "graduation" as AdminNavIconName,
-    },
-    {
-      name: "Student Information",
-      href: "/admin/student-information",
-      icon: "fileUser" as AdminNavIconName,
-    },
-    {
-      name: "Follow Ups",
-      href: "/admin/follow-ups",
-      icon: "clipboardCheck" as AdminNavIconName,
-    },
-    {
-      name: "Friday Tutorials",
-      href: "/admin/friday-tutorials",
-      icon: "calendarCheck" as AdminNavIconName,
-    },
-    {
-      name: "Friday @ 6",
-      href: "/admin/friday-exam-practice",
-      icon: "clock" as AdminNavIconName,
-    },
-    {
-      name: "Resources",
-      href: "/admin/resources",
-      icon: "folder" as AdminNavIconName,
-    },
-    {
-      name: "Messages",
-      href: "/admin/messages",
-      icon: "envelope" as AdminNavIconName,
-    },
-    {
-      name: "Announcements",
-      href: "/admin/announcements",
-      icon: "megaphone" as AdminNavIconName,
+      label: "Resources",
+      items: [
+        { name: "Resources", href: "/admin/resources", icon: "folder" as AdminNavIconName },
+      ],
     },
   ];
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
+    if (href === "/admin/students") {
+      return (
+        pathname.startsWith("/admin/students") ||
+        pathname.startsWith("/admin/student-information")
+      );
+    }
     if (href === "/admin/exam-bank") {
       return (
         pathname.startsWith(href) &&
@@ -475,51 +453,81 @@ export default function AdminLayout({
           padding: "24px 20px 30px",
         }}
       >
-        {menuItems.map((item) => {
-          const isMessagesItem = item.href === "/admin/messages";
+        <nav aria-label="Admin navigation">
+          {menuGroups.map((group, groupIndex) => {
+            const headingId = `admin-nav-group-${groupIndex}`;
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive(item.href) ? "page" : undefined}
-              aria-label={isMessagesItem ? unreadAccessibleLabel : item.name}
-              className="ss-sidebar-link admin-sidebar-link"
-              onClick={() => setMenuOpen(false)}
-              style={{
-                alignItems: "center",
-                color: "#ffffff",
-                display: "flex",
-                gap: "10px",
-                justifyContent: "space-between",
-                textDecoration: "none",
-                padding: "14px 16px",
-                borderRadius: "8px",
-                marginBottom: "10px",
-                background: isActive(item.href)
-                  ? "var(--ss-blue-hover)"
-                  : "rgba(255,255,255,0.12)",
-                fontWeight: isActive(item.href) ? 700 : 500,
-              }}
-            >
-              <span
-                className="admin-sidebar-link-main"
-                style={{
-                  alignItems: "center",
-                  display: "inline-flex",
-                  gap: "10px",
-                  minWidth: 0,
-                }}
+            return (
+              <section
+                key={group.label}
+                aria-label={group.showHeading === false ? group.label : undefined}
+                aria-labelledby={group.showHeading === false ? undefined : headingId}
+                style={{ marginTop: groupIndex === 0 ? 0 : "18px" }}
               >
-                <span className="admin-nav-icon">
-                  <AdminNavIcon name={item.icon} />
-                </span>
-                <span>{item.name}</span>
-              </span>
-              {isMessagesItem && <UnreadBadge count={unreadTeacherMessages} />}
-            </Link>
-          );
-        })}
+                {group.showHeading !== false && (
+                  <h2
+                    id={headingId}
+                    style={{
+                      color: "rgba(255,255,255,0.68)",
+                      fontSize: "10px",
+                      fontWeight: 800,
+                      letterSpacing: "0.12em",
+                      margin: "0 10px 8px",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {group.label}
+                  </h2>
+                )}
+                {group.items.map((item) => {
+                  const isMessagesItem = item.href === "/admin/messages";
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={isActive(item.href) ? "page" : undefined}
+                      aria-label={isMessagesItem ? unreadAccessibleLabel : item.name}
+                      className="ss-sidebar-link admin-sidebar-link"
+                      onClick={() => setMenuOpen(false)}
+                      style={{
+                        alignItems: "center",
+                        color: "#ffffff",
+                        display: "flex",
+                        gap: "10px",
+                        justifyContent: "space-between",
+                        textDecoration: "none",
+                        padding: "11px 14px",
+                        borderRadius: "8px",
+                        marginBottom: "6px",
+                        background: isActive(item.href)
+                          ? "var(--ss-blue-hover)"
+                          : "rgba(255,255,255,0.12)",
+                        fontWeight: isActive(item.href) ? 700 : 500,
+                      }}
+                    >
+                      <span
+                        className="admin-sidebar-link-main"
+                        style={{
+                          alignItems: "center",
+                          display: "inline-flex",
+                          gap: "10px",
+                          minWidth: 0,
+                        }}
+                      >
+                        <span className="admin-nav-icon">
+                          <AdminNavIcon name={item.icon} />
+                        </span>
+                        <span>{item.name}</span>
+                      </span>
+                      {isMessagesItem && <UnreadBadge count={unreadTeacherMessages} />}
+                    </Link>
+                  );
+                })}
+              </section>
+            );
+          })}
+        </nav>
       </aside>
 
       {/* Main Content */}
