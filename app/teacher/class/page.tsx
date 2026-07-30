@@ -91,6 +91,7 @@ function getPanelSectionForAction(
 ): StudentWorkspaceSection | null {
   if (action === "notes") return "notes";
   if (action === "homework") return "homework";
+  if (action === "friday-tutorial") return "friday-tutorial";
   if (action === "mock-exams") return "mocks";
   if (action === "progress") return "progress";
   if (action === "follow-up") return "follow-up";
@@ -497,11 +498,6 @@ if (classResult.data) {
   const selectedPanelStudentName = selectedPanelStudent
     ? getStudentName(selectedPanelStudent)
     : studentPanel.studentName;
-  const selectedPanelControlStudent = studentPanel.studentId
-    ? controlSheetStudents.find(
-        (student) => student.id === studentPanel.studentId
-      )
-    : null;
   const googleMeetIsVisible =
     googleMeet.classId === requestedClassId && googleMeet.supported;
   const classTabs = (isCambridgeClass ? cambridgeClassTabs : tabs).flatMap(
@@ -834,14 +830,6 @@ if (classResult.data) {
           requestKey={studentPanel.requestKey}
           showFridayTutorial={showFridayTutorialResultsTab}
           showProgress={showFridayTutorialResultsTab}
-          onOpenFridayTutorial={() => {
-            if (selectedPanelControlStudent) {
-              openStudentShortcut(
-                "friday-tutorial",
-                selectedPanelControlStudent
-              );
-            }
-          }}
           onClose={() =>
             setStudentPanel((current) => ({
               ...current,

@@ -403,6 +403,121 @@ async function getSavedResultStudentRows(
   );
 }
 
+async function verifyCurrentStudentEnrolment(
+  classId: string,
+  studentId: string
+) {
+  const [{ data: enrolment, error: enrolmentError }, { data: profile, error: profileError }] =
+    await Promise.all([
+      supabaseAdmin
+        .from("class_enrolments")
+        .select("student_id, enrolled_at")
+        .eq("class_id", classId)
+        .eq("student_id", studentId)
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("profiles")
+        .select("id, role")
+        .eq("id", studentId)
+        .maybeSingle(),
+    ]);
+
+  if (enrolmentError || profileError) {
+    console.error(
+      "Friday tutorial student enrolment verification failed:",
+      formatError(enrolmentError || profileError)
+    );
+    throw new Error("Unable to verify the selected student.");
+  }
+
+  return enrolment && profile?.role === "student" ? enrolment : null;
+}
+
+async function getStudentWorkspaceSessions(
+  sessions: any[],
+  sheetBySessionId: Map<string, FridayTutorialResultSheet>,
+  studentId: string,
+  todayMadrid: string
+) {
+  const sheetIds = Array.from(sheetBySessionId.values()).map((sheet) => sheet.id);
+  const { data: savedResults, error: savedResultsError } =
+    sheetIds.length > 0
+      ? await supabaseAdmin
+          .from("friday_tutorial_results")
+          .select("id, result_sheet_id, percentage, attended, updated_at")
+          .eq("student_id", studentId)
+          .in("result_sheet_id", sheetIds)
+      : { data: [], error: null };
+
+  if (savedResultsError) {
+    console.error(
+      "Friday tutorial student history load failed:",
+      formatError(savedResultsError)
+    );
+    throw new Error("Unable to load the student's tutorial history.");
+  }
+
+  const resultBySheetId = new Map(
+    (savedResults || []).map((result) => [String(result.result_sheet_id), result])
+  );
+
+  return sessions.map((session) => {
+    const sessionId = String(session.id);
+    const sheet = sheetBySessionId.get(sessionId) || null;
+    const result = sheet ? resultBySheetId.get(String(sheet.id)) || null : null;
+
+    return {
+      ...sanitizeSession(session, todayMadrid, sheet),
+      result: result
+        ? {
+            id: result.id,
+            percentage:
+              result.percentage === null ? null : Number(result.percentage),
+            attended: result.attended === true,
+            updated_at: result.updated_at || null,
+          }
+        : null,
+    };
+  });
+}
+
+async function getCurrentClassStudentIds(classId: string) {
+  const { data: enrolments, error: enrolmentError } = await supabaseAdmin
+    .from("class_enrolments")
+    .select("student_id")
+    .eq("class_id", classId);
+  if (enrolmentError) {
+    console.error(
+      "Friday tutorial current class enrolment load failed:",
+      formatError(enrolmentError)
+    );
+    throw new Error("Unable to load current class enrolments.");
+  }
+
+  const ids = Array.from(
+    new Set(
+      (enrolments || []).map((row) => String(row.student_id || "")).filter(Boolean)
+    )
+  );
+  if (ids.length === 0) return [];
+
+  const { data: profiles, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .in("id", ids)
+    .eq("role", "student");
+  if (profileError) {
+    console.error(
+      "Friday tutorial current student profile load failed:",
+      formatError(profileError)
+    );
+    throw new Error("Unable to load current class students.");
+  }
+
+  return (profiles || []).map((profile) => String(profile.id));
+}
+
 function normalizePostResults(results: any) {
   if (!Array.isArray(results)) {
     return {
@@ -484,6 +599,7 @@ export async function GET(request: NextRequest) {
     const tutorialSessionId = String(
       searchParams.get("tutorial_session_id") || ""
     ).trim();
+    const studentId = String(searchParams.get("student_id") || "").trim();
 
     if (!classId) {
       return jsonError("Class is required.", 400);
@@ -514,6 +630,25 @@ export async function GET(request: NextRequest) {
         sheetBySessionId.get(String(session.id)) || null
       )
     );
+
+    if (studentId) {
+      const enrolment = await verifyCurrentStudentEnrolment(classId, studentId);
+      if (!enrolment) {
+        return jsonError(
+          "The selected student is not enrolled in this class.",
+          403
+        );
+      }
+
+      return NextResponse.json({
+        sessions: await getStudentWorkspaceSessions(
+          sessions,
+          sheetBySessionId,
+          studentId,
+          todayMadrid
+        ),
+      });
+    }
 
     if (!tutorialSessionId) {
       return NextResponse.json({
@@ -572,15 +707,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const tutorialSessionId = String(body?.tutorial_session_id || "").trim();
     const classId = String(body?.class_id || "").trim();
+    const studentId = String(body?.student_id || "").trim();
 
     if (!tutorialSessionId || !classId) {
       return jsonError("Session and class are required.", 400);
-    }
-
-    const normalized = normalizePostResults(body?.results);
-
-    if (normalized.error) {
-      return jsonError(normalized.error, 400);
     }
 
     const classContext = await getClassContext(classId);
@@ -593,6 +723,156 @@ export async function POST(request: NextRequest) {
 
     if (accessResponse) {
       return accessResponse;
+    }
+
+    if (studentId) {
+      if (
+        typeof body?.percentage !== "number" ||
+        !Number.isFinite(body.percentage) ||
+        body.percentage < 0 ||
+        body.percentage > 100
+      ) {
+        return jsonError("Percentage must be a number between 0 and 100.", 400);
+      }
+
+      const enrolment = await verifyCurrentStudentEnrolment(classId, studentId);
+      if (!enrolment) {
+        return jsonError(
+          "The selected student is not enrolled in this class.",
+          403
+        );
+      }
+
+      const sessions = await getMatchingSessions(classContext.levelName);
+      const selectedSession = sessions.find(
+        (session) => String(session.id) === tutorialSessionId
+      );
+      if (!selectedSession) {
+        return jsonError(
+          "Friday @ 6 session was not found for this class level.",
+          404
+        );
+      }
+      if (String(selectedSession.session_date || "") > getMadridDateString()) {
+        return jsonError("Future Friday @ 6 sessions cannot be graded.", 400);
+      }
+
+      let selectedSheet = await getResultSheetForSession(
+        tutorialSessionId,
+        classId
+      );
+
+      if (!selectedSheet) {
+        const { data: createdSheet, error: createSheetError } =
+          await supabaseAdmin
+            .from("friday_tutorial_result_sheets")
+            .insert({
+              tutorial_session_id: tutorialSessionId,
+              class_id: classId,
+              submitted_by: user.id,
+              updated_by: user.id,
+            })
+            .select(
+              "id, tutorial_session_id, class_id, submitted_at, submitted_by, updated_at, updated_by"
+            )
+            .single();
+
+        if (createSheetError?.code === "23505") {
+          selectedSheet = await getResultSheetForSession(
+            tutorialSessionId,
+            classId
+          );
+        } else if (createSheetError) {
+          console.error(
+            "Friday tutorial student result sheet create failed:",
+            formatError(createSheetError)
+          );
+          return jsonError("Unable to save the Friday Tutorial result.", 500);
+        } else {
+          selectedSheet = createdSheet as FridayTutorialResultSheet;
+        }
+      }
+
+      if (!selectedSheet) {
+        return jsonError("Unable to save the Friday Tutorial result.", 500);
+      }
+
+      const currentStudentIds = await getCurrentClassStudentIds(classId);
+      const { error: snapshotError } = await supabaseAdmin
+        .from("friday_tutorial_results")
+        .upsert(
+          currentStudentIds.map((currentStudentId) => ({
+            result_sheet_id: selectedSheet.id,
+            student_id: currentStudentId,
+            percentage: null,
+            attended: false,
+          })),
+          {
+            onConflict: "result_sheet_id,student_id",
+            ignoreDuplicates: true,
+          }
+        );
+      if (snapshotError) {
+        console.error(
+          "Friday tutorial current class snapshot create failed:",
+          formatError(snapshotError)
+        );
+        return jsonError("Unable to save the Friday Tutorial result.", 500);
+      }
+
+      const { data: savedResult, error: savedResultError } =
+        await supabaseAdmin
+          .from("friday_tutorial_results")
+          .upsert(
+            {
+              result_sheet_id: selectedSheet.id,
+              student_id: studentId,
+              percentage: body.percentage,
+              attended: true,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "result_sheet_id,student_id" }
+          )
+          .select("id, percentage, attended, updated_at")
+          .single();
+      if (savedResultError || !savedResult) {
+        console.error(
+          "Friday tutorial student result save failed:",
+          formatError(savedResultError)
+        );
+        return jsonError("Unable to save the Friday Tutorial result.", 500);
+      }
+
+      const { error: sheetUpdateError } = await supabaseAdmin
+        .from("friday_tutorial_result_sheets")
+        .update({
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        })
+        .eq("id", selectedSheet.id);
+      if (sheetUpdateError) {
+        console.error(
+          "Friday tutorial result sheet timestamp update failed:",
+          formatError(sheetUpdateError)
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        result_sheet_id: selectedSheet.id,
+        result: {
+          id: savedResult.id,
+          percentage: Number(savedResult.percentage),
+          attended: savedResult.attended === true,
+          updated_at: savedResult.updated_at || null,
+        },
+      });
+    }
+
+    const normalized = normalizePostResults(body?.results);
+
+    if (normalized.error) {
+      return jsonError(normalized.error, 400);
     }
 
     const { data, error } = await supabaseAdmin.rpc(

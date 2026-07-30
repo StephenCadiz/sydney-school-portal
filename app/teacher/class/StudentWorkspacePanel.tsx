@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import AssignmentHomeworkResultsSection from "./AssignmentHomeworkResultsSection";
 import StudentFollowUpPanelSection from "./StudentFollowUpPanelSection";
+import StudentFridayTutorialSection from "./StudentFridayTutorialSection";
 import StudentMessagePanelSection from "./StudentMessagePanelSection";
 import StudentMockResultsSection from "./StudentMockResultsSection";
 import StudentNotesPanelSection from "./StudentNotesPanelSection";
@@ -12,6 +13,7 @@ import StudentProgressPanelSection from "./StudentProgressPanelSection";
 export type StudentWorkspaceSection =
   | "notes"
   | "homework"
+  | "friday-tutorial"
   | "mocks"
   | "progress"
   | "follow-up"
@@ -31,19 +33,18 @@ type StudentWorkspacePanelProps = {
   requestKey: number;
   showFridayTutorial: boolean;
   showProgress: boolean;
-  onOpenFridayTutorial: () => void;
   onClose: () => void;
 };
 
 type StudentWorkspaceNavigationItem = {
-  id: StudentWorkspaceSection | "friday-tutorial";
+  id: StudentWorkspaceSection;
   label: string;
 };
 
 const sections: StudentWorkspaceNavigationItem[] = [
   { id: "notes", label: "Notes" },
   { id: "homework", label: "Homework" },
-  { id: "friday-tutorial", label: "Friday Tutorial" },
+  { id: "friday-tutorial", label: "Friday Tutorials" },
   { id: "mocks", label: "Mock Exams" },
   { id: "progress", label: "Progress" },
   { id: "follow-up", label: "Follow-up" },
@@ -78,7 +79,6 @@ export default function StudentWorkspacePanel({
   requestKey,
   showFridayTutorial,
   showProgress,
-  onOpenFridayTutorial,
   onClose,
 }: StudentWorkspacePanelProps) {
   const [activeSection, setActiveSection] =
@@ -172,13 +172,7 @@ export default function StudentWorkspacePanel({
                   key={section.id}
                   type="button"
                   className={`student-workspace-nav-button ${active ? "is-active" : ""}`}
-                  onClick={() => {
-                    if (section.id === "friday-tutorial") {
-                      onOpenFridayTutorial();
-                    } else {
-                      setActiveSection(section.id);
-                    }
-                  }}
+                  onClick={() => setActiveSection(section.id)}
                   aria-current={active ? "page" : undefined}
                 >
                   {section.label}
@@ -204,6 +198,14 @@ export default function StudentWorkspacePanel({
             />
           )}
 
+          {activeSection === "friday-tutorial" && (
+            <StudentFridayTutorialSection
+              classId={classId}
+              studentId={studentId}
+              studentName={studentName}
+            />
+          )}
+
           {activeSection === "mocks" && (
             <StudentMockResultsSection
               classId={classId}
@@ -219,7 +221,7 @@ export default function StudentWorkspacePanel({
               classId={classId}
               studentId={studentId}
               onOpenHomework={() => setActiveSection("homework")}
-              onOpenFridayTutorial={onOpenFridayTutorial}
+              onOpenFridayTutorial={() => setActiveSection("friday-tutorial")}
               onOpenMocks={() => setActiveSection("mocks")}
               onOpenFollowUp={() => setActiveSection("follow-up")}
             />
