@@ -1,7 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import ClassExamLevelSelector from "../../components/admin/ClassExamLevelSelector";
 import AdminLayout from "../../components/layout/AdminLayout";
 import {
   createClassExamMaterial,
@@ -22,6 +25,13 @@ const inputStyle = {
   boxSizing: "border-box" as const,
 };
 
+const readOnlyInputStyle = {
+  ...inputStyle,
+  background: "#f8fafc",
+  color: "var(--ss-blue-dark)",
+  fontWeight: 800,
+};
+
 const labelStyle = {
   display: "block" as const,
   marginBottom: "6px",
@@ -39,9 +49,9 @@ const buttonStyle = {
   fontWeight: 700,
 };
 
-function emptyForm() {
+function emptyForm(levelId = "") {
   return {
-    level_id: "",
+    level_id: levelId,
     exam_unit_number: "1",
     exam_file_url: "",
     audio_file_url: "",
@@ -50,15 +60,30 @@ function emptyForm() {
   };
 }
 
-function groupByLevel(materials: any[]): Record<string, any[]> {
-  return materials.reduce<Record<string, any[]>>((groups, item) => {
-    const levelName = item.level_name || "Unknown Level";
+function getCountsByLevelId(materials: any[]): Record<string, number> {
+  return materials.reduce<Record<string, number>>((counts, item) => {
+    if (!item.level_id) return counts;
 
-    return {
-      ...groups,
-      [levelName]: [...(groups[levelName] || []), item],
-    };
+    const levelId = String(item.level_id);
+    counts[levelId] = (counts[levelId] || 0) + 1;
+    return counts;
   }, {});
+}
+
+function getHrefWithLevel(searchParams: URLSearchParams, levelId: string | number) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.set("level", String(levelId));
+  const query = params.toString();
+
+  return `/admin/class-exams${query ? `?${query}` : ""}`;
+}
+
+function getBackToLevelsHref(searchParams: URLSearchParams) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.delete("level");
+  const query = params.toString();
+
+  return `/admin/class-exams${query ? `?${query}` : ""}`;
 }
 
 function LinkButton({
@@ -89,7 +114,8 @@ function LinkButton({
   );
 }
 
-export default function AdminClassExamsPage() {
+function AdminClassExamsContent() {
+  const searchParams = useSearchParams();
   const [levels, setLevels] = useState<any[]>([]);
   const [materials, setMaterials] = useState<any[]>([]);
   const [form, setForm] = useState(emptyForm());
@@ -122,7 +148,24 @@ export default function AdminClassExamsPage() {
     loadData();
   }, []);
 
-  const groupedMaterials = useMemo(() => groupByLevel(materials), [materials]);
+  const levelParam = searchParams.get("level") || "";
+  const selectedLevel = useMemo(
+    () => levels.find((level) => String(level.id) === levelParam) || null,
+    [levelParam, levels]
+  );
+  const countsByLevelId = useMemo(() => getCountsByLevelId(materials), [materials]);
+  const selectedMaterials = useMemo(
+    () =>
+      selectedLevel
+        ? materials.filter((item) => String(item.level_id) === String(selectedLevel.id))
+        : [],
+    [materials, selectedLevel]
+  );
+
+  useEffect(() => {
+    setEditingId("");
+    setForm(emptyForm(selectedLevel ? String(selectedLevel.id) : ""));
+  }, [selectedLevel?.id]);
 
   function updateForm(field: string, value: any) {
     setForm((current) => ({
@@ -132,14 +175,14 @@ export default function AdminClassExamsPage() {
   }
 
   function resetForm() {
-    setForm(emptyForm());
+    setForm(emptyForm(selectedLevel ? String(selectedLevel.id) : ""));
     setEditingId("");
   }
 
   function editMaterial(item: any) {
     setEditingId(item.id);
     setForm({
-      level_id: item.level_id || "",
+      level_id: String(item.level_id || selectedLevel?.id || ""),
       exam_unit_number: String(item.exam_unit_number || 1),
       exam_file_url: item.exam_file_url || "",
       audio_file_url: item.audio_file_url || "",
@@ -155,7 +198,9 @@ export default function AdminClassExamsPage() {
     setMessage("");
 
     try {
-      if (!form.level_id) {
+      const activeLevelId = selectedLevel ? String(selectedLevel.id) : form.level_id;
+
+      if (!activeLevelId) {
         throw new Error("Please choose a level.");
       }
 
@@ -165,6 +210,7 @@ export default function AdminClassExamsPage() {
 
       const payload = {
         ...form,
+        level_id: activeLevelId,
         exam_unit_number: Number(form.exam_unit_number),
         exam_file_url: form.exam_file_url.trim(),
         audio_file_url: form.audio_file_url.trim() || null,
@@ -196,6 +242,7 @@ export default function AdminClassExamsPage() {
 
     try {
       await deleteClassExamMaterial(id);
+      if (id === editingId) resetForm();
       setMessage("Exam unit deleted successfully.");
       await loadData();
     } catch (error: any) {
@@ -204,16 +251,50 @@ export default function AdminClassExamsPage() {
     }
   }
 
+  const invalidLevelMessage =
+    levelParam && !selectedLevel && !loading
+      ? "That level is not available for Class Exams. Select a level to continue."
+      : "";
+
   return (
     <AdminLayout>
       <div style={{ maxWidth: "1120px" }}>
         <header style={{ marginBottom: "26px" }}>
+          {selectedLevel ? (
+            <p
+              style={{
+                color: "#6b7280",
+                fontWeight: 700,
+                margin: "0 0 8px",
+              }}
+            >
+              Class Exams
+            </p>
+          ) : null}
           <h1 style={{ color: "var(--ss-blue-dark)", margin: "0 0 8px" }}>
-            Class Exams
+            {selectedLevel ? `Class Exams › ${selectedLevel.name}` : "Class Exams"}
           </h1>
           <p style={{ color: "#4b5563", margin: 0 }}>
-            Add and manage exam files, audio and keys for Kids 2 to Teens 1.
+            {selectedLevel
+              ? `Add and manage exam files, audio and keys for ${selectedLevel.name}.`
+              : "Select a level to view and manage its Class Exams."}
           </p>
+
+          {selectedLevel && (
+            <Link
+              href={getBackToLevelsHref(new URLSearchParams(searchParams.toString()))}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                marginTop: "14px",
+                color: "var(--ss-blue)",
+                fontWeight: 800,
+                textDecoration: "none",
+              }}
+            >
+              Back to Levels
+            </Link>
+          )}
         </header>
 
         {message && (
@@ -232,273 +313,277 @@ export default function AdminClassExamsPage() {
           </div>
         )}
 
-        <section
-          style={{
-            background: "#ffffff",
-            border: "1px solid var(--ss-border)",
-            borderRadius: "14px",
-            boxShadow: "0 8px 24px rgba(31,60,136,0.06)",
-            padding: "24px",
-            marginBottom: "26px",
-          }}
-        >
-          <h2 style={{ color: "var(--ss-blue-dark)", margin: "0 0 6px" }}>
-            {editingId ? "Edit Exam Unit" : "Add Exam Unit"}
-          </h2>
-          <p style={{ color: "#6b7280", margin: "0 0 20px" }}>
-            Use one record per level and exam unit.
-          </p>
-
-          <form
-            onSubmit={saveMaterial}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "16px",
-              alignItems: "end",
-            }}
-          >
-            <label>
-              <span style={labelStyle}>Level</span>
-              <select
-                value={form.level_id}
-                onChange={(event) => updateForm("level_id", event.target.value)}
-                style={inputStyle}
-                required
-              >
-                <option value="">Select level</option>
-                {levels.map((level) => (
-                  <option key={level.id} value={level.id}>
-                    {level.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span style={labelStyle}>Exam unit number</span>
-              <input
-                type="number"
-                min="1"
-                value={form.exam_unit_number}
-                onChange={(event) =>
-                  updateForm("exam_unit_number", event.target.value)
-                }
-                style={inputStyle}
-                required
-              />
-            </label>
-
-            <label>
-              <span style={labelStyle}>Exam file URL</span>
-              <input
-                value={form.exam_file_url}
-                onChange={(event) =>
-                  updateForm("exam_file_url", event.target.value)
-                }
-                placeholder="Google Drive exam file link"
-                style={inputStyle}
-                required
-              />
-            </label>
-
-            <label>
-              <span style={labelStyle}>Audio file URL</span>
-              <input
-                value={form.audio_file_url}
-                onChange={(event) =>
-                  updateForm("audio_file_url", event.target.value)
-                }
-                placeholder="Listening audio link"
-                style={inputStyle}
-              />
-            </label>
-
-            <label>
-              <span style={labelStyle}>Key file URL</span>
-              <input
-                value={form.key_file_url}
-                onChange={(event) =>
-                  updateForm("key_file_url", event.target.value)
-                }
-                placeholder="Teacher key link"
-                style={inputStyle}
-              />
-            </label>
-
-            <label
+        {!selectedLevel ? (
+          <ClassExamLevelSelector
+            title="Choose a Level"
+            description="Open a level to manage its Class Exam papers, audio and keys."
+            levels={levels}
+            countsByLevelId={countsByLevelId}
+            getLevelHref={(level) =>
+              getHrefWithLevel(new URLSearchParams(searchParams.toString()), level.id)
+            }
+            loading={loading}
+            invalidMessage={invalidLevelMessage}
+            emptyLabel="No exams"
+          />
+        ) : (
+          <>
+            <section
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                color: "#374151",
-                fontWeight: 700,
+                background: "#ffffff",
+                border: "1px solid var(--ss-border)",
+                borderRadius: "14px",
+                boxShadow: "0 8px 24px rgba(31,60,136,0.06)",
+                padding: "24px",
+                marginBottom: "26px",
               }}
             >
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(event) => updateForm("active", event.target.checked)}
-              />
-              Active
-            </label>
+              <h2 style={{ color: "var(--ss-blue-dark)", margin: "0 0 6px" }}>
+                {editingId ? "Edit Exam Unit" : "Add Exam Unit"}
+              </h2>
+              <p style={{ color: "#6b7280", margin: "0 0 20px" }}>
+                Use one record per exam unit. New records are saved under {selectedLevel.name}.
+              </p>
 
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <button type="submit" disabled={saving} style={buttonStyle}>
-                {saving ? "Saving..." : "Save Exam Unit"}
-              </button>
+              <form
+                onSubmit={saveMaterial}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "16px",
+                  alignItems: "end",
+                }}
+              >
+                <div>
+                  <span style={labelStyle}>Level</span>
+                  <div style={readOnlyInputStyle}>{selectedLevel.name}</div>
+                </div>
 
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
+                <label>
+                  <span style={labelStyle}>Exam unit number</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.exam_unit_number}
+                    onChange={(event) =>
+                      updateForm("exam_unit_number", event.target.value)
+                    }
+                    style={inputStyle}
+                    required
+                  />
+                </label>
+
+                <label>
+                  <span style={labelStyle}>Exam file URL</span>
+                  <input
+                    value={form.exam_file_url}
+                    onChange={(event) =>
+                      updateForm("exam_file_url", event.target.value)
+                    }
+                    placeholder="Google Drive exam file link"
+                    style={inputStyle}
+                    required
+                  />
+                </label>
+
+                <label>
+                  <span style={labelStyle}>Audio file URL</span>
+                  <input
+                    value={form.audio_file_url}
+                    onChange={(event) =>
+                      updateForm("audio_file_url", event.target.value)
+                    }
+                    placeholder="Listening audio link"
+                    style={inputStyle}
+                  />
+                </label>
+
+                <label>
+                  <span style={labelStyle}>Key file URL</span>
+                  <input
+                    value={form.key_file_url}
+                    onChange={(event) =>
+                      updateForm("key_file_url", event.target.value)
+                    }
+                    placeholder="Teacher key link"
+                    style={inputStyle}
+                  />
+                </label>
+
+                <label
                   style={{
-                    ...buttonStyle,
-                    background: "#ffffff",
-                    color: "var(--ss-blue-dark)",
-                    border: "1px solid var(--ss-border)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    color: "#374151",
+                    fontWeight: 700,
                   }}
                 >
-                  Cancel Edit
-                </button>
-              )}
-            </div>
-          </form>
-        </section>
+                  <input
+                    type="checkbox"
+                    checked={form.active}
+                    onChange={(event) => updateForm("active", event.target.checked)}
+                  />
+                  Active
+                </label>
 
-        <section
-          style={{
-            background: "#ffffff",
-            border: "1px solid var(--ss-border)",
-            borderRadius: "14px",
-            boxShadow: "0 8px 24px rgba(31,60,136,0.06)",
-            padding: "24px",
-          }}
-        >
-          <h2 style={{ color: "var(--ss-blue-dark)", margin: "0 0 18px" }}>
-            Existing Class Exams
-          </h2>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  <button type="submit" disabled={saving} style={buttonStyle}>
+                    {saving ? "Saving..." : "Save Exam Unit"}
+                  </button>
 
-          {loading ? (
-            <p style={{ color: "#4b5563", margin: 0 }}>Loading class exams...</p>
-          ) : materials.length === 0 ? (
-            <p style={{ color: "#4b5563", margin: 0 }}>
-              No class exam materials have been added yet.
-            </p>
-          ) : (
-            <div style={{ display: "grid", gap: "22px" }}>
-              {levels
-                .filter((level) => groupedMaterials[level.name]?.length > 0)
-                .map((level) => (
-                  <div key={level.id}>
-                    <h3
+                  {editingId && (
+                    <button
+                      type="button"
+                      onClick={resetForm}
                       style={{
+                        ...buttonStyle,
+                        background: "#ffffff",
                         color: "var(--ss-blue-dark)",
-                        margin: "0 0 10px",
-                        fontSize: "18px",
+                        border: "1px solid var(--ss-border)",
                       }}
                     >
-                      {level.name}
-                    </h3>
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+              </form>
+            </section>
 
-                    <div style={{ display: "grid", gap: "12px" }}>
-                      {groupedMaterials[level.name].map((item) => (
-                        <article
-                          key={item.id}
+            <section
+              style={{
+                background: "#ffffff",
+                border: "1px solid var(--ss-border)",
+                borderRadius: "14px",
+                boxShadow: "0 8px 24px rgba(31,60,136,0.06)",
+                padding: "24px",
+              }}
+            >
+              <h2 style={{ color: "var(--ss-blue-dark)", margin: "0 0 18px" }}>
+                {selectedLevel.name} Class Exams
+              </h2>
+
+              {loading ? (
+                <p style={{ color: "#4b5563", margin: 0 }}>Loading class exams...</p>
+              ) : selectedMaterials.length === 0 ? (
+                <p style={{ color: "#4b5563", margin: 0 }}>
+                  No Class Exams have been created for {selectedLevel.name} yet.
+                </p>
+              ) : (
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {selectedMaterials.map((item) => (
+                    <article
+                      key={item.id}
+                      style={{
+                        border: "1px solid var(--ss-border)",
+                        borderRadius: "12px",
+                        padding: "16px",
+                        background: item.active ? "#ffffff" : "#f9fafb",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "14px",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                        }}
+                      >
+                        <div>
+                          <h3
+                            style={{
+                              color: "var(--ss-blue-dark)",
+                              margin: "0 0 6px",
+                              fontSize: "18px",
+                            }}
+                          >
+                            Exam Unit {item.exam_unit_number}
+                          </h3>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              color: item.active ? "#166534" : "#6b7280",
+                              background: item.active ? "#dcfce7" : "#f3f4f6",
+                              borderRadius: "999px",
+                              padding: "4px 9px",
+                              fontSize: "13px",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {item.active ? "Active" : "Inactive"}
+                          </span>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          {item.exam_file_url && (
+                            <LinkButton href={item.exam_file_url}>Exam</LinkButton>
+                          )}
+                          {item.audio_file_url && (
+                            <LinkButton href={item.audio_file_url}>Audio</LinkButton>
+                          )}
+                          {item.key_file_url && (
+                            <LinkButton href={item.key_file_url}>Key</LinkButton>
+                          )}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                          marginTop: "14px",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => editMaterial(item)}
                           style={{
-                            border: "1px solid var(--ss-border)",
-                            borderRadius: "12px",
-                            padding: "16px",
-                            background: item.active ? "#ffffff" : "#f9fafb",
+                            ...buttonStyle,
+                            padding: "9px 12px",
                           }}
                         >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              gap: "14px",
-                              flexWrap: "wrap",
-                              alignItems: "center",
-                            }}
-                          >
-                            <div>
-                              <h4
-                                style={{
-                                  color: "var(--ss-blue-dark)",
-                                  margin: "0 0 6px",
-                                }}
-                              >
-                                Exam Unit {item.exam_unit_number}
-                              </h4>
-                              <span
-                                style={{
-                                  display: "inline-block",
-                                  color: item.active ? "#166534" : "#6b7280",
-                                  background: item.active ? "#dcfce7" : "#f3f4f6",
-                                  borderRadius: "999px",
-                                  padding: "4px 9px",
-                                  fontSize: "13px",
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {item.active ? "Active" : "Inactive"}
-                              </span>
-                            </div>
-
-                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                              {item.exam_file_url && (
-                                <LinkButton href={item.exam_file_url}>Exam</LinkButton>
-                              )}
-                              {item.audio_file_url && (
-                                <LinkButton href={item.audio_file_url}>Audio</LinkButton>
-                              )}
-                              {item.key_file_url && (
-                                <LinkButton href={item.key_file_url}>Key</LinkButton>
-                              )}
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "10px",
-                              flexWrap: "wrap",
-                              marginTop: "14px",
-                            }}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => editMaterial(item)}
-                              style={{
-                                ...buttonStyle,
-                                padding: "9px 12px",
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeMaterial(item.id)}
-                              style={{
-                                ...buttonStyle,
-                                padding: "9px 12px",
-                                background: "#ffffff",
-                                color: "#b91c1c",
-                                border: "1px solid #fecaca",
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </section>
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeMaterial(item.id)}
+                          style={{
+                            ...buttonStyle,
+                            padding: "9px 12px",
+                            background: "#ffffff",
+                            color: "#b91c1c",
+                            border: "1px solid #fecaca",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
       </div>
     </AdminLayout>
+  );
+}
+
+export default function AdminClassExamsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminLayout>
+          <div style={{ maxWidth: "1120px", color: "#4b5563" }}>
+            Loading class exams...
+          </div>
+        </AdminLayout>
+      }
+    >
+      <AdminClassExamsContent />
+    </Suspense>
   );
 }

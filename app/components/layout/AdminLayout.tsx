@@ -327,7 +327,7 @@ export default function AdminLayout({
       label: "Young Learner Exams",
       items: [
         { name: "Class Exams", href: "/admin/class-exams", icon: "clipboard" as AdminNavIconName },
-        { name: "Print Class Exams", href: "/admin/print-class-exams", icon: "printer" as AdminNavIconName },
+        { name: "Print Exams", href: "/admin/print-class-exams", icon: "printer" as AdminNavIconName },
       ],
     },
     {
