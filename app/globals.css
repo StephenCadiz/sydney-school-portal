@@ -1032,17 +1032,15 @@ img {
 }
 
 .student-sidebar-brand-mark {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 12px;
-  color: #ffffff;
-  display: inline-flex;
+  box-sizing: border-box;
+  display: block;
   flex: 0 0 auto;
-  font-size: 13px;
-  font-weight: 900;
   height: 42px;
-  justify-content: center;
+  object-fit: contain;
+  padding: 4px;
   width: 42px;
 }
 

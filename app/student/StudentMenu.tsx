@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -49,9 +50,13 @@ export default function StudentMenu({
       aria-label="Student portal navigation"
     >
       <div className="student-sidebar-brand">
-        <span className="student-sidebar-brand-mark" aria-hidden="true">
-          SS
-        </span>
+        <Image
+          className="student-sidebar-brand-mark"
+          src="/Logo.png"
+          alt="Sydney School logo"
+          width={42}
+          height={42}
+        />
         <div>
           <strong>Sydney School</strong>
           <span>Student Portal</span>
