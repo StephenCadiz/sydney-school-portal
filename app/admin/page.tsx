@@ -22,6 +22,7 @@ type IconName =
   | "announcements"
   | "calendar"
   | "followUps"
+  | "envelope"
   | "chevron";
 
 const quickActions = [
@@ -134,6 +135,13 @@ function DashboardIcon({ name, size = 22 }: { name: IconName; size?: number }) {
         <svg {...commonProps}>
           <path d="M9 11l3 3L22 4" />
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      );
+    case "envelope":
+      return (
+        <svg {...commonProps}>
+          <rect width="20" height="16" x="2" y="4" rx="2" />
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
         </svg>
       );
     case "chevron":
@@ -466,10 +474,20 @@ export default function AdminDashboard() {
   }, []);
 
   const latestFollowUps = unreviewedFollowUps.slice(0, 3);
-
   return (
     <AdminLayout>
-      <div className="admin-dashboard-page">
+      {(unreadMessageCount) => {
+        const unreadMessageLabel =
+          unreadMessageCount === 0
+            ? "Messages, no unread messages"
+            : `Messages, ${unreadMessageCount} unread message${
+                unreadMessageCount === 1 ? "" : "s"
+              }`;
+        const visibleUnreadCount =
+          unreadMessageCount > 99 ? "99+" : String(unreadMessageCount);
+
+        return (
+          <div className="admin-dashboard-page">
         <header className="admin-dashboard-header">
           <div className="admin-dashboard-header-main">
             <Image
@@ -487,7 +505,21 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="admin-dashboard-date">{getDisplayDate()}</div>
+          <div className="admin-dashboard-header-status">
+            <Link
+              href="/admin/messages"
+              className={`admin-dashboard-message-control ${
+                unreadMessageCount > 0 ? "has-unread" : ""
+              }`}
+              aria-label={unreadMessageLabel}
+            >
+              <DashboardIcon name="envelope" size={20} />
+              <span className="admin-dashboard-message-count" aria-hidden="true">
+                {visibleUnreadCount}
+              </span>
+            </Link>
+            <div className="admin-dashboard-date">{getDisplayDate()}</div>
+          </div>
         </header>
 
         {unreviewedFollowUps.length > 0 && (
@@ -678,7 +710,9 @@ export default function AdminDashboard() {
             </div>
           </aside>
         </section>
-      </div>
+          </div>
+        );
+      }}
     </AdminLayout>
   );
 }

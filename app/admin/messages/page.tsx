@@ -9,7 +9,6 @@ import { Volume2, VolumeX } from "lucide-react";
 import { getTeachers } from "../../../lib/adminTeachers";
 import {
   formatMessageDateTime,
-  getAdminInboxMessages,
   getAdminSentMessages,
   markSharedAdminMessageAsRead,
   markMessageAsRead,
@@ -19,7 +18,7 @@ import {
 } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
 
-const tabs = ["Inbox", "Sent", "New Message"];
+const tabs = ["New / Active", "Dealt With", "Sent", "New Message"];
 
 const cardStyle = {
   background: "#ffffff",
@@ -62,9 +61,13 @@ export default function AdminMessagesPage() {
   const router = useRouter();
 
   const [adminId, setAdminId] = useState("");
-  const [activeTab, setActiveTab] = useState("Inbox");
+  const [activeTab, setActiveTab] = useState("New / Active");
   const [teachers, setTeachers] = useState<any[]>([]);
-  const [inboxMessages, setInboxMessages] = useState<any[]>([]);
+  const [activeMessages, setActiveMessages] = useState<any[]>([]);
+  const [dealtMessages, setDealtMessages] = useState<any[]>([]);
+  const [messageCounts, setMessageCounts] = useState({ active: 0, dealt: 0 });
+  const [dealtHasMore, setDealtHasMore] = useState(false);
+  const [loadingMoreDealt, setLoadingMoreDealt] = useState(false);
   const [sentMessages, setSentMessages] = useState<any[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [recipientMode, setRecipientMode] = useState("all");
@@ -89,24 +92,42 @@ export default function AdminMessagesPage() {
     const requestId = messagesRequestRef.current + 1;
     messagesRequestRef.current = requestId;
 
-    const [inboxData, sentData] = await Promise.all([
-      getAdminInboxMessages(currentAdminId),
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error("Your Admin session has expired.");
+    }
+
+    const [queueResponse, sentData] = await Promise.all([
+      fetch("/api/admin/messages/work-queue", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }),
       getAdminSentMessages(currentAdminId),
     ]);
+    const queueData = await queueResponse.json();
+    if (!queueResponse.ok) {
+      throw new Error(queueData.error || "Unable to load Admin messages.");
+    }
 
     if (!mountedRef.current || requestId !== messagesRequestRef.current) {
       return;
     }
 
-    setInboxMessages(inboxData);
+    setActiveMessages(queueData.active_messages || []);
+    setDealtMessages(queueData.dealt_messages || []);
+    setMessageCounts(queueData.counts || { active: 0, dealt: 0 });
+    setDealtHasMore(Boolean(queueData.dealt_has_more));
     setSentMessages(sentData);
 
     const currentSelectedMessage = selectedMessageRef.current;
 
     if (currentSelectedMessage) {
-      const refreshedMessage = [...inboxData, ...sentData].find(
-        (item) => item.id === currentSelectedMessage.id
-      );
+      const refreshedMessage = [
+        ...(queueData.active_messages || []),
+        ...(queueData.dealt_messages || []),
+        ...sentData,
+      ].find((item) => item.id === currentSelectedMessage.id);
 
       selectedMessageRef.current = refreshedMessage || null;
       setSelectedMessage(refreshedMessage || null);
@@ -204,11 +225,12 @@ export default function AdminMessagesPage() {
         const updatedMessage = { ...item, read_at: readAt };
 
         setSelectedMessage(updatedMessage);
-        setInboxMessages((currentMessages) =>
+        const updateReadAt = (currentMessages: any[]) =>
           currentMessages.map((messageItem) =>
             messageItem.id === item.id ? updatedMessage : messageItem
-          )
-        );
+          );
+        setActiveMessages(updateReadAt);
+        setDealtMessages(updateReadAt);
         window.dispatchEvent(new Event("admin-unread-messages-changed"));
       } catch (error) {
         console.error("Unable to mark admin message as read:", error);
@@ -321,6 +343,107 @@ export default function AdminMessagesPage() {
     }
   }
 
+  async function changeDealtStatus(action: "dealt" | "restore") {
+    if (!selectedMessage) return;
+
+    setStatusMessage("");
+    setErrorMessage("");
+    setSending(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Your Admin session has expired.");
+      }
+
+      const response = await fetch("/api/admin/messages/work-queue", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message_id: selectedMessage.id,
+          action,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to update the message status.");
+      }
+
+      setSelectedMessage(null);
+      selectedMessageRef.current = null;
+      await loadMessages(adminId);
+      setActiveTab(action === "dealt" ? "Dealt With" : "New / Active");
+      setStatusMessage(
+        action === "dealt"
+          ? "Message marked as dealt with."
+          : "Message moved back to Active."
+      );
+      window.dispatchEvent(new Event("admin-unread-messages-changed"));
+    } catch (error) {
+      console.error("Unable to update Admin message status:", error);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to update the message status."
+      );
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function loadMoreDealtMessages() {
+    if (loadingMoreDealt || !dealtHasMore) return;
+
+    setLoadingMoreDealt(true);
+    setErrorMessage("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Your Admin session has expired.");
+      }
+
+      const response = await fetch(
+        `/api/admin/messages/work-queue?status=dealt&offset=${dealtMessages.length}`,
+        {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to load more messages.");
+      }
+
+      setDealtMessages((current) => [
+        ...current,
+        ...(result.dealt_messages || []),
+      ]);
+      setMessageCounts(result.counts || messageCounts);
+      setDealtHasMore(Boolean(result.dealt_has_more));
+    } catch (error) {
+      console.error("Unable to load more dealt-with messages:", error);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load more messages."
+      );
+    } finally {
+      setLoadingMoreDealt(false);
+    }
+  }
+
+  const queueMessages =
+    activeTab === "Dealt With" ? dealtMessages : activeMessages;
+  const isQueueTab =
+    activeTab === "New / Active" || activeTab === "Dealt With";
+
   return (
     <AdminLayout>
       <div style={{ maxWidth: "1100px" }}>
@@ -349,13 +472,20 @@ export default function AdminMessagesPage() {
           </button>
         </header>
 
-        <div style={{ display: "flex", gap: "10px", marginBottom: "18px" }}>
+        <div
+          className="admin-message-tabs"
+          role="tablist"
+          aria-label="Admin message sections"
+        >
           {tabs.map((tab) => {
             const active = activeTab === tab;
 
             return (
               <button
                 key={tab}
+                type="button"
+                role="tab"
+                aria-selected={active}
                 onClick={() => {
                   setActiveTab(tab);
                   setSelectedMessage(null);
@@ -372,7 +502,11 @@ export default function AdminMessagesPage() {
                   cursor: "pointer",
                 }}
               >
-                {tab}
+                {tab === "New / Active"
+                  ? `New / Active (${messageCounts.active})`
+                  : tab === "Dealt With"
+                  ? `Dealt With (${messageCounts.dealt})`
+                  : tab}
               </button>
             );
           })}
@@ -384,7 +518,7 @@ export default function AdminMessagesPage() {
           </section>
         )}
 
-        {!loading && errorMessage && !selectedMessage && (
+        {!loading && errorMessage && !selectedMessage && !isQueueTab && (
           <div
             style={{
               background: "#fff5f5",
@@ -399,7 +533,7 @@ export default function AdminMessagesPage() {
           </div>
         )}
 
-        {!loading && activeTab === "Inbox" && selectedMessage && (
+        {!loading && isQueueTab && selectedMessage && (
           <section style={{ ...cardStyle, padding: "22px" }}>
             <button
               onClick={() => {
@@ -418,7 +552,7 @@ export default function AdminMessagesPage() {
                 marginBottom: "18px",
               }}
             >
-              ← Back to inbox
+              ← Back to {activeTab}
             </button>
 
             <h2 style={{ color: "#1f3c88", margin: "0 0 10px" }}>
@@ -437,6 +571,17 @@ export default function AdminMessagesPage() {
               <span>From: {selectedMessage.sender_name}</span>
               <span>Role: {roleLabel(selectedMessage.sender_role)}</span>
               <span>Date: {formatMessageDateTime(selectedMessage.created_at)}</span>
+              {selectedMessage.dealt_with_at && (
+                <>
+                  <span>
+                    Dealt with by{" "}
+                    {selectedMessage.dealt_with_by_name || "Admin"}
+                  </span>
+                  <span>
+                    {formatMessageDateTime(selectedMessage.dealt_with_at)}
+                  </span>
+                </>
+              )}
             </div>
 
             <p
@@ -465,6 +610,24 @@ export default function AdminMessagesPage() {
                 Open attachment
               </a>
             )}
+
+            <div className="admin-message-resolution-action">
+              <button
+                type="button"
+                onClick={() =>
+                  void changeDealtStatus(
+                    selectedMessage.dealt_with_at ? "restore" : "dealt"
+                  )
+                }
+                disabled={sending}
+              >
+                {sending
+                  ? "Updating..."
+                  : selectedMessage.dealt_with_at
+                  ? "Move Back to Active"
+                  : "Mark as Dealt With"}
+              </button>
+            </div>
 
             <div
               style={{
@@ -517,14 +680,22 @@ export default function AdminMessagesPage() {
           </section>
         )}
 
-        {!loading && activeTab === "Inbox" && !selectedMessage && !errorMessage && (
+        {!loading && isQueueTab && !selectedMessage && (
           <section style={{ ...cardStyle, overflow: "hidden" }}>
-            {inboxMessages.length === 0 ? (
+            {statusMessage && (
+              <div className="admin-message-inline-success">{statusMessage}</div>
+            )}
+            {errorMessage && (
+              <div className="admin-message-inline-error">{errorMessage}</div>
+            )}
+            {queueMessages.length === 0 ? (
               <div style={{ padding: "22px", color: "#334155" }}>
-                No inbox messages yet.
+                {activeTab === "Dealt With"
+                  ? "No messages have been dealt with yet."
+                  : "No active messages."}
               </div>
             ) : (
-              inboxMessages.map((item) => (
+              queueMessages.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => openInboxMessage(item)}
@@ -555,8 +726,25 @@ export default function AdminMessagesPage() {
                     date={item.created_at}
                     attachmentLink={item.attachment_link}
                   />
+                  {item.dealt_with_at && (
+                    <div className="admin-message-dealt-metadata">
+                      Dealt with by {item.dealt_with_by_name || "Admin"} ·{" "}
+                      {formatMessageDateTime(item.dealt_with_at)}
+                    </div>
+                  )}
                 </div>
               ))
+            )}
+            {activeTab === "Dealt With" && dealtHasMore && (
+              <div className="admin-message-load-more">
+                <button
+                  type="button"
+                  onClick={() => void loadMoreDealtMessages()}
+                  disabled={loadingMoreDealt}
+                >
+                  {loadingMoreDealt ? "Loading..." : "Load More"}
+                </button>
+              </div>
             )}
           </section>
         )}

@@ -211,7 +211,7 @@ function UnreadBadge({ count }: { count: number }) {
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode | ((unreadMessageCount: number) => React.ReactNode);
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -608,7 +608,9 @@ export default function AdminLayout({
             </Link>
           </section>
         )}
-        {children}
+        {typeof children === "function"
+          ? children(unreadTeacherMessages)
+          : children}
       </main>
     </div>
   );
