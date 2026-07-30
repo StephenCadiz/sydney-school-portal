@@ -34,6 +34,26 @@ function normalizeActivityType(activityType: string | null | undefined) {
   return String(activityType || "").trim();
 }
 
+async function getAdminAccessToken() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error("Your Admin session has expired.");
+  }
+
+  return session.access_token;
+}
+
+async function parseAdminResponse(response: Response, fallback: string) {
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.error || fallback);
+  }
+  return result;
+}
+
 function validateFridayExamPracticePayload(payload: any) {
   const levelName = normalizeLevelName(payload.level_name);
   const activityType = normalizeActivityType(payload.activity_type);
@@ -55,14 +75,6 @@ function validateFridayExamPracticePayload(payload: any) {
     throw new Error(`${activityType || "This activity"} is not valid for ${levelName}.`);
   }
 
-  if (!pdfUrl) {
-    throw new Error("Please add a PDF link.");
-  }
-
-  if (isListeningActivity(activityType) && !audioUrl) {
-    throw new Error("Listening activities require an audio link.");
-  }
-
   if (!examPart) {
     throw new Error("Please add the exam part.");
   }
@@ -77,28 +89,10 @@ function validateFridayExamPracticePayload(payload: any) {
     key_url: keyUrl || null,
     note: payload.note ? String(payload.note).trim() : null,
     active: payload.active ?? true,
+    cambridge_exam_part_id: String(
+      payload.cambridge_exam_part_id || ""
+    ).trim(),
   };
-}
-
-async function ensureNoDuplicateSessionLevel(
-  sessionDate: string,
-  levelName: string,
-  currentId?: string
-) {
-  const { data, error } = await supabase
-    .from("friday_exam_practice_sessions")
-    .select("id")
-    .eq("session_date", sessionDate)
-    .eq("level_name", levelName)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(formatSupabaseError("duplicate check", error));
-  }
-
-  if (data && data.id !== currentId) {
-    throw new Error("A Friday Exam Practice session already exists for this date and level.");
-  }
 }
 
 export function getActivityOptionsForLevel(levelName: string) {
@@ -112,17 +106,15 @@ export function isListeningActivity(activityType: string) {
 }
 
 export async function getFridayExamPracticeSessions() {
-  const { data, error } = await supabase
-    .from("friday_exam_practice_sessions")
-    .select("*")
-    .order("session_date", { ascending: true })
-    .order("level_name", { ascending: true });
-
-  if (error) {
-    throw new Error(formatSupabaseError("load", error));
-  }
-
-  return data || [];
+  const token = await getAdminAccessToken();
+  const response = await fetch("/api/admin/friday-exam-practice/sessions", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const result = await parseAdminResponse(
+    response,
+    "Unable to load Friday Tutorial sessions."
+  );
+  return result.sessions || [];
 }
 
 export async function getActiveFridayExamPracticeSessions() {
@@ -157,28 +149,19 @@ export async function getFridayExamPracticeSessionsForDate(date: string) {
 
 export async function createFridayExamPracticeSession(payload: any) {
   const sessionPayload = validateFridayExamPracticePayload(payload);
-
-  await ensureNoDuplicateSessionLevel(
-    sessionPayload.session_date,
-    sessionPayload.level_name
+  const token = await getAdminAccessToken();
+  const response = await fetch("/api/admin/friday-exam-practice/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(sessionPayload),
+  });
+  return parseAdminResponse(
+    response,
+    "Unable to save the Friday Tutorial session."
   );
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const { error } = await supabase
-    .from("friday_exam_practice_sessions")
-    .insert([
-      {
-        ...sessionPayload,
-        created_by: session?.user.id || null,
-      },
-    ]);
-
-  if (error) {
-    throw new Error(formatSupabaseError("save", error));
-  }
 }
 
 export async function updateFridayExamPracticeSession(
@@ -186,24 +169,19 @@ export async function updateFridayExamPracticeSession(
   updates: any
 ) {
   const sessionPayload = validateFridayExamPracticePayload(updates);
-
-  await ensureNoDuplicateSessionLevel(
-    sessionPayload.session_date,
-    sessionPayload.level_name,
-    id
+  const token = await getAdminAccessToken();
+  const response = await fetch("/api/admin/friday-exam-practice/sessions", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ id, ...sessionPayload }),
+  });
+  return parseAdminResponse(
+    response,
+    "Unable to update the Friday Tutorial session."
   );
-
-  const { error } = await supabase
-    .from("friday_exam_practice_sessions")
-    .update({
-      ...sessionPayload,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  if (error) {
-    throw new Error(formatSupabaseError("update", error));
-  }
 }
 
 export async function deleteFridayExamPracticeSession(id: string) {

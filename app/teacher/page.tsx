@@ -14,7 +14,6 @@ import FridayAt6DutyCard from "../components/teacher/FridayAt6DutyCard";
 import { supabase } from "../../lib/supabase";
 import {
   getFridayAt6DutyForDate,
-  getFridayExamPracticeSessionsForDate,
 } from "../../lib/fridayExamPractice";
 
 const tools = [
@@ -190,12 +189,23 @@ export default function TeacherPage() {
 
       try {
         const today = getLocalDateString();
-        const [examPracticeSessions, duty] = await Promise.all([
-          getFridayExamPracticeSessionsForDate(today),
+        const [noticeResponse, duty] = await Promise.all([
+          fetch("/api/teacher/friday-tutorial-notices", {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }),
           getFridayAt6DutyForDate(today),
         ]);
 
-        setFridayExamPracticeSessions(examPracticeSessions);
+        const noticeResult = await noticeResponse.json();
+        if (!noticeResponse.ok) {
+          throw new Error(
+            noticeResult.error || "Unable to load Friday Tutorial notices."
+          );
+        }
+
+        setFridayExamPracticeSessions(noticeResult.notices || []);
         setFridayAt6Duty(duty?.teacher_id === session.user.id ? duty : null);
       } catch (error) {
         console.error("Unable to load Friday @ 6 dashboard items:", error);

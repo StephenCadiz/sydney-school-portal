@@ -5,6 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { getTeachers } from "../../../lib/adminTeachers";
 import {
+  CambridgeExamRecord,
+  getExamPartLabel,
+} from "../../../lib/cambridgeExamBank";
+import {
   createFridayExamPracticeSession,
   deleteFridayAt6Duty,
   deleteFridayExamPracticeSession,
@@ -16,6 +20,7 @@ import {
   updateFridayAt6Duty,
   updateFridayExamPracticeSession,
 } from "../../../lib/fridayExamPractice";
+import { supabase } from "../../../lib/supabase";
 
 const levelOptions = ["B1", "B2", "C1", "C2"];
 
@@ -64,6 +69,7 @@ function emptyExamForm() {
     pdf_url: "",
     audio_url: "",
     key_url: "",
+    cambridge_exam_part_id: "",
     note: "",
     active: true,
   };
@@ -146,6 +152,9 @@ export default function FridayAt6Page() {
   const [savingExam, setSavingExam] = useState(false);
   const [savingDuty, setSavingDuty] = useState(false);
   const [message, setMessage] = useState("");
+  const [examBankExams, setExamBankExams] = useState<CambridgeExamRecord[]>([]);
+  const [selectedExamId, setSelectedExamId] = useState("");
+  const [loadingExamBank, setLoadingExamBank] = useState(false);
 
   const activityOptions = getActivityOptionsForLevel(examForm.level_name);
   const isListening = isListeningActivity(examForm.activity_type);
@@ -180,6 +189,57 @@ export default function FridayAt6Page() {
     loadPageData();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadExamBankOptions() {
+      setLoadingExamBank(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error("Your Admin session has expired.");
+        }
+
+        const response = await fetch(
+          `/api/admin/exam-bank?status=active&level=${encodeURIComponent(
+            examForm.level_name
+          )}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Unable to load Exam Bank options.");
+        }
+
+        if (!cancelled) {
+          setExamBankExams(result.exams || []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setExamBankExams([]);
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Unable to load Exam Bank options."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingExamBank(false);
+      }
+    }
+
+    void loadExamBankOptions();
+    return () => {
+      cancelled = true;
+    };
+  }, [examForm.level_name]);
+
   function updateExamForm(field: string, value: any) {
     setExamForm((current) => {
       const next = {
@@ -193,6 +253,8 @@ export default function FridayAt6Page() {
         next.activity_type = nextActivities.includes(current.activity_type)
           ? current.activity_type
           : nextActivities[0] || "";
+        next.cambridge_exam_part_id = "";
+        setSelectedExamId("");
       }
 
       if (field === "activity_type" && !isListeningActivity(value)) {
@@ -213,6 +275,7 @@ export default function FridayAt6Page() {
   function resetExamForm() {
     setExamForm(emptyExamForm());
     setEditingExamId("");
+    setSelectedExamId("");
   }
 
   function resetDutyForm() {
@@ -230,11 +293,16 @@ export default function FridayAt6Page() {
       pdf_url: item.pdf_url || "",
       audio_url: item.audio_url || "",
       key_url: item.key_url || "",
+      cambridge_exam_part_id: item.cambridge_exam_part_id || "",
       note: item.note || "",
       active: item.active !== false,
     });
+    setSelectedExamId(item.exam_bank?.exam_id || "");
     setMessage("");
   }
+
+  const selectedExam =
+    examBankExams.find((exam) => exam.id === selectedExamId) || null;
 
   function editDuty(item: any) {
     setEditingDutyId(item.id);
@@ -619,7 +687,59 @@ export default function FridayAt6Page() {
             </label>
 
             <label>
-              <span style={labelStyle}>Exam part</span>
+              <span style={labelStyle}>Exam Bank exam</span>
+              <select
+                value={selectedExamId}
+                onChange={(event) => {
+                  setSelectedExamId(event.target.value);
+                  updateExamForm("cambridge_exam_part_id", "");
+                }}
+                style={inputStyle}
+                disabled={loadingExamBank}
+                required
+              >
+                <option value="">
+                  {loadingExamBank ? "Loading exams..." : "Select exam"}
+                </option>
+                {examBankExams.map((exam) => (
+                  <option key={exam.id} value={exam.id}>
+                    Exam {exam.exam_number}
+                    {exam.title ? ` — ${exam.title}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span style={labelStyle}>Exact Exam Bank part</span>
+              <select
+                value={examForm.cambridge_exam_part_id}
+                onChange={(event) =>
+                  updateExamForm(
+                    "cambridge_exam_part_id",
+                    event.target.value
+                  )
+                }
+                style={inputStyle}
+                disabled={!selectedExam}
+                required
+              >
+                <option value="">Select part</option>
+                {(selectedExam?.parts || [])
+                  .filter((part) => Boolean(part.id))
+                  .map((part) => (
+                    <option key={part.id} value={part.id || ""}>
+                      {getExamPartLabel(
+                        examForm.level_name,
+                        part.part_type
+                      )}
+                    </option>
+                  ))}
+              </select>
+            </label>
+
+            <label>
+              <span style={labelStyle}>Tutorial part detail</span>
               <input
                 value={examForm.exam_part}
                 onChange={(event) =>
@@ -632,19 +752,18 @@ export default function FridayAt6Page() {
             </label>
 
             <label>
-              <span style={labelStyle}>PDF link</span>
+              <span style={labelStyle}>Legacy PDF link</span>
               <input
                 value={examForm.pdf_url}
                 onChange={(event) => updateExamForm("pdf_url", event.target.value)}
                 placeholder="Google Drive PDF link"
                 style={inputStyle}
-                required
               />
             </label>
 
             {isListening && (
               <label>
-                <span style={labelStyle}>Audio link</span>
+                <span style={labelStyle}>Legacy audio link</span>
                 <input
                   value={examForm.audio_url}
                   onChange={(event) =>
@@ -652,13 +771,12 @@ export default function FridayAt6Page() {
                   }
                   placeholder="Listening audio link"
                   style={inputStyle}
-                  required
                 />
               </label>
             )}
 
             <label>
-              <span style={labelStyle}>Key link</span>
+              <span style={labelStyle}>Legacy key link</span>
               <input
                 value={examForm.key_url}
                 onChange={(event) => updateExamForm("key_url", event.target.value)}
@@ -772,9 +890,35 @@ export default function FridayAt6Page() {
                                 fontSize: "17px",
                               }}
                             >
-                              {item.level_name} - {item.activity_type}
-                              {item.exam_part ? ` — ${item.exam_part}` : ""}
+                              {item.exam_bank
+                                ? `${item.level_name} — Exam ${
+                                    item.exam_bank.exam_number
+                                  }${
+                                    item.exam_bank.exam_title
+                                      ? ` — ${item.exam_bank.exam_title}`
+                                      : ""
+                                  } — ${getExamPartLabel(
+                                    item.level_name,
+                                    item.exam_bank.part_type
+                                  )}`
+                                : `${item.level_name} — ${item.activity_type}`}
                             </h5>
+                            {!item.exam_bank && (
+                              <p
+                                style={{
+                                  color: "#9a3412",
+                                  fontWeight: 700,
+                                  margin: "0 0 8px",
+                                }}
+                              >
+                                No Exam Bank part linked
+                              </p>
+                            )}
+                            {item.exam_part && (
+                              <p style={{ color: "#6b7280", margin: "0 0 8px" }}>
+                                Tutorial detail: {item.exam_part}
+                              </p>
+                            )}
                             <span
                               style={{
                                 display: "inline-block",

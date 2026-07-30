@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       .limit(200);
 
     if (statusFilter === "active" || !statusFilter) {
-      query = query.is("archived_at", null);
+      query = query.eq("active", true).is("archived_at", null);
     } else if (statusFilter === "archived") {
       query = query.not("archived_at", "is", null);
     }

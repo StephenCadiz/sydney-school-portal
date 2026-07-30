@@ -5253,10 +5253,7 @@ img {
 }
 
 .teacher-dashboard-friday-row {
-  align-items: center;
-  display: flex;
-  gap: 18px;
-  justify-content: space-between;
+  display: block;
 }
 
 .teacher-dashboard-friday-row h3 {
@@ -5285,10 +5282,12 @@ img {
 }
 
 .teacher-dashboard-resource-links {
+  border-top: 1px solid #eef1f5;
   display: flex;
-  flex: 0 0 auto;
   flex-wrap: wrap;
   gap: 7px;
+  margin-top: 12px;
+  padding-top: 11px;
 }
 
 .teacher-dashboard-resource-link {
@@ -5304,6 +5303,14 @@ img {
 
 .teacher-dashboard-resource-link:hover {
   background: #eef6fd;
+}
+
+.teacher-dashboard-resource-unavailable {
+  align-items: center;
+  color: #667085;
+  display: inline-flex;
+  font-size: 13px;
+  padding: 7px 3px;
 }
 
 .teacher-dashboard-calendar .teacher-dashboard-event-list {
