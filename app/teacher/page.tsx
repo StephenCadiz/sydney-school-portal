@@ -11,6 +11,7 @@ import TeacherMessageNotifications from "../components/teacher/TeacherMessageNot
 import TeacherAnnouncementBanner from "../components/teacher/TeacherAnnouncementBanner";
 import FridayExamPracticeCard from "../components/teacher/FridayExamPracticeCard";
 import FridayAt6DutyCard from "../components/teacher/FridayAt6DutyCard";
+import FridayTutorialAttendanceCard from "../components/teacher/FridayTutorialAttendanceCard";
 import { supabase } from "../../lib/supabase";
 import {
   getFridayAt6DutyForDate,
@@ -247,6 +248,7 @@ export default function TeacherPage() {
           <TeacherAnnouncementBanner teacherId={teacherId} />
           <TeacherMessageNotifications teacherId={teacherId} />
           <FridayAt6DutyCard duty={fridayAt6Duty} />
+          <FridayTutorialAttendanceCard />
           <FridayExamPracticeCard sessions={fridayExamPracticeSessions} />
           <TeacherCalendarAgenda />
         </div>

@@ -5420,6 +5420,197 @@ img {
   margin-top: 0;
 }
 
+.teacher-dashboard-attendance {
+  border-left: 3px solid var(--ss-blue);
+}
+
+.teacher-dashboard-attendance-header {
+  border-bottom: 1px solid #e7ebf1;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+}
+
+.teacher-dashboard-attendance-group {
+  background: #eef6fb;
+  border: 1px solid #c9e1f1;
+  border-radius: 999px;
+  color: #255f88 !important;
+  line-height: 1.35;
+  max-width: 340px;
+  padding: 6px 10px;
+  text-align: right;
+}
+
+.teacher-dashboard-attendance-state {
+  background: #f8fafc;
+  border: 1px solid #e3e8ef;
+  border-radius: 9px;
+  color: #526174;
+  margin: 0;
+  padding: 13px 14px;
+}
+
+.teacher-dashboard-attendance-success,
+.teacher-dashboard-attendance-error {
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding: 11px 13px;
+}
+
+.teacher-dashboard-attendance-success {
+  align-items: center;
+  background: #edf7f1;
+  border: 1px solid #cfe9d8;
+  display: inline-flex;
+  gap: 7px;
+  color: #236b3b;
+  padding: 8px 11px;
+  width: fit-content;
+}
+
+.teacher-dashboard-attendance-error {
+  background: #fff5f5;
+  border: 1px solid #f0b8b8;
+  color: #9f1d1d;
+}
+
+.teacher-dashboard-attendance-table-wrap {
+  border: 1px solid #e3e8ef;
+  border-radius: 10px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.teacher-dashboard-attendance-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.teacher-dashboard-attendance-table .is-student { width: 54%; }
+.teacher-dashboard-attendance-table .is-level { width: 21%; }
+.teacher-dashboard-attendance-table .is-present { width: 25%; }
+
+.teacher-dashboard-attendance-table thead th {
+  background: #eef4f9;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 9px 12px;
+  text-align: left;
+}
+
+.teacher-dashboard-attendance-table thead th:last-child,
+.teacher-dashboard-attendance-table td:last-child {
+  text-align: right;
+}
+
+.teacher-dashboard-attendance-table tbody th,
+.teacher-dashboard-attendance-table td {
+  background: #ffffff;
+  border-top: 1px solid #e7ebf1;
+  color: #475467;
+  font-size: 14px;
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.teacher-dashboard-attendance-table tbody th {
+  color: #243044;
+  font-weight: 750;
+}
+
+.teacher-dashboard-attendance-table tbody tr:hover th,
+.teacher-dashboard-attendance-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.teacher-dashboard-attendance-level {
+  background: #f2f4f7;
+  border: 1px solid #e1e6ed;
+  border-radius: 999px;
+  color: #526174;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.teacher-dashboard-attendance-choice {
+  display: inline-grid;
+  gap: 5px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.teacher-dashboard-attendance-choice button {
+  background: #ffffff;
+  border: 1px solid #cbd6e3;
+  border-radius: 7px;
+  color: #526174;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 38px;
+  min-width: 62px;
+  padding: 7px 11px;
+}
+
+.teacher-dashboard-attendance-choice button:hover {
+  background: #f5f8fb;
+  border-color: #aebdce;
+}
+
+.teacher-dashboard-attendance-choice button.is-yes.is-selected {
+  background: #e8f5ed;
+  border-color: #7fc397;
+  color: #176437;
+}
+
+.teacher-dashboard-attendance-choice button.is-no.is-selected {
+  background: #fff0f0;
+  border-color: #e6a2a2;
+  color: #9f1d1d;
+}
+
+.teacher-dashboard-attendance-choice button:focus-visible,
+.teacher-dashboard-attendance-actions button:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.24);
+  outline-offset: 2px;
+}
+
+.teacher-dashboard-attendance-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 13px;
+}
+
+.teacher-dashboard-attendance-actions button {
+  background: var(--ss-blue);
+  border: 1px solid var(--ss-blue);
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 9px 14px;
+}
+
+.teacher-dashboard-attendance-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.teacher-dashboard-attendance-actions button:hover:not(:disabled) {
+  background: var(--ss-blue-dark);
+  border-color: var(--ss-blue-dark);
+}
+
 .teacher-dashboard-resource-links {
   border-top: 1px solid #eef1f5;
   display: flex;
@@ -5576,7 +5767,73 @@ img {
     gap: 8px;
   }
 
+  .teacher-dashboard-attendance-group {
+    max-width: none;
+    text-align: left;
+    width: fit-content;
+  }
+
+  .teacher-dashboard-attendance-table-wrap {
+    overflow-x: visible;
+  }
+
+  .teacher-dashboard-attendance-table colgroup,
+  .teacher-dashboard-attendance-table thead {
+    display: none;
+  }
+
+  .teacher-dashboard-attendance-table,
+  .teacher-dashboard-attendance-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .teacher-dashboard-attendance-table tbody tr {
+    align-items: center;
+    border-top: 1px solid #e7ebf1;
+    display: grid;
+    gap: 5px 12px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px;
+  }
+
+  .teacher-dashboard-attendance-table tbody tr:first-child {
+    border-top: 0;
+  }
+
+  .teacher-dashboard-attendance-table tbody th,
+  .teacher-dashboard-attendance-table tbody td {
+    border: 0;
+    padding: 0;
+  }
+
+  .teacher-dashboard-attendance-table tbody th {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .teacher-dashboard-attendance-table tbody td:nth-of-type(1) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .teacher-dashboard-attendance-table tbody td:nth-of-type(2) {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    text-align: right;
+  }
+
+  .teacher-dashboard-attendance-choice button {
+    min-height: 42px;
+    min-width: 58px;
+  }
+
   .teacher-dashboard-announcement-action button {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .teacher-dashboard-attendance-actions button {
     min-height: 44px;
     width: 100%;
   }
@@ -7603,6 +7860,191 @@ img {
   padding: 9px 13px;
 }
 
+.friday-weekly-panel {
+  min-width: 0;
+}
+
+.friday-weekly-panel-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.friday-weekly-panel-header h2 {
+  color: var(--ss-blue-dark);
+  margin: 0 0 6px;
+}
+
+.friday-weekly-panel-header p {
+  color: #4b5563;
+  margin: 0;
+}
+
+.friday-weekly-date-field {
+  flex: 0 1 380px;
+  min-width: 280px;
+}
+
+.friday-weekly-session-summary {
+  background: var(--ss-blue-light);
+  border: 1px solid var(--ss-border);
+  border-radius: 12px;
+  color: var(--ss-blue-dark);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 20px;
+  padding: 14px 16px;
+}
+
+.friday-weekly-session-summary > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.friday-weekly-session-summary span {
+  color: #5d6b7d;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.friday-weekly-session-summary strong {
+  overflow-wrap: anywhere;
+}
+
+.friday-weekly-table-scroll {
+  border: 1px solid #dfe6ef;
+  border-radius: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.friday-weekly-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1568px;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.friday-weekly-table .friday-weekly-col-name { width: 150px; }
+.friday-weekly-table .friday-weekly-col-actions { width: 68px; }
+.friday-weekly-table .friday-weekly-col-level { width: 60px; }
+.friday-weekly-table .friday-weekly-col-reason { width: 140px; }
+.friday-weekly-table .friday-weekly-col-time { width: 150px; }
+.friday-weekly-table .friday-weekly-col-teacher { width: 130px; }
+.friday-weekly-table .friday-weekly-col-whatsapp { width: 118px; }
+.friday-weekly-table .friday-weekly-col-confirmed { width: 112px; }
+.friday-weekly-table .friday-weekly-col-material { width: 128px; }
+.friday-weekly-table .friday-weekly-col-attended { width: 112px; }
+.friday-weekly-table .friday-weekly-col-comments { width: 330px; }
+.friday-weekly-table .friday-weekly-col-save { width: 70px; }
+
+.friday-weekly-table th {
+  background: var(--ss-blue);
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  padding: 10px 8px;
+  text-align: center;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.friday-weekly-table th:last-child {
+  border-right: 0;
+}
+
+.friday-weekly-table td {
+  background: #ffffff;
+  border-bottom: 1px solid #e8edf3;
+  color: #374151;
+  font-size: 13px;
+  padding: 9px 8px;
+  vertical-align: middle;
+}
+
+.friday-weekly-table tbody tr:nth-child(even) td {
+  background: #fbfcfe;
+}
+
+.friday-weekly-table tbody tr:hover td {
+  background: #f4f8fc;
+}
+
+.friday-weekly-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.friday-weekly-student-name {
+  color: var(--ss-blue-dark) !important;
+  font-weight: 750;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.friday-weekly-table input,
+.friday-weekly-status-select {
+  min-height: 38px;
+}
+
+.friday-weekly-status-select {
+  min-width: 96px !important;
+  padding: 8px 7px !important;
+}
+
+.friday-weekly-table textarea {
+  min-height: 60px;
+  resize: vertical;
+  width: 100%;
+}
+
+.friday-weekly-table .friday-weekly-sticky-name {
+  left: 0;
+  position: sticky;
+  z-index: 1;
+}
+
+.friday-weekly-table th.friday-weekly-sticky-name {
+  z-index: 2;
+}
+
+.friday-weekly-nowrap {
+  white-space: nowrap;
+}
+
+.friday-weekly-remove-button {
+  font-size: 11px;
+  min-height: 32px;
+  padding: 5px 6px;
+  width: 100%;
+}
+
+.friday-weekly-save-button {
+  font-size: 12px;
+  min-height: 34px;
+  width: 100%;
+}
+
+.friday-weekly-remove-unavailable {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.friday-weekly-empty-state {
+  background: #f8fafd;
+  border: 1px dashed var(--ss-border);
+  border-radius: 12px;
+  color: #5d6b7d;
+  margin: 0;
+  padding: 20px;
+}
+
 .friday-remove-action:disabled {
   cursor: not-allowed;
   opacity: 0.65;
@@ -7721,6 +8163,25 @@ img {
   .friday-remove-confirm,
   .friday-remove-action {
     width: 100%;
+  }
+
+  .friday-weekly-panel {
+    padding: 18px !important;
+  }
+
+  .friday-weekly-panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .friday-weekly-date-field {
+    flex-basis: auto;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .friday-weekly-session-summary {
+    grid-template-columns: 1fr;
   }
 }
 

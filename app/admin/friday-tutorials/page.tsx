@@ -154,6 +154,7 @@ function StatusSelect({
 
   return (
     <select
+      className="friday-weekly-status-select"
       value={value || "choose"}
       onChange={(event) => onChange(event.target.value)}
       style={{
@@ -753,27 +754,19 @@ export default function AdminFridayTutorialsPage() {
         </nav>
 
         {activeTab === "weekly" && (
-          <section style={cardStyle}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "18px",
-                flexWrap: "wrap",
-                marginBottom: "20px",
-              }}
-            >
+          <section className="friday-weekly-panel" style={cardStyle}>
+            <div className="friday-weekly-panel-header">
               <div>
-                <h2 style={{ color: "var(--ss-blue-dark)", margin: "0 0 6px" }}>
+                <h2>
                   Friday Tutorial List
                 </h2>
-                <p style={{ color: "#4b5563", margin: 0 }}>
+                <p>
                   Weekly register for the selected Friday session.
                 </p>
               </div>
 
               {settings && upcomingTutorials.length > 0 && (
-                <label style={{ minWidth: "320px" }}>
+                <label className="friday-weekly-date-field">
                   <span style={labelStyle}>Upcoming Friday date</span>
                   <select
                     value={selectedSessionKey}
@@ -802,75 +795,49 @@ export default function AdminFridayTutorialsPage() {
               </p>
             ) : selectedTutorial ? (
               <>
-                <div
-                  style={{
-                    background: "var(--ss-blue-light)",
-                    border: "1px solid var(--ss-border)",
-                    borderRadius: "12px",
-                    padding: "14px",
-                    marginBottom: "18px",
-                    color: "var(--ss-blue-dark)",
-                  }}
-                >
-                  <strong>
-                    Friday Tutorial List - {formatShortDate(selectedTutorial.session_date)}
-                  </strong>
-                  <br />
-                  {selectedTutorial.tutorial_group_label}
-                  <br />
-                  Friday 18:00-19:00
+                <div className="friday-weekly-session-summary">
+                  <div><span>Selected date</span><strong>{formatShortDate(selectedTutorial.session_date)}</strong></div>
+                  <div><span>Selected group</span><strong>{selectedTutorial.tutorial_group_label}</strong></div>
+                  <div><span>Session time</span><strong>Friday 18:00–19:00</strong></div>
                 </div>
 
                 {registerLoading ? (
                   <p style={{ color: "#4b5563" }}>Loading weekly register...</p>
                 ) : registerRows.length === 0 ? (
-                  <p style={{ color: "#4b5563" }}>
-                    No approved active students are assigned to this tutorial
-                    group yet.
+                  <p className="friday-weekly-empty-state">
+                    No students have been added to this Friday Tutorial list.
                   </p>
                 ) : (
-                  <div style={{ overflowX: "auto" }}>
-                    <table
-                      style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        minWidth: "1180px",
-                      }}
-                    >
+                  <div className="friday-weekly-table-scroll">
+                    <table className="friday-weekly-table">
+                      <colgroup>
+                        <col className="friday-weekly-col-name" />
+                        <col className="friday-weekly-col-actions" />
+                        <col className="friday-weekly-col-level" />
+                        <col className="friday-weekly-col-reason" />
+                        <col className="friday-weekly-col-time" />
+                        <col className="friday-weekly-col-teacher" />
+                        <col className="friday-weekly-col-whatsapp" />
+                        <col className="friday-weekly-col-confirmed" />
+                        <col className="friday-weekly-col-material" />
+                        <col className="friday-weekly-col-attended" />
+                        <col className="friday-weekly-col-comments" />
+                        <col className="friday-weekly-col-save" />
+                      </colgroup>
                       <thead>
-                        <tr style={{ background: "var(--ss-blue)" }}>
-                          {[
-                            "Name",
-                            "Actions",
-                            "Level",
-                            "Reason",
-                            "Time and Day",
-                            "Teacher",
-                            "WhatsApp to Parents",
-                            "Parent Confirmed",
-                            "Teacher Material Received",
-                            "Student Attended",
-                            "Comments",
-                          ].map((heading) => (
-                            <th
-                              key={heading}
-                              style={{
-                                color: "#ffffff",
-                                textAlign: "left",
-                                padding: "12px",
-                                fontSize: "13px",
-                                ...(heading === "Actions"
-                                  ? {
-                                      minWidth: "100px",
-                                      whiteSpace: "nowrap",
-                                      width: "112px",
-                                    }
-                                  : {}),
-                              }}
-                            >
-                              {heading}
-                            </th>
-                          ))}
+                        <tr>
+                          <th className="friday-weekly-sticky-name">Name</th>
+                          <th>Actions</th>
+                          <th>Level</th>
+                          <th>Reason</th>
+                          <th>Time and Day</th>
+                          <th>Teacher</th>
+                          <th>WhatsApp to Parents</th>
+                          <th>Parent Confirmed</th>
+                          <th>Teacher Material Received</th>
+                          <th>Student Attended</th>
+                          <th>Comments</th>
+                          <th>Save</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -889,46 +856,37 @@ export default function AdminFridayTutorialsPage() {
 
                           return (
                             <tr key={row.session_student_id}>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", fontWeight: 700 }}>
-                                {row.student_name}
-                              </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", verticalAlign: "top", whiteSpace: "nowrap", width: "112px" }}>
+                              <td className="friday-weekly-sticky-name friday-weekly-student-name">{row.student_name}</td>
+                              <td>
                                 {canRemoveWeeklyRow ? (
                                   <button
                                     type="button"
-                                    className="friday-remove-action"
+                                    className="friday-remove-action friday-weekly-remove-button"
                                     onClick={() => openRemoveModal(row, "weekly")}
                                     disabled={removingStudent}
                                   >
                                     {isRemovingThisWeeklyRow ? "Removing..." : "Remove"}
                                   </button>
                                 ) : (
-                                  <span style={{ color: "#6b7280", fontSize: "13px" }}>
-                                    Not available
-                                  </span>
+                                  <span className="friday-weekly-remove-unavailable">Not available</span>
                                 )}
                               </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                                {row.level_name}
-                              </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                              <td>{row.level_name}</td>
+                              <td>
                                 <input
+                                  aria-label={`Reason for ${row.student_name}`}
                                   value={row.reason || "Tutorial"}
                                   onChange={(event) =>
                                     handleUpdateRegisterRow(row.session_student_id, {
                                       reason: event.target.value,
                                     })
                                   }
-                                  style={{ ...inputStyle, minWidth: "120px" }}
+                                  style={inputStyle}
                                 />
                               </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", whiteSpace: "nowrap" }}>
-                                Friday 18:00-19:00
-                              </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
-                                {row.teacher_name}
-                              </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                              <td className="friday-weekly-nowrap">Friday 18:00–19:00</td>
+                              <td>{row.teacher_name}</td>
+                              <td>
                                 <StatusSelect
                                   value={row.whatsapp_sent_status}
                                   onChange={(value) =>
@@ -938,7 +896,7 @@ export default function AdminFridayTutorialsPage() {
                                   }
                                 />
                               </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                              <td>
                                 <StatusSelect
                                   value={row.parent_confirmed_status}
                                   onChange={(value) =>
@@ -948,7 +906,7 @@ export default function AdminFridayTutorialsPage() {
                                   }
                                 />
                               </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                              <td>
                                 <StatusSelect
                                   value={row.material_received_status}
                                   onChange={(value) =>
@@ -958,7 +916,7 @@ export default function AdminFridayTutorialsPage() {
                                   }
                                 />
                               </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)" }}>
+                              <td>
                                 <StatusSelect
                                   value={row.student_attended_status}
                                   onChange={(value) =>
@@ -968,8 +926,9 @@ export default function AdminFridayTutorialsPage() {
                                   }
                                 />
                               </td>
-                              <td style={{ padding: "12px", borderBottom: "1px solid var(--ss-border)", minWidth: "220px" }}>
+                              <td>
                                 <textarea
+                                  aria-label={`Comments for ${row.student_name}`}
                                   value={registerCommentDrafts[row.session_student_id] || ""}
                                   onChange={(event) =>
                                     setRegisterCommentDrafts((current) => ({
@@ -977,9 +936,12 @@ export default function AdminFridayTutorialsPage() {
                                       [row.session_student_id]: event.target.value,
                                     }))
                                   }
-                                  style={{ ...inputStyle, minHeight: "58px", resize: "vertical" as const }}
+                                  style={inputStyle}
                                 />
+                              </td>
+                              <td>
                                 <button
+                                  className="friday-weekly-save-button"
                                   onClick={() =>
                                     handleUpdateRegisterRow(row.session_student_id, {
                                       comment:
@@ -988,8 +950,7 @@ export default function AdminFridayTutorialsPage() {
                                   }
                                   style={{
                                     ...primaryButtonStyle,
-                                    marginTop: "8px",
-                                    padding: "8px 10px",
+                                    padding: "8px 11px",
                                   }}
                                 >
                                   Save
