@@ -10927,6 +10927,26 @@ img {
   padding: 26px;
 }
 
+.young-learner-result-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.young-learner-result-heading > div {
+  min-width: 0;
+}
+
+.young-learner-result-form {
+  margin-bottom: 18px;
+}
+
+.young-learner-result-form h4 {
+  color: var(--ss-blue-dark);
+  margin: 0;
+}
+
 .young-learner-information-grid {
   display: grid;
   gap: 12px;
@@ -10999,6 +11019,15 @@ img {
 
   .young-learner-information-grid {
     grid-template-columns: 1fr;
+  }
+
+  .young-learner-result-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .young-learner-result-heading button {
+    width: 100%;
   }
 }
 

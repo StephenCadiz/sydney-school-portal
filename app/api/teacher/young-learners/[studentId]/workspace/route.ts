@@ -47,6 +47,49 @@ function calculateResultPercentage(result: any) {
   return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
 }
 
+function resultScoreFields(levelName: string) {
+  return isTeensUnitExamLevel(levelName)
+    ? ["reading", "writing", "listening", "speaking"]
+    : ["reading_writing", "listening", "speaking"];
+}
+
+function serializeResult(result: any, levelName: string) {
+  const requiredFields = resultScoreFields(levelName);
+  return {
+    ...result,
+    percentage: calculateResultPercentage(result),
+    completed: requiredFields.every(
+      (field) => result[field] !== null && result[field] !== undefined
+    ),
+  };
+}
+
+function readScore(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const score = Number(value);
+  return Number.isFinite(score) && score >= 0 && score <= 100 ? score : undefined;
+}
+
+function buildResultValues(body: any, levelName: string) {
+  const fields = resultScoreFields(levelName);
+  const values: Record<string, number | null> = {
+    reading_writing: null,
+    reading: null,
+    writing: null,
+    listening: null,
+    speaking: null,
+  };
+
+  for (const field of fields) {
+    const score = readScore(body?.[field]);
+    if (score === undefined) return null;
+    values[field] = score;
+  }
+
+  if (!fields.some((field) => values[field] !== null)) return null;
+  return values;
+}
+
 async function getActor(request: NextRequest) {
   const authorization = request.headers.get("authorization");
   const token = authorization?.startsWith("Bearer ")
@@ -136,7 +179,7 @@ export async function GET(
     if (access.response || !access.context) return access.response;
     const { studentId, classId, classRow, level, learner } = access.context;
 
-    const [classroomResult, teacherResult, notesResult, resultsResult, followUpsResult] =
+    const [classroomResult, teacherResult, notesResult, resultsResult, followUpsResult, examsResult] =
       await Promise.all([
         classRow.classroom_id
           ? supabaseAdmin.from("classrooms").select("id, name").eq("id", classRow.classroom_id).maybeSingle()
@@ -147,9 +190,10 @@ export async function GET(
         supabaseAdmin.from("young_learner_notes").select("*").eq("young_learner_id", studentId).order("created_at", { ascending: false }),
         supabaseAdmin.from("unit_exam_results").select("*").eq("young_learner_id", studentId).order("unit_exam_number", { ascending: false }).order("created_at", { ascending: false }),
         supabaseAdmin.from("follow_up_documents").select("id, category, status, updated_at, created_at").eq("student_type", "young_learner").eq("young_learner_id", studentId).order("updated_at", { ascending: false }),
+        supabaseAdmin.from("class_exam_materials").select("id, level_id, exam_unit_number, active, created_at, updated_at").eq("level_id", level.id).eq("active", true).order("exam_unit_number", { ascending: true }),
       ]);
 
-    const failed = [classroomResult, teacherResult, notesResult, resultsResult, followUpsResult].find((result) => result.error);
+    const failed = [classroomResult, teacherResult, notesResult, resultsResult, followUpsResult, examsResult].find((result) => result.error);
     if (failed?.error) {
       logWorkspaceError("workspace-data", failed.error);
       return jsonError("Unable to load the Young Learner workspace.", 500);
@@ -161,16 +205,9 @@ export async function GET(
       created_by_name: getName(profiles.get(note.created_by), "Former staff member"),
       can_edit: note.created_by === access.actor?.id,
     }));
-    const requiredScoreFields = isTeensUnitExamLevel(level.name)
-      ? ["reading", "writing", "listening", "speaking"]
-      : ["reading_writing", "listening", "speaking"];
-    const results = (resultsResult.data || []).map((result) => ({
-      ...result,
-      percentage: calculateResultPercentage(result),
-      completed: requiredScoreFields.every(
-        (field) => result[field] !== null && result[field] !== undefined
-      ),
-    }));
+    const results = (resultsResult.data || []).map((result) =>
+      serializeResult(result, level.name)
+    );
     const completedResults = results.filter((result) => result.completed && result.percentage !== null);
     const average = completedResults.length
       ? Math.round((completedResults.reduce((sum, result) => sum + result.percentage, 0) / completedResults.length) * 10) / 10
@@ -190,6 +227,7 @@ export async function GET(
         academic_year: classRow.academic_year || classRow.school_year || null,
       },
       notes,
+      eligible_unit_exams: examsResult.data || [],
       unit_exam_results: results,
       follow_up_summary: followUpsResult.data || [],
       progress: {
@@ -197,6 +235,7 @@ export async function GET(
         completed_unit_exams: completedResults.length,
         pending_unit_exams: results.filter((result) => !result.completed).length,
         latest_follow_up_status: followUpsResult.data?.[0]?.status || null,
+        latest_unit_exam: results[0] || null,
         note_count: notes.length,
       },
     });
@@ -218,6 +257,68 @@ export async function POST(request: NextRequest, routeContext: { params: Promise
   const access = await getContext(request, routeContext);
   if (access.response || !access.context || !access.actor) return access.response;
   const body = await readNoteBody(request);
+  if (body?.action === "unit_exam_result") {
+    const examId = String(body.exam_id || "");
+    if (!UUID_PATTERN.test(examId)) return jsonError("Select a valid Unit Exam.", 422);
+
+    const { data: exam, error: examError } = await supabaseAdmin
+      .from("class_exam_materials")
+      .select("id, level_id, exam_unit_number, active")
+      .eq("id", examId)
+      .eq("level_id", access.context.level.id)
+      .eq("active", true)
+      .maybeSingle();
+    if (examError) {
+      logWorkspaceError("result-exam-check", examError);
+      return jsonError("Unable to verify the selected Unit Exam.", 500);
+    }
+    if (!exam) return jsonError("That Unit Exam is not valid for this learner's level.", 422);
+
+    const values = buildResultValues(body, access.context.level.name);
+    const comments = typeof body.comments === "string" ? body.comments.trim() : "";
+    if (!values) return jsonError("Enter scores from 0 to 100 for at least one supported skill.", 422);
+    if (comments.length > 2000) return jsonError("Comments must be 2000 characters or fewer.", 422);
+
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("unit_exam_results")
+      .select("id")
+      .eq("young_learner_id", access.context.studentId)
+      .eq("class_id", access.context.classId)
+      .eq("unit_exam_number", exam.exam_unit_number)
+      .maybeSingle();
+    if (existingError) {
+      logWorkspaceError("result-duplicate-check", existingError);
+      return jsonError("Unable to check the existing Unit Exam Result.", 500);
+    }
+    if (existing) return jsonError("A result already exists for this Unit Exam. Use Edit to correct it.", 409);
+
+    const { data, error } = await supabaseAdmin
+      .from("unit_exam_results")
+      .insert({
+        young_learner_id: access.context.studentId,
+        class_id: access.context.classId,
+        teacher_id: access.actor.id,
+        unit_exam_number: exam.exam_unit_number,
+        ...values,
+        comments: comments || null,
+      })
+      .select("*")
+      .single();
+    if (error) {
+      logWorkspaceError("result-create", error);
+      return jsonError(
+        (error as any).code === "23505"
+          ? "A result already exists for this Unit Exam. Use Edit to correct it."
+          : "Unable to save the Unit Exam Result.",
+        (error as any).code === "23505" ? 409 : 500
+      );
+    }
+    return NextResponse.json(
+      { result: serializeResult(data, access.context.level.name) },
+      { status: 201 }
+    );
+  }
+
   const note = typeof body?.note === "string" ? body.note.trim() : "";
   if (!note || note.length > 4000) return jsonError("Enter a note of up to 4000 characters.", 422);
 
@@ -238,6 +339,53 @@ export async function PATCH(request: NextRequest, routeContext: { params: Promis
   const access = await getContext(request, routeContext);
   if (access.response || !access.context || !access.actor) return access.response;
   const body = await readNoteBody(request);
+  if (body?.action === "unit_exam_result") {
+    const resultId = String(body.result_id || "");
+    if (!UUID_PATTERN.test(resultId)) return jsonError("Unit Exam Result not found.", 404);
+
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("unit_exam_results")
+      .select("*")
+      .eq("id", resultId)
+      .eq("young_learner_id", access.context.studentId)
+      .eq("class_id", access.context.classId)
+      .maybeSingle();
+    if (existingError) {
+      logWorkspaceError("result-edit-check", existingError);
+      return jsonError("Unable to verify the Unit Exam Result.", 500);
+    }
+    if (!existing) return jsonError("Unit Exam Result not found.", 404);
+
+    const { data: exam, error: examError } = await supabaseAdmin
+      .from("class_exam_materials")
+      .select("id")
+      .eq("level_id", access.context.level.id)
+      .eq("exam_unit_number", existing.unit_exam_number)
+      .maybeSingle();
+    if (examError) {
+      logWorkspaceError("result-edit-exam-check", examError);
+      return jsonError("Unable to verify the Unit Exam.", 500);
+    }
+    if (!exam) return jsonError("This result does not match an exam for the learner's level.", 422);
+
+    const values = buildResultValues(body, access.context.level.name);
+    const comments = typeof body.comments === "string" ? body.comments.trim() : "";
+    if (!values) return jsonError("Enter scores from 0 to 100 for at least one supported skill.", 422);
+    if (comments.length > 2000) return jsonError("Comments must be 2000 characters or fewer.", 422);
+
+    const { data, error } = await supabaseAdmin
+      .from("unit_exam_results")
+      .update({ ...values, comments: comments || null, updated_at: new Date().toISOString() })
+      .eq("id", existing.id)
+      .select("*")
+      .single();
+    if (error) {
+      logWorkspaceError("result-update", error);
+      return jsonError("Unable to update the Unit Exam Result.", 500);
+    }
+    return NextResponse.json({ result: serializeResult(data, access.context.level.name) });
+  }
+
   const noteId = String(body?.note_id || "");
   const note = typeof body?.note === "string" ? body.note.trim() : "";
   if (!UUID_PATTERN.test(noteId) || !note || note.length > 4000) return jsonError("Enter a valid note of up to 4000 characters.", 422);
@@ -255,6 +403,25 @@ export async function PATCH(request: NextRequest, routeContext: { params: Promis
 export async function DELETE(request: NextRequest, routeContext: { params: Promise<{ studentId: string }> }) {
   const access = await getContext(request, routeContext);
   if (access.response || !access.context || !access.actor) return access.response;
+  const resultId = String(request.nextUrl.searchParams.get("resultId") || "");
+  if (resultId) {
+    if (!UUID_PATTERN.test(resultId)) return jsonError("Unit Exam Result not found.", 404);
+    const { data, error } = await supabaseAdmin
+      .from("unit_exam_results")
+      .delete()
+      .eq("id", resultId)
+      .eq("young_learner_id", access.context.studentId)
+      .eq("class_id", access.context.classId)
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      logWorkspaceError("result-delete", error);
+      return jsonError("Unable to delete the Unit Exam Result.", 500);
+    }
+    if (!data) return jsonError("Unit Exam Result not found.", 404);
+    return NextResponse.json({ success: true });
+  }
+
   const noteId = String(request.nextUrl.searchParams.get("noteId") || "");
   if (!UUID_PATTERN.test(noteId)) return jsonError("Note not found.", 404);
   const { data, error } = await supabaseAdmin.from("young_learner_notes").delete()
