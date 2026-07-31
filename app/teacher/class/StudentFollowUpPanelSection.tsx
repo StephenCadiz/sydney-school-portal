@@ -13,6 +13,7 @@ type StudentFollowUpPanelSectionProps = {
   teacherId: string;
   studentId: string;
   studentName: string;
+  studentType?: "cambridge" | "young_learner";
 };
 
 const categories = ["Academic", "Behaviour", "Homework", "Attendance", "Other"];
@@ -71,6 +72,7 @@ export default function StudentFollowUpPanelSection({
   teacherId,
   studentId,
   studentName,
+  studentType = "cambridge",
 }: StudentFollowUpPanelSectionProps) {
   const [followUps, setFollowUps] = useState<any[]>([]);
   const [category, setCategory] = useState("Academic");
@@ -89,9 +91,9 @@ export default function StudentFollowUpPanelSection({
       const itemStudentId =
         itemType === "young_learner" ? item.young_learner_id : item.student_id;
 
-      return itemType === "cambridge" && itemStudentId === studentId;
+      return itemType === studentType && itemStudentId === studentId;
     });
-  }, [followUps, studentId]);
+  }, [followUps, studentId, studentType]);
 
   const selectedExistingFollowUp = useMemo(() => {
     return (
@@ -154,9 +156,10 @@ export default function StudentFollowUpPanelSection({
 
     try {
       await createFollowUpDocument({
-        student_type: "cambridge",
-        student_id: studentId,
-        young_learner_id: null,
+        student_type: studentType,
+        student_id: studentType === "cambridge" ? studentId : null,
+        young_learner_id:
+          studentType === "young_learner" ? studentId : null,
         class_id: classId,
         teacher_id: teacherId,
         category,

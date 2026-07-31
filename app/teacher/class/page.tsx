@@ -423,6 +423,21 @@ if (classResult.data) {
     const panelSection = getPanelSectionForAction(action);
 
     if (
+      student?.student_type === "young_learner" &&
+      student.id &&
+      classData?.id &&
+      classData.is_cambridge !== true &&
+      isUnitExamLevel(levelName)
+    ) {
+      router.push(
+        `/teacher/class/young-learner/${encodeURIComponent(
+          student.id
+        )}?classId=${encodeURIComponent(classData.id)}`
+      );
+      return;
+    }
+
+    if (
       student?.student_type === "cambridge" &&
       panelSection &&
       student.id
