@@ -15131,3 +15131,349 @@ img {
     grid-template-columns: 1fr;
   }
 }
+
+/* Friday @ 6: General Tutorial Duty */
+.friday-six-general-section {
+  min-width: 0;
+  padding: 20px !important;
+}
+
+.friday-six-general-header {
+  border-bottom: 1px solid #e5eaf1;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+.friday-six-general-header h2 {
+  color: var(--ss-blue-dark);
+  font-size: 20px;
+  line-height: 1.25;
+  margin: 0 0 5px;
+}
+
+.friday-six-general-header p {
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.friday-six-general-form {
+  align-items: end;
+  background: #f8fafc;
+  border: 1px solid #e1e7ef;
+  border-radius: 10px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 165px 220px minmax(240px, 1fr) auto auto;
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.friday-six-general-form > label:not(.friday-six-general-active) {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.friday-six-general-form > label:not(.friday-six-general-active) > span {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.friday-six-general-form input:not([type="checkbox"]),
+.friday-six-general-form select {
+  background: #ffffff;
+  border: 1px solid #cfd8e6;
+  border-radius: 8px;
+  color: #1f2937;
+  font: inherit;
+  height: 38px;
+  min-width: 0;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.friday-six-general-form input:not([type="checkbox"]):focus,
+.friday-six-general-form select:focus {
+  border-color: var(--ss-blue);
+  box-shadow: 0 0 0 3px rgba(31, 60, 136, 0.12);
+  outline: none;
+}
+
+.friday-six-general-active {
+  align-items: center;
+  color: #344054;
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  height: 38px;
+  white-space: nowrap;
+}
+
+.friday-six-general-active input {
+  accent-color: var(--ss-blue);
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+.friday-six-general-form-actions,
+.friday-six-general-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.friday-six-general-form-actions {
+  flex-wrap: wrap;
+}
+
+.friday-six-general-primary,
+.friday-six-general-secondary,
+.friday-six-general-edit,
+.friday-six-general-delete {
+  align-items: center;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.friday-six-general-primary,
+.friday-six-general-secondary {
+  height: 38px;
+  padding: 0 14px;
+}
+
+.friday-six-general-primary {
+  background: var(--ss-blue);
+  border: 1px solid var(--ss-blue);
+  color: #ffffff;
+}
+
+.friday-six-general-primary:hover:not(:disabled) {
+  background: var(--ss-blue-dark);
+  border-color: var(--ss-blue-dark);
+}
+
+.friday-six-general-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.friday-six-general-secondary {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: var(--ss-blue-dark);
+}
+
+.friday-six-general-secondary:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.friday-six-general-primary:focus-visible,
+.friday-six-general-secondary:focus-visible,
+.friday-six-general-edit:focus-visible,
+.friday-six-general-delete:focus-visible {
+  box-shadow: 0 0 0 3px rgba(31, 60, 136, 0.16);
+  outline: none;
+}
+
+.friday-six-general-register-scroll {
+  border: 1px solid #dfe6ef;
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.friday-six-general-register {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1040px;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.friday-six-general-register col.is-date {
+  width: 190px;
+}
+
+.friday-six-general-register col.is-teacher {
+  width: 200px;
+}
+
+.friday-six-general-register col.is-note {
+  width: 280px;
+}
+
+.friday-six-general-register col.is-time {
+  width: 125px;
+}
+
+.friday-six-general-register col.is-status {
+  width: 95px;
+}
+
+.friday-six-general-register col.is-actions {
+  width: 150px;
+}
+
+.friday-six-general-register th {
+  background: var(--ss-blue);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  padding: 10px 8px;
+  text-align: center;
+  white-space: normal;
+}
+
+.friday-six-general-register th:first-child {
+  border-top-left-radius: 11px;
+}
+
+.friday-six-general-register th:last-child {
+  border-top-right-radius: 11px;
+}
+
+.friday-six-general-register td {
+  border-bottom: 1px solid #e8edf3;
+  color: #344054;
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  padding: 12px 8px;
+  vertical-align: middle;
+}
+
+.friday-six-general-register tbody tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.friday-six-general-register tbody tr:hover td {
+  background: #eef4fb;
+}
+
+.friday-six-general-register tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.friday-six-general-teacher {
+  color: #1f2937 !important;
+  font-weight: 700;
+}
+
+.friday-six-general-time {
+  white-space: nowrap;
+}
+
+.friday-six-general-status {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.friday-six-general-status.is-active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.friday-six-general-status.is-inactive {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.friday-six-general-edit,
+.friday-six-general-delete {
+  background: #ffffff;
+  height: 32px;
+  padding: 0 11px;
+}
+
+.friday-six-general-edit {
+  border: 1px solid #b8c4d6;
+  color: var(--ss-blue-dark);
+}
+
+.friday-six-general-edit:hover {
+  background: #f1f5f9;
+  border-color: #8796ad;
+}
+
+.friday-six-general-delete {
+  border: 1px solid #f0a8a8;
+  color: #b42318;
+}
+
+.friday-six-general-delete:hover {
+  background: #fef2f2;
+  border-color: #dc6868;
+}
+
+.friday-six-general-empty {
+  background: #f8fafc;
+  border: 1px dashed #d6dee9;
+  border-radius: 10px;
+  color: #667085;
+  font-size: 13px;
+  margin: 0;
+  padding: 16px;
+  text-align: center;
+}
+
+@media (max-width: 1040px) {
+  .friday-six-general-form {
+    grid-template-columns: minmax(155px, 0.8fr) minmax(200px, 1fr);
+  }
+
+  .friday-six-general-form > label:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .friday-six-general-active,
+  .friday-six-general-form-actions {
+    align-self: end;
+  }
+}
+
+@media (max-width: 720px) {
+  .friday-six-general-section {
+    padding: 16px !important;
+  }
+
+  .friday-six-general-form {
+    grid-template-columns: 1fr;
+  }
+
+  .friday-six-general-form > label:nth-child(3) {
+    grid-column: auto;
+  }
+
+  .friday-six-general-active {
+    height: auto;
+    padding: 4px 0;
+  }
+
+  .friday-six-general-form-actions {
+    width: 100%;
+  }
+
+  .friday-six-general-primary,
+  .friday-six-general-secondary {
+    flex: 1 1 140px;
+  }
+}

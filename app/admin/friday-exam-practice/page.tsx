@@ -422,46 +422,41 @@ export default function FridayAt6Page() {
           </div>
         )}
 
-        <section style={{ ...cardStyle, marginBottom: "26px" }}>
-          <h2 style={{ color: "var(--ss-blue-dark)", margin: "0 0 6px" }}>
-            General Tutorial Duty
-          </h2>
-          <p style={{ color: "#6b7280", margin: "0 0 20px" }}>
-            Choose the teacher responsible for the general tutorial on each
-            Friday.
-          </p>
+        <section
+          className="friday-weekly-panel friday-six-general-section"
+          style={{ ...cardStyle, marginBottom: "26px" }}
+        >
+          <header className="friday-weekly-panel-header friday-six-general-header">
+            <h2>General Tutorial Duty</h2>
+            <p>
+              Choose the teacher responsible for the general tutorial on each
+              Friday.
+            </p>
+          </header>
 
           <form
+            className="friday-six-general-form"
             onSubmit={saveDuty}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "16px",
-              alignItems: "end",
-              marginBottom: "24px",
-            }}
           >
             <label>
-              <span style={labelStyle}>Date</span>
+              <span>Date</span>
               <input
                 type="date"
                 value={dutyForm.session_date}
                 onChange={(event) =>
                   updateDutyForm("session_date", event.target.value)
                 }
-                style={inputStyle}
                 required
               />
             </label>
 
             <label>
-              <span style={labelStyle}>Teacher</span>
+              <span>Teacher</span>
               <select
                 value={dutyForm.teacher_id}
                 onChange={(event) =>
                   updateDutyForm("teacher_id", event.target.value)
                 }
-                style={inputStyle}
                 required
               >
                 <option value="">Select teacher</option>
@@ -474,24 +469,15 @@ export default function FridayAt6Page() {
             </label>
 
             <label>
-              <span style={labelStyle}>Note</span>
+              <span>Note</span>
               <input
                 value={dutyForm.note}
                 onChange={(event) => updateDutyForm("note", event.target.value)}
                 placeholder="Optional duty note"
-                style={inputStyle}
               />
             </label>
 
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                color: "#374151",
-                fontWeight: 700,
-              }}
-            >
+            <label className="friday-six-general-active">
               <input
                 type="checkbox"
                 checked={dutyForm.active}
@@ -502,20 +488,19 @@ export default function FridayAt6Page() {
               Active
             </label>
 
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <button type="submit" disabled={savingDuty} style={primaryButtonStyle}>
+            <div className="friday-six-general-form-actions">
+              <button
+                type="submit"
+                disabled={savingDuty}
+                className="friday-six-general-primary"
+              >
                 {savingDuty ? "Saving..." : "Save Duty"}
               </button>
               {editingDutyId && (
                 <button
                   type="button"
                   onClick={resetDutyForm}
-                  style={{
-                    ...primaryButtonStyle,
-                    background: "#ffffff",
-                    color: "var(--ss-blue-dark)",
-                    border: "1px solid var(--ss-border)",
-                  }}
+                  className="friday-six-general-secondary"
                 >
                   Cancel Edit
                 </button>
@@ -524,97 +509,72 @@ export default function FridayAt6Page() {
           </form>
 
           {loading ? (
-            <p style={{ color: "#4b5563", margin: 0 }}>Loading duties...</p>
+            <p className="friday-six-general-empty">Loading duties...</p>
           ) : duties.length === 0 ? (
-            <p style={{ color: "#4b5563", margin: 0 }}>
+            <p className="friday-six-general-empty">
               No general tutorial duties have been planned yet.
             </p>
           ) : (
-            <div style={{ display: "grid", gap: "12px" }}>
-              {duties.map((duty) => (
-                <article
-                  key={duty.id}
-                  style={{
-                    border: "1px solid var(--ss-border)",
-                    borderRadius: "12px",
-                    padding: "16px",
-                    background: duty.active ? "#ffffff" : "#f9fafb",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "14px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div>
-                      <h3
-                        style={{
-                          color: "var(--ss-blue-dark)",
-                          margin: "0 0 6px",
-                          fontSize: "18px",
-                        }}
-                      >
-                        {formatDate(duty.session_date)}
-                      </h3>
-                      <p style={{ color: "#374151", margin: 0, lineHeight: 1.6 }}>
-                        <strong>General Tutorial Teacher:</strong>{" "}
+            <div className="friday-weekly-table-scroll friday-six-general-register-scroll">
+              <table className="friday-weekly-table friday-six-general-register">
+                <colgroup>
+                  <col className="is-date" />
+                  <col className="is-teacher" />
+                  <col className="is-note" />
+                  <col className="is-time" />
+                  <col className="is-status" />
+                  <col className="is-actions" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Assigned Teacher</th>
+                    <th>Note</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {duties.map((duty) => (
+                    <tr key={duty.id}>
+                      <td>{formatDate(duty.session_date)}</td>
+                      <td className="friday-six-general-teacher">
                         {duty.teacher_name}
-                        <br />
-                        18:00-19:00
-                        {duty.note && (
-                          <>
-                            <br />
-                            <strong>Note:</strong> {duty.note}
-                          </>
-                        )}
-                      </p>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          color: duty.active ? "#166534" : "#6b7280",
-                          background: duty.active ? "#dcfce7" : "#f3f4f6",
-                          borderRadius: "999px",
-                          padding: "4px 9px",
-                          fontSize: "13px",
-                          fontWeight: 700,
-                          marginTop: "10px",
-                        }}
-                      >
-                        {duty.active ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-
-                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        onClick={() => editDuty(duty)}
-                        style={{
-                          ...primaryButtonStyle,
-                          padding: "9px 12px",
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeDuty(duty.id)}
-                        style={{
-                          ...primaryButtonStyle,
-                          padding: "9px 12px",
-                          background: "#ffffff",
-                          color: "#b91c1c",
-                          border: "1px solid #fecaca",
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
+                      </td>
+                      <td>{duty.note || "—"}</td>
+                      <td className="friday-six-general-time">18:00-19:00</td>
+                      <td>
+                        <span
+                          className={`friday-six-general-status ${
+                            duty.active ? "is-active" : "is-inactive"
+                          }`}
+                        >
+                          {duty.active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="friday-six-general-row-actions">
+                          <button
+                            type="button"
+                            onClick={() => editDuty(duty)}
+                            className="friday-six-general-edit"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeDuty(duty.id)}
+                            className="friday-six-general-delete"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </section>
