@@ -124,16 +124,7 @@ function LinkButton({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      style={{
-        display: "inline-block",
-        color: "var(--ss-blue)",
-        border: "1px solid var(--ss-border)",
-        borderRadius: "8px",
-        padding: "8px 10px",
-        textDecoration: "none",
-        fontWeight: 700,
-        background: "#ffffff",
-      }}
+      className="friday-six-planned-resource"
     >
       {children}
     </a>
@@ -802,99 +793,71 @@ export default function FridayAt6Page() {
           {loading ? (
             <p style={{ color: "#4b5563", margin: 0 }}>Loading activities...</p>
           ) : sessions.length === 0 ? (
-            <p style={{ color: "#4b5563", margin: 0 }}>
+            <p className="friday-six-planned-empty">
               No exam practice activities have been planned yet.
             </p>
           ) : (
-            <div style={{ display: "grid", gap: "24px" }}>
+            <div className="friday-six-planned-groups">
               {orderedSessionDates.map((date) => (
-                <div key={date}>
-                  <h4
-                    style={{
-                      color: "var(--ss-blue-dark)",
-                      margin: "0 0 6px",
-                      fontSize: "19px",
-                    }}
-                  >
-                    {formatDate(date)}
-                  </h4>
-                  <p style={{ color: "#6b7280", margin: "0 0 12px" }}>
-                    Friday 18:00-19:00
-                  </p>
+                <section className="friday-six-planned-group" key={date}>
+                  <header className="friday-six-planned-group-header">
+                    <h4 className="friday-six-planned-group-date">
+                      {formatDate(date)}
+                    </h4>
+                    <p className="friday-six-planned-group-time">
+                      Friday 18:00-19:00
+                    </p>
+                  </header>
 
-                  <div style={{ display: "grid", gap: "12px" }}>
+                  <div className="friday-six-planned-rows">
                     {groupedSessions[date].map((item) => (
                       <article
                         key={item.id}
-                        style={{
-                          border: "1px solid var(--ss-border)",
-                          borderRadius: "12px",
-                          padding: "16px",
-                          background: item.active ? "#ffffff" : "#f9fafb",
-                        }}
+                        className="friday-six-planned-row"
                       >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: "14px",
-                            flexWrap: "wrap",
-                            alignItems: "flex-start",
-                          }}
-                        >
-                          <div>
-                            <h5
-                              style={{
-                                color: "var(--ss-blue-dark)",
-                                margin: "0 0 6px",
-                                fontSize: "17px",
-                              }}
-                            >
-                              {item.exam_bank
-                                ? `${item.level_name} — Exam ${
-                                    item.exam_bank.exam_number
-                                  }${
-                                    item.exam_bank.exam_title
-                                      ? ` — ${item.exam_bank.exam_title}`
-                                      : ""
-                                  } — ${getExamPartLabel(
-                                    item.level_name,
-                                    item.exam_bank.part_type
-                                  )}`
-                                : `${item.level_name} — ${item.activity_type}`}
-                            </h5>
-                            {!item.exam_bank && (
-                              <p
-                                style={{
-                                  color: "#9a3412",
-                                  fontWeight: 700,
-                                  margin: "0 0 8px",
-                                }}
-                              >
-                                No Exam Bank part linked
-                              </p>
-                            )}
-                            {item.exam_part && (
-                              <p style={{ color: "#6b7280", margin: "0 0 8px" }}>
-                                Tutorial detail: {item.exam_part}
-                              </p>
-                            )}
-                            <span
-                              style={{
-                                display: "inline-block",
-                                color: item.active ? "#166534" : "#6b7280",
-                                background: item.active ? "#dcfce7" : "#f3f4f6",
-                                borderRadius: "999px",
-                                padding: "4px 9px",
-                                fontSize: "13px",
-                                fontWeight: 700,
-                              }}
-                            >
-                              {item.active ? "Active" : "Inactive"}
-                            </span>
-                          </div>
+                        <div className="friday-six-planned-primary">
+                          <h5 className="friday-six-planned-title">
+                            {item.exam_bank
+                              ? `${item.level_name} — Exam ${
+                                  item.exam_bank.exam_number
+                                }${
+                                  item.exam_bank.exam_title
+                                    ? ` — ${item.exam_bank.exam_title}`
+                                    : ""
+                                } — ${getExamPartLabel(
+                                  item.level_name,
+                                  item.exam_bank.part_type
+                                )}`
+                              : `${item.level_name} — ${item.activity_type}`}
+                          </h5>
+                          {!item.exam_bank && (
+                            <p className="friday-six-planned-legacy">
+                              No Exam Bank part linked
+                            </p>
+                          )}
+                        </div>
 
-                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <div className="friday-six-planned-details">
+                          {item.exam_part && (
+                            <p className="friday-six-planned-detail">
+                              Tutorial detail: {item.exam_part}
+                            </p>
+                          )}
+                          {item.note && (
+                            <p className="friday-six-planned-note">{item.note}</p>
+                          )}
+                        </div>
+
+                        <div className="friday-six-planned-meta">
+                          <span
+                            className={`friday-six-planned-status ${
+                              item.active ? "is-active" : "is-inactive"
+                            }`}
+                          >
+                            {item.active ? "Active" : "Inactive"}
+                          </span>
+
+                          <div className="friday-six-planned-resources">
                             {item.pdf_url && (
                               <LinkButton href={item.pdf_url}>PDF</LinkButton>
                             )}
@@ -907,40 +870,18 @@ export default function FridayAt6Page() {
                           </div>
                         </div>
 
-                        {item.note && (
-                          <p style={{ color: "#4b5563", margin: "12px 0 0" }}>
-                            {item.note}
-                          </p>
-                        )}
-
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "10px",
-                            flexWrap: "wrap",
-                            marginTop: "14px",
-                          }}
-                        >
+                        <div className="friday-six-planned-actions">
                           <button
                             type="button"
                             onClick={() => editExamSession(item)}
-                            style={{
-                              ...primaryButtonStyle,
-                              padding: "9px 12px",
-                            }}
+                            className="friday-six-planned-edit"
                           >
                             Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => removeExamSession(item.id)}
-                            style={{
-                              ...primaryButtonStyle,
-                              padding: "9px 12px",
-                              background: "#ffffff",
-                              color: "#b91c1c",
-                              border: "1px solid #fecaca",
-                            }}
+                            className="friday-six-planned-delete"
                           >
                             Delete
                           </button>
@@ -948,7 +889,7 @@ export default function FridayAt6Page() {
                       </article>
                     ))}
                   </div>
-                </div>
+                </section>
               ))}
             </div>
           )}
