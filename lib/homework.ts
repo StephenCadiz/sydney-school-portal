@@ -51,6 +51,7 @@ export function normalizeHomeworkSkill(skill: unknown) {
   if (normalisedSkill.includes("listening")) return "listening";
   if (normalisedSkill.includes("writing")) return "writing";
   if (normalisedSkill.includes("speaking")) return "speaking";
+  if (normalisedSkill === "ruoe") return "reading";
   if (normalisedSkill.includes("reading")) return "reading";
 
   return normalisedSkill;

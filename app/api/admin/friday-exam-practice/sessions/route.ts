@@ -321,3 +321,109 @@ export async function PATCH(request: NextRequest) {
 
   return NextResponse.json({ session: serializeSession(data) });
 }
+
+export async function DELETE(request: NextRequest) {
+  const admin = await requireExamBankAdmin(request);
+  if (admin.response) return admin.response;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return examBankJsonError("Invalid JSON request body.", 400);
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return examBankJsonError("Invalid Friday Tutorial delete request.", 400);
+  }
+
+  const record = body as Record<string, unknown>;
+  const allowed = new Set(["id", "delete_linked_results"]);
+  if (Object.keys(record).some((key) => !allowed.has(key))) {
+    return examBankJsonError("The request contains unsupported fields.", 400);
+  }
+
+  const id = String(record.id || "").trim();
+  if (!UUID_PATTERN.test(id)) {
+    return examBankJsonError("Choose a valid Friday Tutorial session.", 400);
+  }
+
+  if (
+    record.delete_linked_results !== undefined &&
+    typeof record.delete_linked_results !== "boolean"
+  ) {
+    return examBankJsonError("Invalid linked-results deletion confirmation.", 400);
+  }
+
+  const deleteLinkedResults = record.delete_linked_results === true;
+
+  const { data: session, error: sessionError } = await supabaseAdmin
+    .from("friday_exam_practice_sessions")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (sessionError) {
+    console.error("Friday Tutorial delete lookup failed:", sessionError);
+    return examBankJsonError("Unable to verify the Friday Tutorial session.", 500);
+  }
+  if (!session) {
+    return examBankJsonError("Friday Tutorial session not found.", 404);
+  }
+
+  const { count: linkedResultSheetCount, error: sheetCountError } =
+    await supabaseAdmin
+      .from("friday_tutorial_result_sheets")
+      .select("id", { count: "exact", head: true })
+      .eq("tutorial_session_id", id);
+
+  if (sheetCountError) {
+    console.error("Friday Tutorial result-sheet count failed:", sheetCountError);
+    return examBankJsonError("Unable to verify submitted tutorial results.", 500);
+  }
+
+  const linkedResultSheets = linkedResultSheetCount || 0;
+  if (linkedResultSheets > 0 && !deleteLinkedResults) {
+    return NextResponse.json(
+      {
+        error:
+          "This activity has submitted tutorial result sheets. Permanently deleting it will also delete all associated result sheets and student results. This cannot be undone.",
+        requires_delete_linked_results: true,
+        linked_result_sheet_count: linkedResultSheets,
+      },
+      { status: 409 }
+    );
+  }
+
+  const { error: deleteError } = await supabaseAdmin
+    .from("friday_exam_practice_sessions")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    console.error("Friday Tutorial delete failed:", deleteError);
+    return examBankJsonError("Unable to delete the Friday Tutorial session.", 500);
+  }
+
+  const { data: remainingSession, error: verificationError } =
+    await supabaseAdmin
+      .from("friday_exam_practice_sessions")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+  if (verificationError) {
+    console.error("Friday Tutorial delete verification failed:", verificationError);
+    return examBankJsonError("Unable to verify the Friday Tutorial deletion.", 500);
+  }
+  if (remainingSession) {
+    console.error("Friday Tutorial session remained after deletion:", { id });
+    return examBankJsonError("Unable to verify the Friday Tutorial deletion.", 500);
+  }
+
+  return NextResponse.json({
+    deleted: true,
+    deleted_linked_results: deleteLinkedResults && linkedResultSheets > 0,
+    linked_result_sheet_count: linkedResultSheets,
+  });
+}

@@ -110,6 +110,38 @@ export async function deleteAnnouncement(id: string) {
   }
 }
 
+export async function deleteTeacherClassAnnouncement(
+  classId: string,
+  announcementId: string
+) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+
+  const response = await fetch(
+    `/api/teacher/classes/${encodeURIComponent(classId)}/announcements`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ announcement_id: announcementId }),
+    }
+  );
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to delete the announcement.");
+  }
+
+  return result;
+}
+
 export async function getStudentRelevantAnnouncements(
   studentLevel: string | null | undefined,
   classId: string

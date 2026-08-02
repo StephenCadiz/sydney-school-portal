@@ -27,6 +27,7 @@ import TeacherHomework from "../../components/teacher/TeacherHomework";
 import { isClassExamLevel } from "../../../lib/classExams";
 import { isFridayTutorialCambridgeLevel } from "../../../lib/fridayTutorialResults";
 import { isUnitExamLevel } from "../../../lib/unitExamResults";
+import { deleteTeacherClassAnnouncement } from "../../../lib/announcements";
 
 const tabs = [
   { id: "students", label: "Students" },
@@ -83,7 +84,28 @@ function getStudentName(student: {
   last_name?: string | null;
 }) {
   return `${student.first_name || ""} ${student.last_name || ""}`.trim() ||
-    "Unnamed student";
+  "Unnamed student";
+}
+
+function canDeleteTeacherClassAnnouncement(
+  announcement: any,
+  classId: string,
+  teacherId: string,
+  assignedTeacherId: string
+) {
+  const audienceType = String(announcement?.audience_type || "")
+    .trim()
+    .toLowerCase();
+
+  return (
+    Boolean(classId) &&
+    Boolean(teacherId) &&
+    classId === String(announcement?.classes_id || "") &&
+    teacherId === assignedTeacherId &&
+    String(announcement?.created_by || "") === teacherId &&
+    (audienceType === "" || audienceType === "class") &&
+    !String(announcement?.target_level || "").trim()
+  );
 }
 
 function getPanelSectionForAction(
@@ -128,6 +150,11 @@ function ClassPageContent() {
 
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementContent, setAnnouncementContent] = useState("");
+  const [announcementMessage, setAnnouncementMessage] = useState("");
+  const [announcementError, setAnnouncementError] = useState("");
+  const [pendingAnnouncementDeleteId, setPendingAnnouncementDeleteId] =
+    useState("");
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState("");
   const [shortcutRequest, setShortcutRequest] =
     useState<ShortcutRequest | null>(null);
   const [studentPanel, setStudentPanel] = useState<StudentWorkspacePanelState>({
@@ -372,6 +399,33 @@ if (classResult.data) {
     setAnnouncementContent("");
 
     loadData();
+  }
+
+  async function handleDeleteClassAnnouncement() {
+    const classId = String(classData?.id || "");
+    if (!classId || !pendingAnnouncementDeleteId) return;
+
+    setDeletingAnnouncementId(pendingAnnouncementDeleteId);
+    setAnnouncementMessage("");
+    setAnnouncementError("");
+
+    try {
+      await deleteTeacherClassAnnouncement(classId, pendingAnnouncementDeleteId);
+      setAnnouncements((current) =>
+        current.filter(
+          (announcement) => announcement.id !== pendingAnnouncementDeleteId
+        )
+      );
+      setPendingAnnouncementDeleteId("");
+      setAnnouncementMessage("Class announcement deleted successfully.");
+    } catch (error: any) {
+      console.error("Unable to delete class announcement:", error);
+      setAnnouncementError(
+        error?.message || "Unable to delete the class announcement."
+      );
+    } finally {
+      setDeletingAnnouncementId("");
+    }
   }
 
   const totalStudentCount = students.length + youngLearners.length;
@@ -726,12 +780,121 @@ if (classResult.data) {
         <>
           <h3>Announcements</h3>
 
+          {announcementMessage && (
+            <p
+              role="status"
+              style={{
+                color: "#166534",
+                fontWeight: 700,
+                margin: "0 0 12px",
+              }}
+            >
+              {announcementMessage}
+            </p>
+          )}
+
+          {announcementError && (
+            <p
+              role="alert"
+              style={{
+                color: "#b42318",
+                fontWeight: 700,
+                margin: "0 0 12px",
+              }}
+            >
+              {announcementError}
+            </p>
+          )}
+
           {announcements.map((announcement) => (
             <div key={announcement.id}>
               <strong>{announcement.title}</strong>
               <br />
               {announcement.content}
               <br />
+              {canDeleteTeacherClassAnnouncement(
+                announcement,
+                String(classData?.id || ""),
+                teacherId,
+                String(classData?.teacher_id || "")
+              ) &&
+                (pendingAnnouncementDeleteId === announcement.id ? (
+                  <div
+                    role="alertdialog"
+                    aria-label="Delete class announcement"
+                    style={{
+                      border: "1px solid #f1c6c6",
+                      borderRadius: "8px",
+                      marginTop: "10px",
+                      maxWidth: "440px",
+                      padding: "12px",
+                    }}
+                  >
+                    <p style={{ color: "#5e6b7d", margin: "0 0 10px" }}>
+                      Delete this class announcement permanently?
+                    </p>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingAnnouncementDeleteId("");
+                          setAnnouncementError("");
+                        }}
+                        disabled={deletingAnnouncementId === announcement.id}
+                        style={{
+                          background: "#ffffff",
+                          border: "1px solid #c7d3e3",
+                          borderRadius: "8px",
+                          color: "#24446f",
+                          cursor: "pointer",
+                          fontWeight: 800,
+                          padding: "8px 11px",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteClassAnnouncement}
+                        disabled={deletingAnnouncementId === announcement.id}
+                        style={{
+                          background: "#b42318",
+                          border: "1px solid #b42318",
+                          borderRadius: "8px",
+                          color: "#ffffff",
+                          cursor: "pointer",
+                          fontWeight: 800,
+                          padding: "8px 11px",
+                        }}
+                      >
+                        {deletingAnnouncementId === announcement.id
+                          ? "Deleting..."
+                          : "Delete Announcement"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingAnnouncementDeleteId(announcement.id);
+                      setAnnouncementMessage("");
+                      setAnnouncementError("");
+                    }}
+                    style={{
+                      background: "#ffffff",
+                      color: "#b00020",
+                      border: "1px solid #f1c6c6",
+                      borderRadius: "8px",
+                      padding: "8px 11px",
+                      cursor: "pointer",
+                      fontWeight: 800,
+                      marginTop: "10px",
+                    }}
+                  >
+                    Delete
+                  </button>
+                ))}
               <br />
             </div>
           ))}

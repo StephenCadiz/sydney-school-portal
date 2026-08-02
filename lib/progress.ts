@@ -7,19 +7,38 @@ import {
 
 export { getEmptyFridayTutorialProgressSummary };
 
-export async function getStudentResults(studentId: string) {
-  const { data, error } = await supabase
-    .from("results")
-    .select("*")
-    .eq("student_id", studentId);
+export type StudentProgressData = {
+  class: {
+    id: string;
+    level: string;
+    course_type: string;
+  };
+  results: any[];
+  homework_release_metadata: any[];
+};
 
-  if (error) throw error;
+export async function getStudentProgressData(): Promise<StudentProgressData> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  return (data || []).filter(
-    (result) =>
-      result.result_type !== "mock" ||
-      (result.published_at !== null && result.published_at !== undefined)
-  );
+  if (!session?.access_token) {
+    throw new Error("No user logged in.");
+  }
+
+  const response = await fetch("/api/student/progress", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to load progress.");
+  }
+
+  return payload as StudentProgressData;
 }
 
 export async function getStudentFridayTutorialProgress(): Promise<FridayTutorialProgressSummary> {
@@ -246,6 +265,7 @@ export function buildProgressHomeworkResultMap(
   const sortedResults = [...results]
     .filter((result) => {
       if (result?.result_type !== "homework") return false;
+      if (result?.cambridge_exam_assignment_id) return false;
       if (toResultNumber(result?.percentage) === null) return false;
 
       const key = getHomeworkResultKey(
@@ -291,18 +311,48 @@ export function buildProgressHomeworkResultMap(
   return resultMap;
 }
 
+export function buildAssignmentProgressHomeworkResultMap(results: any[]) {
+  const sortedResults = [...results]
+    .filter(
+      (result) =>
+        result?.result_type === "homework" &&
+        Boolean(result?.cambridge_exam_assignment_id) &&
+        toResultNumber(result?.percentage) !== null
+    )
+    .sort((a, b) => {
+      const timeDifference = getResultUpdatedTime(b) - getResultUpdatedTime(a);
+
+      if (timeDifference !== 0) return timeDifference;
+
+      return String(b?.id || "").localeCompare(String(a?.id || ""));
+    });
+
+  const resultMap = new Map<string, any>();
+
+  sortedResults.forEach((result) => {
+    const assignmentId = String(result.cambridge_exam_assignment_id);
+
+    if (assignmentId && !resultMap.has(assignmentId)) {
+      resultMap.set(assignmentId, result);
+    }
+  });
+
+  return resultMap;
+}
+
 export function getEligibleProgressHomeworkResults(
   results: any[],
   homeworkMetadata: any[],
   todayMadrid = getMadridDateString()
 ) {
-  return Array.from(
-    buildProgressHomeworkResultMap(
+  return [
+    ...buildAssignmentProgressHomeworkResultMap(results).values(),
+    ...buildProgressHomeworkResultMap(
       results,
       homeworkMetadata,
       todayMadrid
-    ).values()
-  );
+    ).values(),
+  ];
 }
 
 export function getEligibleHomeworkResults(

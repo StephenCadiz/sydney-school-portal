@@ -146,6 +146,11 @@ export default function FridayAt6Page() {
   const [examBankExams, setExamBankExams] = useState<CambridgeExamRecord[]>([]);
   const [selectedExamId, setSelectedExamId] = useState("");
   const [loadingExamBank, setLoadingExamBank] = useState(false);
+  const [pendingExamDelete, setPendingExamDelete] = useState<{
+    id: string;
+    linkedResultSheetCount: number;
+  } | null>(null);
+  const [deletingLinkedResults, setDeletingLinkedResults] = useState(false);
 
   const activityOptions = getActivityOptionsForLevel(examForm.level_name);
   const isListening = isListeningActivity(examForm.activity_type);
@@ -360,12 +365,48 @@ export default function FridayAt6Page() {
     setMessage("");
 
     try {
-      await deleteFridayExamPracticeSession(id);
-      setMessage("Exam practice activity deleted.");
+      const result = await deleteFridayExamPracticeSession(id);
+      if (!result.deleted) {
+        setPendingExamDelete({
+          id,
+          linkedResultSheetCount: result.linked_result_sheet_count,
+        });
+        return;
+      }
+
       await loadPageData();
+      setMessage("Exam practice activity deleted.");
     } catch (error: any) {
       console.error(error);
       setMessage(error?.message || "Unable to delete exam practice activity.");
+    }
+  }
+
+  async function confirmExamDeleteWithResults() {
+    if (!pendingExamDelete) return;
+
+    setDeletingLinkedResults(true);
+    setMessage("");
+
+    try {
+      const result = await deleteFridayExamPracticeSession(
+        pendingExamDelete.id,
+        true
+      );
+      if (!result.deleted) {
+        throw new Error("Unable to confirm deletion of submitted results.");
+      }
+
+      setPendingExamDelete(null);
+      await loadPageData();
+      setMessage(
+        "Exam practice activity and its submitted result sheets and student results were permanently deleted."
+      );
+    } catch (error: any) {
+      console.error(error);
+      setMessage(error?.message || "Unable to delete exam practice activity.");
+    } finally {
+      setDeletingLinkedResults(false);
     }
   }
 
@@ -410,6 +451,51 @@ export default function FridayAt6Page() {
             }}
           >
             {message}
+          </div>
+        )}
+
+        {pendingExamDelete && (
+          <div className="friday-six-delete-confirmation-backdrop">
+            <section
+              className="friday-six-delete-confirmation"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="friday-six-delete-confirmation-title"
+              aria-describedby="friday-six-delete-confirmation-description"
+            >
+              <h2 id="friday-six-delete-confirmation-title">
+                Delete activity and submitted results?
+              </h2>
+              <p id="friday-six-delete-confirmation-description">
+                This activity has {pendingExamDelete.linkedResultSheetCount} submitted
+                {" tutorial result"}
+                {pendingExamDelete.linkedResultSheetCount === 1
+                  ? " sheet"
+                  : " sheets"}
+                . Permanently deleting it will also delete all associated result
+                sheets and student results. This cannot be undone.
+              </p>
+              <div className="friday-six-delete-confirmation-actions">
+                <button
+                  type="button"
+                  onClick={() => setPendingExamDelete(null)}
+                  disabled={deletingLinkedResults}
+                  className="friday-six-delete-confirmation-cancel"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmExamDeleteWithResults}
+                  disabled={deletingLinkedResults}
+                  className="friday-six-delete-confirmation-confirm"
+                >
+                  {deletingLinkedResults
+                    ? "Deleting..."
+                    : "Delete Activity and Results"}
+                </button>
+              </div>
+            </section>
           </div>
         )}
 

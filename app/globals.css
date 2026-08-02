@@ -15729,3 +15729,103 @@ img {
     justify-content: flex-start;
   }
 }
+
+/* Friday @ 6: destructive activity deletion confirmation */
+.friday-six-delete-confirmation-backdrop {
+  align-items: center;
+  background: rgba(16, 31, 55, 0.48);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.friday-six-delete-confirmation {
+  background: #ffffff;
+  border-radius: 13px;
+  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.2);
+  max-width: 440px;
+  padding: 24px;
+  width: 100%;
+}
+
+.friday-six-delete-confirmation h2 {
+  color: #842727;
+  font-size: 21px;
+  line-height: 1.25;
+  margin: 0 0 9px;
+}
+
+.friday-six-delete-confirmation p {
+  color: #5e6b7d;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.friday-six-delete-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.friday-six-delete-confirmation-cancel,
+.friday-six-delete-confirmation-confirm {
+  align-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 13px;
+}
+
+.friday-six-delete-confirmation-cancel {
+  background: #ffffff;
+  border: 1px solid #c7d3e3;
+  color: #24446f;
+}
+
+.friday-six-delete-confirmation-confirm {
+  background: #b42318;
+  border: 1px solid #b42318;
+  color: #ffffff;
+}
+
+.friday-six-delete-confirmation-cancel:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.friday-six-delete-confirmation-confirm:hover:not(:disabled) {
+  background: #8f1d15;
+  border-color: #8f1d15;
+}
+
+.friday-six-delete-confirmation-cancel:focus-visible,
+.friday-six-delete-confirmation-confirm:focus-visible {
+  box-shadow: 0 0 0 3px rgba(31, 60, 136, 0.16);
+  outline: none;
+}
+
+.friday-six-delete-confirmation-cancel:disabled,
+.friday-six-delete-confirmation-confirm:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 640px) {
+  .friday-six-delete-confirmation-actions {
+    flex-direction: column-reverse;
+  }
+
+  .friday-six-delete-confirmation-cancel,
+  .friday-six-delete-confirmation-confirm {
+    width: 100%;
+  }
+}

@@ -184,50 +184,56 @@ export async function updateFridayExamPracticeSession(
   );
 }
 
-export async function deleteFridayExamPracticeSession(id: string) {
-  const { data: session, error: sessionError } = await supabase
-    .from("friday_exam_practice_sessions")
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (sessionError) {
-    throw new Error(formatSupabaseError("delete lookup", sessionError));
-  }
-
-  if (!session) {
-    throw new Error("This activity was not found.");
-  }
-
-  const { count, error: resultsError } = await supabase
-    .from("friday_tutorial_result_sheets")
-    .select("id", { count: "exact", head: true })
-    .eq("tutorial_session_id", id);
-
-  if (resultsError) {
-    throw new Error(formatSupabaseError("result check", resultsError));
-  }
-
-  if ((count || 0) > 0) {
-    throw new Error(
-      "This activity has submitted tutorial result sheets. Mark it inactive instead of deleting it."
-    );
-  }
-
-  const { error } = await supabase
-    .from("friday_exam_practice_sessions")
-    .delete()
-    .eq("id", id);
-
-  if (error) {
-    if (error.code === "23503") {
-      throw new Error(
-        "This activity has linked tutorial result sheets. Mark it inactive instead of deleting it."
-      );
+export type FridayExamPracticeDeleteResult =
+  | {
+      deleted: true;
+      deleted_linked_results: boolean;
+      linked_result_sheet_count: number;
     }
+  | {
+      deleted: false;
+      requires_delete_linked_results: true;
+      linked_result_sheet_count: number;
+    };
 
-    throw new Error(formatSupabaseError("delete", error));
+export async function deleteFridayExamPracticeSession(
+  id: string,
+  deleteLinkedResults = false
+): Promise<FridayExamPracticeDeleteResult> {
+  const token = await getAdminAccessToken();
+  const response = await fetch("/api/admin/friday-exam-practice/sessions", {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      id,
+      delete_linked_results: deleteLinkedResults,
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+
+  if (
+    response.status === 409 &&
+    result.requires_delete_linked_results === true
+  ) {
+    return {
+      deleted: false,
+      requires_delete_linked_results: true,
+      linked_result_sheet_count: Number(result.linked_result_sheet_count) || 0,
+    };
   }
+
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to delete the Friday Tutorial session.");
+  }
+
+  return {
+    deleted: true,
+    deleted_linked_results: result.deleted_linked_results === true,
+    linked_result_sheet_count: Number(result.linked_result_sheet_count) || 0,
+  };
 }
 
 function getTeacherName(profile: any) {

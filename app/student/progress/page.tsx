@@ -5,20 +5,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import StudentMenu from "../StudentMenu";
 import {
   getCambridgeReadingSkillLabel,
-  getHomeworkReleaseMetadata,
   normalizeHomeworkSkill,
 } from "../../../lib/homework";
 import {
   getEmptyFridayTutorialProgressSummary,
   getEligibleProgressHomeworkResults,
   getStudentFridayTutorialProgress,
-  getStudentResults,
+  getStudentProgressData,
   toResultNumber,
 } from "../../../lib/progress";
-import {
-  getCurrentStudentCourseInfo,
-  getCurrentUser,
-} from "../../../lib/user";
 import type { FridayTutorialProgressSummary } from "../../../lib/fridayTutorialResults";
 
 function average(values: number[]) {
@@ -536,16 +531,7 @@ export default function ProgressPage() {
     setError(false);
 
     try {
-      const user = await getCurrentUser();
-      const courseInfo = await getCurrentStudentCourseInfo();
-      const [studentResults, homeworkMetadata] = await Promise.all([
-        getStudentResults(user.id),
-        getHomeworkReleaseMetadata(
-          courseInfo.level,
-          courseInfo.courseType,
-          courseInfo.classroom.days
-        ),
-      ]);
+      const progressData = await getStudentProgressData();
       let tutorialProgress = getEmptyFridayTutorialProgressSummary();
 
       try {
@@ -554,9 +540,9 @@ export default function ProgressPage() {
         console.error(tutorialError);
       }
 
-      setLevel(courseInfo.level);
-      setResults(studentResults);
-      setHomeworkReleaseMetadata(homeworkMetadata);
+      setLevel(progressData.class.level);
+      setResults(progressData.results);
+      setHomeworkReleaseMetadata(progressData.homework_release_metadata);
       setFridayTutorialProgress(tutorialProgress);
     } catch (loadError) {
       console.error(loadError);
