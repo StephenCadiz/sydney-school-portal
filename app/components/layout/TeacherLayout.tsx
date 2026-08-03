@@ -6,11 +6,11 @@ import TeacherSidebar from "./TeacherSidebar";
 import PortalHeader from "./PortalHeader";
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
-import { getTeacherUnreadStaffMessageCount } from "../../../lib/messages";
+import { getTeacherUnreadMessageCount } from "../../../lib/teacherMessageUnreadCount";
 import { supabase } from "../../../lib/supabase";
 
 interface TeacherLayoutProps {
-  children: ReactNode;
+  children: ReactNode | ((unreadMessageCount: number) => ReactNode);
 }
 
 const TEACHER_MESSAGES_CHANGED_EVENT = "teacher-unread-messages-changed";
@@ -35,17 +35,18 @@ function EnvelopeIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-function UnreadBadge({ count }: { count: number }) {
-  if (count <= 0) return null;
+function UnreadBadge({ count, showZero = false }: { count: number; showZero?: boolean }) {
+  if (count <= 0 && !showZero) return null;
 
-  const label = count > 99 ? "99+" : String(count);
+  const hasUnread = count > 0;
+  const label = hasUnread ? (count > 99 ? "99+" : String(count)) : "0";
 
   return (
     <span
       aria-hidden="true"
       style={{
         alignItems: "center",
-        background: "#dc2626",
+        background: hasUnread ? "#dc2626" : "var(--ss-blue)",
         border: "1px solid rgba(255,255,255,0.7)",
         borderRadius: "999px",
         color: "#ffffff",
@@ -126,7 +127,7 @@ export default function TeacherLayout({
     if (!teacherId) return;
 
     try {
-      const count = await getTeacherUnreadStaffMessageCount(teacherId);
+      const { total_unread: count } = await getTeacherUnreadMessageCount();
       unreadCountErrorLoggedRef.current = false;
 
       if (mountedRef.current) {
@@ -135,7 +136,7 @@ export default function TeacherLayout({
     } catch (error) {
       if (!unreadCountErrorLoggedRef.current) {
         unreadCountErrorLoggedRef.current = true;
-        console.error("Unable to load unread teacher messages:", error);
+        console.error("Unable to load teacher message count:", error);
       }
     }
   }, [teacherId]);
@@ -199,7 +200,7 @@ export default function TeacherLayout({
             }}
           >
             <EnvelopeIcon size={18} />
-            <UnreadBadge count={unreadMessageCount} />
+            <UnreadBadge count={unreadMessageCount} showZero />
           </Link>
 
           <button
@@ -237,7 +238,9 @@ export default function TeacherLayout({
       >
         <PortalHeader title="Teacher Portal" />
 
-        {children}
+        {typeof children === "function"
+          ? children(unreadMessageCount)
+          : children}
       </main>
     </div>
   );

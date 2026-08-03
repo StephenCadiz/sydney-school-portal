@@ -18,6 +18,8 @@ import {
   sendTeacherStaffMessage,
   TEACHER_ADMIN_RECIPIENT_VALUE,
 } from "../../../lib/messages";
+import TeacherStudentMessagesInbox from "./TeacherStudentMessagesInbox";
+import { getTeacherStudentMessages } from "../../../lib/teacherStudentMessages";
 
 const tabs = ["Inbox", "Sent", "New Message"];
 const TEACHER_MESSAGES_CHANGED_EVENT = "teacher-unread-messages-changed";
@@ -186,6 +188,10 @@ export default function TeacherMessagesPage() {
   const selectedMessageRef = useRef<any | null>(null);
 
   const [teacherId, setTeacherId] = useState("");
+  const [messageArea, setMessageArea] = useState<"staff" | "students">(
+    "staff"
+  );
+  const [studentUnreadCount, setStudentUnreadCount] = useState(0);
   const [activeTab, setActiveTab] = useState("Inbox");
   const [inboxMessages, setInboxMessages] = useState<any[]>([]);
   const [sentMessages, setSentMessages] = useState<any[]>([]);
@@ -263,6 +269,16 @@ export default function TeacherMessagesPage() {
     }
   }, [loadMessages]);
 
+  const loadStudentUnreadCount = useCallback(async () => {
+    try {
+      const payload = await getTeacherStudentMessages();
+      if (!mountedRef.current) return;
+      setStudentUnreadCount(payload.unread_count);
+    } catch (error) {
+      console.error("Unable to load teacher student message count:", error);
+    }
+  }, []);
+
   async function loadRecipients(currentTeacherId: string) {
     if (!mountedRef.current) return;
 
@@ -325,6 +341,7 @@ export default function TeacherMessagesPage() {
         setTeacherId(session.user.id);
         void loadStaffMessages(session.user.id);
         void loadRecipients(session.user.id);
+        void loadStudentUnreadCount();
       } catch (error) {
         console.error("Unable to load teacher messages:", error);
         if (!mountedRef.current) return;
@@ -340,13 +357,13 @@ export default function TeacherMessagesPage() {
       mountedRef.current = false;
       messagesRequestRef.current += 1;
     };
-  }, [router, loadStaffMessages]);
+  }, [router, loadStaffMessages, loadStudentUnreadCount]);
 
   const refreshTeacherMessages = useCallback(async () => {
     if (!teacherId) return;
 
-    await loadMessages(teacherId);
-  }, [teacherId, loadMessages]);
+    await Promise.all([loadMessages(teacherId), loadStudentUnreadCount()]);
+  }, [teacherId, loadMessages, loadStudentUnreadCount]);
 
   useMessageRealtimeRefresh({
     onRefresh: refreshTeacherMessages,
@@ -586,7 +603,9 @@ export default function TeacherMessagesPage() {
             <div>
               <h1 style={{ color: "#1f3c88", margin: "0 0 6px" }}>Messages</h1>
               <p style={{ color: "#5f6f89", margin: 0 }}>
-                Send and receive staff messages with admin and other teachers.
+                {messageArea === "staff"
+                  ? "Send and receive staff messages with admin and other teachers."
+                  : "Read and reply to direct messages from students in your classes."}
               </p>
             </div>
             <button
@@ -607,14 +626,41 @@ export default function TeacherMessagesPage() {
             </button>
           </header>
 
-          <div
-            style={{
-              display: "flex",
-              gap: "10px",
-              flexWrap: "wrap",
-              marginBottom: "18px",
-            }}
+          <nav
+            className="teacher-student-messages-primary-nav"
+            aria-label="Message areas"
           >
+            <button
+              type="button"
+              className={messageArea === "staff" ? "is-active" : ""}
+              onClick={() => setMessageArea("staff")}
+            >
+              Staff Messages
+            </button>
+            <button
+              type="button"
+              className={messageArea === "students" ? "is-active" : ""}
+              onClick={() => setMessageArea("students")}
+            >
+              Student Messages
+              {studentUnreadCount > 0 && (
+                <span className="teacher-student-messages-unread-count">
+                  {studentUnreadCount}
+                </span>
+              )}
+            </button>
+          </nav>
+
+          {messageArea === "staff" && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                  marginBottom: "18px",
+                }}
+              >
             {tabs.map((tab) => {
               const active = activeTab === tab;
 
@@ -1125,6 +1171,14 @@ export default function TeacherMessagesPage() {
                 </button>
               </div>
             </section>
+          )}
+            </>
+          )}
+
+          {messageArea === "students" && (
+            <TeacherStudentMessagesInbox
+              onUnreadCountChange={setStudentUnreadCount}
+            />
           )}
         </div>
       </div>

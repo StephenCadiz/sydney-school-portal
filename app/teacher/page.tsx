@@ -41,11 +41,11 @@ const tools = [
   },
 ];
 
-function ToolIcon({ name }: { name: string }) {
+function ToolIcon({ name, size = 18 }: { name: string; size?: number }) {
   const commonProps = {
     "aria-hidden": true,
-    width: 18,
-    height: 18,
+    width: size,
+    height: size,
     viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
@@ -70,6 +70,15 @@ function ToolIcon({ name }: { name: string }) {
       <svg {...commonProps}>
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
         <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z" />
+      </svg>
+    );
+  }
+
+  if (name === "envelope") {
+    return (
+      <svg {...commonProps}>
+        <rect width="20" height="16" x="2" y="4" rx="2" />
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
       </svg>
     );
   }
@@ -220,6 +229,17 @@ export default function TeacherPage() {
 
   return (
     <TeacherLayout>
+      {(unreadMessageCount) => {
+        const unreadMessageLabel =
+          unreadMessageCount === 0
+            ? "Messages, no unread messages"
+            : `Messages, ${unreadMessageCount} unread message${
+                unreadMessageCount === 1 ? "" : "s"
+              }`;
+        const visibleUnreadCount =
+          unreadMessageCount > 99 ? "99+" : String(unreadMessageCount);
+
+        return (
       <main className="teacher-dashboard-page">
         <header className="teacher-dashboard-header">
           <div className="teacher-dashboard-header-copy">
@@ -231,17 +251,32 @@ export default function TeacherPage() {
             <span>Your teaching workspace</span>
           </div>
 
-          {classroom && (
-            <div className="teacher-dashboard-classroom-identity">
-              <Image
-                src={classroom.logo}
-                alt=""
-                width={56}
-                height={56}
-              />
-              <strong>{classroom.name}</strong>
-            </div>
-          )}
+          <div className="teacher-dashboard-header-actions">
+            <Link
+              href="/teacher/messages"
+              className={`admin-dashboard-message-control ${
+                unreadMessageCount > 0 ? "has-unread" : ""
+              }`}
+              aria-label={unreadMessageLabel}
+            >
+              <ToolIcon name="envelope" size={20} />
+              <span className="admin-dashboard-message-count" aria-hidden="true">
+                {visibleUnreadCount}
+              </span>
+            </Link>
+
+            {classroom && (
+              <div className="teacher-dashboard-classroom-identity">
+                <Image
+                  src={classroom.logo}
+                  alt=""
+                  width={56}
+                  height={56}
+                />
+                <strong>{classroom.name}</strong>
+              </div>
+            )}
+          </div>
         </header>
 
         <div className="teacher-dashboard-feed">
@@ -296,6 +331,8 @@ export default function TeacherPage() {
           </div>
         </section>
       </main>
+        );
+      }}
     </TeacherLayout>
   );
 }
