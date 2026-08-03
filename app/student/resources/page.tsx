@@ -1,11 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import StudentMenu from "../StudentMenu";
+import { supabase } from "../../../lib/supabase";
+
+type StudentClassResource = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  resource_url: string | null;
+};
 
 export default function ResourcesPage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [resources, setResources] = useState<StudentClassResource[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadResources() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error("Authentication required.");
+        }
+
+        const response = await fetch("/api/student/resources", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(payload?.error || "Unable to load class resources.");
+        }
+
+        if (!cancelled) {
+          setResources(Array.isArray(payload?.resources) ? payload.resources : []);
+        }
+      } catch (loadError) {
+        console.error("Student resources load failed:", loadError);
+        if (!cancelled) {
+          setResources([]);
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load class resources."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadResources();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="student-layout-shell">
@@ -52,22 +113,32 @@ export default function ResourcesPage() {
         </header>
 
         <section className="student-resources-card">
-          <h2>Week 1 Resources</h2>
+          <h2>Class Resources</h2>
 
-          <div className="student-resources-item">
-            <strong>B2 Reading Worksheet</strong>
-
-            <p>
-              Additional Cambridge Reading Part 5 practice.
-            </p>
-
-            <button
-              type="button"
-              className="student-resources-action"
-            >
-              Download PDF
-            </button>
-          </div>
+          {loading ? (
+            <p>Loading class resources...</p>
+          ) : error ? (
+            <p role="alert">{error}</p>
+          ) : resources.length === 0 ? (
+            <p>No class resources are available yet.</p>
+          ) : (
+            resources.map((resource) => (
+              <div className="student-resources-item" key={resource.id}>
+                <strong>{resource.title || "Class resource"}</strong>
+                {resource.description && <p>{resource.description}</p>}
+                {resource.resource_url && (
+                  <a
+                    className="student-resources-action"
+                    href={resource.resource_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open Resource
+                  </a>
+                )}
+              </div>
+            ))
+          )}
         </section>
       </main>
     </div>

@@ -14,6 +14,7 @@ import FridayTutorialResultsTab from "./FridayTutorialResultsTab";
 import UnitExamResultsTab from "./UnitExamResultsTab";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
+import ClassResourcesTab, { type ClassResource } from "./ClassResourcesTab";
 import GoogleMeetTab, { type GoogleMeetState } from "./GoogleMeetTab";
 import ClassStudentsControlSheet, {
   type ClassStudentControlStudent,
@@ -130,9 +131,10 @@ function ClassPageContent() {
   const [classData, setClassData] = useState<any>(null);
   const [levelName, setLevelName] = useState("");
   const [teacherId, setTeacherId] = useState("");
+  const [actorRole, setActorRole] = useState("");
   const [students, setStudents] = useState<any[]>([]);
   const [youngLearners, setYoungLearners] = useState<any[]>([]);
-  const [resources, setResources] = useState<any[]>([]);
+  const [resources, setResources] = useState<ClassResource[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [googleMeet, setGoogleMeet] = useState<GoogleMeetState>({
     classId: "",
@@ -143,10 +145,6 @@ function ClassPageContent() {
   });
 
   const [activeTab, setActiveTab] = useState("students");
-
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [resourceUrl, setResourceUrl] = useState("");
 
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementContent, setAnnouncementContent] = useState("");
@@ -177,6 +175,20 @@ function ClassPageContent() {
     } = await supabase.auth.getSession();
 
     setTeacherId(session?.user.id || "");
+    if (session?.user.id) {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Unable to load class workspace role:", profileError);
+      }
+      setActorRole(String(profile?.role || "").trim().toLowerCase());
+    } else {
+      setActorRole("");
+    }
 
     const classResult = await supabase
   .from("classes")
@@ -243,10 +255,15 @@ if (classResult.data) {
 
     const resourceResult = await supabase
       .from("resources")
-      .select("*")
+      .select("id, title, description, resource_url, class_id, active")
       .eq("class_id", classId);
 
-    setResources(resourceResult.data || []);
+    if (resourceResult.error) {
+      console.error("Unable to load class resources:", resourceResult.error);
+      setResources([]);
+    } else {
+      setResources((resourceResult.data || []) as ClassResource[]);
+    }
 
     const announcementResult = await supabase
       .from("announcements")
@@ -341,35 +358,6 @@ if (classResult.data) {
     void loadGoogleMeet();
   }, [loadGoogleMeet]);
 
-  async function handleSaveResource() {
-    const classId = searchParams.get("id");
-
-    if (!classId) return;
-
-    const { error } = await supabase
-      .from("resources")
-      .insert([
-        {
-          title,
-          description,
-          resource_url: resourceUrl,
-          class_id: classId,
-          active: true,
-        },
-      ]);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    setTitle("");
-    setDescription("");
-    setResourceUrl("");
-
-    loadData();
-  }
-
   async function handleSaveAnnouncement() {
     const classId = searchParams.get("id");
 
@@ -434,6 +422,11 @@ if (classResult.data) {
   const showFridayTutorialResultsTab =
     classData?.is_cambridge === true && isFridayTutorialCambridgeLevel(levelName);
   const isCambridgeClass = classData?.is_cambridge === true;
+  const canManageClassResources =
+    actorRole === "admin" ||
+    (actorRole === "teacher" &&
+      Boolean(teacherId) &&
+      teacherId === String(classData?.teacher_id || ""));
   const showResultsTab =
     isCambridgeClass &&
     ["B1", "B2", "C1", "C2"].includes(normalizeLevelName(levelName));
@@ -680,64 +673,12 @@ if (classResult.data) {
         )}
 
       {activeTab === "resources" && (
-        <>
-          <h3>Class Resources</h3>
-
-          {resources.length === 0 ? (
-            <p>No resources yet</p>
-          ) : (
-            resources.map((resource) => (
-              <div key={resource.id}>
-                <strong>{resource.title}</strong>
-                <br />
-                {resource.description}
-                <br />
-                <a
-                  href={resource.resource_url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open Resource
-                </a>
-                <br />
-                <br />
-              </div>
-            ))
-          )}
-
-          <h3>Add Class Resource</h3>
-
-          <input
-            placeholder="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-
-          <br />
-          <br />
-
-          <input
-            placeholder="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-
-          <br />
-          <br />
-
-          <input
-            placeholder="Google Drive Link"
-            value={resourceUrl}
-            onChange={(e) => setResourceUrl(e.target.value)}
-          />
-
-          <br />
-          <br />
-
-          <button onClick={handleSaveResource}>
-            Save Resource
-          </button>
-        </>
+        <ClassResourcesTab
+          classId={String(classData?.id || requestedClassId)}
+          resources={resources}
+          canManage={canManageClassResources}
+          onResourcesChange={setResources}
+        />
       )}
 
       {activeTab === "shared-resources" && classData && (

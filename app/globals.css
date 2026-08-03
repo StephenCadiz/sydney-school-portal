@@ -11663,6 +11663,329 @@ img {
   padding: 26px;
 }
 
+.teacher-class-resource-tab {
+  color: #243044;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.teacher-class-resource-heading {
+  align-items: flex-start;
+  border-bottom: 1px solid #e6ecf3;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding-bottom: 17px;
+}
+
+.teacher-class-resource-eyebrow {
+  color: var(--ss-blue);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+.teacher-class-resource-heading h3 {
+  color: var(--ss-blue-dark);
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.teacher-class-resource-heading > div > p:last-child {
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
+
+.teacher-class-resource-count {
+  background: #f4f8fc;
+  border: 1px solid #dce7f1;
+  border-radius: 999px;
+  color: var(--ss-blue-dark);
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.teacher-class-resource-message {
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 0;
+  padding: 11px 13px;
+}
+
+.teacher-class-resource-message-success {
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.teacher-class-resource-message-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b42318;
+}
+
+.teacher-class-resource-list {
+  border: 1px solid #dfe7f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.teacher-class-resource-row {
+  align-items: center;
+  background: #ffffff;
+  border-bottom: 1px solid #e9eef4;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 15px 16px;
+}
+
+.teacher-class-resource-row:last-child {
+  border-bottom: 0;
+}
+
+.teacher-class-resource-copy {
+  min-width: 0;
+}
+
+.teacher-class-resource-copy h4,
+.teacher-class-resource-form-heading h4,
+.teacher-class-resource-dialog h4 {
+  color: var(--ss-blue-dark);
+  font-size: 16px;
+  line-height: 1.3;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.teacher-class-resource-copy p,
+.teacher-class-resource-form-heading p,
+.teacher-class-resource-dialog p {
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.teacher-class-resource-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teacher-class-resource-button {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1.25;
+  min-height: 38px;
+  padding: 8px 11px;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.teacher-class-resource-button:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.25);
+  outline-offset: 2px;
+}
+
+.teacher-class-resource-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.teacher-class-resource-button-primary,
+.teacher-class-resource-button-open {
+  background: var(--ss-blue);
+  border-color: var(--ss-blue);
+  color: #ffffff;
+}
+
+.teacher-class-resource-button-primary:hover:not(:disabled),
+.teacher-class-resource-button-open:hover {
+  background: var(--ss-blue-hover);
+  border-color: var(--ss-blue-hover);
+  color: #ffffff;
+}
+
+.teacher-class-resource-button-secondary {
+  background: #ffffff;
+  border-color: #ccd9e6;
+  color: var(--ss-blue-dark);
+}
+
+.teacher-class-resource-button-secondary:hover:not(:disabled) {
+  background: #f6f9fc;
+  border-color: #aec6da;
+}
+
+.teacher-class-resource-button-danger {
+  background: #ffffff;
+  border-color: #f2c8c8;
+  color: #b42318;
+}
+
+.teacher-class-resource-button-danger:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #e9a5a5;
+}
+
+.teacher-class-resource-unavailable {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.teacher-class-resource-empty {
+  background: #f8fafd;
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 22px 16px;
+}
+
+.teacher-class-resource-edit-form,
+.teacher-class-resource-add-form {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+  width: 100%;
+}
+
+.teacher-class-resource-edit-form {
+  background: #f8fafd;
+  border: 1px solid #dce7f1;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.teacher-class-resource-add-form {
+  background: #f8fafd;
+  border: 1px solid #d9e5f0;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.teacher-class-resource-form-heading {
+  border-bottom: 1px solid #e0e8f1;
+  padding-bottom: 12px;
+}
+
+.teacher-class-resource-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.teacher-class-resource-field label {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.teacher-class-resource-field label span {
+  color: #7a8699;
+  font-weight: 600;
+}
+
+.teacher-class-resource-field input,
+.teacher-class-resource-field textarea {
+  background: #ffffff;
+  border: 1px solid #cbd8e5;
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  min-width: 0;
+  outline: none;
+  padding: 10px 11px;
+  resize: vertical;
+  width: 100%;
+}
+
+.teacher-class-resource-field input {
+  min-height: 42px;
+}
+
+.teacher-class-resource-field input:focus,
+.teacher-class-resource-field textarea:focus {
+  border-color: var(--ss-blue);
+  box-shadow: 0 0 0 3px rgba(47, 125, 184, 0.16);
+}
+
+.teacher-class-resource-field input:disabled,
+.teacher-class-resource-field textarea:disabled {
+  background: #f4f6f8;
+  color: #7a8699;
+  cursor: not-allowed;
+}
+
+.teacher-class-resource-dialog-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 80;
+}
+
+.teacher-class-resource-dialog {
+  background: #ffffff;
+  border: 1px solid #d9e5f0;
+  border-radius: 14px;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.2);
+  display: grid;
+  gap: 15px;
+  max-width: 460px;
+  padding: 20px;
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .teacher-class-resource-heading,
+  .teacher-class-resource-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .teacher-class-resource-count {
+    align-self: flex-start;
+  }
+
+  .teacher-class-resource-actions {
+    width: 100%;
+  }
+
+  .teacher-class-resource-actions .teacher-class-resource-button {
+    flex: 1 1 auto;
+  }
+}
+
 @media (max-width: 600px) {
   .teacher-class-header-cambridge {
     align-items: stretch;
