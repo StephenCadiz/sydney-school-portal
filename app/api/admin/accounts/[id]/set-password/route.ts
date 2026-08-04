@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
+import {
+  reconcileAdminProfileEmail,
+} from "../../../../../../lib/adminStaffAccountsServer";
 
 const cambridgeLevels = new Set(["B1", "B2", "C1", "C2"]);
 const maximumPasswordLength = 256;
@@ -147,10 +150,23 @@ export async function POST(
       return jsonError("Portal login account not found.", 404);
     }
 
-    const profileEmail = normalizeEmail(targetProfile.email);
     const authEmail = normalizeEmail(targetAuthUser.email);
+    if (!authEmail) {
+      return jsonError("Account requires reconciliation.", 409);
+    }
 
-    if (!profileEmail || !authEmail || profileEmail !== authEmail) {
+    if (targetRole === "admin") {
+      try {
+        await reconcileAdminProfileEmail(targetProfile, targetAuthUser);
+      } catch (reconciliationError) {
+        logFailure("admin-account-reconciliation", actorId, targetId, targetRole);
+        console.error("Admin password reconciliation failed:", {
+          targetId,
+          error: reconciliationError,
+        });
+        return jsonError("Unable to update the password right now.", 500);
+      }
+    } else if (normalizeEmail(targetProfile.email) !== authEmail) {
       return jsonError("Account requires reconciliation.", 409);
     }
 

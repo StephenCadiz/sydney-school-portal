@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import AdminStaffEditDialog, {
+  AdminStaffAccountTarget,
+  UpdatedAdminStaffAccount,
+} from "../../components/admin/AdminStaffEditDialog";
 import SetPasswordDialog, {
   PasswordAccountTarget,
 } from "../../components/admin/SetPasswordDialog";
@@ -14,6 +18,7 @@ type AdminStaffAccount = {
   first_name: string | null;
   last_name: string | null;
   role: string;
+  auth_linked: boolean;
 };
 
 function clean(value: string | null | undefined) {
@@ -63,26 +68,32 @@ export default function AdminStaffPage() {
   const [feedback, setFeedback] = useState("");
   const [passwordTarget, setPasswordTarget] =
     useState<PasswordAccountTarget | null>(null);
+  const [editTarget, setEditTarget] =
+    useState<AdminStaffAccountTarget | null>(null);
 
   async function loadAccounts() {
     setLoading(true);
     setLoadError("");
 
     try {
-      const [profileResult, sessionResult] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, email, first_name, last_name, role")
-          .eq("role", "admin"),
-        supabase.auth.getSession(),
-      ]);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Admin authentication is required.");
 
-      if (profileResult.error) throw profileResult.error;
+      const response = await fetch("/api/admin/admin-staff", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const result = await response.json().catch(() => ({}));
 
-      setAccounts(
-        ((profileResult.data || []) as AdminStaffAccount[]).sort(compareAccounts)
-      );
-      setCurrentAdminId(sessionResult.data.session?.user.id || "");
+      if (!response.ok || !Array.isArray(result?.accounts)) {
+        throw new Error(result?.error || "Unable to load Admin staff accounts.");
+      }
+
+      setAccounts((result.accounts as AdminStaffAccount[]).sort(compareAccounts));
+      setCurrentAdminId(result.current_admin_id || session.user.id);
     } catch {
       setLoadError("Unable to load Admin staff accounts. Please try again.");
     } finally {
@@ -162,6 +173,7 @@ export default function AdminStaffPage() {
             <div className="admin-staff-list">
               {visibleAccounts.map((account) => {
                 const isCurrentAdmin = account.id === currentAdminId;
+                const canManageAccount = account.auth_linked;
 
                 return (
                   <article className="admin-staff-row" key={account.id}>
@@ -170,32 +182,55 @@ export default function AdminStaffPage() {
                     </span>
                     <div className="admin-staff-identity">
                       <strong>{getName(account)}</strong>
-                      <span>{clean(account.email) || "No login email recorded"}</span>
+                      <span>
+                        {clean(account.email) || "Login account unavailable"}
+                      </span>
                       {isCurrentAdmin && <small>Current Admin account</small>}
                     </div>
-                    <button
-                      type="button"
-                      disabled={!clean(account.email)}
-                      title={
-                        clean(account.email)
-                          ? undefined
-                          : "Account requires reconciliation."
-                      }
-                      onClick={() => {
-                        setFeedback("");
-                        setPasswordTarget({
-                          id: account.id,
-                          name: getName(account),
-                          email: clean(account.email),
-                          accountType: "Admin",
-                          isCurrentAdmin,
-                        });
-                      }}
-                    >
-                      {clean(account.email)
-                        ? "Set New Password"
-                        : "Account requires reconciliation"}
-                    </button>
+                    <div className="admin-staff-actions">
+                      <button
+                        type="button"
+                        disabled={!canManageAccount}
+                        title={
+                          canManageAccount
+                            ? undefined
+                            : "Login account unavailable."
+                        }
+                        onClick={() => {
+                          setFeedback("");
+                          setEditTarget({
+                            id: account.id,
+                            email: clean(account.email),
+                            first_name: account.first_name,
+                            last_name: account.last_name,
+                            isCurrentAdmin,
+                          });
+                        }}
+                      >
+                        Edit Account
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canManageAccount}
+                        title={
+                          canManageAccount
+                            ? undefined
+                            : "Login account unavailable."
+                        }
+                        onClick={() => {
+                          setFeedback("");
+                          setPasswordTarget({
+                            id: account.id,
+                            name: getName(account),
+                            email: clean(account.email),
+                            accountType: "Admin",
+                            isCurrentAdmin,
+                          });
+                        }}
+                      >
+                        Set New Password
+                      </button>
+                    </div>
                   </article>
                 );
               })}
@@ -203,6 +238,26 @@ export default function AdminStaffPage() {
           )}
         </section>
       </main>
+
+      {editTarget && (
+        <AdminStaffEditDialog
+          target={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSuccess={(updatedAccount, message) => {
+            setEditTarget(null);
+            setAccounts((currentAccounts) =>
+              currentAccounts
+                .map((account) =>
+                  account.id === updatedAccount.id
+                    ? { ...account, ...updatedAccount }
+                    : account
+                )
+                .sort(compareAccounts)
+            );
+            setFeedback(message);
+          }}
+        />
+      )}
 
       {passwordTarget && (
         <SetPasswordDialog

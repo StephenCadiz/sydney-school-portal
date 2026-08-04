@@ -780,7 +780,14 @@
   overflow-wrap: anywhere;
 }
 
-.admin-staff-row > button,
+.admin-staff-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.admin-staff-actions button,
 .admin-staff-state button {
   background: #ffffff;
   border: 1px solid #9fc8e5;
@@ -794,7 +801,7 @@
   padding: 8px 13px;
 }
 
-.admin-staff-row > button:disabled {
+.admin-staff-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
@@ -848,9 +855,13 @@
     padding: 14px;
   }
 
-  .admin-staff-row > button {
+  .admin-staff-actions {
     grid-column: 1 / -1;
     width: 100%;
+  }
+
+  .admin-staff-actions button {
+    flex: 1 1 148px;
   }
 }
 
