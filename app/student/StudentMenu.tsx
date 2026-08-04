@@ -12,6 +12,7 @@ import {
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
+import LogoutButton from "../components/auth/LogoutButton";
 
 type StudentMenuProps = {
   mobileMode?: boolean;
@@ -52,7 +53,7 @@ export default function StudentMenu({
       <div className="student-sidebar-brand">
         <Image
           className="student-sidebar-brand-mark"
-          src="/Logo.png"
+          src="/LOGO.png"
           alt="Sydney School logo"
           width={42}
           height={42}
@@ -96,6 +97,8 @@ export default function StudentMenu({
       </div>
 
       <div className="student-sidebar-spacer" />
+
+      <LogoutButton className="student-logout" onSuccess={onClose} />
 
       <div className="student-sidebar-footer">
         <span>Student Portal</span>

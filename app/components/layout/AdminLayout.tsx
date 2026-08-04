@@ -8,6 +8,7 @@ import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
 import { getAdminUnreadTeacherMessageCount } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
+import LogoutButton from "../auth/LogoutButton";
 
 type AdminNavIconName =
   | "home"
@@ -450,6 +451,8 @@ export default function AdminLayout({
           width: "250px",
           background: "var(--ss-blue)",
           color: "#ffffff",
+          display: "flex",
+          flexDirection: "column",
           padding: "24px 20px 30px",
         }}
       >
@@ -528,6 +531,11 @@ export default function AdminLayout({
             );
           })}
         </nav>
+        <div style={{ flex: 1 }} />
+        <LogoutButton
+          className="admin-logout"
+          onSuccess={() => setMenuOpen(false)}
+        />
       </aside>
 
       {/* Main Content */}

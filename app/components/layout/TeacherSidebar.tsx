@@ -10,8 +10,8 @@ import {
   BarChart3,
   MessageSquare,
   Settings,
-  LogOut,
 } from "lucide-react";
+import LogoutButton from "../auth/LogoutButton";
 
 interface TeacherSidebarProps {
   isMobileOpen?: boolean;
@@ -101,13 +101,7 @@ export default function TeacherSidebar({
 
       <div style={{ flex: 1 }} />
 
-      <SidebarItem
-        href="/logout"
-        icon={<LogOut size={20} />}
-        title="Logout"
-        active={false}
-        onClick={onClose}
-      />
+      <LogoutButton className="teacher-logout" onSuccess={onClose} />
     </aside>
   );
 }
