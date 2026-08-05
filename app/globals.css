@@ -3728,6 +3728,141 @@ img {
   text-align: center;
 }
 
+.admin-message-queue-row {
+  border-bottom: 1px solid #edf1f7;
+}
+
+.admin-message-row-delete-action {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 18px 13px;
+}
+
+.admin-message-sent-delete-action,
+.admin-message-row-delete-action button,
+.admin-message-delete-detail-action button {
+  background: #ffffff;
+  border: 1px solid #efc4c4;
+  border-radius: 7px;
+  color: #a52727;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 33px;
+  padding: 6px 10px;
+}
+
+.admin-message-sent-delete-action:hover:not(:disabled),
+.admin-message-row-delete-action button:hover:not(:disabled),
+.admin-message-delete-detail-action button:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #dd9999;
+}
+
+.admin-message-sent-delete-action:disabled,
+.admin-message-row-delete-action button:disabled,
+.admin-message-delete-detail-action button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.admin-message-delete-detail-action {
+  border-top: 1px solid #edf1f7;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding-top: 16px;
+}
+
+.admin-message-delete-dialog-backdrop {
+  align-items: center;
+  background: rgba(16, 31, 55, 0.48);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 1100;
+}
+
+.admin-message-delete-dialog {
+  background: #ffffff;
+  border-radius: 13px;
+  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.2);
+  max-width: 450px;
+  padding: 24px;
+  width: 100%;
+}
+
+.admin-message-delete-dialog h2 {
+  color: #842727;
+  font-size: 21px;
+  line-height: 1.25;
+  margin: 0 0 9px;
+}
+
+.admin-message-delete-dialog p {
+  color: #5e6b7d;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.admin-message-delete-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.admin-message-delete-cancel,
+.admin-message-delete-confirm {
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 8px 13px;
+}
+
+.admin-message-delete-cancel {
+  background: #ffffff;
+  border: 1px solid #c7d3e3;
+  color: #24446f;
+}
+
+.admin-message-delete-confirm {
+  background: #b42318;
+  border: 1px solid #b42318;
+  color: #ffffff;
+}
+
+.admin-message-delete-cancel:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.admin-message-delete-confirm:hover:not(:disabled) {
+  background: #8f1d15;
+  border-color: #8f1d15;
+}
+
+.admin-message-sent-delete-action:focus-visible,
+.admin-message-row-delete-action button:focus-visible,
+.admin-message-delete-detail-action button:focus-visible,
+.admin-message-delete-cancel:focus-visible,
+.admin-message-delete-confirm:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.28);
+  outline-offset: 2px;
+}
+
+.admin-message-delete-cancel:disabled,
+.admin-message-delete-confirm:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .admin-dashboard-alert-card {
   border-color: #f2c98f;
   border-left: 5px solid #b54708;

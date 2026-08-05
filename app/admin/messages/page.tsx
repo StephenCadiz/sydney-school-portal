@@ -9,7 +9,6 @@ import { Volume2, VolumeX } from "lucide-react";
 import { getTeachers } from "../../../lib/adminTeachers";
 import {
   formatMessageDateTime,
-  getAdminSentMessages,
   markSharedAdminMessageAsRead,
   markMessageAsRead,
   sendAdminMessageToAllTeachers,
@@ -19,6 +18,11 @@ import {
 import { supabase } from "../../../lib/supabase";
 
 const tabs = ["New / Active", "Dealt With", "Sent", "New Message"];
+
+type AdminMessageDeleteTarget = {
+  id: string;
+  section: "sent" | "dealt";
+};
 
 const cardStyle = {
   background: "#ffffff",
@@ -66,6 +70,7 @@ export default function AdminMessagesPage() {
   const [activeMessages, setActiveMessages] = useState<any[]>([]);
   const [dealtMessages, setDealtMessages] = useState<any[]>([]);
   const [messageCounts, setMessageCounts] = useState({ active: 0, dealt: 0 });
+  const [canDeleteAdminMessages, setCanDeleteAdminMessages] = useState(false);
   const [dealtHasMore, setDealtHasMore] = useState(false);
   const [loadingMoreDealt, setLoadingMoreDealt] = useState(false);
   const [sentMessages, setSentMessages] = useState<any[]>([]);
@@ -80,6 +85,9 @@ export default function AdminMessagesPage() {
   const [sending, setSending] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [pendingDeleteTarget, setPendingDeleteTarget] =
+    useState<AdminMessageDeleteTarget | null>(null);
+  const [deletingMessageId, setDeletingMessageId] = useState("");
   const mountedRef = useRef(false);
   const messagesRequestRef = useRef(0);
   const selectedMessageRef = useRef<any | null>(null);
@@ -99,15 +107,22 @@ export default function AdminMessagesPage() {
       throw new Error("Your Admin session has expired.");
     }
 
-    const [queueResponse, sentData] = await Promise.all([
+    const [queueResponse, sentResponse] = await Promise.all([
       fetch("/api/admin/messages/work-queue", {
         headers: { Authorization: `Bearer ${session.access_token}` },
       }),
-      getAdminSentMessages(currentAdminId),
+      fetch("/api/admin/messages/sent", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }),
     ]);
-    const queueData = await queueResponse.json();
-    if (!queueResponse.ok) {
-      throw new Error(queueData.error || "Unable to load Admin messages.");
+    const [queueData, sentData] = await Promise.all([
+      queueResponse.json().catch(() => null),
+      sentResponse.json().catch(() => null),
+    ]);
+    if (!queueResponse.ok || !queueData || !sentResponse.ok || !sentData) {
+      throw new Error(
+        queueData?.error || sentData?.error || "Unable to load Admin messages."
+      );
     }
 
     if (!mountedRef.current || requestId !== messagesRequestRef.current) {
@@ -118,7 +133,11 @@ export default function AdminMessagesPage() {
     setDealtMessages(queueData.dealt_messages || []);
     setMessageCounts(queueData.counts || { active: 0, dealt: 0 });
     setDealtHasMore(Boolean(queueData.dealt_has_more));
-    setSentMessages(sentData);
+    setSentMessages(sentData.sent_messages || []);
+    setCanDeleteAdminMessages(
+      Boolean(queueData.can_delete_admin_messages) &&
+        Boolean(sentData.can_delete_admin_messages)
+    );
 
     const currentSelectedMessage = selectedMessageRef.current;
 
@@ -126,7 +145,7 @@ export default function AdminMessagesPage() {
       const refreshedMessage = [
         ...(queueData.active_messages || []),
         ...(queueData.dealt_messages || []),
-        ...sentData,
+        ...(sentData.sent_messages || []),
       ].find((item) => item.id === currentSelectedMessage.id);
 
       selectedMessageRef.current = refreshedMessage || null;
@@ -439,6 +458,61 @@ export default function AdminMessagesPage() {
     }
   }
 
+  async function deleteAdminMessage() {
+    const target = pendingDeleteTarget;
+    if (!target || deletingMessageId || !canDeleteAdminMessages) return;
+
+    setDeletingMessageId(target.id);
+    setErrorMessage("");
+    setStatusMessage("");
+
+    const wasActive = activeMessages.some((messageItem) => messageItem.id === target.id);
+    const wasDealt = dealtMessages.some((messageItem) => messageItem.id === target.id);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Your Admin session has expired.");
+      }
+
+      const response = await fetch(
+        `/api/admin/messages/${encodeURIComponent(target.id)}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }
+      );
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error("Unable to remove this message.");
+      }
+
+      const removeMessage = (messages: any[]) =>
+        messages.filter((messageItem) => messageItem.id !== target.id);
+      setActiveMessages(removeMessage);
+      setDealtMessages(removeMessage);
+      setSentMessages(removeMessage);
+      setMessageCounts((current) => ({
+        active: Math.max(0, current.active - (wasActive ? 1 : 0)),
+        dealt: Math.max(0, current.dealt - (wasDealt ? 1 : 0)),
+      }));
+      if (selectedMessageRef.current?.id === target.id) {
+        selectedMessageRef.current = null;
+        setSelectedMessage(null);
+      }
+      setPendingDeleteTarget(null);
+      setStatusMessage("Message removed from Admin Messages.");
+      window.dispatchEvent(new Event("admin-unread-messages-changed"));
+    } catch (error) {
+      console.error("Unable to remove Admin message:", error);
+      setErrorMessage("Unable to remove this message.");
+    } finally {
+      setDeletingMessageId("");
+    }
+  }
+
   const queueMessages =
     activeTab === "Dealt With" ? dealtMessages : activeMessages;
   const isQueueTab =
@@ -629,6 +703,23 @@ export default function AdminMessagesPage() {
               </button>
             </div>
 
+            {activeTab === "Dealt With" && canDeleteAdminMessages && (
+              <div className="admin-message-delete-detail-action">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPendingDeleteTarget({
+                      id: selectedMessage.id,
+                      section: "dealt",
+                    })
+                  }
+                  disabled={Boolean(deletingMessageId)}
+                >
+                  Delete Message
+                </button>
+              </div>
+            )}
+
             <div
               style={{
                 borderTop: "1px solid #edf1f7",
@@ -698,38 +789,57 @@ export default function AdminMessagesPage() {
               queueMessages.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => openInboxMessage(item)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      openInboxMessage(item);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  style={{
-                    width: "100%",
-                    textAlign: "left",
-                    background: item.read_at ? "#ffffff" : "#f8fafd",
-                    border: "none",
-                    borderBottom: "1px solid #edf1f7",
-                    padding: "16px 18px",
-                    cursor: "pointer",
-                    boxSizing: "border-box",
-                  }}
+                  className="admin-message-queue-row"
                 >
-                  <MessageRow
-                    badge={!item.read_at ? "New" : ""}
-                    name={item.sender_name}
-                    meta={roleLabel(item.sender_role)}
-                    subject={item.subject}
-                    message={item.message}
-                    date={item.created_at}
-                    attachmentLink={item.attachment_link}
-                  />
-                  {item.dealt_with_at && (
-                    <div className="admin-message-dealt-metadata">
-                      Dealt with by {item.dealt_with_by_name || "Admin"} ·{" "}
-                      {formatMessageDateTime(item.dealt_with_at)}
+                  <div
+                    onClick={() => openInboxMessage(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        openInboxMessage(item);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      background: item.read_at ? "#ffffff" : "#f8fafd",
+                      border: "none",
+                      padding: "16px 18px",
+                      cursor: "pointer",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <MessageRow
+                      badge={!item.read_at ? "New" : ""}
+                      name={item.sender_name}
+                      meta={roleLabel(item.sender_role)}
+                      subject={item.subject}
+                      message={item.message}
+                      date={item.created_at}
+                      attachmentLink={item.attachment_link}
+                    />
+                    {item.dealt_with_at && (
+                      <div className="admin-message-dealt-metadata">
+                        Dealt with by {item.dealt_with_by_name || "Admin"} ·{" "}
+                        {formatMessageDateTime(item.dealt_with_at)}
+                      </div>
+                    )}
+                  </div>
+                  {activeTab === "Dealt With" && canDeleteAdminMessages && (
+                    <div className="admin-message-row-delete-action">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPendingDeleteTarget({
+                            id: item.id,
+                            section: "dealt",
+                          })
+                        }
+                        disabled={Boolean(deletingMessageId)}
+                      >
+                        Delete
+                      </button>
                     </div>
                   )}
                 </div>
@@ -751,6 +861,12 @@ export default function AdminMessagesPage() {
 
         {!loading && activeTab === "Sent" && (
           <section style={{ ...cardStyle, overflow: "hidden" }}>
+            {statusMessage && (
+              <div className="admin-message-inline-success">{statusMessage}</div>
+            )}
+            {errorMessage && (
+              <div className="admin-message-inline-error">{errorMessage}</div>
+            )}
             {sentMessages.length === 0 ? (
               <div style={{ padding: "22px", color: "#334155" }}>
                 No sent messages yet.
@@ -762,16 +878,33 @@ export default function AdminMessagesPage() {
                   style={{
                     borderBottom: "1px solid #edf1f7",
                     padding: "16px 18px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "14px",
                   }}
                 >
-                  <MessageRow
-                    name={item.receiver_name}
-                    meta={roleLabel(item.receiver_role)}
-                    subject={item.subject}
-                    message={item.message}
-                    date={item.created_at}
-                    attachmentLink={item.attachment_link}
-                  />
+                  <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+                    <MessageRow
+                      name={item.receiver_name}
+                      meta={roleLabel(item.receiver_role)}
+                      subject={item.subject}
+                      message={item.message}
+                      date={item.created_at}
+                      attachmentLink={item.attachment_link}
+                    />
+                  </div>
+                  {canDeleteAdminMessages && (
+                    <button
+                      type="button"
+                      className="admin-message-sent-delete-action"
+                      onClick={() =>
+                        setPendingDeleteTarget({ id: item.id, section: "sent" })
+                      }
+                      disabled={Boolean(deletingMessageId)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -886,6 +1019,45 @@ export default function AdminMessagesPage() {
               </button>
             </div>
           </section>
+        )}
+
+        {pendingDeleteTarget && (
+          <div
+            className="admin-message-delete-dialog-backdrop"
+            role="presentation"
+          >
+            <section
+              className="admin-message-delete-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="admin-message-delete-dialog-title"
+            >
+              <h2 id="admin-message-delete-dialog-title">Delete Message</h2>
+              <p>
+                {pendingDeleteTarget.section === "sent"
+                  ? "Remove this sent message from Admin Messages? The recipient’s copy will remain available."
+                  : "Remove this dealt-with message from Admin Messages?"}
+              </p>
+              <div className="admin-message-delete-dialog-actions">
+                <button
+                  type="button"
+                  className="admin-message-delete-cancel"
+                  onClick={() => setPendingDeleteTarget(null)}
+                  disabled={Boolean(deletingMessageId)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="admin-message-delete-confirm"
+                  onClick={() => void deleteAdminMessage()}
+                  disabled={Boolean(deletingMessageId)}
+                >
+                  {deletingMessageId ? "Deleting..." : "Delete Message"}
+                </button>
+              </div>
+            </section>
+          </div>
         )}
       </div>
     </AdminLayout>

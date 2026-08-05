@@ -4,6 +4,10 @@ import {
   examBankJsonError,
   requireExamBankAdmin,
 } from "../../../../../lib/cambridgeExamBankServer";
+import {
+  DELETE_ADMIN_MESSAGES_PERMISSION,
+  hasAdminStaffPermission,
+} from "../../../../../lib/adminMessagePermissionsServer";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 
 const UUID_PATTERN =
@@ -107,6 +111,7 @@ async function getCounts(userId: string) {
       .from("messages")
       .select("id", { count: "exact" })
       .or(inboxScope(userId))
+      .is("admin_deleted_at", null)
       .limit(1);
 
   const activeResult = await base().is("dealt_with_at", null);
@@ -140,7 +145,8 @@ async function getCounts(userId: string) {
 async function getLegacyQueue(
   userId: string,
   status: string | null,
-  countError: unknown
+  countError: unknown,
+  canDeleteAdminMessages: boolean
 ) {
   logWorkQueueError("schema-compatibility", countError);
 
@@ -148,6 +154,7 @@ async function getLegacyQueue(
     .from("messages")
     .select("id", { count: "exact" })
     .or(inboxScope(userId))
+    .is("admin_deleted_at", null)
     .limit(1);
   if (countResult.error) {
     logWorkQueueError("legacy-active-count", countResult.error);
@@ -161,6 +168,7 @@ async function getLegacyQueue(
         counts,
         dealt_messages: [],
         dealt_has_more: false,
+        can_delete_admin_messages: canDeleteAdminMessages,
       }),
     };
   }
@@ -169,6 +177,7 @@ async function getLegacyQueue(
     .from("messages")
     .select("*")
     .or(inboxScope(userId))
+    .is("admin_deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(ACTIVE_LIMIT);
   if (listResult.error) {
@@ -189,6 +198,7 @@ async function getLegacyQueue(
       dealt_messages: [],
       dealt_has_more: false,
       resolution_status_available: false,
+      can_delete_admin_messages: canDeleteAdminMessages,
     }),
   };
 }
@@ -206,6 +216,10 @@ export async function GET(request: NextRequest) {
   if (admin.response) return admin.response;
 
   try {
+    const canDeleteAdminMessages = await hasAdminStaffPermission(
+      admin.userId,
+      DELETE_ADMIN_MESSAGES_PERMISSION
+    );
     const status = request.nextUrl.searchParams.get("status");
     const offsetValue = Number(request.nextUrl.searchParams.get("offset") || 0);
     const offset =
@@ -221,7 +235,8 @@ export async function GET(request: NextRequest) {
         const legacy = await getLegacyQueue(
           admin.userId,
           status,
-          countResult.error
+          countResult.error,
+          canDeleteAdminMessages
         );
         return legacy.response;
       }
@@ -238,6 +253,7 @@ export async function GET(request: NextRequest) {
         .from("messages")
         .select("*")
         .or(inboxScope(admin.userId))
+        .is("admin_deleted_at", null)
         .not("dealt_with_at", "is", null)
         .order("dealt_with_at", { ascending: false })
         .order("created_at", { ascending: false })
@@ -258,6 +274,7 @@ export async function GET(request: NextRequest) {
         counts: countResult.counts,
         dealt_messages: enriched.messages,
         dealt_has_more: (data || []).length === DEALT_LIMIT,
+        can_delete_admin_messages: canDeleteAdminMessages,
       });
     }
 
@@ -265,6 +282,7 @@ export async function GET(request: NextRequest) {
       .from("messages")
       .select("*")
       .or(inboxScope(admin.userId))
+      .is("admin_deleted_at", null)
       .is("dealt_with_at", null)
       .order("created_at", { ascending: false })
       .limit(ACTIVE_LIMIT);
@@ -277,6 +295,7 @@ export async function GET(request: NextRequest) {
       .from("messages")
       .select("*")
       .or(inboxScope(admin.userId))
+      .is("admin_deleted_at", null)
       .not("dealt_with_at", "is", null)
       .order("dealt_with_at", { ascending: false })
       .order("created_at", { ascending: false })
@@ -303,6 +322,7 @@ export async function GET(request: NextRequest) {
       active_messages: activeEnrichment.messages,
       dealt_messages: dealtEnrichment.messages,
       dealt_has_more: (dealtResult.data || []).length === DEALT_LIMIT,
+      can_delete_admin_messages: canDeleteAdminMessages,
     });
   } catch (error) {
     logWorkQueueError("unexpected-get-failure", error);
@@ -355,6 +375,7 @@ export async function PATCH(request: NextRequest) {
       .select("id, receiver_id, recipient_group")
       .eq("id", messageId)
       .or(inboxScope(admin.userId))
+      .is("admin_deleted_at", null)
       .maybeSingle();
 
     if (lookupError) {
@@ -380,6 +401,7 @@ export async function PATCH(request: NextRequest) {
       .from("messages")
       .update(updates)
       .eq("id", messageId)
+      .is("admin_deleted_at", null)
       .select("*")
       .single();
 

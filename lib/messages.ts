@@ -540,6 +540,7 @@ export async function getAdminInboxMessages(adminId: string) {
     .from("messages")
     .select("*")
     .or(`receiver_id.eq.${adminId},recipient_group.eq.admin`)
+    .is("admin_deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -556,6 +557,7 @@ export async function getAdminUnreadTeacherMessageCount(adminId: string) {
     .from("messages")
     .select("id, sender_id, receiver_id, recipient_group")
     .is("read_at", null)
+    .is("admin_deleted_at", null)
     .or(`recipient_group.eq.admin,and(receiver_id.eq.${adminId},recipient_group.is.null)`);
 
   if (candidatesError) throw candidatesError;
@@ -587,6 +589,7 @@ export async function getAdminSentMessages(adminId: string) {
     .from("messages")
     .select("*")
     .eq("sender_id", adminId)
+    .is("admin_deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
