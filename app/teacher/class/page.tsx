@@ -12,6 +12,7 @@ import ClassMessagesTab from "./ClassMessagesTab";
 import ClassExamsTab from "./ClassExamsTab";
 import FridayTutorialResultsTab from "./FridayTutorialResultsTab";
 import UnitExamResultsTab from "./UnitExamResultsTab";
+import YoungLearnerResultsSummary from "./YoungLearnerResultsSummary";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
 import ClassResourcesTab, { type ClassResource } from "./ClassResourcesTab";
@@ -56,6 +57,24 @@ const cambridgeClassTabs = [
   { id: "official-resources", label: "Official Resources" },
   { id: "announcements", label: "Announcements" },
 ];
+
+const youngLearnerRemovedTabIds = new Set([
+  "resources",
+  "shared-resources",
+  "official-resources",
+  "homework",
+  "class-exams",
+  "unit-exam-results",
+  "notes",
+  "messages",
+  "follow-up",
+  "progress",
+  "announcements",
+]);
+
+const youngLearnerClassTabs = tabs.filter(
+  (tab) => !youngLearnerRemovedTabIds.has(tab.id)
+);
 
 const googleMeetTab = { id: "google-meet", label: "Google Meet" };
 
@@ -253,25 +272,33 @@ if (classResult.data) {
       setYoungLearners(youngLearnerResult.data || []);
     }
 
-    const resourceResult = await supabase
-      .from("resources")
-      .select("id, title, description, resource_url, class_id, active")
-      .eq("class_id", classId);
+    if (classResult.data?.is_cambridge === true) {
+      const resourceResult = await supabase
+        .from("resources")
+        .select("id, title, description, resource_url, class_id, active")
+        .eq("class_id", classId);
 
-    if (resourceResult.error) {
-      console.error("Unable to load class resources:", resourceResult.error);
-      setResources([]);
+      if (resourceResult.error) {
+        console.error("Unable to load class resources:", resourceResult.error);
+        setResources([]);
+      } else {
+        setResources((resourceResult.data || []) as ClassResource[]);
+      }
     } else {
-      setResources((resourceResult.data || []) as ClassResource[]);
+      setResources([]);
     }
 
-    const announcementResult = await supabase
-      .from("announcements")
-      .select("*")
-      .eq("classes_id", classId)
-      .order("created_at", { ascending: false });
+    if (classResult.data?.is_cambridge === true) {
+      const announcementResult = await supabase
+        .from("announcements")
+        .select("*")
+        .eq("classes_id", classId)
+        .order("created_at", { ascending: false });
 
-    setAnnouncements(announcementResult.data || []);
+      setAnnouncements(announcementResult.data || []);
+    } else {
+      setAnnouncements([]);
+    }
   }
 
   useEffect(() => {
@@ -422,6 +449,7 @@ if (classResult.data) {
   const showFridayTutorialResultsTab =
     classData?.is_cambridge === true && isFridayTutorialCambridgeLevel(levelName);
   const isCambridgeClass = classData?.is_cambridge === true;
+  const isYoungLearnerClass = classData?.is_cambridge === false;
   const canManageClassResources =
     actorRole === "admin" ||
     (actorRole === "teacher" &&
@@ -473,8 +501,7 @@ if (classResult.data) {
       student?.student_type === "young_learner" &&
       student.id &&
       classData?.id &&
-      classData.is_cambridge !== true &&
-      isUnitExamLevel(levelName)
+      isYoungLearnerClass
     ) {
       router.push(
         `/teacher/class/young-learner/${encodeURIComponent(
@@ -562,7 +589,13 @@ if (classResult.data) {
     : studentPanel.studentName;
   const googleMeetIsVisible =
     googleMeet.classId === requestedClassId && googleMeet.supported;
-  const classTabs = (isCambridgeClass ? cambridgeClassTabs : tabs).flatMap(
+  const classTabs = (
+    isCambridgeClass
+      ? cambridgeClassTabs
+      : isYoungLearnerClass
+      ? youngLearnerClassTabs
+      : tabs
+  ).flatMap(
     (tab) =>
       tab.id === "students" && googleMeetIsVisible
         ? [tab, googleMeetTab]
@@ -606,7 +639,27 @@ if (classResult.data) {
         ? requestedTab
         : "students";
     setActiveTab((current) => (current === nextTab ? current : nextTab));
-  }, [classData, requestedTab, visibleTabIds]);
+
+    if (
+      isYoungLearnerClass &&
+      requestedTab &&
+      requestedTab !== nextTab
+    ) {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set("tab", nextTab);
+      router.replace(`${pathname}?${nextParams.toString()}`, {
+        scroll: false,
+      });
+    }
+  }, [
+    classData,
+    isYoungLearnerClass,
+    pathname,
+    requestedTab,
+    router,
+    searchParams,
+    visibleTabIds,
+  ]);
 
   return (
    <TeacherLayout>
@@ -659,8 +712,8 @@ if (classResult.data) {
           students={controlSheetStudents}
           isCambridgeClass={isCambridgeClass}
           isSupportClass={isSupportClass}
-          showClassExams={showClassExamsTab}
-          showUnitExamResults={showUnitExamResultsTab}
+          showClassExams={isCambridgeClass && showClassExamsTab}
+          showUnitExamResults={isCambridgeClass && showUnitExamResultsTab}
           showFridayTutorialResults={showFridayTutorialResultsTab}
           onShortcut={openStudentShortcut}
         />
@@ -672,7 +725,7 @@ if (classResult.data) {
           <GoogleMeetTab state={googleMeet} onRetry={loadGoogleMeet} />
         )}
 
-      {activeTab === "resources" && (
+      {activeTab === "resources" && isCambridgeClass && (
         <ClassResourcesTab
           classId={String(classData?.id || requestedClassId)}
           resources={resources}
@@ -681,14 +734,14 @@ if (classResult.data) {
         />
       )}
 
-      {activeTab === "shared-resources" && classData && (
+      {activeTab === "shared-resources" && isCambridgeClass && classData && (
         <SharedResourcesTab
           levelId={classData.level_id}
           levelName={levelName}
         />
       )}
 
-      {activeTab === "official-resources" && classData && (
+      {activeTab === "official-resources" && isCambridgeClass && classData && (
         <OfficialResourcesTab
           classId={classData.id}
           levelId={classData.level_id}
@@ -696,17 +749,18 @@ if (classResult.data) {
         />
       )}
 
-     {activeTab === "homework" && (
+     {activeTab === "homework" && isCambridgeClass && (
   <TeacherHomework
     classId={classData?.id ?? ""}
   />
 )}
 
-      {activeTab === "class-exams" && showClassExamsTab && (
+      {activeTab === "class-exams" && !isYoungLearnerClass && showClassExamsTab && (
   <ClassExamsTab levelName={levelName} />
 )}
 
       {activeTab === "unit-exam-results" &&
+        !isYoungLearnerClass &&
         showUnitExamResultsTab &&
         classData && (
   <UnitExamResultsTab
@@ -717,7 +771,7 @@ if (classResult.data) {
   />
 )}
 
-      {activeTab === "announcements" && (
+      {activeTab === "announcements" && isCambridgeClass && (
         <>
           <h3>Announcements</h3>
 
@@ -870,7 +924,18 @@ if (classResult.data) {
         </>
       )}
 
-      {activeTab === "results" && resultsTabIsVisible && classData && (
+      {activeTab === "results" && isYoungLearnerClass && classData && (
+        <YoungLearnerResultsSummary
+          classId={classData.id}
+          levelName={levelName}
+          youngLearners={youngLearners}
+        />
+      )}
+
+      {activeTab === "results" &&
+        isCambridgeClass &&
+        resultsTabIsVisible &&
+        classData && (
   <ResultsTab
     classId={classData.id}
     students={students}
@@ -895,7 +960,7 @@ if (classResult.data) {
   />
 )}
 
-      {activeTab === "notes" && (
+      {activeTab === "notes" && !isYoungLearnerClass && (
   <TeacherNotesTab
   classId={classData?.id}
     students={students}
@@ -904,7 +969,7 @@ if (classResult.data) {
   />
 )}
 
-      {activeTab === "messages" && (
+      {activeTab === "messages" && !isYoungLearnerClass && (
   <ClassMessagesTab
     students={students}
     teacherId={teacherId}
@@ -913,7 +978,7 @@ if (classResult.data) {
   />
 )}
 
-      {activeTab === "follow-up" && classData && (
+      {activeTab === "follow-up" && !isYoungLearnerClass && classData && (
   <FollowUpsTab
     classId={classData.id}
     students={followUpStudents}
@@ -924,7 +989,7 @@ if (classResult.data) {
   />
 )}
 
-      {activeTab === "progress" && classData && (
+      {activeTab === "progress" && !isYoungLearnerClass && classData && (
   <StudentProgressTab
     classId={classData.id}
     students={students}
