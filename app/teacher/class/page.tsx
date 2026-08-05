@@ -13,6 +13,7 @@ import ClassExamsTab from "./ClassExamsTab";
 import FridayTutorialResultsTab from "./FridayTutorialResultsTab";
 import UnitExamResultsTab from "./UnitExamResultsTab";
 import YoungLearnerResultsSummary from "./YoungLearnerResultsSummary";
+import ClassPointsTab from "./ClassPointsTab";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
 import ClassResourcesTab, { type ClassResource } from "./ClassResourcesTab";
@@ -72,9 +73,10 @@ const youngLearnerRemovedTabIds = new Set([
   "announcements",
 ]);
 
-const youngLearnerClassTabs = tabs.filter(
-  (tab) => !youngLearnerRemovedTabIds.has(tab.id)
-);
+const youngLearnerClassTabs = [
+  ...tabs.filter((tab) => !youngLearnerRemovedTabIds.has(tab.id)),
+  { id: "class-points", label: "Class Points" },
+];
 
 const googleMeetTab = { id: "google-meet", label: "Google Meet" };
 
@@ -641,7 +643,7 @@ if (classResult.data) {
     setActiveTab((current) => (current === nextTab ? current : nextTab));
 
     if (
-      isYoungLearnerClass &&
+      (isYoungLearnerClass || isCambridgeClass) &&
       requestedTab &&
       requestedTab !== nextTab
     ) {
@@ -653,6 +655,7 @@ if (classResult.data) {
     }
   }, [
     classData,
+    isCambridgeClass,
     isYoungLearnerClass,
     pathname,
     requestedTab,
@@ -930,6 +933,10 @@ if (classResult.data) {
           levelName={levelName}
           youngLearners={youngLearners}
         />
+      )}
+
+      {activeTab === "class-points" && isYoungLearnerClass && classData && (
+        <ClassPointsTab classId={classData.id} />
       )}
 
       {activeTab === "results" &&
