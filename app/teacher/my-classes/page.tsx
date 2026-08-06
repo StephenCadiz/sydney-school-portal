@@ -16,6 +16,21 @@ type ClassRow = any & {
   student_count: number;
 };
 
+type ClassroomIdentity =
+  | {
+      type: "primary" | "online";
+      label: string;
+      name: string;
+      image: string | null;
+      includesOnline: boolean;
+    }
+  | {
+      type: "locations";
+      locations: string[];
+      includesOnline: boolean;
+    }
+  | { type: "empty" };
+
 const weekdayNames = [
   "Sunday",
   "Monday",
@@ -127,15 +142,63 @@ function getClassTitle(item: ClassRow) {
 }
 
 function getClassroomName(item: ClassRow) {
-  return String(item.course_type || "").trim().toLowerCase() === "online"
+  return isOnlineClass(item)
     ? "Online"
     : item.classrooms?.name || "Classroom not assigned";
 }
 
-function getClassroomLogo(item: ClassRow) {
-  return String(item.course_type || "").trim().toLowerCase() === "online"
-    ? "/On-Line Logo.png"
-    : item.classrooms?.logo || "";
+function isOnlineClass(item: ClassRow) {
+  return String(item.course_type || "").trim().toLowerCase() === "online";
+}
+
+function getClassroomIdentity(items: ClassRow[]): ClassroomIdentity {
+  if (items.length === 0) return { type: "empty" };
+
+  const onlineClasses = items.filter(isOnlineClass);
+  const physicalClasses = items.filter((item) => !isOnlineClass(item));
+
+  if (physicalClasses.length === 0) {
+    return {
+      type: "online",
+      label: "Online teaching",
+      name: "Online",
+      image: "/On-Line Logo.png",
+      includesOnline: false,
+    };
+  }
+
+  const classrooms = Array.from(
+    new Map(
+      physicalClasses
+        .filter((item) => item.classrooms?.id)
+        .map((item) => [
+          String(item.classrooms.id),
+          {
+            name: String(item.classrooms.name || "Classroom not assigned"),
+            logo: String(item.classrooms.logo || "") || null,
+          },
+        ])
+    ).values()
+  );
+
+  if (classrooms.length === 1) {
+    const classroom = classrooms[0];
+    return {
+      type: "primary",
+      label: "Primary classroom",
+      name: classroom.name,
+      image: classroom.logo,
+      includesOnline: onlineClasses.length > 0,
+    };
+  }
+
+  const locationNames = classrooms.map((classroom) => classroom.name);
+
+  return {
+    type: "locations",
+    locations: locationNames.length ? locationNames : ["Classroom not assigned"],
+    includesOnline: onlineClasses.length > 0,
+  };
 }
 
 function getTiming(item: ClassRow, currentMinutes: number): Timing {
@@ -208,49 +271,70 @@ function ClassListRow({
   const start = formatTime(item.start_time);
   const end = formatTime(item.end_time);
   const time = start && end ? `${start}–${end}` : "Time not set";
-  const classroomLogo = getClassroomLogo(item);
+  const onlineClass = isOnlineClass(item);
 
   return (
     <button
       type="button"
       className={`teacher-my-classes-row${
         timing ? ` is-${timing}` : " is-all"
-      }${classroomLogo ? " has-image" : ""}`}
+      }${onlineClass ? " is-online" : ""}`}
       onClick={onOpen}
       aria-label={`Open ${getClassTitle(item)} Class Workspace`}
     >
-      {timing && (
-        <div className="teacher-my-classes-row-time">
-          <strong>{time}</strong>
-          {timing === "now" && <span>Now</span>}
-          {timing === "past" && <span>Past</span>}
-        </div>
-      )}
-      {classroomLogo && (
-        <span className="teacher-my-classes-row-image">
-          <Image src={classroomLogo} alt="" width={42} height={42} />
-        </span>
-      )}
+      <div className="teacher-my-classes-row-time">
+        <strong>{time}</strong>
+        {timing === "now" && <span>Now</span>}
+        {timing === "past" && <span>Past</span>}
+      </div>
       <div className="teacher-my-classes-row-main">
         <strong>{getClassTitle(item)}</strong>
-        {timing && (
-          <span className="teacher-my-classes-row-mobile-time">
-            {time}
-            {timing === "now" && " · Now"}
-            {timing === "past" && " · Past"}
+        <span>{formatDays(item.days)}</span>
+        <small className="teacher-my-classes-row-location">
+          {onlineClass && <OnlineClassIcon />}
+          <span>
+            {getClassroomName(item)} · {item.student_count}{" "}
+            {item.student_count === 1 ? "student" : "students"}
           </span>
-        )}
-        <span>
-          {formatDays(item.days)}
-          {!timing && ` · ${time}`}
-        </span>
-        <small>
-          {getClassroomName(item)} · {item.student_count}{" "}
-          {item.student_count === 1 ? "student" : "students"}
         </small>
       </div>
       <span className="teacher-my-classes-row-chevron" aria-hidden="true">›</span>
     </button>
+  );
+}
+
+function OnlineClassIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="14" height="11" rx="2" />
+      <path d="m17 8 4-2.5v8L17 11" />
+      <path d="M8 19h4" />
+    </svg>
+  );
+}
+
+function LocationSummaryIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
   );
 }
 
@@ -520,7 +604,8 @@ export default function MyClassesPage() {
     );
   }
 
-  const headerClassroom = classes[0]?.classrooms;
+  const representedClasses = view === "today" ? todayClasses : searchResults;
+  const classroomIdentity = getClassroomIdentity(representedClasses);
 
   return (
     <TeacherLayout>
@@ -530,24 +615,83 @@ export default function MyClassesPage() {
             <h1>My Classes</h1>
             <p>{madrid.dateLabel}</p>
             <small>Your teaching groups and schedules</small>
+            <div className="teacher-my-classes-heading-stats" aria-label="Class statistics">
+              <span>
+                <strong>{classes.length}</strong>
+                <small>{classes.length === 1 ? "class" : "classes"}</small>
+              </span>
+              <span>
+                <strong>{totalStudents}</strong>
+                <small>{totalStudents === 1 ? "student" : "students"}</small>
+              </span>
+              <span>
+                <strong>{todayClasses.length}</strong>
+                <small>today</small>
+              </span>
+            </div>
           </div>
-          <div className="teacher-my-classes-heading-context">
-            {headerClassroom?.name && headerClassroom?.logo && (
-              <div className="teacher-my-classes-heading-classroom">
-                <Image
-                  src={headerClassroom.logo}
-                  alt=""
-                  width={48}
-                  height={48}
-                />
-                <strong>{headerClassroom.name}</strong>
+          <div
+            className={`teacher-my-classes-heading-context is-${classroomIdentity.type}`}
+          >
+            {(classroomIdentity.type === "primary" ||
+              classroomIdentity.type === "online") && (
+              <>
+                {classroomIdentity.image && (
+                  <div className="teacher-my-classes-heading-classroom">
+                    <Image
+                      src={classroomIdentity.image}
+                      alt={
+                        classroomIdentity.type === "online"
+                          ? "Online classes"
+                          : `${classroomIdentity.name} classroom`
+                      }
+                      width={168}
+                      height={168}
+                      sizes="(max-width: 640px) 118px, (max-width: 760px) 150px, 168px"
+                    />
+                  </div>
+                )}
+                <div className="teacher-my-classes-heading-identity-copy">
+                  <span>{classroomIdentity.label}</span>
+                  <strong>{classroomIdentity.name}</strong>
+                  {classroomIdentity.includesOnline && (
+                    <small>Includes online classes</small>
+                  )}
+                </div>
+              </>
+            )}
+            {classroomIdentity.type === "locations" && (
+              <>
+                <div
+                  className="teacher-my-classes-heading-location-icon"
+                  aria-hidden="true"
+                >
+                  <LocationSummaryIcon />
+                </div>
+                <div className="teacher-my-classes-heading-identity-copy">
+                  <span>Location summary</span>
+                  <strong>Teaching locations</strong>
+                  <div className="teacher-my-classes-heading-locations">
+                    {classroomIdentity.locations.map((location) => (
+                      <span key={location}>{location}</span>
+                    ))}
+                  </div>
+                  {classroomIdentity.includesOnline && (
+                    <small>Includes online classes</small>
+                  )}
+                </div>
+              </>
+            )}
+            {classroomIdentity.type === "empty" && (
+              <div className="teacher-my-classes-heading-identity-copy">
+                <span>{view === "today" ? "Today" : "Class search"}</span>
+                <strong>
+                  {view === "today"
+                    ? "No classroom scheduled"
+                    : "No matching classes"}
+                </strong>
               </div>
             )}
-            <span>
-              {classes.length} {classes.length === 1 ? "class" : "classes"} ·{" "}
-              {totalStudents} {totalStudents === 1 ? "student" : "students"} ·{" "}
-              {todayClasses.length} today
-            </span>
           </div>
         </header>
 

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -124,10 +123,6 @@ export default function TeacherPage() {
   const router = useRouter();
   const [teacherName, setTeacherName] = useState("");
   const [teacherId, setTeacherId] = useState("");
-  const [classroom, setClassroom] = useState<{
-    name: string;
-    logo: string;
-  } | null>(null);
   const [fridayExamPracticeSessions, setFridayExamPracticeSessions] =
     useState<any[]>([]);
   const [fridayAt6Duty, setFridayAt6Duty] = useState<any | null>(null);
@@ -165,37 +160,6 @@ export default function TeacherPage() {
         `${profile.data.first_name || ""} ${profile.data.last_name || ""}`.trim()
       );
       setTeacherId(session.user.id);
-
-      const teacherClasses = await supabase
-        .from("classes")
-        .select(`
-          id,
-          classrooms (
-            id,
-            name,
-            logo,
-            theme_colour
-          )
-        `)
-        .eq("teacher_id", session.user.id);
-
-      if (teacherClasses.error) {
-        console.error(
-          "Unable to load teacher classroom identity:",
-          teacherClasses.error
-        );
-        setClassroom(null);
-      } else {
-        const assignedClassroom = (teacherClasses.data?.[0] as any)?.classrooms;
-        setClassroom(
-          assignedClassroom?.name && assignedClassroom?.logo
-            ? {
-                name: assignedClassroom.name,
-                logo: assignedClassroom.logo,
-              }
-            : null
-        );
-      }
 
       try {
         const today = getLocalDateString();
@@ -264,18 +228,6 @@ export default function TeacherPage() {
                 {visibleUnreadCount}
               </span>
             </Link>
-
-            {classroom && (
-              <div className="teacher-dashboard-classroom-identity">
-                <Image
-                  src={classroom.logo}
-                  alt=""
-                  width={56}
-                  height={56}
-                />
-                <strong>{classroom.name}</strong>
-              </div>
-            )}
           </div>
         </header>
 
