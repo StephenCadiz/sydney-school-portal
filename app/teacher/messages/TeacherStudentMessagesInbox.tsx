@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Inbox } from "lucide-react";
 
 import { formatMessageDateTime } from "../../../lib/messages";
 import {
@@ -304,7 +305,11 @@ export default function TeacherStudentMessagesInbox({
 
       {!errorMessage && messages.length === 0 && (
         <div className="teacher-student-messages-empty">
-          No student messages in your inbox yet.
+          <span className="teacher-student-messages-empty-icon" aria-hidden="true">
+            <Inbox size={25} strokeWidth={1.8} />
+          </span>
+          <h2>Your student inbox is clear</h2>
+          <p>New student messages will appear here.</p>
         </div>
       )}
 

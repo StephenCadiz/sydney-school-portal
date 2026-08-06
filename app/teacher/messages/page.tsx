@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import TeacherLayout from "../../components/layout/TeacherLayout";
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageSoundPreference } from "../../hooks/useStaffMessageNotifications";
-import { Volume2, VolumeX } from "lucide-react";
+import { ChevronRight, Inbox, PenLine, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import {
   formatMessageDateTime,
@@ -21,36 +21,8 @@ import {
 import TeacherStudentMessagesInbox from "./TeacherStudentMessagesInbox";
 import { getTeacherStudentMessages } from "../../../lib/teacherStudentMessages";
 
-const tabs = ["Inbox", "Sent", "New Message"];
+const tabs = ["Inbox", "Sent"];
 const TEACHER_MESSAGES_CHANGED_EVENT = "teacher-unread-messages-changed";
-
-const cardStyle = {
-  background: "#ffffff",
-  border: "1px solid #dbe3f0",
-  borderRadius: "12px",
-  boxShadow: "0 8px 22px rgba(31, 60, 136, 0.08)",
-} as const;
-
-const inputStyle = {
-  width: "100%",
-  border: "1px solid #cbd5e1",
-  borderRadius: "10px",
-  padding: "12px",
-  fontSize: "14px",
-  boxSizing: "border-box" as const,
-  color: "#334155",
-  background: "#ffffff",
-};
-
-const deleteButtonStyle = {
-  background: "#ffffff",
-  color: "#b91c1c",
-  border: "1px solid #fecaca",
-  borderRadius: "8px",
-  padding: "10px 14px",
-  fontWeight: 700,
-  cursor: "pointer",
-};
 
 function previewText(value?: string | null) {
   if (!value) return "";
@@ -102,81 +74,35 @@ function MessageRow({
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      style={{
-        width: "100%",
-        textAlign: "left",
-        background: unread ? "#f8fafd" : "#ffffff",
-        border: "none",
-        borderBottom: "1px solid #edf1f7",
-        padding: "16px 18px",
-        cursor: "pointer",
-      }}
+      className={`teacher-messages-row${unread ? " is-unread" : ""}`}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: "14px",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ minWidth: 0, flex: "1 1 260px" }}>
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              alignItems: "center",
-              marginBottom: "5px",
-              flexWrap: "wrap",
-            }}
-          >
+      <span className="teacher-messages-row-content">
+        <span className="teacher-messages-row-meta">
             {unread && (
-              <span
-                style={{
-                  background: "#1f3c88",
-                  color: "#ffffff",
-                  borderRadius: "999px",
-                  padding: "3px 8px",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                }}
-              >
-                New
-              </span>
+              <span className="teacher-messages-unread-dot" aria-label="Unread" />
             )}
-            <strong style={{ color: "#1f3c88" }}>
+            <strong>
               {type === "inbox" ? "From" : "To"}: {getMessageName(item, type)}
             </strong>
-            <span style={{ color: "#64748b", fontSize: "13px" }}>
+            <span>
               {roleLabel(getMessageRole(item, type))}
             </span>
-          </div>
-          <div
-            style={{
-              color: "#334155",
-              fontWeight: 700,
-              marginBottom: "4px",
-            }}
-          >
-            {item.subject || "No subject"}
-          </div>
-          <div style={{ color: "#475569", fontSize: "14px" }}>
-            {previewText(item.message)}
-          </div>
-        </div>
-
-        <span
-          style={{
-            color: "#718096",
-            fontSize: "12px",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {formatMessageDateTime(item.created_at)}
         </span>
-      </div>
+          <span className="teacher-messages-row-subject">
+            {item.subject || "No subject"}
+          </span>
+          <span className="teacher-messages-row-preview">
+            {previewText(item.message)}
+          </span>
+      </span>
+      <span className="teacher-messages-row-trailing">
+        <time dateTime={item.created_at || undefined}>
+          {formatMessageDateTime(item.created_at)}
+        </time>
+        <ChevronRight size={18} aria-hidden="true" />
+      </span>
     </button>
   );
 }
@@ -580,606 +506,216 @@ export default function TeacherMessagesPage() {
   }
 
   function renderEmptyState(type: "Inbox" | "Sent") {
+    const inbox = type === "Inbox";
     return (
-      <div style={{ padding: "22px", color: "#334155" }}>
-        {type === "Inbox"
-          ? "No staff messages in your inbox yet."
-          : "No sent staff messages yet."}
+      <div className="teacher-messages-empty-state">
+        <span className="teacher-messages-empty-icon" aria-hidden="true">
+          <Inbox size={25} strokeWidth={1.8} />
+        </span>
+        <h2>{inbox ? "Your inbox is clear" : "No sent messages"}</h2>
+        <p>
+          {inbox
+            ? "New staff messages will appear here."
+            : "Messages you send will appear here."}
+        </p>
+        {inbox && (
+          <button
+            type="button"
+            className="teacher-messages-empty-action"
+            onClick={() => setActiveTab("New Message")}
+          >
+            Write a message
+          </button>
+        )}
       </div>
     );
   }
 
   return (
     <TeacherLayout>
-      <div
-        style={{
-          background: "#f5f7fa",
-          minHeight: "100vh",
-          padding: "24px",
-        }}
-      >
-        <div style={{ maxWidth: "980px", margin: "0 auto" }}>
-          <header className="staff-messages-page-header">
+      <div className="teacher-messages-page">
+        <div className="teacher-messages-shell">
+          <header className="teacher-messages-header">
             <div>
-              <h1 style={{ color: "#1f3c88", margin: "0 0 6px" }}>Messages</h1>
-              <p style={{ color: "#5f6f89", margin: 0 }}>
-                {messageArea === "staff"
-                  ? "Send and receive staff messages with admin and other teachers."
-                  : "Read and reply to direct messages from students in your classes."}
-              </p>
+              <h1>Messages</h1>
+              <p>Send and receive messages with administrators, teachers and students.</p>
             </div>
             <button
               type="button"
-              className={`staff-message-sound-toggle ${
+              className={`teacher-messages-sound-toggle ${
                 soundEnabled ? "is-on" : "is-off"
               }`}
               aria-pressed={soundEnabled}
               aria-label={`Turn message sounds ${soundEnabled ? "off" : "on"}`}
               onClick={() => setSoundEnabled(!soundEnabled)}
             >
-              {soundEnabled ? (
-                <Volume2 size={17} aria-hidden="true" />
-              ) : (
-                <VolumeX size={17} aria-hidden="true" />
-              )}
-              <span>Message sounds: {soundEnabled ? "On" : "Off"}</span>
+              {soundEnabled ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}
+              <span>Sounds {soundEnabled ? "on" : "off"}</span>
             </button>
           </header>
 
-          <nav
-            className="teacher-student-messages-primary-nav"
-            aria-label="Message areas"
-          >
-            <button
-              type="button"
-              className={messageArea === "staff" ? "is-active" : ""}
-              onClick={() => setMessageArea("staff")}
-            >
+          <nav className="teacher-messages-area-tabs" aria-label="Message areas">
+            <button type="button" className={messageArea === "staff" ? "is-active" : ""} onClick={() => setMessageArea("staff")}>
               Staff Messages
             </button>
-            <button
-              type="button"
-              className={messageArea === "students" ? "is-active" : ""}
-              onClick={() => setMessageArea("students")}
-            >
+            <button type="button" className={messageArea === "students" ? "is-active" : ""} onClick={() => setMessageArea("students")}>
               Student Messages
-              {studentUnreadCount > 0 && (
-                <span className="teacher-student-messages-unread-count">
-                  {studentUnreadCount}
-                </span>
-              )}
+              {studentUnreadCount > 0 && <span>{studentUnreadCount}</span>}
             </button>
           </nav>
 
           {messageArea === "staff" && (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "10px",
-                  flexWrap: "wrap",
-                  marginBottom: "18px",
-                }}
-              >
-            {tabs.map((tab) => {
-              const active = activeTab === tab;
-
-              return (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    setActiveTab(tab);
-                    setSelectedMessage(null);
-                    setStatusMessage("");
-                    setErrorMessage("");
-                  }}
-                  style={{
-                    background: active ? "#1f3c88" : "#ffffff",
-                    color: active ? "#ffffff" : "#1f3c88",
-                    border: active ? "1px solid #1f3c88" : "1px solid #dbe3f0",
-                    borderRadius: "999px",
-                    padding: "10px 16px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  {tab}
-                </button>
-              );
-            })}
-          </div>
-
-          {loading && (
-            <section style={{ ...cardStyle, padding: "18px", color: "#334155" }}>
-              Loading messages...
-            </section>
-          )}
-
-          {!loading && errorMessage && !selectedMessage && (
-            <div
-              style={{
-                background: "#fff5f5",
-                border: "1px solid #fecaca",
-                borderRadius: "10px",
-                padding: "12px",
-                color: "#b91c1c",
-                marginBottom: "16px",
-              }}
-            >
-              {errorMessage}
-            </div>
-          )}
-
-          {!loading && statusMessage && !selectedMessage && (
-            <div
-              style={{
-                background: "#f0fdf4",
-                border: "1px solid #bbf7d0",
-                borderRadius: "10px",
-                padding: "12px",
-                color: "#166534",
-                fontWeight: 700,
-                marginBottom: "16px",
-              }}
-            >
-              {statusMessage}
-            </div>
-          )}
-
-          {!loading && activeTab === "Inbox" && selectedMessage && (
-            <section style={{ ...cardStyle, padding: "22px" }}>
-              <button
-                onClick={() => {
-                  setSelectedMessage(null);
-                  setReplyMessage("");
-                  setStatusMessage("");
-                  setErrorMessage("");
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#1f3c88",
-                  cursor: "pointer",
-                  fontWeight: 700,
-                  padding: 0,
-                  marginBottom: "18px",
-                }}
-              >
-                ← Back to inbox
-              </button>
-
-              <h2 style={{ color: "#1f3c88", margin: "0 0 10px" }}>
-                {selectedMessage.subject || "No subject"}
-              </h2>
-
-              <div
-                style={{
-                  color: "#64748b",
-                  fontSize: "14px",
-                  display: "grid",
-                  gap: "4px",
-                  marginBottom: "18px",
-                }}
-              >
-                <span>From: {selectedMessage.sender_name || "Staff member"}</span>
-                <span>Role: {roleLabel(selectedMessage.sender_role)}</span>
-                <span>Date: {formatMessageDateTime(selectedMessage.created_at)}</span>
+            <div className="teacher-messages-toolbar">
+              <div className="teacher-messages-folder-tabs" aria-label="Staff message folders">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={activeTab === tab ? "is-active" : ""}
+                    onClick={() => {
+                      setActiveTab(tab);
+                      setSelectedMessage(null);
+                      setStatusMessage("");
+                      setErrorMessage("");
+                    }}
+                  >
+                    {tab}
+                  </button>
+                ))}
               </div>
-
-              <p
-                style={{
-                  color: "#334155",
-                  lineHeight: 1.6,
-                  whiteSpace: "pre-wrap",
-                  marginBottom: "16px",
-                }}
-              >
-                {selectedMessage.message}
-              </p>
-
-              {selectedMessage.attachment_link && (
-                <a
-                  href={selectedMessage.attachment_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "#1f3c88",
-                    fontWeight: 700,
-                    display: "inline-block",
-                    marginBottom: "20px",
-                  }}
-                >
-                  Open attachment
-                </a>
-              )}
-
-              {selectedMessage.read_at && (
-                <button
-                  onClick={() => handleDeleteFromInbox(selectedMessage)}
-                  disabled={deletingMessageId === selectedMessage.id}
-                  style={{
-                    ...deleteButtonStyle,
-                    cursor:
-                      deletingMessageId === selectedMessage.id
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity: deletingMessageId === selectedMessage.id ? 0.7 : 1,
-                    marginBottom: "20px",
-                  }}
-                >
-                  {deletingMessageId === selectedMessage.id
-                    ? "Removing..."
-                    : "Delete from Inbox"}
-                </button>
-              )}
-
-              <div
-                style={{
-                  borderTop: "1px solid #edf1f7",
-                  paddingTop: "18px",
-                  marginTop: "8px",
-                }}
-              >
-                <h3 style={{ color: "#1f3c88", margin: "0 0 10px" }}>
-                  Reply
-                </h3>
-
-                {statusMessage && (
-                  <p style={{ color: "#166534", fontWeight: 700 }}>
-                    {statusMessage}
-                  </p>
-                )}
-
-                {errorMessage && (
-                  <p style={{ color: "#b91c1c", fontWeight: 700 }}>
-                    {errorMessage}
-                  </p>
-                )}
-
-                <textarea
-                  value={replyMessage}
-                  onChange={(event) => setReplyMessage(event.target.value)}
-                  placeholder="Write your reply..."
-                  rows={5}
-                  style={{ ...inputStyle, resize: "vertical" }}
-                />
-
-                <button
-                  onClick={handleReply}
-                  disabled={sending}
-                  style={{
-                    background: "#1f3c88",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: "8px",
-                    padding: "10px 18px",
-                    fontWeight: 700,
-                    cursor: sending ? "not-allowed" : "pointer",
-                    marginTop: "12px",
-                  }}
-                >
-                  {sending ? "Sending..." : "Send Reply"}
-                </button>
-              </div>
-            </section>
-          )}
-
-          {!loading && activeTab === "Sent" && selectedMessage && (
-            <section style={{ ...cardStyle, padding: "22px" }}>
               <button
+                type="button"
+                className="teacher-messages-new-button"
                 onClick={() => {
+                  setActiveTab("New Message");
                   setSelectedMessage(null);
                   setStatusMessage("");
                   setErrorMessage("");
                 }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#1f3c88",
-                  cursor: "pointer",
-                  fontWeight: 700,
-                  padding: 0,
-                  marginBottom: "18px",
-                }}
               >
-                ← Back to sent
+                <PenLine size={16} aria-hidden="true" />
+                New Message
               </button>
-
-              <h2 style={{ color: "#1f3c88", margin: "0 0 10px" }}>
-                {selectedMessage.subject || "No subject"}
-              </h2>
-
-              <div
-                style={{
-                  color: "#64748b",
-                  fontSize: "14px",
-                  display: "grid",
-                  gap: "4px",
-                  marginBottom: "18px",
-                }}
-              >
-                <span>To: {selectedMessage.receiver_name || "Staff member"}</span>
-                <span>Role: {roleLabel(selectedMessage.receiver_role)}</span>
-                <span>Date: {formatMessageDateTime(selectedMessage.created_at)}</span>
-              </div>
-
-              {statusMessage && (
-                <p style={{ color: "#166534", fontWeight: 700 }}>
-                  {statusMessage}
-                </p>
-              )}
-
-              {errorMessage && (
-                <p style={{ color: "#b91c1c", fontWeight: 700 }}>
-                  {errorMessage}
-                </p>
-              )}
-
-              <p
-                style={{
-                  color: "#334155",
-                  lineHeight: 1.6,
-                  whiteSpace: "pre-wrap",
-                  marginBottom: "16px",
-                }}
-              >
-                {selectedMessage.message}
-              </p>
-
-              {selectedMessage.attachment_link && (
-                <a
-                  href={selectedMessage.attachment_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "#1f3c88",
-                    fontWeight: 700,
-                    display: "inline-block",
-                  }}
-                >
-                  Open attachment
-                </a>
-              )}
-
-              <button
-                onClick={() => handleDeleteFromSent(selectedMessage)}
-                disabled={deletingMessageId === selectedMessage.id}
-                style={{
-                  ...deleteButtonStyle,
-                  cursor:
-                    deletingMessageId === selectedMessage.id
-                      ? "not-allowed"
-                      : "pointer",
-                  opacity: deletingMessageId === selectedMessage.id ? 0.7 : 1,
-                }}
-              >
-                {deletingMessageId === selectedMessage.id
-                  ? "Removing..."
-                  : "Delete from Sent"}
-              </button>
-            </section>
+            </div>
           )}
 
-          {!loading &&
-            activeTab === "Inbox" &&
-            !selectedMessage &&
-            !errorMessage && (
-              <section style={{ ...cardStyle, overflow: "hidden" }}>
-                {inboxMessages.length === 0
-                  ? renderEmptyState("Inbox")
-                  : inboxMessages.map((item) => (
-                      <MessageRow
-                        key={item.id}
-                        item={item}
-                        type="inbox"
-                        onClick={() => openInboxMessage(item)}
-                      />
-                    ))}
-              </section>
+          <section className="teacher-messages-content-panel">
+            {messageArea === "students" && (
+              <TeacherStudentMessagesInbox onUnreadCountChange={setStudentUnreadCount} />
             )}
 
-          {!loading &&
-            activeTab === "Sent" &&
-            !selectedMessage &&
-            !errorMessage && (
-              <section style={{ ...cardStyle, overflow: "hidden" }}>
-                {sentMessages.length === 0
-                  ? renderEmptyState("Sent")
-                  : sentMessages.map((item) => (
-                      <MessageRow
-                        key={item.id}
-                        item={item}
-                        type="sent"
-                        onClick={() => openSentMessage(item)}
-                      />
-                    ))}
-              </section>
-            )}
+            {messageArea === "staff" && (
+              <>
+                {loading && <p className="teacher-messages-loading">Loading messages...</p>}
+                {!loading && errorMessage && !selectedMessage && <p className="teacher-messages-notice is-error" role="alert">{errorMessage}</p>}
+                {!loading && statusMessage && !selectedMessage && <p className="teacher-messages-notice is-success" role="status">{statusMessage}</p>}
 
-          {!loading && activeTab === "New Message" && (
-            <section style={{ ...cardStyle, padding: "22px" }}>
-              <h2 style={{ color: "#1f3c88", margin: "0 0 6px" }}>
-                New Staff Message
-              </h2>
-              <p style={{ color: "#64748b", margin: "0 0 18px" }}>
-                Send an email-style message to one admin user or teacher.
-              </p>
-
-              {statusMessage && (
-                <p style={{ color: "#166534", fontWeight: 700 }}>
-                  {statusMessage}
-                </p>
-              )}
-
-              {errorMessage && (
-                <p style={{ color: "#b91c1c", fontWeight: 700 }}>
-                  {errorMessage}
-                </p>
-              )}
-
-              <div style={{ display: "grid", gap: "16px", maxWidth: "760px" }}>
-                {recipientsLoading && (
-                  <div
-                    style={{
-                      background: "#f8fafc",
-                      border: "1px solid #dbe3f0",
-                      borderRadius: "10px",
-                      padding: "12px",
-                      color: "#334155",
-                    }}
-                  >
-                    Loading staff recipients…
-                  </div>
-                )}
-
-                {!recipientsLoading && recipientsError && (
-                  <div
-                    style={{
-                      background: "#fff5f5",
-                      border: "1px solid #fecaca",
-                      borderRadius: "10px",
-                      padding: "12px",
-                      color: "#b91c1c",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {recipientsError}
-                  </div>
-                )}
-
-                {!recipientsLoading &&
-                  !recipientsError &&
-                  recipientsLoaded &&
-                  !hasStaffRecipients && (
-                    <div
-                      style={{
-                        background: "#f8fafc",
-                        border: "1px solid #dbe3f0",
-                        borderRadius: "10px",
-                        padding: "12px",
-                        color: "#334155",
-                      }}
-                    >
-                      No other staff recipients are available.
+                {!loading && activeTab === "Inbox" && selectedMessage && (
+                  <article className="teacher-messages-detail">
+                    <button type="button" className="teacher-messages-back" onClick={() => {
+                      setSelectedMessage(null);
+                      setReplyMessage("");
+                      setStatusMessage("");
+                      setErrorMessage("");
+                    }}>
+                      ← Back to inbox
+                    </button>
+                    <p className="teacher-messages-detail-eyebrow">From · {roleLabel(selectedMessage.sender_role)}</p>
+                    <h2>{selectedMessage.subject || "No subject"}</h2>
+                    <div className="teacher-messages-detail-meta">
+                      <span>{selectedMessage.sender_name || "Staff member"}</span>
+                      <time dateTime={selectedMessage.created_at || undefined}>{formatMessageDateTime(selectedMessage.created_at)}</time>
                     </div>
-                  )}
-
-                {!recipientsLoading && !recipientsError && hasStaffRecipients && (
-                  <div>
-                    <label style={{ color: "#334155", fontWeight: 700 }}>
-                      Recipient
-                    </label>
-                    <select
-                      value={receiverId}
-                      onChange={(event) => setReceiverId(event.target.value)}
-                      style={{ ...inputStyle, marginTop: "6px" }}
-                    >
-                      <option value="">Select staff member</option>
-                      {recipients.admins.length > 0 && (
-                        <optgroup label="Admin">
-                          {recipients.admins.map((admin) => (
-                            <option key={admin.id} value={admin.id}>
-                              {getProfileName(admin)}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {recipients.teachers.length > 0 && (
-                        <optgroup label="Teachers">
-                          {recipients.teachers.map((teacher) => (
-                            <option key={teacher.id} value={teacher.id}>
-                              {getProfileName(teacher)}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </select>
-                  </div>
+                    <p className="teacher-messages-detail-body">{selectedMessage.message}</p>
+                    {selectedMessage.attachment_link && <a className="teacher-messages-attachment" href={selectedMessage.attachment_link} target="_blank" rel="noopener noreferrer">Open attachment</a>}
+                    {selectedMessage.read_at && (
+                      <button type="button" className="teacher-messages-delete" onClick={() => handleDeleteFromInbox(selectedMessage)} disabled={deletingMessageId === selectedMessage.id}>
+                        {deletingMessageId === selectedMessage.id ? "Removing..." : "Delete from Inbox"}
+                      </button>
+                    )}
+                    <div className="teacher-messages-reply">
+                      <h3>Reply</h3>
+                      {statusMessage && <p className="teacher-messages-notice is-success" role="status">{statusMessage}</p>}
+                      {errorMessage && <p className="teacher-messages-notice is-error" role="alert">{errorMessage}</p>}
+                      <label htmlFor="teacher-staff-message-reply">Message</label>
+                      <textarea id="teacher-staff-message-reply" value={replyMessage} onChange={(event) => setReplyMessage(event.target.value)} placeholder="Write your reply..." rows={5} />
+                      <button type="button" className="teacher-messages-primary-button" onClick={handleReply} disabled={sending}>{sending ? "Sending..." : "Send Reply"}</button>
+                    </div>
+                  </article>
                 )}
 
-                <div>
-                  <label style={{ color: "#334155", fontWeight: 700 }}>
-                    Subject
-                  </label>
-                  <input
-                    value={subject}
-                    onChange={(event) => setSubject(event.target.value)}
-                    style={{ ...inputStyle, marginTop: "6px" }}
-                  />
-                </div>
+                {!loading && activeTab === "Sent" && selectedMessage && (
+                  <article className="teacher-messages-detail">
+                    <button type="button" className="teacher-messages-back" onClick={() => {
+                      setSelectedMessage(null);
+                      setStatusMessage("");
+                      setErrorMessage("");
+                    }}>
+                      ← Back to sent
+                    </button>
+                    <p className="teacher-messages-detail-eyebrow">To · {roleLabel(selectedMessage.receiver_role)}</p>
+                    <h2>{selectedMessage.subject || "No subject"}</h2>
+                    <div className="teacher-messages-detail-meta">
+                      <span>{selectedMessage.receiver_name || "Staff member"}</span>
+                      <time dateTime={selectedMessage.created_at || undefined}>{formatMessageDateTime(selectedMessage.created_at)}</time>
+                    </div>
+                    {statusMessage && <p className="teacher-messages-notice is-success" role="status">{statusMessage}</p>}
+                    {errorMessage && <p className="teacher-messages-notice is-error" role="alert">{errorMessage}</p>}
+                    <p className="teacher-messages-detail-body">{selectedMessage.message}</p>
+                    {selectedMessage.attachment_link && <a className="teacher-messages-attachment" href={selectedMessage.attachment_link} target="_blank" rel="noopener noreferrer">Open attachment</a>}
+                    <button type="button" className="teacher-messages-delete" onClick={() => handleDeleteFromSent(selectedMessage)} disabled={deletingMessageId === selectedMessage.id}>
+                      {deletingMessageId === selectedMessage.id ? "Removing..." : "Delete from Sent"}
+                    </button>
+                  </article>
+                )}
 
-                <div>
-                  <label style={{ color: "#334155", fontWeight: 700 }}>
-                    Message
-                  </label>
-                  <textarea
-                    value={message}
-                    onChange={(event) => setMessage(event.target.value)}
-                    rows={6}
-                    style={{
-                      ...inputStyle,
-                      marginTop: "6px",
-                      resize: "vertical",
-                    }}
-                  />
-                </div>
+                {!loading && activeTab === "Inbox" && !selectedMessage && !errorMessage && (
+                  inboxMessages.length === 0 ? renderEmptyState("Inbox") : inboxMessages.map((item) => <MessageRow key={item.id} item={item} type="inbox" onClick={() => openInboxMessage(item)} />)
+                )}
+                {!loading && activeTab === "Sent" && !selectedMessage && !errorMessage && (
+                  sentMessages.length === 0 ? renderEmptyState("Sent") : sentMessages.map((item) => <MessageRow key={item.id} item={item} type="sent" onClick={() => openSentMessage(item)} />)
+                )}
 
-                <div>
-                  <label style={{ color: "#334155", fontWeight: 700 }}>
-                    Attachment or resource link
-                  </label>
-                  <input
-                    value={attachmentLink}
-                    onChange={(event) => setAttachmentLink(event.target.value)}
-                    style={{ ...inputStyle, marginTop: "6px" }}
-                  />
-                </div>
-
-                <button
-                  onClick={handleSend}
-                  disabled={
-                    sending ||
-                    recipientsLoading ||
-                    Boolean(recipientsError) ||
-                    !hasStaffRecipients
-                  }
-                  style={{
-                    background: "#1f3c88",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: "8px",
-                    padding: "12px 18px",
-                    fontWeight: 700,
-                    cursor:
-                      sending ||
-                      recipientsLoading ||
-                      Boolean(recipientsError) ||
-                      !hasStaffRecipients
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity:
-                      sending ||
-                      recipientsLoading ||
-                      Boolean(recipientsError) ||
-                      !hasStaffRecipients
-                        ? 0.7
-                        : 1,
-                    width: "fit-content",
-                  }}
-                >
-                  {sending ? "Sending..." : "Send Message"}
-                </button>
-              </div>
-            </section>
-          )}
-            </>
-          )}
-
-          {messageArea === "students" && (
-            <TeacherStudentMessagesInbox
-              onUnreadCountChange={setStudentUnreadCount}
-            />
-          )}
+                {!loading && activeTab === "New Message" && (
+                  <article className="teacher-messages-compose">
+                    <div className="teacher-messages-compose-heading">
+                      <h2>New Staff Message</h2>
+                      <p>Send an email-style message to one admin user or teacher.</p>
+                    </div>
+                    {statusMessage && <p className="teacher-messages-notice is-success" role="status">{statusMessage}</p>}
+                    {errorMessage && <p className="teacher-messages-notice is-error" role="alert">{errorMessage}</p>}
+                    <div className="teacher-messages-compose-fields">
+                      {recipientsLoading && <p className="teacher-messages-recipient-state">Loading staff recipients…</p>}
+                      {!recipientsLoading && recipientsError && <p className="teacher-messages-notice is-error" role="alert">{recipientsError}</p>}
+                      {!recipientsLoading && !recipientsError && recipientsLoaded && !hasStaffRecipients && <p className="teacher-messages-recipient-state">No other staff recipients are available.</p>}
+                      {!recipientsLoading && !recipientsError && hasStaffRecipients && (
+                        <label>
+                          <span>Recipient</span>
+                          <select value={receiverId} onChange={(event) => setReceiverId(event.target.value)}>
+                            <option value="">Select staff member</option>
+                            {recipients.admins.length > 0 && <optgroup label="Admin">{recipients.admins.map((admin) => <option key={admin.id} value={admin.id}>{getProfileName(admin)}</option>)}</optgroup>}
+                            {recipients.teachers.length > 0 && <optgroup label="Teachers">{recipients.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{getProfileName(teacher)}</option>)}</optgroup>}
+                          </select>
+                        </label>
+                      )}
+                      <label><span>Subject</span><input value={subject} onChange={(event) => setSubject(event.target.value)} /></label>
+                      <label><span>Message</span><textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={7} /></label>
+                      <label><span>Attachment or resource link</span><input value={attachmentLink} onChange={(event) => setAttachmentLink(event.target.value)} /></label>
+                      <div className="teacher-messages-compose-actions">
+                        <button type="button" className="teacher-messages-primary-button" onClick={handleSend} disabled={sending || recipientsLoading || Boolean(recipientsError) || !hasStaffRecipients}>{sending ? "Sending..." : "Send Message"}</button>
+                        <button type="button" className="teacher-messages-cancel-button" onClick={() => {
+                          resetComposer();
+                          setStatusMessage("");
+                          setErrorMessage("");
+                          setActiveTab("Inbox");
+                        }}>Cancel</button>
+                      </div>
+                    </div>
+                  </article>
+                )}
+              </>
+            )}
+          </section>
         </div>
       </div>
     </TeacherLayout>
