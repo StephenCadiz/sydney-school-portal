@@ -14,6 +14,7 @@ import FridayTutorialResultsTab from "./FridayTutorialResultsTab";
 import UnitExamResultsTab from "./UnitExamResultsTab";
 import YoungLearnerResultsSummary from "./YoungLearnerResultsSummary";
 import ClassPointsTab from "./ClassPointsTab";
+import ClassProgressTab from "./ClassProgressTab";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
 import ClassResourcesTab, { type ClassResource } from "./ClassResourcesTab";
@@ -31,6 +32,7 @@ import { isClassExamLevel } from "../../../lib/classExams";
 import { isFridayTutorialCambridgeLevel } from "../../../lib/fridayTutorialResults";
 import { isUnitExamLevel } from "../../../lib/unitExamResults";
 import { deleteTeacherClassAnnouncement } from "../../../lib/announcements";
+import { isClassProgressEligible } from "../../../lib/classProgressEligibility";
 
 const tabs = [
   { id: "students", label: "Students" },
@@ -79,6 +81,7 @@ const youngLearnerClassTabs = [
 ];
 
 const googleMeetTab = { id: "google-meet", label: "Google Meet" };
+const classProgressTab = { id: "class-progress", label: "Class Progress" };
 
 type ShortcutRequest = {
   key: number;
@@ -461,6 +464,11 @@ if (classResult.data) {
     isCambridgeClass &&
     ["B1", "B2", "C1", "C2"].includes(normalizeLevelName(levelName));
   const isSupportClass = normalizeLevelName(levelName) === "SUPPORT CLASSES";
+  const showClassProgressTab = isClassProgressEligible({
+    isCambridge: isCambridgeClass,
+    levelName,
+    courseType: classData?.course_type,
+  });
   const controlSheetStudents: ClassStudentControlStudent[] = isCambridgeClass
     ? students.map((student) => ({
         id: student.id,
@@ -591,13 +599,17 @@ if (classResult.data) {
     : studentPanel.studentName;
   const googleMeetIsVisible =
     googleMeet.classId === requestedClassId && googleMeet.supported;
-  const classTabs = (
+  const baseClassTabs = (
     isCambridgeClass
       ? cambridgeClassTabs
       : isYoungLearnerClass
       ? youngLearnerClassTabs
       : tabs
-  ).flatMap(
+  );
+  const classTabs = [
+    ...baseClassTabs,
+    ...(showClassProgressTab ? [classProgressTab] : []),
+  ].flatMap(
     (tab) =>
       tab.id === "students" && googleMeetIsVisible
         ? [tab, googleMeetTab]
@@ -937,6 +949,14 @@ if (classResult.data) {
 
       {activeTab === "class-points" && isYoungLearnerClass && classData && (
         <ClassPointsTab classId={classData.id} />
+      )}
+
+      {activeTab === "class-progress" && showClassProgressTab && classData && (
+        <ClassProgressTab
+          classId={classData.id}
+          initialLessonDate={searchParams.get("lessonDate")}
+          initialStartTime={searchParams.get("startTime")}
+        />
       )}
 
       {activeTab === "results" &&

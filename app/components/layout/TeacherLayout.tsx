@@ -8,6 +8,7 @@ import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
 import { getTeacherUnreadMessageCount } from "../../../lib/teacherMessageUnreadCount";
 import { supabase } from "../../../lib/supabase";
+import TeacherClassProgressReminder from "../teacher/TeacherClassProgressReminder";
 
 interface TeacherLayoutProps {
   children: ReactNode | ((unreadMessageCount: number) => ReactNode);
@@ -242,6 +243,7 @@ export default function TeacherLayout({
           ? children(unreadMessageCount)
           : children}
       </main>
+      <TeacherClassProgressReminder />
     </div>
   );
 }
