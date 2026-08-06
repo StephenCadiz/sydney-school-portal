@@ -76,26 +76,47 @@ export async function getClassrooms() {
 }
 
 export async function createClass(classData: any) {
-  const { error } = await supabase
-    .from("classes")
-    .insert([prepareClassData(classData)]);
-
-  if (error) {
-    console.error("createClass Supabase error:", error);
-    throw error;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error("You must be logged in as an admin.");
   }
+
+  const response = await fetch("/api/admin/classes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(prepareClassData(classData)),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Unable to create the class.");
+
+  return result.class;
 }
 
 export async function updateClass(id: string, classData: any) {
-  const { error } = await supabase
-    .from("classes")
-    .update(prepareClassData(classData))
-    .eq("id", id);
-
-  if (error) {
-    console.error("updateClass Supabase error:", error);
-    throw error;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error("You must be logged in as an admin.");
   }
+
+  const response = await fetch(`/api/admin/classes/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(prepareClassData(classData)),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Unable to update the class.");
+
+  return result.class;
 }
 
 export async function getClassStudentCounts() {

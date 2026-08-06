@@ -12,6 +12,7 @@ import {
   getTeachers,
   updateClass,
 } from "../../../lib/adminClasses";
+import { validateCoursePlanningDateRange } from "../../../lib/coursePlanningDates";
 import { supabase } from "../../../lib/supabase";
 
 type ClassView = "all" | "level" | "schedule" | "teacher";
@@ -653,6 +654,8 @@ export default function AdminClassesPage() {
     end_time: "",
     meet_link: "",
     is_cambridge: true,
+    start_date: "",
+    end_date: "",
   });
 
   async function loadData() {
@@ -822,6 +825,8 @@ export default function AdminClassesPage() {
       end_time: "",
       meet_link: "",
       is_cambridge: true,
+      start_date: "",
+      end_date: "",
     });
   }
 
@@ -866,6 +871,8 @@ export default function AdminClassesPage() {
       start_time: normalizeTimeForForm(item.start_time),
       end_time: normalizeTimeForForm(item.end_time),
       meet_link: item.meet_link || "",
+      start_date: item.start_date || "",
+      end_date: item.end_date || "",
       is_cambridge: isForcedSupport
         ? false
         : isForcedCambridge
@@ -986,6 +993,21 @@ export default function AdminClassesPage() {
     const isForcedSupport = isSupportLevel(selectedLevel);
     const savedCourseType = isForcedSupport ? "regular" : form.course_type;
     const savedIsOnlineClass = isOnlineCourse(savedCourseType);
+    const requiresCourseDates =
+      !isForcedSupport &&
+      (isForcedCambridge || form.is_cambridge) &&
+      ["intensive", "express"].includes(savedCourseType);
+    const courseDates = validateCoursePlanningDateRange({
+      startDate: form.start_date,
+      endDate: form.end_date,
+      required: requiresCourseDates,
+    });
+
+    if (courseDates.error) {
+      setMessage(courseDates.error);
+      setSaving(false);
+      return;
+    }
 
     const classData: any = {
       class_name: selectedLevel?.name || "",
@@ -1002,6 +1024,8 @@ export default function AdminClassesPage() {
         : isForcedCambridge
         ? true
         : form.is_cambridge,
+      start_date: courseDates.startDate,
+      end_date: courseDates.endDate,
     };
 
     try {
@@ -1021,7 +1045,7 @@ export default function AdminClassesPage() {
       );
     } catch (error: any) {
       console.error("Unable to save class:", error);
-      setMessage("Unable to save class.");
+      setMessage(error.message || "Unable to save class.");
     } finally {
       setSaving(false);
     }
@@ -1977,6 +2001,10 @@ export default function AdminClassesPage() {
   const selectedFormLevel = getLevelById(form.level_id);
   const selectedFormIsCambridge = isCambridgeLevelId(form.level_id);
   const selectedFormIsSupport = isSupportLevel(selectedFormLevel);
+  const selectedFormNeedsCourseDates =
+    !selectedFormIsSupport &&
+    (selectedFormIsCambridge || form.is_cambridge) &&
+    ["intensive", "express"].includes(form.course_type);
   const selectedFormDays = parseClassDays(form.days);
   const startTimeOptions = getTimeSelectOptions(form.start_time);
   const endTimeOptions = getTimeSelectOptions(form.end_time);
@@ -2128,6 +2156,37 @@ export default function AdminClassesPage() {
                   ))}
               </select>
             </div>
+
+            {selectedFormNeedsCourseDates && (
+              <>
+                <div>
+                  <label style={labelStyle}>Course start date</label>
+                  <input
+                    required
+                    type="date"
+                    style={inputStyle}
+                    value={form.start_date}
+                    onChange={(event) =>
+                      updateForm("start_date", event.target.value)
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Course end date</label>
+                  <input
+                    required
+                    type="date"
+                    min={form.start_date || undefined}
+                    style={inputStyle}
+                    value={form.end_date}
+                    onChange={(event) =>
+                      updateForm("end_date", event.target.value)
+                    }
+                  />
+                </div>
+              </>
+            )}
 
             <div className="admin-classes-day-field">
               <span className="admin-classes-day-label">Days</span>

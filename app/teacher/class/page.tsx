@@ -15,6 +15,7 @@ import UnitExamResultsTab from "./UnitExamResultsTab";
 import YoungLearnerResultsSummary from "./YoungLearnerResultsSummary";
 import ClassPointsTab from "./ClassPointsTab";
 import ClassProgressTab from "./ClassProgressTab";
+import CoursePlanningTab from "./CoursePlanningTab";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
 import ClassResourcesTab, { type ClassResource } from "./ClassResourcesTab";
@@ -33,6 +34,7 @@ import { isFridayTutorialCambridgeLevel } from "../../../lib/fridayTutorialResul
 import { isUnitExamLevel } from "../../../lib/unitExamResults";
 import { deleteTeacherClassAnnouncement } from "../../../lib/announcements";
 import { isClassProgressEligible } from "../../../lib/classProgressEligibility";
+import { isCoursePlanningEligible } from "../../../lib/coursePlanningEligibility";
 
 const tabs = [
   { id: "students", label: "Students" },
@@ -82,6 +84,7 @@ const youngLearnerClassTabs = [
 
 const googleMeetTab = { id: "google-meet", label: "Google Meet" };
 const classProgressTab = { id: "class-progress", label: "Class Progress" };
+const coursePlanningTab = { id: "course-planning", label: "Course Planning" };
 
 type ShortcutRequest = {
   key: number;
@@ -469,6 +472,11 @@ if (classResult.data) {
     levelName,
     courseType: classData?.course_type,
   });
+  const showCoursePlanningTab = isCoursePlanningEligible({
+    isCambridge: isCambridgeClass,
+    levelName,
+    courseType: classData?.course_type,
+  });
   const controlSheetStudents: ClassStudentControlStudent[] = isCambridgeClass
     ? students.map((student) => ({
         id: student.id,
@@ -609,6 +617,7 @@ if (classResult.data) {
   const classTabs = [
     ...baseClassTabs,
     ...(showClassProgressTab ? [classProgressTab] : []),
+    ...(showCoursePlanningTab ? [coursePlanningTab] : []),
   ].flatMap(
     (tab) =>
       tab.id === "students" && googleMeetIsVisible
@@ -769,6 +778,13 @@ if (classResult.data) {
     classId={classData?.id ?? ""}
   />
 )}
+
+      {activeTab === "course-planning" && showCoursePlanningTab && classData && (
+        <CoursePlanningTab
+          classId={String(classData.id)}
+          adminMode={actorRole === "admin"}
+        />
+      )}
 
       {activeTab === "class-exams" && !isYoungLearnerClass && showClassExamsTab && (
   <ClassExamsTab levelName={levelName} />

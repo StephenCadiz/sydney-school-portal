@@ -3,8 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
+  CalendarDays,
   FolderOpen,
   LayoutDashboard,
   Megaphone,
@@ -13,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import LogoutButton from "../components/auth/LogoutButton";
+import { supabase } from "../../lib/supabase";
 
 type StudentMenuProps = {
   mobileMode?: boolean;
@@ -39,6 +42,39 @@ export default function StudentMenu({
   onClose,
 }: StudentMenuProps) {
   const pathname = usePathname();
+  const [hasCoursePlan, setHasCoursePlan] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function loadCoursePlanAvailability() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const response = await fetch("/api/student/course-plan?summary=1", {
+          headers: { Authorization: "Bearer " + session.access_token },
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => null);
+        if (active) setHasCoursePlan(Boolean(response.ok && payload?.available));
+      } catch {
+        if (active) setHasCoursePlan(false);
+      }
+    }
+    void loadCoursePlanAvailability();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const visibleItems = hasCoursePlan
+    ? [
+        ...items.slice(0, 2),
+        { name: "Course Plan", href: "/student/course-plan", icon: CalendarDays },
+        ...items.slice(2),
+      ]
+    : items;
 
   const isActive = (href: string) =>
     href === "/student" ? pathname === "/student" : pathname.startsWith(href);
@@ -69,7 +105,7 @@ export default function StudentMenu({
       <div className="student-sidebar-nav-label">Navigation</div>
 
       <div className="student-sidebar-link-list">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
 

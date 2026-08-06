@@ -50,7 +50,21 @@ type LegacyHomework = {
   status: "Current" | "Past" | "Complete";
 };
 
-type HomeworkItem = AssignmentHomework | LegacyHomework;
+type CoursePlanHomework = {
+  id: string;
+  source: "course_plan";
+  title: string;
+  description: string;
+  skill: string;
+  release_date: string;
+  due_date: string | null;
+  resources: HomeworkResource[];
+  viewed: true;
+  result: null;
+  status: "Current" | "Past";
+};
+
+type HomeworkItem = AssignmentHomework | LegacyHomework | CoursePlanHomework;
 
 function formatDateShort(date: string | null) {
   if (!date) return "—";
@@ -65,9 +79,11 @@ function formatDateShort(date: string | null) {
 }
 
 function title(item: HomeworkItem) {
-  return item.source === "assignment"
-    ? `Exam ${item.exam.number} · ${item.part.label}`
-    : item.title?.trim() || `Week ${item.week_number} Homework`;
+  if (item.source === "assignment") {
+    return `Exam ${item.exam.number} · ${item.part.label}`;
+  }
+  if (item.source === "course_plan") return item.title;
+  return item.title?.trim() || `Week ${item.week_number} Homework`;
 }
 
 function resultLabel(item: HomeworkItem) {
@@ -163,10 +179,12 @@ export default function HomeworkPage() {
   }
 
   function skillLabel(item: HomeworkItem) {
-    return item.source === "assignment"
-      ? item.part.label
-      : getHomeworkSkillLabel(level, item.skill) ||
-          item.skill.charAt(0).toUpperCase() + item.skill.slice(1);
+    if (item.source === "assignment") return item.part.label;
+    if (item.source === "course_plan") return "Course Plan";
+    return (
+      getHomeworkSkillLabel(level, item.skill) ||
+      item.skill.charAt(0).toUpperCase() + item.skill.slice(1)
+    );
   }
 
   function status(item: HomeworkItem) {
@@ -229,6 +247,7 @@ export default function HomeworkPage() {
                           <strong>{title(item)}</strong>
                           {item.source === "assignment" && item.exam.title && <span>{item.exam.title}</span>}
                           {item.source === "legacy" && <span>Week {item.week_number}{item.description ? ` · ${item.description}` : ""}</span>}
+                          {item.source === "course_plan" && <span>{item.description}</span>}
                         </td>
                         <td>{skillLabel(item)}</td>
                         <td>{formatDateShort(item.release_date)}</td>
@@ -248,6 +267,7 @@ export default function HomeworkPage() {
                     <h3>{title(item)}</h3>
                     {item.source === "assignment" && item.exam.title && <p>{item.exam.title}</p>}
                     {item.source === "legacy" && item.description && <p>{item.description}</p>}
+                    {item.source === "course_plan" && <p>{item.description}</p>}
                     <dl>
                       {item.source === "legacy" && <div><dt>Week</dt><dd>Week {item.week_number}</dd></div>}
                       <div><dt>Skill</dt><dd>{skillLabel(item)}</dd></div>

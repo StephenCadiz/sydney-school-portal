@@ -72,9 +72,24 @@ export type StudentLegacyHomework = {
   status: "Current" | "Past" | "Complete";
 };
 
+export type StudentCoursePlanHomework = {
+  id: string;
+  source: "course_plan";
+  title: string;
+  description: string;
+  skill: string;
+  release_date: string;
+  due_date: string | null;
+  resources: [];
+  viewed: true;
+  result: null;
+  status: "Current" | "Past";
+};
+
 export type StudentHomeworkItem =
   | StudentAssignmentHomework
-  | StudentLegacyHomework;
+  | StudentLegacyHomework
+  | StudentCoursePlanHomework;
 
 function one(value: any) {
   return Array.isArray(value) ? value[0] : value;
@@ -224,6 +239,9 @@ async function loadVisibleAssignmentRows(context: StudentContext) {
     .eq("part.exam.level_id", context.levelId)
     .eq("part.exam.active", true)
     .is("part.exam.archived_at", null)
+    .or(
+      "course_plan_class_id.is.null,course_plan_class_id.eq." + context.classId
+    )
     .or(`release_date.is.null,release_date.lte.${today}`)
     .order("release_date", { ascending: false, nullsFirst: true })
     .order("due_date", { ascending: true, nullsFirst: false })
@@ -291,6 +309,53 @@ function overlapKey(
   return `${examNumber}:${partType}:${releaseDate}`;
 }
 
+async function loadCoursePlanWrittenHomework(
+  context: StudentContext,
+  today: string
+): Promise<StudentCoursePlanHomework[]> {
+  const { data: plan, error: planError } = await supabaseAdmin
+    .from("course_plans")
+    .select("id")
+    .eq("class_id", context.classId)
+    .eq("status", "published")
+    .maybeSingle();
+  if (planError) throw planError;
+  if (!plan) return [];
+
+  const { data: days, error: daysError } = await supabaseAdmin
+    .from("course_plan_days")
+    .select("id, lesson_date, homework_instructions, homework_due_date")
+    .eq("course_plan_id", plan.id)
+    .not("homework_instructions", "is", null)
+    .lte("lesson_date", today)
+    .order("lesson_date", { ascending: false })
+    .limit(STUDENT_HOMEWORK_LIMIT);
+  if (daysError) throw daysError;
+
+  return (days || [])
+    .map((day: any) => {
+      const instructions = String(day.homework_instructions || "").trim();
+      if (!instructions) return null;
+      return {
+        id: String(day.id),
+        source: "course_plan" as const,
+        title: "Course Plan homework",
+        description: instructions,
+        skill: "course_plan",
+        release_date: String(day.lesson_date),
+        due_date: day.homework_due_date ? String(day.homework_due_date) : null,
+        resources: [] as [],
+        viewed: true as const,
+        result: null,
+        status:
+          day.homework_due_date && String(day.homework_due_date) < today
+            ? ("Past" as const)
+            : ("Current" as const),
+      };
+    })
+    .filter((day): day is StudentCoursePlanHomework => Boolean(day));
+}
+
 export async function loadStudentHomework(
   context: StudentContext,
   includeResources = true
@@ -348,7 +413,7 @@ export async function loadStudentHomework(
   );
   const legacyIds = adjustedLegacy.map((row) => String(row.id));
 
-  const [resourceResult, assignmentResult, legacyResultRows, assignmentReadResult, legacyReadResult] =
+  const [resourceResult, assignmentResult, legacyResultRows, assignmentReadResult, legacyReadResult, coursePlanHomework] =
     await Promise.all([
       includeResources && partIds.length
         ? supabaseAdmin
@@ -393,6 +458,7 @@ export async function loadStudentHomework(
             .eq("student_id", context.studentId)
             .in("homework_id", legacyIds)
         : Promise.resolve({ data: [], error: null }),
+      loadCoursePlanWrittenHomework(context, today),
     ]);
 
   const loadError =
@@ -520,6 +586,7 @@ export async function loadStudentHomework(
   const homework = sortCombinedHomework([
     ...assignmentHomework,
     ...legacyHomework,
+    ...coursePlanHomework,
   ]).slice(0, STUDENT_HOMEWORK_LIMIT * 2);
 
   return {

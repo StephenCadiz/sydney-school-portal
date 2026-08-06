@@ -170,6 +170,9 @@ export async function loadTeacherClassHomework(
     .eq("part.exam.level_id", context.levelId)
     .eq("part.exam.active", true)
     .is("part.exam.archived_at", null)
+    .or(
+      "course_plan_class_id.is.null,course_plan_class_id.eq." + context.classId
+    )
     .or(`release_date.is.null,release_date.lte.${today}`)
     .order("release_date", { ascending: false, nullsFirst: true })
     .order("due_date", { ascending: true, nullsFirst: false })
@@ -358,6 +361,7 @@ export async function loadAuthorizedAssignment(
       release_date,
       due_date,
       course_type,
+      course_plan_class_id,
       active,
       archived_at,
       part:cambridge_exam_parts!cambridge_exam_assignments_exam_part_id_fkey!inner (
@@ -387,6 +391,8 @@ export async function loadAuthorizedAssignment(
     exam?.archived_at ||
     Number(exam?.level_id) !== context.levelId ||
     String(row.course_type || "").toLowerCase() !== context.courseType ||
+    (row.course_plan_class_id &&
+      String(row.course_plan_class_id) !== context.classId) ||
     !PARTS.has(partType)
   ) {
     throw new TeacherHomeworkError("Assignment is not available for this class.", 403);
