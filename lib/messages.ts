@@ -516,15 +516,36 @@ export async function hideTeacherSentStaffMessage(messageId: string) {
     throw new Error("Unable to identify the message.");
   }
 
-  const { data, error } = await supabase.rpc("hide_sent_staff_message", {
-    p_message_id: messageId,
-  });
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
 
-  if (error) {
-    throw new Error(error.message || "Unable to remove message from sent.");
+  if (sessionError || !session?.access_token) {
+    throw new Error("Authentication required.");
   }
 
-  return data || { success: true };
+  const response = await fetch(
+    `/api/teacher/messages/sent/${encodeURIComponent(messageId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    }
+  );
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const error = new Error(
+      payload?.error || "Unable to remove message from sent."
+    ) as Error & { code?: string; status?: number };
+    error.code = payload?.code;
+    error.status = response.status;
+    throw error;
+  }
+
+  return payload || { success: true };
 }
 
 export async function sendMessage(message: any) {
