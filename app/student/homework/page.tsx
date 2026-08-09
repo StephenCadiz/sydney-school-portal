@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown, FileText, Headphones } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import StudentMenu from "../StudentMenu";
@@ -96,8 +97,40 @@ function statusClass(status: string) {
   return status === "Overdue" ? "past" : status.toLowerCase();
 }
 
+function homeworkItemKey(item: HomeworkItem) {
+  return `${item.source}-${item.id}`;
+}
+
+function mobileSourceLabel(item: HomeworkItem) {
+  if (item.source === "assignment") return "Exam Assignment";
+  if (item.source === "course_plan") return "Course Plan";
+  return "Weekly Homework";
+}
+
+function mobileDescription(item: HomeworkItem) {
+  if (item.source === "assignment") return item.exam.title?.trim() || "";
+  return item.description?.trim() || "";
+}
+
+function defaultExpandedHomework(items: HomeworkItem[]) {
+  const currentItems = items.filter((item) => item.status === "Current");
+
+  if (currentItems.length > 0) {
+    return new Set(currentItems.map(homeworkItemKey));
+  }
+
+  const nearestOutstanding = items.find(
+    (item) => item.status !== "Complete" && item.status !== "Past"
+  );
+
+  return new Set(nearestOutstanding ? [homeworkItemKey(nearestOutstanding)] : []);
+}
+
 export default function HomeworkPage() {
   const [homework, setHomework] = useState<HomeworkItem[]>([]);
+  const [expandedHomeworkIds, setExpandedHomeworkIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -123,11 +156,13 @@ export default function HomeworkPage() {
       if (!response.ok) throw new Error(payload.error || "Unable to load homework.");
       const rows: HomeworkItem[] = payload.homework || [];
       setHomework(rows);
+      setExpandedHomeworkIds(defaultExpandedHomework(rows));
       setLevel(String(payload.class?.level || ""));
       setReadContext({ token, studentId });
     } catch (caught) {
       console.error(caught);
       setHomework([]);
+      setExpandedHomeworkIds(new Set());
       setError(caught instanceof Error ? caught.message : "Unable to load homework.");
     } finally {
       setLoading(false);
@@ -158,10 +193,15 @@ export default function HomeworkPage() {
     });
   }, [error, homework, loading, readContext]);
 
-  function resources(item: HomeworkItem) {
-    if (!item.resources.length) return <span className="student-homework-muted">—</span>;
+  function resources(item: HomeworkItem, compact = false) {
+    if (!item.resources.length) {
+      return compact ? null : <span className="student-homework-muted">—</span>;
+    }
+
     return (
-      <div className="student-homework-resources">
+      <div
+        className={`student-homework-resources${compact ? " is-compact" : ""}`}
+      >
         {item.resources.map((resource) => (
           <a
             key={`${item.id}-${resource.type}`}
@@ -171,6 +211,12 @@ export default function HomeworkPage() {
             rel="noopener noreferrer"
             aria-label={`${resource.label} for ${title(item)}`}
           >
+            {compact &&
+              (resource.type === "audio" ? (
+                <Headphones size={15} aria-hidden="true" />
+              ) : (
+                <FileText size={15} aria-hidden="true" />
+              ))}
             {resource.type === "audio" ? "Play Audio" : "Question Paper"}
           </a>
         ))}
@@ -193,6 +239,22 @@ export default function HomeworkPage() {
         {item.status}
       </span>
     );
+  }
+
+  function toggleHomework(item: HomeworkItem) {
+    const itemKey = homeworkItemKey(item);
+
+    setExpandedHomeworkIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(itemKey)) {
+        next.delete(itemKey);
+      } else {
+        next.add(itemKey);
+      }
+
+      return next;
+    });
   }
 
   return (
@@ -220,7 +282,12 @@ export default function HomeworkPage() {
               <p>Current and past homework for your class, ordered by due date.</p>
             </div>
             <div className="student-homework-summary" aria-live="polite">
-              {homework.length} released homework item{homework.length === 1 ? "" : "s"}
+              <span className="student-homework-summary-desktop">
+                {homework.length} released homework item{homework.length === 1 ? "" : "s"}
+              </span>
+              <span className="student-homework-summary-mobile">
+                {homework.length} homework item{homework.length === 1 ? "" : "s"}
+              </span>
             </div>
           </div>
 
@@ -261,23 +328,86 @@ export default function HomeworkPage() {
                 </table>
               </div>
               <div className="student-homework-mobile-list">
-                {homework.map((item, index) => (
-                  <article key={`${item.source}-${item.id}`} className="student-homework-mobile-card">
-                    <div className="student-homework-mobile-card-header"><span>#{index + 1}</span>{status(item)}</div>
-                    <h3>{title(item)}</h3>
-                    {item.source === "assignment" && item.exam.title && <p>{item.exam.title}</p>}
-                    {item.source === "legacy" && item.description && <p>{item.description}</p>}
-                    {item.source === "course_plan" && <p>{item.description}</p>}
-                    <dl>
-                      {item.source === "legacy" && <div><dt>Week</dt><dd>Week {item.week_number}</dd></div>}
-                      <div><dt>Skill</dt><dd>{skillLabel(item)}</dd></div>
-                      <div><dt>Release</dt><dd>{formatDateShort(item.release_date)}</dd></div>
-                      <div><dt>Due</dt><dd>{formatDateShort(item.due_date)}</dd></div>
-                      <div><dt>Result</dt><dd>{resultLabel(item)}</dd></div>
-                    </dl>
-                    <div className="student-homework-mobile-resources"><span>Resources</span>{resources(item)}</div>
-                  </article>
-                ))}
+                {homework.map((item, index) => {
+                  const itemKey = homeworkItemKey(item);
+                  const expanded = expandedHomeworkIds.has(itemKey);
+                  const description = mobileDescription(item);
+                  const hasAdditionalDetails = Boolean(
+                    item.release_date || description
+                  );
+                  const detailsId = `student-homework-mobile-details-${itemKey}`;
+                  const contextLabel =
+                    item.source === "course_plan"
+                      ? mobileSourceLabel(item)
+                      : `${mobileSourceLabel(item)} · ${skillLabel(item)}`;
+
+                  return (
+                    <article
+                      key={itemKey}
+                      className={`student-homework-mobile-card is-${statusClass(
+                        item.status
+                      )}${expanded ? " is-expanded" : " is-collapsed"}`}
+                    >
+                      <div className="student-homework-mobile-card-header">
+                        <span>#{index + 1}</span>
+                        {status(item)}
+                      </div>
+                      <h3>{title(item)}</h3>
+                      <p className="student-homework-mobile-context">
+                        {contextLabel}
+                      </p>
+
+                      <dl className="student-homework-mobile-metadata">
+                        <div>
+                          <dt>Due</dt>
+                          <dd>{formatDateShort(item.due_date)}</dd>
+                        </div>
+                        <div>
+                          <dt>Result</dt>
+                          <dd>{resultLabel(item)}</dd>
+                        </div>
+                      </dl>
+
+                      {hasAdditionalDetails && (
+                        <div
+                          id={detailsId}
+                          className="student-homework-mobile-extra"
+                          hidden={!expanded}
+                        >
+                          {item.release_date && (
+                            <dl>
+                              <div>
+                                <dt>Released</dt>
+                                <dd>{formatDateShort(item.release_date)}</dd>
+                              </div>
+                            </dl>
+                          )}
+                          {description && <p>{description}</p>}
+                        </div>
+                      )}
+
+                      {(item.resources.length > 0 || hasAdditionalDetails) && (
+                        <div className="student-homework-mobile-actions">
+                          {resources(item, true)}
+                          {hasAdditionalDetails && (
+                            <button
+                              type="button"
+                              className="student-homework-mobile-toggle"
+                              aria-expanded={expanded}
+                              aria-controls={detailsId}
+                              onClick={() => toggleHomework(item)}
+                            >
+                              <ChevronDown size={18} aria-hidden="true" />
+                              <span className="sr-only">
+                                {expanded ? "Collapse" : "Expand"} {title(item)}
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </>
           )}
