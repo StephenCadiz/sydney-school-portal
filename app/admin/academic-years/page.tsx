@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import AdminLayout from "../../components/layout/AdminLayout";
 import {
@@ -9,6 +10,8 @@ import {
   updateAcademicYear,
 } from "../../../lib/academicYears";
 import type { AcademicYear } from "../../../lib/academicYearRules";
+import { getAcademicYearReadiness } from "../../../lib/academicYearRollover";
+import type { AcademicYearReadiness } from "../../../lib/academicYearRolloverRules";
 import styles from "./AcademicYears.module.css";
 
 const emptyForm = { label: "", start_date: "", end_date: "" };
@@ -38,6 +41,8 @@ export default function AdminAcademicYearsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [readiness, setReadiness] = useState<AcademicYearReadiness | null>(null);
+  const [readinessYear, setReadinessYear] = useState<AcademicYear | null>(null);
 
   const currentAcademicYear = useMemo(
     () => academicYears.find((year) => year.status === "current") || null,
@@ -126,20 +131,35 @@ export default function AdminAcademicYearsPage() {
   }
 
   async function setCurrent(year: AcademicYear) {
-    if (
-      !confirm(
-        `Set ${year.label} as the Current academic year? Teacher and student annual-course views will switch to this year.`
-      )
-    ) {
-      return;
-    }
-
     setSaving(true);
     setMessage("");
     setIsError(false);
     try {
-      await updateAcademicYear(year.id, { action: "set_current" });
-      setMessage(`${year.label} is now the Current academic year.`);
+      setReadiness(await getAcademicYearReadiness(year.id));
+      setReadinessYear(year);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to review academic year readiness."
+      );
+      setIsError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmSetCurrent() {
+    if (!readinessYear) return;
+    setSaving(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      await updateAcademicYear(readinessYear.id, {
+        action: "set_current",
+        confirm_readiness: true,
+      });
+      setMessage(`${readinessYear.label} is now the Current academic year.`);
+      setReadiness(null);
+      setReadinessYear(null);
       await loadAcademicYears();
     } catch (error) {
       setMessage(
@@ -269,6 +289,9 @@ export default function AdminAcademicYearsPage() {
               <h2>Academic Year Records</h2>
               <p>Changing Current changes portal context, never enrolment history.</p>
             </div>
+            <Link className={styles.primaryButton} href="/admin/academic-years/rollover">
+              Prepare Next Academic Year
+            </Link>
           </div>
 
           {loading ? (
@@ -334,6 +357,76 @@ export default function AdminAcademicYearsPage() {
             </div>
           )}
         </section>
+
+        {readiness && readinessYear && (
+          <div className={styles.modalBackdrop} role="presentation">
+            <section
+              aria-labelledby="academic-year-readiness-title"
+              aria-modal="true"
+              className={styles.readinessModal}
+              role="dialog"
+            >
+              <div className={styles.readinessHeader}>
+                <div>
+                  <span>Current-year readiness</span>
+                  <h2 id="academic-year-readiness-title">
+                    Set {readiness.target_label} as Current?
+                  </h2>
+                </div>
+                <button
+                  aria-label="Close readiness review"
+                  className={styles.modalClose}
+                  disabled={saving}
+                  type="button"
+                  onClick={() => {
+                    setReadiness(null);
+                    setReadinessYear(null);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+              <p className={styles.readinessIntro}>
+                Teacher and Student annual-course context will switch immediately.
+                Existing classes, enrolments and historical results will not be changed.
+              </p>
+              <dl className={styles.readinessGrid}>
+                <div><dt>Classes prepared</dt><dd>{readiness.classes_prepared}</dd></div>
+                <div><dt>Students assigned</dt><dd>{readiness.students_assigned}</dd></div>
+                <div><dt>Not returning</dt><dd>{readiness.not_returning}</dd></div>
+                <div><dt>Still undecided</dt><dd>{readiness.still_undecided}</dd></div>
+                <div><dt>Planned, not applied</dt><dd>{readiness.ready_not_applied}</dd></div>
+              </dl>
+              {(readiness.still_undecided > 0 || readiness.ready_not_applied > 0) && (
+                <div className={styles.readinessWarning}>
+                  This year is not fully ready. Students without an applied target-year
+                  enrolment will receive a safe unassigned current-year state.
+                </div>
+              )}
+              <div className={styles.modalActions}>
+                <button
+                  className={styles.secondaryButton}
+                  disabled={saving}
+                  type="button"
+                  onClick={() => {
+                    setReadiness(null);
+                    setReadinessYear(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className={styles.primaryButton}
+                  disabled={saving}
+                  type="button"
+                  onClick={() => void confirmSetCurrent()}
+                >
+                  {saving ? "Changing Current year..." : "Confirm Set as Current"}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
       </main>
     </AdminLayout>
   );

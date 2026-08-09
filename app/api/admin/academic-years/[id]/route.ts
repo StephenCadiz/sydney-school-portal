@@ -9,6 +9,7 @@ import {
   requireExamBankAdmin,
 } from "../../../../../lib/cambridgeExamBankServer";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { getAcademicYearSwitchReadiness } from "../../../../../lib/academicYearRolloverServer";
 
 export async function PATCH(
   request: NextRequest,
@@ -33,6 +34,17 @@ export async function PATCH(
     const action = String(body.action || "");
 
     if (action === "set_current") {
+      if (body.confirm_readiness !== true) {
+        return examBankJsonError(
+          "Review academic year readiness before changing the Current year.",
+          409
+        );
+      }
+
+      const readiness = await getAcademicYearSwitchReadiness(
+        academicYearId,
+        admin.userId
+      );
       const { data, error } = await supabaseAdmin.rpc(
         "set_current_academic_year",
         { p_academic_year_id: academicYearId }
@@ -47,7 +59,7 @@ export async function PATCH(
       }
 
       const academicYear = Array.isArray(data) ? data[0] : data;
-      return NextResponse.json({ academic_year: academicYear });
+      return NextResponse.json({ academic_year: academicYear, readiness });
     }
 
     const { data: existing, error: existingError } = await supabaseAdmin

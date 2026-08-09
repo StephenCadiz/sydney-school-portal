@@ -84,7 +84,7 @@ export async function updateAcademicYear(
   id: string,
   input:
     | { action: "update"; label: string; start_date: string; end_date: string }
-    | { action: "set_current" }
+    | { action: "set_current"; confirm_readiness: true }
     | { action: "archive" }
 ) {
   const token = await getAccessToken();
