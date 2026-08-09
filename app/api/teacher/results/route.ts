@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { getCurrentAcademicYearServer } from "../../../../lib/academicYearsServer";
+import { filterClassesForCurrentTeaching } from "../../../../lib/academicYearRules";
 import {
   buildAggregateValue,
   buildFridayAnalytics,
@@ -49,17 +51,26 @@ async function authenticateTeacher(request: NextRequest) {
 }
 
 async function getTeacherClasses(teacherId: string) {
-  const { data: classes, error: classesError } = await supabaseAdmin
-    .from("classes")
-    .select(
-      "id, class_name, level_id, is_cambridge, course_type, days, start_time, end_time"
-    )
-    .eq("teacher_id", teacherId)
-    .order("class_name");
+  const [{ data: classes, error: classesError }, currentAcademicYear] =
+    await Promise.all([
+      supabaseAdmin
+        .from("classes")
+        .select(
+          "id, class_name, level_id, is_cambridge, course_type, days, start_time, end_time, start_date, end_date, academic_year_id"
+        )
+        .eq("teacher_id", teacherId)
+        .order("class_name"),
+      getCurrentAcademicYearServer(),
+    ]);
 
   if (classesError) throw classesError;
 
-  const levelIds = Array.from(new Set((classes || []).map((row) => row.level_id).filter(Boolean)));
+  const currentClasses = filterClassesForCurrentTeaching(
+    classes || [],
+    currentAcademicYear?.id
+  );
+
+  const levelIds = Array.from(new Set(currentClasses.map((row) => row.level_id).filter(Boolean)));
   const { data: levels, error: levelsError } = levelIds.length
     ? await supabaseAdmin.from("levels").select("id, name").in("id", levelIds)
     : { data: [], error: null };
@@ -67,7 +78,7 @@ async function getTeacherClasses(teacherId: string) {
   if (levelsError) throw levelsError;
 
   const levelNames = new Map((levels || []).map((level) => [String(level.id), level.name]));
-  const options: TeacherResultClassOption[] = (classes || []).map((row) => ({
+  const options: TeacherResultClassOption[] = currentClasses.map((row) => ({
     id: String(row.id),
     class_name: row.class_name || levelNames.get(String(row.level_id)) || "Class",
     level_id: String(row.level_id || ""),

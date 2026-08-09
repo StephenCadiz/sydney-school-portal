@@ -78,6 +78,36 @@ async function countLinkedRows(
   return count || 0;
 }
 
+async function countYoungLearnerLinks(classId: string) {
+  const [currentResult, historyResult] = await Promise.all([
+    supabaseAdmin.from("young_learners").select("id").eq("class_id", classId),
+    supabaseAdmin
+      .from("young_learner_enrolments")
+      .select("young_learner_id")
+      .eq("class_id", classId),
+  ]);
+
+  if (currentResult.error) {
+    throw new Error(
+      `young_learners lookup failed.\n${formatError(currentResult.error)}`
+    );
+  }
+  if (historyResult.error) {
+    throw new Error(
+      `young_learner_enrolments lookup failed.\n${formatError(
+        historyResult.error
+      )}`
+    );
+  }
+
+  return new Set([
+    ...(currentResult.data || []).map((row) => String(row.id || "")),
+    ...(historyResult.data || []).map((row) =>
+      String(row.young_learner_id || "")
+    ),
+  ]).size;
+}
+
 async function cleanOrphanEnrolments(classId: string) {
   const { data: enrolments, error: enrolmentsError } = await supabaseAdmin
     .from("class_enrolments")
@@ -209,11 +239,7 @@ export async function POST(request: NextRequest) {
 
     const blockers: ClassDeleteBlockers = {
       students: realStudentEnrolments,
-      young_learners: await countLinkedRows(
-        "young_learners",
-        "class_id",
-        classId
-      ),
+      young_learners: await countYoungLearnerLinks(classId),
       results: await countLinkedRows("results", "class_id", classId),
       announcements: await countLinkedRows(
         "announcements",

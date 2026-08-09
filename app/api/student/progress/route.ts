@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
         .from("results")
         .select("*")
         .eq("student_id", context.studentId)
+        .eq("class_id", context.classId)
         .order("published_at", { ascending: false, nullsFirst: false })
         .order("exam_date", { ascending: false, nullsFirst: false })
         .order("id", { ascending: false })

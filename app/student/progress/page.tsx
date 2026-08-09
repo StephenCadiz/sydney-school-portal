@@ -15,6 +15,7 @@ import {
   toResultNumber,
 } from "../../../lib/progress";
 import type { FridayTutorialProgressSummary } from "../../../lib/fridayTutorialResults";
+import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../../lib/academicYearRules";
 
 function average(values: number[]) {
   if (values.length === 0) {
@@ -477,7 +478,7 @@ export default function ProgressPage() {
   const [level, setLevel] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
 
   const readingLabel = getCambridgeReadingSkillLabel(level);
   const levelTarget = getTargetForLevel(level);
@@ -528,7 +529,7 @@ export default function ProgressPage() {
 
   const loadProgress = useCallback(async () => {
     setLoading(true);
-    setError(false);
+    setError("");
 
     try {
       const progressData = await getStudentProgressData();
@@ -546,7 +547,12 @@ export default function ProgressPage() {
       setFridayTutorialProgress(tutorialProgress);
     } catch (loadError) {
       console.error(loadError);
-      setError(true);
+      setError(
+        loadError instanceof Error &&
+          loadError.message === NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE
+          ? NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE
+          : "Unable to load progress."
+      );
       setResults([]);
       setHomeworkReleaseMetadata([]);
       setFridayTutorialProgress(getEmptyFridayTutorialProgressSummary());
@@ -672,7 +678,7 @@ export default function ProgressPage() {
 
         {!loading && error && (
           <div className="student-progress-state is-error" role="alert">
-            <p>Unable to load progress.</p>
+            <p>{error}</p>
             <button type="button" onClick={loadProgress}>
               Retry
             </button>

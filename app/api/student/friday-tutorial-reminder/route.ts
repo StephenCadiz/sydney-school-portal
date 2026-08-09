@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { resolveStudentCurrentClassServer } from "../../../../lib/academicYearsServer";
 
 type ReminderStage = "monday" | "thursday";
 
@@ -156,27 +157,10 @@ async function resolveReminderContext(
   const window = getCurrentReminderWindow();
   if (!window) return null;
 
-  const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-    .from("class_enrolments")
-    .select("class_id")
-    .eq("student_id", studentId);
+  const classResolution = await resolveStudentCurrentClassServer(studentId);
+  if (classResolution.error || !classResolution.classroom) return null;
 
-  if (enrolmentError) throw enrolmentError;
-
-  const classIds = Array.from(
-    new Set((enrolments || []).map((row) => String(row.class_id || "")).filter(Boolean))
-  );
-  if (classIds.length !== 1) return null;
-
-  const { data: classes, error: classError } = await supabaseAdmin
-    .from("classes")
-    .select("id, level_id, is_cambridge, course_type")
-    .in("id", classIds);
-
-  if (classError) throw classError;
-  if (!classes || classes.length !== 1) return null;
-
-  const classRow = classes[0];
+  const classRow = classResolution.classroom;
   if (classRow.is_cambridge !== true) return null;
 
   const courseType = normalizeCourseType(classRow.course_type);

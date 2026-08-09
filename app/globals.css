@@ -10791,6 +10791,13 @@ img {
   gap: 22px;
 }
 
+.admin-classes-page-heading {
+  align-items: flex-end;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
 .admin-classes-page-heading h1 {
   color: var(--ss-blue-dark);
   font-size: 32px;
@@ -10803,6 +10810,33 @@ img {
   font-size: 16px;
   line-height: 1.55;
   margin: 0;
+}
+
+.admin-classes-current-year {
+  background: #edf4ff;
+  border: 1px solid #c7d9f7;
+  border-radius: 10px;
+  flex: 0 0 auto;
+  min-width: 190px;
+  padding: 11px 14px;
+}
+
+.admin-classes-current-year span,
+.admin-classes-current-year strong {
+  display: block;
+}
+
+.admin-classes-current-year span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.admin-classes-current-year strong {
+  color: var(--ss-blue-dark);
+  font-size: 17px;
 }
 
 .admin-classes-message,
@@ -11084,7 +11118,7 @@ img {
   align-items: end;
   display: grid;
   gap: 14px;
-  grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(160px, 0.8fr));
+  grid-template-columns: minmax(240px, 1.25fr) repeat(4, minmax(145px, 0.75fr));
   margin-bottom: 18px;
 }
 
@@ -11125,7 +11159,7 @@ img {
 .admin-classes-table {
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 980px;
+  min-width: 1180px;
   width: 100%;
 }
 
@@ -11199,6 +11233,19 @@ img {
   line-height: 1;
   padding: 6px 9px;
   white-space: nowrap;
+}
+
+.admin-classes-academic-context {
+  color: #475569;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 750;
+  max-width: 220px;
+  min-width: 145px;
+}
+
+.admin-classes-academic-context.is-unassigned {
+  color: #9a5c0a;
 }
 
 .admin-classes-course-badge {
@@ -11617,6 +11664,15 @@ img {
     font-size: 28px;
   }
 
+  .admin-classes-page-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-classes-current-year {
+    min-width: 0;
+  }
+
   .admin-classes-form-card,
   .admin-classes-list-card {
     border-radius: 14px;
@@ -11667,7 +11723,7 @@ img {
   }
 
   .admin-classes-table {
-    min-width: 920px;
+    min-width: 1100px;
   }
 
   .admin-classes-calendar-weekly {
@@ -16396,6 +16452,18 @@ img {
   font-size: 14px;
   line-height: 1.45;
   margin-top: 6px;
+}
+
+.teacher-my-classes-academic-year {
+  align-self: flex-start;
+  background: #edf4ff;
+  border: 1px solid #c7d9f7;
+  border-radius: 999px;
+  color: var(--ss-blue-dark);
+  font-size: 12px;
+  font-weight: 850;
+  margin-top: 10px;
+  padding: 5px 9px;
 }
 
 .teacher-my-classes-heading-stats {

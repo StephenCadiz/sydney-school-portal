@@ -7,6 +7,7 @@ import {
   COURSE_PLANNING_COURSE_TYPES,
 } from "./coursePlanningEligibility";
 import { validateCoursePlanningDateRange } from "./coursePlanningDates";
+import { classUsesAcademicYear } from "./academicYearRules";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -60,6 +61,7 @@ export type AdminClassPayload = {
   is_cambridge: boolean;
   start_date: string | null;
   end_date: string | null;
+  academic_year_id: string | null;
 };
 
 export function isValidClassId(value: unknown) {
@@ -68,7 +70,8 @@ export function isValidClassId(value: unknown) {
 
 export function validateAdminClassPayload(
   input: unknown,
-  levelRow: { name: unknown; catagory?: unknown } | null
+  levelRow: { name: unknown; catagory?: unknown } | null,
+  academicYearRow: { id: unknown } | null = null
 ): { value: AdminClassPayload | null; error: string | null } {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return { value: null, error: "Invalid class details." };
@@ -88,6 +91,7 @@ export function validateAdminClassPayload(
     "is_cambridge",
     "start_date",
     "end_date",
+    "academic_year_id",
   ]);
   if (Object.keys(body).some((key) => !allowed.has(key))) {
     return { value: null, error: "The request contains unsupported class fields." };
@@ -101,6 +105,7 @@ export function validateAdminClassPayload(
   const startTime = validTime(body.start_time);
   const endTime = validTime(body.end_time);
   const meetLink = text(body.meet_link);
+  const academicYearId = text(body.academic_year_id);
 
   if (!Number.isInteger(levelId) || levelId <= 0 || !levelRow) {
     return { value: null, error: "Choose a valid level." };
@@ -124,6 +129,16 @@ export function validateAdminClassPayload(
   const isCambridge = isSupport ? false : forcedCambridge || body.is_cambridge === true;
   const normalizedCourseType = isSupport || !isCambridge ? "regular" : courseType;
   const isOnline = normalizedCourseType === "online";
+  const usesAcademicYear = classUsesAcademicYear(normalizedCourseType);
+
+  if (
+    usesAcademicYear &&
+    (!UUID_PATTERN.test(academicYearId) ||
+      !academicYearRow ||
+      String(academicYearRow.id) !== academicYearId)
+  ) {
+    return { value: null, error: "Choose a valid academic year." };
+  }
 
   if (isOnline) {
     if (!validMeetUrl(meetLink)) {
@@ -134,8 +149,8 @@ export function validateAdminClassPayload(
   }
 
   const dateRange = validateCoursePlanningDateRange({
-    startDate: body.start_date,
-    endDate: body.end_date,
+    startDate: usesAcademicYear ? null : body.start_date,
+    endDate: usesAcademicYear ? null : body.end_date,
     required:
       isCambridge && COURSE_PLANNING_COURSE_TYPES.has(normalizedCourseType),
   });
@@ -153,8 +168,9 @@ export function validateAdminClassPayload(
       end_time: endTime,
       meet_link: isOnline ? meetLink : null,
       is_cambridge: isCambridge,
-      start_date: dateRange.startDate,
-      end_date: dateRange.endDate,
+      start_date: usesAcademicYear ? null : dateRange.startDate,
+      end_date: usesAcademicYear ? null : dateRange.endDate,
+      academic_year_id: usesAcademicYear ? academicYearId : null,
     },
     error: null,
   };

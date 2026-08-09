@@ -14,6 +14,7 @@ import {
   getCurrentTeacher,
   getCurrentUser,
 } from "../../../lib/user";
+import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../../lib/academicYearRules";
 
 const inputStyle = {
   width: "100%",
@@ -79,7 +80,12 @@ export default function StudentMessagesPage() {
         await loadMessages(user.id, currentTeacher);
       } catch (error) {
         console.error("LOAD MESSAGES ERROR:", error);
-        setErrorMessage("Unable to load messages.");
+        setErrorMessage(
+          error instanceof Error &&
+            error.message === NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE
+            ? NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE
+            : "Unable to load messages."
+        );
       } finally {
         setLoading(false);
       }

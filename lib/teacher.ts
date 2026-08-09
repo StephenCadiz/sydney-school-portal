@@ -1,4 +1,6 @@
 import { supabase } from "./supabase";
+import { getCurrentAcademicYear } from "./academicYears";
+import { filterClassesForCurrentTeaching } from "./academicYearRules";
 
 export async function getTeacherProfile(userId: string) {
   const { data, error } = await supabase
@@ -28,5 +30,10 @@ export async function getTeacherClasses(userId: string) {
 
   if (error) throw error;
 
-  return data || [];
+  const currentAcademicYear = await getCurrentAcademicYear();
+
+  return filterClassesForCurrentTeaching(
+    data || [],
+    currentAcademicYear?.id
+  );
 }

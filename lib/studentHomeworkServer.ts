@@ -12,6 +12,7 @@ import {
   normalizeHomeworkSkill,
 } from "./homework";
 import { buildHomeworkResultMap } from "./progress";
+import { resolveStudentCurrentClassServer } from "./academicYearsServer";
 import { supabaseAdmin } from "./supabaseAdmin";
 
 export const CAMBRIDGE_ASSIGNMENT_HOMEWORK_CUTOVER_DATE = "2026-07-28";
@@ -134,42 +135,27 @@ export async function resolveStudentHomeworkContext(studentId: string):
     | { context: StudentContext; error: null; status: 200 }
     | { context: null; error: string; status: number }
   > {
-  const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-    .from("class_enrolments")
-    .select("class_id")
-    .eq("student_id", studentId)
-    .limit(2);
-  if (enrolmentError) {
+  let classResolution;
+  try {
+    classResolution = await resolveStudentCurrentClassServer(studentId);
+  } catch (error) {
     console.error("Student homework context failed:", {
-      stage: "enrolment",
+      stage: "current-class",
       actorId: studentId,
+      error,
     });
     return { context: null, error: "Unable to load your class.", status: 500 };
   }
-  if (!enrolments?.length) {
-    return { context: null, error: "No class enrolment was found.", status: 404 };
-  }
-  if (enrolments.length > 1) {
+
+  if (classResolution.error || !classResolution.classroom) {
     return {
       context: null,
-      error: "More than one class enrolment was found.",
-      status: 409,
+      error: classResolution.error || "Your class is not available.",
+      status: classResolution.error?.startsWith("More than one") ? 409 : 404,
     };
   }
 
-  const { data: classroom, error: classError } = await supabaseAdmin
-    .from("classes")
-    .select("id, level_id, course_type, days")
-    .eq("id", enrolments[0].class_id)
-    .maybeSingle();
-  if (classError) {
-    console.error("Student homework context failed:", {
-      stage: "class",
-      actorId: studentId,
-      classId: enrolments[0].class_id,
-    });
-    return { context: null, error: "Unable to load your class.", status: 500 };
-  }
+  const classroom = classResolution.classroom;
   if (!classroom?.level_id) {
     return { context: null, error: "Your class is not available.", status: 404 };
   }
@@ -427,6 +413,7 @@ export async function loadStudentHomework(
             .from("results")
             .select("id, percentage, title, cambridge_exam_assignment_id")
             .eq("student_id", context.studentId)
+            .eq("class_id", context.classId)
             .eq("result_type", "homework")
             .in("cambridge_exam_assignment_id", assignmentIds)
             .order("published_at", { ascending: false, nullsFirst: false })
@@ -438,6 +425,7 @@ export async function loadStudentHomework(
         .from("results")
         .select("id, percentage, title, result_type, skill, cambridge_exam_assignment_id")
         .eq("student_id", context.studentId)
+        .eq("class_id", context.classId)
         .eq("result_type", "homework")
         .is("cambridge_exam_assignment_id", null)
         .order("published_at", { ascending: false, nullsFirst: false })

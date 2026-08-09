@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import { resolveStudentCurrentClassServer } from "../../../lib/academicYearsServer";
 import {
   buildFridayTutorialProgressSummary,
   getEmptyFridayTutorialProgressSummary,
@@ -167,7 +168,7 @@ async function resolveTargetStudentId(
   };
 }
 
-async function loadProgressRows(studentId: string) {
+async function loadProgressRows(studentId: string, classId?: string) {
   const todayMadrid = getMadridDateString();
 
   const { data: resultRows, error: resultError } = await supabaseAdmin
@@ -195,12 +196,14 @@ async function loadProgressRows(studentId: string) {
     )
   );
 
+  let sheetQuery = supabaseAdmin
+    .from("friday_tutorial_result_sheets")
+    .select("id, tutorial_session_id, class_id")
+    .in("id", sheetIds);
+  if (classId) sheetQuery = sheetQuery.eq("class_id", classId);
   const { data: sheets, error: sheetError } =
     sheetIds.length > 0
-      ? await supabaseAdmin
-          .from("friday_tutorial_result_sheets")
-          .select("id, tutorial_session_id")
-          .in("id", sheetIds)
+      ? await sheetQuery
       : { data: [], error: null };
 
   if (sheetError) {
@@ -285,7 +288,21 @@ export async function GET(request: NextRequest) {
       return target.response;
     }
 
-    const rows = await loadProgressRows(target.studentId);
+    let currentClassId = "";
+    if (role === "student") {
+      const classResolution = await resolveStudentCurrentClassServer(
+        target.studentId
+      );
+      if (classResolution.error || !classResolution.classroom) {
+        return jsonError(
+          classResolution.error || "No current class is available.",
+          classResolution.error?.startsWith("More than one") ? 409 : 404
+        );
+      }
+      currentClassId = String(classResolution.classroom.id);
+    }
+
+    const rows = await loadProgressRows(target.studentId, currentClassId);
 
     return NextResponse.json({
       summary:

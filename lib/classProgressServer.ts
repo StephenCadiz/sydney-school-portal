@@ -13,6 +13,8 @@ import {
   TeacherHomeworkError,
 } from "./teacherHomeworkServer";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { getCurrentAcademicYearServer } from "./academicYearsServer";
+import { filterClassesForCurrentTeaching } from "./academicYearRules";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -480,7 +482,7 @@ export async function loadClassProgressSnapshot(context: ClassProgressContext) {
 export async function loadSameLevelProgress(context: ClassProgressContext) {
   let classesQuery = supabaseAdmin
     .from("classes")
-    .select("id, class_name, teacher_id, level_id, is_cambridge, course_type")
+    .select("id, class_name, teacher_id, level_id, is_cambridge, course_type, academic_year_id, start_date, end_date")
     .eq("level_id", context.levelId)
     .eq("is_cambridge", context.isCambridge);
   if (context.isCambridge) {
@@ -491,7 +493,11 @@ export async function loadSameLevelProgress(context: ClassProgressContext) {
   }
   const { data: classes, error: classesError } = await classesQuery;
   if (classesError) throw classesError;
-  const classRows = (classes || []).filter((classroom) =>
+  const currentAcademicYear = await getCurrentAcademicYearServer();
+  const classRows = filterClassesForCurrentTeaching(
+    classes || [],
+    currentAcademicYear?.id
+  ).filter((classroom) =>
     isClassProgressEligible({
       isCambridge: classroom.is_cambridge === true,
       levelName: context.levelName,
@@ -604,10 +610,14 @@ export async function loadClassProgressReminders(request: NextRequest) {
   const { actorId } = await getTeacherProgressActor(request);
   const { data: assignedClasses, error: classError } = await supabaseAdmin
     .from("classes")
-    .select("id, class_name, level_id, is_cambridge, course_type, days, start_time, end_time")
+    .select("id, class_name, level_id, is_cambridge, course_type, days, start_time, end_time, academic_year_id, start_date, end_date")
     .eq("teacher_id", actorId);
   if (classError) throw classError;
-  const classRows = assignedClasses || [];
+  const currentAcademicYear = await getCurrentAcademicYearServer();
+  const classRows = filterClassesForCurrentTeaching(
+    assignedClasses || [],
+    currentAcademicYear?.id
+  );
   const levelIds = Array.from(
     new Set(classRows.map((classroom) => Number(classroom.level_id)).filter(Boolean))
   );

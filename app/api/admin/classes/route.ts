@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { validateAdminClassPayload } from "../../../../lib/adminClassServer";
+import {
+  isValidClassId,
+  validateAdminClassPayload,
+} from "../../../../lib/adminClassServer";
 import {
   examBankJsonError,
   requireExamBankAdmin,
@@ -27,7 +30,22 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (levelError) return examBankJsonError("Unable to verify the level.", 500);
 
-    const validation = validateAdminClassPayload(body, level);
+    const academicYearId = String(
+      (body as Record<string, unknown>)?.academic_year_id || ""
+    ).trim();
+    const { data: academicYear, error: academicYearError } =
+      isValidClassId(academicYearId)
+        ? await supabaseAdmin
+            .from("academic_years")
+            .select("id")
+            .eq("id", academicYearId)
+            .maybeSingle()
+        : { data: null, error: null };
+    if (academicYearError) {
+      return examBankJsonError("Unable to verify the academic year.", 500);
+    }
+
+    const validation = validateAdminClassPayload(body, level, academicYear);
     if (validation.error || !validation.value) {
       return examBankJsonError(validation.error || "Invalid class details.", 422);
     }

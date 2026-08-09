@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
+import { getAcademicYears } from "../../../lib/academicYears";
+import {
+  classUsesAcademicYear,
+  type AcademicYear,
+} from "../../../lib/academicYearRules";
 import {
   createClass,
   getAdminClasses,
@@ -70,6 +75,7 @@ const youngLearnerLevelOrder = [
 
 const unassignedTeacherFilter = "__unassigned";
 const missingLevelFilter = "__missing_level";
+const unassignedAcademicYearFilter = "__unassigned_academic_year";
 const calendarSlotHeight = 22;
 
 const inputStyle = {
@@ -151,6 +157,18 @@ function cleanText(value: string | null | undefined, fallback = "-") {
   const text = String(value || "").trim();
 
   return text || fallback;
+}
+
+function formatCourseDate(value: string | null | undefined) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "Date not set";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Europe/Madrid",
+  }).format(new Date(`${normalized}T12:00:00Z`));
 }
 
 function getTimeParts(value: string | null | undefined) {
@@ -628,6 +646,7 @@ export default function AdminClassesPage() {
   const [levels, setLevels] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [studentCountsByClassId, setStudentCountsByClassId] = useState<
     Record<string, number>
   >({});
@@ -638,11 +657,13 @@ export default function AdminClassesPage() {
   const [levelsMessage, setLevelsMessage] = useState("");
   const [teachersMessage, setTeachersMessage] = useState("");
   const [classroomsMessage, setClassroomsMessage] = useState("");
+  const [academicYearsMessage, setAcademicYearsMessage] = useState("");
   const [classView, setClassView] = useState<ClassView>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [levelFilter, setLevelFilter] = useState("all");
   const [teacherFilter, setTeacherFilter] = useState("all");
   const [courseTypeFilter, setCourseTypeFilter] = useState("all");
+  const [academicYearFilter, setAcademicYearFilter] = useState("all");
 
   const [form, setForm] = useState({
     level_id: "",
@@ -656,6 +677,7 @@ export default function AdminClassesPage() {
     is_cambridge: true,
     start_date: "",
     end_date: "",
+    academic_year_id: "",
   });
 
   async function loadData() {
@@ -663,6 +685,7 @@ export default function AdminClassesPage() {
     setLevelsMessage("");
     setTeachersMessage("");
     setClassroomsMessage("");
+    setAcademicYearsMessage("");
 
     try {
       const classData = await getAdminClasses();
@@ -706,6 +729,28 @@ export default function AdminClassesPage() {
       console.error("Unable to load teachers:", error);
       setTeachers([]);
       setTeachersMessage("Unable to load teachers.");
+    }
+
+    try {
+      const academicYearData = await getAcademicYears();
+      setAcademicYears(academicYearData);
+
+      const currentYear = academicYearData.find(
+        (year) => year.status === "current"
+      );
+      if (!currentYear) {
+        setAcademicYearsMessage("No Current academic year is configured.");
+      } else if (!editingClassId) {
+        setForm((current) =>
+          current.academic_year_id
+            ? current
+            : { ...current, academic_year_id: currentYear.id }
+        );
+      }
+    } catch (error) {
+      console.error("Unable to load academic years:", error);
+      setAcademicYears([]);
+      setAcademicYearsMessage("Unable to load academic years.");
     }
 
     try {
@@ -827,6 +872,8 @@ export default function AdminClassesPage() {
       is_cambridge: true,
       start_date: "",
       end_date: "",
+      academic_year_id:
+        academicYears.find((year) => year.status === "current")?.id || "",
     });
   }
 
@@ -873,6 +920,7 @@ export default function AdminClassesPage() {
       meet_link: item.meet_link || "",
       start_date: item.start_date || "",
       end_date: item.end_date || "",
+      academic_year_id: item.academic_year_id || "",
       is_cambridge: isForcedSupport
         ? false
         : isForcedCambridge
@@ -997,9 +1045,17 @@ export default function AdminClassesPage() {
       !isForcedSupport &&
       (isForcedCambridge || form.is_cambridge) &&
       ["intensive", "express"].includes(savedCourseType);
+    const usesAcademicYear = classUsesAcademicYear(savedCourseType);
+
+    if (usesAcademicYear && !form.academic_year_id) {
+      setMessage("Please select an academic year.");
+      setSaving(false);
+      return;
+    }
+
     const courseDates = validateCoursePlanningDateRange({
-      startDate: form.start_date,
-      endDate: form.end_date,
+      startDate: usesAcademicYear ? null : form.start_date,
+      endDate: usesAcademicYear ? null : form.end_date,
       required: requiresCourseDates,
     });
 
@@ -1024,8 +1080,9 @@ export default function AdminClassesPage() {
         : isForcedCambridge
         ? true
         : form.is_cambridge,
-      start_date: courseDates.startDate,
-      end_date: courseDates.endDate,
+      start_date: usesAcademicYear ? null : courseDates.startDate,
+      end_date: usesAcademicYear ? null : courseDates.endDate,
+      academic_year_id: usesAcademicYear ? form.academic_year_id : null,
     };
 
     try {
@@ -1095,6 +1152,17 @@ export default function AdminClassesPage() {
       const canonicalDays = canonicalizeClassDays(item.days);
       const timeLabel = formatTimeRange(item.start_time, item.end_time);
       const isOnline = isOnlineCourse(item.course_type);
+      const usesAcademicYear = classUsesAcademicYear(courseType);
+      const academicYear = academicYears.find(
+        (year) => String(year.id) === String(item.academic_year_id || "")
+      );
+      const academicContextLabel = usesAcademicYear
+        ? academicYear?.label || "Academic year not assigned"
+        : item.start_date && item.end_date
+        ? `${formatCourseDate(item.start_date)} – ${formatCourseDate(
+            item.end_date
+          )}`
+        : "Course dates not set";
       const operationalGroup = getOperationalGroup(item, level);
       const studentCount = Number(studentCountsByClassId[classId] || 0);
       const searchableText = [
@@ -1106,6 +1174,7 @@ export default function AdminClassesPage() {
         classroomName,
         days,
         timeLabel,
+        academicContextLabel,
       ].join(" ");
 
       return {
@@ -1130,12 +1199,24 @@ export default function AdminClassesPage() {
         classroomName,
         operationalGroup,
         isOnline,
+        usesAcademicYear,
+        academicYearId: String(item.academic_year_id || ""),
+        academicYearLabel: academicYear?.label || "",
+        academicYearStatus: academicYear?.status || "",
+        academicContextLabel,
         meetLink: String(item.meet_link || "").trim(),
         studentCount,
         searchText: normalizeSearchValue(searchableText),
       };
     });
-  }, [classes, levels, teachers, classrooms, studentCountsByClassId]);
+  }, [
+    classes,
+    levels,
+    teachers,
+    classrooms,
+    academicYears,
+    studentCountsByClassId,
+  ]);
 
   function sortClassRows(rows: any[]) {
     return [...rows].sort((first, second) => {
@@ -1180,12 +1261,19 @@ export default function AdminClassesPage() {
           item.teacherId === teacherFilter;
         const matchesCourseType =
           courseTypeFilter === "all" || item.courseType === courseTypeFilter;
+        const matchesAcademicYear =
+          academicYearFilter === "all" ||
+          (academicYearFilter === unassignedAcademicYearFilter
+            ? item.usesAcademicYear && !item.academicYearId
+            : item.usesAcademicYear &&
+              item.academicYearId === academicYearFilter);
 
         return (
           matchesSearch &&
           matchesLevel &&
           matchesTeacher &&
-          matchesCourseType
+          matchesCourseType &&
+          matchesAcademicYear
         );
       })
     );
@@ -1195,6 +1283,7 @@ export default function AdminClassesPage() {
     levelFilter,
     teacherFilter,
     courseTypeFilter,
+    academicYearFilter,
   ]);
 
   const levelFilterOptions = useMemo(() => {
@@ -1531,6 +1620,7 @@ export default function AdminClassesPage() {
             <tr>
               <th>{firstColumnLabel}</th>
               <th>Course Type</th>
+              <th>Academic Year / Course Dates</th>
               {showDays && <th>Days</th>}
               {showTime && <th>Time</th>}
               {showTeacher && <th>Teacher</th>}
@@ -1546,6 +1636,17 @@ export default function AdminClassesPage() {
                 <td>
                   <span className={getCourseBadgeClass(item.courseType)}>
                     {item.courseTypeLabel}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    className={
+                      item.usesAcademicYear && !item.academicYearId
+                        ? "admin-classes-academic-context is-unassigned"
+                        : "admin-classes-academic-context"
+                    }
+                  >
+                    {item.academicContextLabel}
                   </span>
                 </td>
                 {showDays && <td>{item.days}</td>}
@@ -2005,6 +2106,9 @@ export default function AdminClassesPage() {
     !selectedFormIsSupport &&
     (selectedFormIsCambridge || form.is_cambridge) &&
     ["intensive", "express"].includes(form.course_type);
+  const selectedFormUsesAcademicYear = !selectedFormNeedsCourseDates;
+  const currentAcademicYear =
+    academicYears.find((year) => year.status === "current") || null;
   const selectedFormDays = parseClassDays(form.days);
   const startTimeOptions = getTimeSelectOptions(form.start_time);
   const endTimeOptions = getTimeSelectOptions(form.end_time);
@@ -2013,8 +2117,14 @@ export default function AdminClassesPage() {
     <AdminLayout>
       <div className="admin-classes-page">
         <div className="admin-classes-page-heading">
-          <h1>Classes / Groups</h1>
-          <p>Create and manage teaching groups.</p>
+          <div>
+            <h1>Classes / Groups</h1>
+            <p>Create and manage teaching groups.</p>
+          </div>
+          <div className="admin-classes-current-year">
+            <span>Current Academic Year</span>
+            <strong>{currentAcademicYear?.label || "Not set"}</strong>
+          </div>
         </div>
 
         {message && (
@@ -2156,6 +2266,37 @@ export default function AdminClassesPage() {
                   ))}
               </select>
             </div>
+
+            {selectedFormUsesAcademicYear && (
+              <div>
+                <label style={labelStyle}>Academic Year</label>
+                <select
+                  required
+                  style={inputStyle}
+                  value={form.academic_year_id}
+                  onChange={(event) =>
+                    updateForm("academic_year_id", event.target.value)
+                  }
+                >
+                  <option value="">Academic year not assigned</option>
+                  {academicYears.map((year) => (
+                    <option key={year.id} value={year.id}>
+                      {year.label}
+                      {year.status === "current"
+                        ? " (Current)"
+                        : year.status === "future"
+                        ? " (Future)"
+                        : " (Archived)"}
+                    </option>
+                  ))}
+                </select>
+                {academicYearsMessage && (
+                  <p className="admin-classes-field-error">
+                    {academicYearsMessage}
+                  </p>
+                )}
+              </div>
+            )}
 
             {selectedFormNeedsCourseDates && (
               <>
@@ -2403,6 +2544,25 @@ export default function AdminClassesPage() {
                     {option.label}
                   </option>
                 ))}
+              </select>
+            </label>
+
+            <label className="admin-classes-filter">
+              <span>Academic Year</span>
+              <select
+                value={academicYearFilter}
+                onChange={(event) => setAcademicYearFilter(event.target.value)}
+              >
+                <option value="all">All years and course dates</option>
+                {academicYears.map((year) => (
+                  <option key={year.id} value={year.id}>
+                    {year.label}
+                    {year.status === "current" ? " (Current)" : ""}
+                  </option>
+                ))}
+                <option value={unassignedAcademicYearFilter}>
+                  Academic year not assigned
+                </option>
               </select>
             </label>
           </div>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import TeacherLayout from "../../components/layout/TeacherLayout";
+import { getCurrentAcademicYear } from "../../../lib/academicYears";
 import { supabase } from "../../../lib/supabase";
 import { getTeacherClasses } from "../../../lib/teacher";
 
@@ -345,6 +346,7 @@ export default function MyClassesPage() {
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [view, setView] = useState<View>("today");
   const [search, setSearch] = useState("");
+  const [academicYearLabel, setAcademicYearLabel] = useState("");
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const madrid = getMadridParts(currentTime);
 
@@ -366,6 +368,8 @@ export default function MyClassesPage() {
 
       try {
         const teacherClasses = await getTeacherClasses(session.user.id);
+        const currentAcademicYear = await getCurrentAcademicYear();
+        setAcademicYearLabel(currentAcademicYear?.label || "");
         const classIds = teacherClasses.map((item) => item.id).filter(Boolean);
         const levelIds = Array.from(
           new Set(teacherClasses.map((item) => item.level_id).filter(Boolean))
@@ -615,6 +619,11 @@ export default function MyClassesPage() {
             <h1>My Classes</h1>
             <p>{madrid.dateLabel}</p>
             <small>Your teaching groups and schedules</small>
+            {academicYearLabel && (
+              <span className="teacher-my-classes-academic-year">
+                {academicYearLabel} Academic Year
+              </span>
+            )}
             <div className="teacher-my-classes-heading-stats" aria-label="Class statistics">
               <span>
                 <strong>{classes.length}</strong>

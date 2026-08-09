@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { resolveStudentCurrentClassServer } from "../../../../lib/academicYearsServer";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -40,23 +41,22 @@ export async function GET(request: NextRequest) {
     return jsonError("Student access required.", 403);
   }
 
-  const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-    .from("class_enrolments")
-    .select("class_id")
-    .eq("student_id", studentId)
-    .limit(2);
-  if (enrolmentError) {
-    logFailure("enrolment", enrolmentError);
+  let classResolution;
+  try {
+    classResolution = await resolveStudentCurrentClassServer(studentId);
+  } catch (error) {
+    logFailure("current-class", error);
     return jsonError("Unable to load class resources.", 500);
   }
-  if (!enrolments?.length) {
-    return NextResponse.json({ resources: [] }, { headers: { "Cache-Control": "no-store" } });
-  }
-  if (enrolments.length > 1) {
-    return jsonError("More than one class enrolment was found.", 409);
+
+  if (classResolution.error || !classResolution.classroom) {
+    return jsonError(
+      classResolution.error || "No current class is available.",
+      classResolution.error?.startsWith("More than one") ? 409 : 404
+    );
   }
 
-  const classId = String(enrolments[0].class_id || "");
+  const classId = String(classResolution.classroom.id || "");
   if (!classId) return jsonError("Unable to load class resources.", 500);
 
   const { data: resources, error: resourceError } = await supabaseAdmin

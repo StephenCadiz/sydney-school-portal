@@ -311,6 +311,7 @@ export default function AdminLayout({
       label: "People & Classes",
       items: [
         { name: "Classes", href: "/admin/classes", icon: "school" as AdminNavIconName },
+        { name: "Academic Years", href: "/admin/academic-years", icon: "calendar" as AdminNavIconName },
         { name: "Students", href: "/admin/students", icon: "graduation" as AdminNavIconName },
         { name: "Teachers", href: "/admin/teachers", icon: "users" as AdminNavIconName },
         { name: "Admin Staff", href: "/admin/admin-staff", icon: "users" as AdminNavIconName },

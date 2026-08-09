@@ -1,4 +1,9 @@
 import { supabase } from "./supabase";
+import { getCurrentAcademicYear } from "./academicYears";
+import {
+  NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE,
+  resolveCurrentStudentClass,
+} from "./academicYearRules";
 
 export async function getCurrentUser() {
   const {
@@ -27,23 +32,18 @@ export async function getCurrentStudentClass() {
   }
 
   if (!enrolments || enrolments.length === 0) {
-    throw new Error(
-      `No class enrolment found for student id: ${user.id}`
-    );
+    throw new Error(NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE);
   }
 
-  if (enrolments.length > 1) {
-    throw new Error(
-      `More than one class enrolment found for student id: ${user.id}`
-    );
-  }
+  const classIds = Array.from(
+    new Set(enrolments.map((enrolment) => String(enrolment.class_id || "")))
+  ).filter(Boolean);
 
-  const enrolment = enrolments[0];
-
-  const { data: classes, error: classError } = await supabase
-    .from("classes")
-    .select("*")
-    .eq("id", enrolment.class_id);
+  const [{ data: classes, error: classError }, currentAcademicYear] =
+    await Promise.all([
+      supabase.from("classes").select("*").in("id", classIds),
+      getCurrentAcademicYear(),
+    ]);
 
   if (classError) {
     throw new Error(
@@ -52,20 +52,20 @@ export async function getCurrentStudentClass() {
   }
 
   if (!classes || classes.length === 0) {
+    throw new Error(NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE);
+  }
+
+  const resolution = resolveCurrentStudentClass(
+    classes,
+    currentAcademicYear?.id
+  );
+  if (resolution.error || !resolution.classroom) {
     throw new Error(
-      `No class found for class id: ${enrolment.class_id}`
+      resolution.error || NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE
     );
   }
 
-  if (classes.length > 1) {
-    throw new Error(
-      `More than one class found for class id: ${enrolment.class_id}`
-    );
-  }
-
-  const classroom = classes[0];
-
-  return classroom;
+  return resolution.classroom;
 }
 
 export async function getCurrentStudentCourseInfo() {

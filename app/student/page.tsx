@@ -16,6 +16,7 @@ import {
 import { supabase } from "../../lib/supabase";
 import StudentAnnouncementBanner from "../components/student/StudentAnnouncementBanner";
 import StudentFridayTutorialReminder from "../components/student/StudentFridayTutorialReminder";
+import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../lib/academicYearRules";
 
 function formatCourseType(courseType: string) {
   if (!courseType) return "-";
@@ -69,7 +70,7 @@ export default function StudentDashboard() {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function loadDashboard() {
@@ -149,7 +150,12 @@ export default function StudentDashboard() {
         setUnreadMessageCount(unreadMessages.length);
       } catch (error) {
         console.error("Unable to load student dashboard:", error);
-        setError(true);
+        setError(
+          error instanceof Error &&
+            error.message === NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE
+            ? NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE
+            : "Unable to load all dashboard information."
+        );
       } finally {
         setLoading(false);
       }
@@ -244,7 +250,7 @@ export default function StudentDashboard() {
               fontWeight: 600,
             }}
           >
-            Unable to load all dashboard information.
+            {error}
           </section>
         )}
 

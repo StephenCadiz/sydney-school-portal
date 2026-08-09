@@ -1,4 +1,9 @@
 import { supabase } from "./supabase";
+import { getCurrentAcademicYear } from "./academicYears";
+import {
+  classUsesAcademicYear,
+  resolveCurrentStudentClass,
+} from "./academicYearRules";
 
 const cambridgeLevelNames = ["B1", "B2", "C1", "C2"];
 
@@ -248,6 +253,9 @@ async function getDirectoryClassLookup() {
       days: classroom.days || "",
       start_time: classroom.start_time || "",
       end_time: classroom.end_time || "",
+      academic_year_id: classroom.academic_year_id || null,
+      start_date: classroom.start_date || null,
+      end_date: classroom.end_date || null,
       teacher_name: teacherName || "No teacher assigned",
       classroom_name: getClassroomDisplayName(classroom, assignedClassroom),
       is_online: isOnlineClass(classroom),
@@ -308,8 +316,9 @@ export async function getStudents() {
 
   const { data: enrolments, error: enrolmentsError } = await supabase
     .from("class_enrolments")
-    .select("student_id, class_id")
-    .in("student_id", studentIds);
+    .select("student_id, class_id, enrolled_at")
+    .in("student_id", studentIds)
+    .order("enrolled_at", { ascending: false });
 
   if (enrolmentsError) {
     console.error("getStudentEnrolments Supabase error:", enrolmentsError);
@@ -343,13 +352,21 @@ export async function getStudents() {
     throw classroomsError;
   }
 
+  const currentAcademicYear = await getCurrentAcademicYear();
+
   return students.map((student) => {
-    const enrolment = (enrolments || []).find(
-      (item) => item.student_id === student.id
+    const enrolledClassIds = new Set(
+      (enrolments || [])
+        .filter((item) => item.student_id === student.id)
+        .map((item) => String(item.class_id || ""))
     );
-    const classroom = (classes || []).find(
-      (item) => item.id === enrolment?.class_id
+    const resolution = resolveCurrentStudentClass(
+      (classes || []).filter((item) => enrolledClassIds.has(String(item.id))),
+      currentAcademicYear?.id
     );
+    const classroom =
+      resolution.classroom ||
+      (classes || []).find((item) => enrolledClassIds.has(String(item.id)));
     const level = (levels || []).find(
       (item) => item.id === classroom?.level_id
     );
@@ -359,7 +376,7 @@ export async function getStudents() {
 
     return {
       ...student,
-      class_id: enrolment?.class_id || "",
+      class_id: classroom?.id || "",
       class_label: getClassLabel(classroom, level, assignedClassroom),
       level_name: level?.name || "Unknown Level",
       is_cambridge: classroom?.is_cambridge === true,
@@ -390,8 +407,9 @@ export async function getAdminCambridgeStudentDirectory(): Promise<
 
   const { data: enrolments, error: enrolmentsError } = await supabase
     .from("class_enrolments")
-    .select("student_id, class_id")
-    .in("student_id", studentIds);
+    .select("student_id, class_id, enrolled_at")
+    .in("student_id", studentIds)
+    .order("enrolled_at", { ascending: false });
 
   if (enrolmentsError) {
     console.error(
@@ -402,21 +420,32 @@ export async function getAdminCambridgeStudentDirectory(): Promise<
   }
 
   const classLookup = await getDirectoryClassLookup();
-  const enrolmentByStudentId = new Map<string, any>();
+  const currentAcademicYear = await getCurrentAcademicYear();
+  const enrolmentsByStudentId = new Map<string, any[]>();
 
   for (const enrolment of enrolments || []) {
     const studentId = String(enrolment.student_id || "");
 
-    if (studentId && !enrolmentByStudentId.has(studentId)) {
-      enrolmentByStudentId.set(studentId, enrolment);
+    if (studentId) {
+      enrolmentsByStudentId.set(studentId, [
+        ...(enrolmentsByStudentId.get(studentId) || []),
+        enrolment,
+      ]);
     }
   }
 
   const rows: AdminCambridgeStudentDirectoryRow[] = [];
 
   for (const student of students) {
-    const enrolment = enrolmentByStudentId.get(String(student.id));
-    const classroom = classLookup.get(String(enrolment?.class_id || ""));
+    const enrolledClasses = (
+      enrolmentsByStudentId.get(String(student.id)) || []
+    ).flatMap((enrolment) => {
+      const classroom = classLookup.get(String(enrolment.class_id || ""));
+      return classroom ? [classroom] : [];
+    });
+    const classroom =
+      resolveCurrentStudentClass(enrolledClasses, currentAcademicYear?.id)
+        .classroom || enrolledClasses[0];
 
     if (
       !classroom ||
@@ -523,6 +552,24 @@ export async function updateStudentClass(
   studentId: string,
   classId: string
 ) {
+  const { data: targetClass, error: targetClassError } = await supabase
+    .from("classes")
+    .select("id, course_type, academic_year_id")
+    .eq("id", classId)
+    .maybeSingle();
+
+  if (targetClassError || !targetClass) {
+    console.error("updateStudentClass target class error:", targetClassError);
+    throw new Error("The selected class is not available.");
+  }
+
+  const targetUsesAcademicYear = classUsesAcademicYear(targetClass.course_type);
+  if (targetUsesAcademicYear && !targetClass.academic_year_id) {
+    throw new Error(
+      "Assign an academic year to this class before enrolling a student."
+    );
+  }
+
   const { data: enrolments, error: enrolmentsError } = await supabase
     .from("class_enrolments")
     .select("student_id, class_id")
@@ -533,27 +580,61 @@ export async function updateStudentClass(
     throw enrolmentsError;
   }
 
-  if (enrolments && enrolments.length > 0) {
-    const currentClassId = String(enrolments[0]?.class_id || "");
+  if (
+    (enrolments || []).some(
+      (enrolment) => String(enrolment.class_id || "") === String(classId)
+    )
+  ) {
+    return;
+  }
 
-    if (currentClassId === String(classId || "")) {
+  if (targetUsesAcademicYear && enrolments?.length) {
+    const existingClassIds = enrolments
+      .map((enrolment) => String(enrolment.class_id || ""))
+      .filter(Boolean);
+    const { data: enrolledClasses, error: enrolledClassesError } = await supabase
+      .from("classes")
+      .select("id, course_type, academic_year_id")
+      .in("id", existingClassIds);
+
+    if (enrolledClassesError) {
+      console.error(
+        "updateStudentClass existing class lookup error:",
+        enrolledClassesError
+      );
+      throw enrolledClassesError;
+    }
+
+    const sameYearClasses = (enrolledClasses || []).filter(
+      (classroom) =>
+        classUsesAcademicYear(classroom.course_type) &&
+        String(classroom.academic_year_id || "") ===
+          String(targetClass.academic_year_id)
+    );
+
+    if (sameYearClasses.length > 1) {
+      throw new Error(
+        "This student has more than one enrolment in the selected academic year."
+      );
+    }
+
+    if (sameYearClasses.length === 1) {
+      const { error } = await supabase
+        .from("class_enrolments")
+        .update({
+          class_id: classId,
+          enrolled_at: getMadridDateString(),
+        })
+        .eq("student_id", studentId)
+        .eq("class_id", sameYearClasses[0].id);
+
+      if (error) {
+        console.error("updateStudentClass same-year update error:", error);
+        throw error;
+      }
+
       return;
     }
-
-    const { error } = await supabase
-      .from("class_enrolments")
-      .update({
-        class_id: classId,
-        enrolled_at: getMadridDateString(),
-      })
-      .eq("student_id", studentId);
-
-    if (error) {
-      console.error("updateStudentClass update error:", error);
-      throw error;
-    }
-
-    return;
   }
 
   const { error } = await supabase

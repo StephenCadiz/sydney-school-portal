@@ -10,6 +10,8 @@ import { getTeachers } from "../../lib/adminTeachers";
 import { getUnreviewedFollowUpsForAdmin } from "../../lib/followUps";
 import { getUpcomingTeacherCalendarEvents } from "../../lib/teacherCalendar";
 import { supabase } from "../../lib/supabase";
+import { getCurrentAcademicYear } from "../../lib/academicYears";
+import { resolveCurrentStudentClass } from "../../lib/academicYearRules";
 
 type IconName =
   | "classes"
@@ -245,7 +247,8 @@ function buildStudentOverview(
   enrolments: any[],
   youngLearnersData: any[],
   classes: any[],
-  levels: any[]
+  levels: any[],
+  currentAcademicYearId: string
 ) {
   const cambridgeLevels = ["B1", "B2", "C1", "C2"];
   const studentIds = new Set(studentProfiles.map((student) => student.id));
@@ -261,17 +264,30 @@ function buildStudentOverview(
   let cambridgeStudents = 0;
   let youngLearners = 0;
 
+  const enrolmentsByStudent = new Map<string, any[]>();
   for (const enrolment of enrolments) {
-    if (!studentIds.has(enrolment.student_id)) continue;
-    if (countedStudentIds.has(enrolment.student_id)) continue;
+    const studentId = String(enrolment.student_id || "");
+    if (!studentIds.has(studentId)) continue;
+    enrolmentsByStudent.set(studentId, [
+      ...(enrolmentsByStudent.get(studentId) || []),
+      enrolment,
+    ]);
+  }
 
-    const classroom = classes.find(
-      (item) => item.id === enrolment.class_id
-    );
+  for (const [studentId, studentEnrolments] of enrolmentsByStudent) {
+    if (countedStudentIds.has(studentId)) continue;
+
+    const enrolledClasses = studentEnrolments.flatMap((enrolment) => {
+      const classroom = classes.find((item) => item.id === enrolment.class_id);
+      return classroom ? [classroom] : [];
+    });
+    const classroom =
+      resolveCurrentStudentClass(enrolledClasses, currentAcademicYearId)
+        .classroom || enrolledClasses[0];
 
     if (!classroom) continue;
 
-    countedStudentIds.add(enrolment.student_id);
+    countedStudentIds.add(studentId);
 
     const level = levels.find((item) => item.id === classroom.level_id);
     const levelName = level?.name || "Level not set";
@@ -407,13 +423,14 @@ export default function AdminDashboard() {
       }
 
       try {
-        const [classes, teachers, studentProfiles] = await Promise.all([
+        const [classes, teachers, studentProfiles, currentAcademicYear] = await Promise.all([
           getAdminClasses(),
           getTeachers(),
           supabase
             .from("profiles")
             .select("id")
             .eq("role", "student"),
+          getCurrentAcademicYear(),
         ]);
 
         if (studentProfiles.error) {
@@ -456,7 +473,8 @@ export default function AdminDashboard() {
           enrolmentsResult.data || [],
           youngLearnersResult.data || [],
           classes,
-          levelsResult.data || []
+          levelsResult.data || [],
+          currentAcademicYear?.id || ""
         );
 
         setOverview({

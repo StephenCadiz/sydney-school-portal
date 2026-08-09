@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import StudentMenu from "../StudentMenu";
 import { getStudentRelevantAnnouncements } from "../../../lib/announcements";
 import { getCurrentStudentCourseInfo } from "../../../lib/user";
+import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../../lib/academicYearRules";
 
 function formatDate(value?: string | null) {
   if (!value) return "";
@@ -20,7 +21,7 @@ export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function loadAnnouncements() {
@@ -34,7 +35,12 @@ export default function AnnouncementsPage() {
         setAnnouncements(data);
       } catch (error) {
         console.error(error);
-        setError(true);
+        setError(
+          error instanceof Error &&
+            error.message === NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE
+            ? NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE
+            : "Unable to load announcements."
+        );
       } finally {
         setLoading(false);
       }
@@ -96,7 +102,7 @@ export default function AnnouncementsPage() {
 
           {!loading && error && (
             <div className="student-announcements-state is-error">
-              Unable to load announcements.
+              {error}
             </div>
           )}
 

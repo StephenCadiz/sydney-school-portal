@@ -4,6 +4,8 @@ import {
   type FridayTutorialProgressSummary,
 } from "./fridayTutorialResults";
 import { isTeensUnitExamLevel } from "./unitExamResults";
+import { getCurrentAcademicYear } from "./academicYears";
+import { resolveCurrentStudentClass } from "./academicYearRules";
 
 function formatSupabaseError(action: string, error: any) {
   return [
@@ -754,21 +756,34 @@ export async function getStudentInformation(
     throw new Error(formatSupabaseError("Cambridge student load", error));
   }
 
-  const { data: enrolment, error: enrolmentError } = await supabase
+  const { data: enrolments, error: enrolmentError } = await supabase
     .from("class_enrolments")
-    .select("student_id, class_id")
+    .select("student_id, class_id, enrolled_at")
     .eq("student_id", student.id)
-    .maybeSingle();
+    .order("enrolled_at", { ascending: false });
 
   if (enrolmentError) {
     throw new Error(formatSupabaseError("Cambridge enrolment load", enrolmentError));
   }
 
-  const reference = await getReferenceData([enrolment?.class_id || ""]);
+  const classIds = (enrolments || []).map((enrolment) =>
+    String(enrolment.class_id || "")
+  );
+  const [reference, currentAcademicYear] = await Promise.all([
+    getReferenceData(classIds),
+    getCurrentAcademicYear(),
+  ]);
+  const selectedClass =
+    resolveCurrentStudentClass(reference.classes, currentAcademicYear?.id)
+      .classroom ||
+    reference.classes.find(
+      (classroom: any) =>
+        String(classroom.id) === String(classIds.find(Boolean) || "")
+    );
   const base = buildStudentResult(
     {
       ...student,
-      class_id: enrolment?.class_id || "",
+      class_id: selectedClass?.id || "",
     },
     "cambridge",
     reference
