@@ -4,6 +4,11 @@ import {
   isTeensUnitExamLevel,
   isUnitExamLevel,
 } from "../../../../../../lib/unitExamResults";
+import {
+  resolveCurrentStudentClass,
+  resolveStudentAcademicYearContext,
+} from "../../../../../../lib/academicYearRules";
+import { getCurrentAcademicYearServer } from "../../../../../../lib/academicYearsServer";
 import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
 
 const UUID_PATTERN =
@@ -179,8 +184,12 @@ export async function GET(
     if (access.response || !access.context) return access.response;
     const { studentId, classId, classRow, level, learner } = access.context;
 
-    const [classroomResult, teacherResult, notesResult, resultsResult, followUpsResult, examsResult] =
+    const [currentAcademicYear, academicYearResult, classroomResult, teacherResult, notesResult, resultsResult, followUpsResult, examsResult] =
       await Promise.all([
+        getCurrentAcademicYearServer(),
+        classRow.academic_year_id
+          ? supabaseAdmin.from("academic_years").select("id, label").eq("id", classRow.academic_year_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
         classRow.classroom_id
           ? supabaseAdmin.from("classrooms").select("id, name").eq("id", classRow.classroom_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
@@ -193,11 +202,21 @@ export async function GET(
         supabaseAdmin.from("class_exam_materials").select("id, level_id, exam_unit_number, active, created_at, updated_at").eq("level_id", level.id).eq("active", true).order("exam_unit_number", { ascending: true }),
       ]);
 
-    const failed = [classroomResult, teacherResult, notesResult, resultsResult, followUpsResult, examsResult].find((result) => result.error);
+    const failed = [academicYearResult, classroomResult, teacherResult, notesResult, resultsResult, followUpsResult, examsResult].find((result) => result.error);
     if (failed?.error) {
       logWorkspaceError("workspace-data", failed.error);
       return jsonError("Unable to load the Young Learner workspace.", 500);
     }
+
+    const currentClass = resolveCurrentStudentClass(
+      [classRow],
+      currentAcademicYear?.id
+    ).classroom;
+    const academicYearContext = resolveStudentAcademicYearContext(
+      currentClass,
+      [classRow],
+      academicYearResult.data?.label
+    );
 
     const profiles = await loadProfiles((notesResult.data || []).map((note) => note.created_by).filter(Boolean));
     const notes = (notesResult.data || []).map((note) => ({
@@ -224,7 +243,7 @@ export async function GET(
         end_time: classRow.end_time || null,
         classroom: classroomResult.data?.name || null,
         teacher: getName(teacherResult.data, "Teacher not assigned"),
-        academic_year: classRow.academic_year || classRow.school_year || null,
+        ...academicYearContext,
       },
       notes,
       eligible_unit_exams: examsResult.data || [],

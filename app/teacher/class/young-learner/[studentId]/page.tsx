@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import TeacherLayout from "../../../../components/layout/TeacherLayout";
 import StudentFollowUpPanelSection from "../../StudentFollowUpPanelSection";
+import { getStudentAcademicYearDisplayValue } from "../../../../../lib/academicYearRules";
 import { supabase } from "../../../../../lib/supabase";
 
 type WorkspaceTab = "information" | "notes" | "unit-results" | "follow-up" | "progress";
@@ -121,6 +122,7 @@ export default function YoungLearnerStudentWorkspacePage() {
   ]
     .filter(Boolean)
     .join(" · ");
+  const academicYear = getStudentAcademicYearDisplayValue(workspace?.class);
 
   const editingNote = useMemo(
     () => workspace?.notes?.find((note: any) => note.id === editingNoteId) || null,
@@ -306,7 +308,7 @@ export default function YoungLearnerStudentWorkspacePage() {
                   ["Full name", studentName], ["Level", workspace.class.level], ["Class", workspace.class.name],
                   ["Teacher", workspace.class.teacher], ["Class schedule", schedule || "Not recorded"],
                   ["Classroom", workspace.class.classroom || "Not recorded"],
-                  ["Academic year", workspace.class.academic_year || "Not recorded"],
+                  ["Current Academic Year", academicYear],
                   ["Status", workspace.student.active ? "Active" : "Inactive"],
                 ].map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong></article>)}
               </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import AdminStudentsTabs from "../../components/admin/AdminStudentsTabs";
+import { getStudentAcademicYearDisplayValue } from "../../../lib/academicYearRules";
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import {
   formatAverage,
@@ -1579,7 +1580,21 @@ type StudentDetailSection =
   | "unit-exams"
   | "follow-up";
 
+function getCurrentAcademicYearDisplay(student: any) {
+  return {
+    text: getStudentAcademicYearDisplayValue(student),
+    color:
+      student?.academic_year_state === "unassigned"
+        ? "#8a5a00"
+        : student?.academic_year_state === "assigned"
+          ? "#111827"
+          : "#667085",
+  };
+}
+
 function StudentOverview({ student }: { student: any }) {
+  const academicYear = getCurrentAcademicYearDisplay(student);
+
   return (
     <section
       style={{
@@ -1605,6 +1620,12 @@ function StudentOverview({ student }: { student: any }) {
           <div>
             <strong>Class</strong>
             <p>{student.class_label || "Class not found"}</p>
+          </div>
+          <div>
+            <strong>Current Academic Year</strong>
+            <p style={{ color: academicYear.color, fontWeight: 600 }}>
+              {academicYear.text}
+            </p>
           </div>
           <div>
             <strong>Teacher</strong>

@@ -20,6 +20,17 @@ export type AcademicYearClass = {
   [key: string]: unknown;
 };
 
+export type StudentAcademicYearState =
+  | "assigned"
+  | "unassigned"
+  | "no_current_assignment"
+  | "not_applicable";
+
+export type StudentAcademicYearContext = {
+  academic_year_label: string | null;
+  academic_year_state: StudentAcademicYearState;
+};
+
 export const NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE =
   "No current academic-year class has been assigned yet.";
 
@@ -31,6 +42,70 @@ export function normalizeAcademicCourseType(value: unknown) {
 
 export function classUsesAcademicYear(courseType: unknown) {
   return !DATE_BASED_COURSE_TYPES.has(normalizeAcademicCourseType(courseType));
+}
+
+export function resolveStudentAcademicYearContext<
+  T extends AcademicYearClass,
+>(
+  currentClass: T | null,
+  assignedClasses: T[],
+  academicYearLabel: unknown
+): StudentAcademicYearContext {
+  if (currentClass && !classUsesAcademicYear(currentClass.course_type)) {
+    return {
+      academic_year_label: null,
+      academic_year_state: "not_applicable",
+    };
+  }
+
+  if (currentClass) {
+    const academicYearId = String(currentClass.academic_year_id || "").trim();
+    const normalizedLabel = String(academicYearLabel || "").trim();
+
+    return academicYearId && normalizedLabel
+      ? {
+          academic_year_label: normalizedLabel,
+          academic_year_state: "assigned",
+        }
+      : {
+          academic_year_label: null,
+          academic_year_state: "unassigned",
+        };
+  }
+
+  const hasUnassignedAnnualClass = assignedClasses.some(
+    (classroom) =>
+      classUsesAcademicYear(classroom.course_type) &&
+      !String(classroom.academic_year_id || "").trim()
+  );
+
+  return hasUnassignedAnnualClass
+    ? {
+        academic_year_label: null,
+        academic_year_state: "unassigned",
+      }
+    : {
+        academic_year_label: null,
+        academic_year_state: "no_current_assignment",
+      };
+}
+
+export function getStudentAcademicYearDisplayValue(
+  context: Partial<StudentAcademicYearContext> | null | undefined
+) {
+  switch (context?.academic_year_state) {
+    case "assigned":
+      return (
+        String(context.academic_year_label || "").trim() ||
+        "Academic year not assigned"
+      );
+    case "not_applicable":
+      return "Not applicable — date-based course";
+    case "unassigned":
+      return "Academic year not assigned";
+    default:
+      return "No current academic year assignment";
+  }
 }
 
 export function getMadridDateString(date = new Date()) {

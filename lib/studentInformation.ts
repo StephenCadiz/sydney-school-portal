@@ -5,7 +5,12 @@ import {
 } from "./fridayTutorialResults";
 import { isTeensUnitExamLevel } from "./unitExamResults";
 import { getCurrentAcademicYear } from "./academicYears";
-import { resolveCurrentStudentClass } from "./academicYearRules";
+import {
+  classUsesAcademicYear,
+  resolveCurrentStudentClass,
+  resolveStudentAcademicYearContext,
+  type StudentAcademicYearContext,
+} from "./academicYearRules";
 
 function formatSupabaseError(action: string, error: any) {
   return [
@@ -126,6 +131,37 @@ function getClassLabel(classRow: any, level: any, classroom: any) {
 
 function getTeacherName(teacher: any) {
   return getFullName(teacher) || "No teacher assigned";
+}
+
+async function getStudentAcademicYearContext(
+  currentClass: any | null,
+  assignedClasses: any[]
+): Promise<StudentAcademicYearContext> {
+  const academicYearId =
+    currentClass && classUsesAcademicYear(currentClass.course_type)
+      ? String(currentClass.academic_year_id || "").trim()
+      : "";
+  let academicYearLabel: string | null = null;
+
+  if (academicYearId) {
+    const { data, error } = await supabase
+      .from("academic_years")
+      .select("id, label")
+      .eq("id", academicYearId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(formatSupabaseError("academic year load", error));
+    }
+
+    academicYearLabel = String(data?.label || "").trim() || null;
+  }
+
+  return resolveStudentAcademicYearContext(
+    currentClass,
+    assignedClasses,
+    academicYearLabel
+  );
 }
 
 const cambridgeLevelOrder = ["B1", "B2", "C1", "C2"];
@@ -731,11 +767,23 @@ export async function getStudentInformation(
       throw new Error(formatSupabaseError("Young Learner load", error));
     }
 
-    const reference = await getReferenceData([student.class_id]);
+    const [reference, currentAcademicYear] = await Promise.all([
+      getReferenceData([student.class_id]),
+      getCurrentAcademicYear(),
+    ]);
     const base = buildStudentResult(student, "young_learner", reference);
+    const currentClass = resolveCurrentStudentClass(
+      reference.classes,
+      currentAcademicYear?.id
+    ).classroom;
+    const academicYearContext = await getStudentAcademicYearContext(
+      currentClass,
+      reference.classes
+    );
 
     return {
       ...base,
+      ...academicYearContext,
       course_type: getCourseTypeLabel(base.course_type),
       results_summary: await getYoungLearnerUnitExamSummary(
         student.id,
@@ -773,9 +821,12 @@ export async function getStudentInformation(
     getReferenceData(classIds),
     getCurrentAcademicYear(),
   ]);
+  const currentClass = resolveCurrentStudentClass(
+    reference.classes,
+    currentAcademicYear?.id
+  ).classroom;
   const selectedClass =
-    resolveCurrentStudentClass(reference.classes, currentAcademicYear?.id)
-      .classroom ||
+    currentClass ||
     reference.classes.find(
       (classroom: any) =>
         String(classroom.id) === String(classIds.find(Boolean) || "")
@@ -788,9 +839,14 @@ export async function getStudentInformation(
     "cambridge",
     reference
   );
+  const academicYearContext = await getStudentAcademicYearContext(
+    currentClass,
+    reference.classes
+  );
 
   return {
     ...base,
+    ...academicYearContext,
     course_type: getCourseTypeLabel(base.course_type),
     results_summary: await getCambridgeStudentResultsSummary(student.id),
     follow_ups: await getFollowUpsForStudent("cambridge", student.id),
