@@ -24,6 +24,8 @@ export type HomeworkSourceResult = {
   id?: string | null;
   class_id?: string | null;
   student_id?: string | null;
+  cambridge_exam_assignment_id?: string | null;
+  exam_number?: number | string | null;
   title?: string | null;
   skill?: string | null;
   percentage?: number | string | null;
@@ -157,8 +159,26 @@ export function getCambridgeTarget(level: unknown) {
 }
 
 export function getHomeworkWeek(result: HomeworkSourceResult) {
-  const match = /week\s+(\d+)/i.exec(String(result.title || ""));
-  return match ? Number(match[1]) : null;
+  const title = String(result.title || "");
+  const weekMatch = /week\s+(\d+)/i.exec(title);
+
+  if (weekMatch) return Number(weekMatch[1]);
+
+  const titleExamMatch = /exam\s+(\d+)/i.exec(title);
+  const examNumber = Number(result.exam_number || titleExamMatch?.[1]);
+  const skill = normalizeHomeworkSkill(result.skill);
+  const skillOffset =
+    skill === "reading"
+      ? 1
+      : skill === "listening"
+        ? 2
+        : skill === "writing"
+          ? 3
+          : null;
+
+  return Number.isInteger(examNumber) && examNumber > 0 && skillOffset
+    ? (examNumber - 1) * 3 + skillOffset
+    : null;
 }
 
 function getResultTime(result: HomeworkSourceResult) {
@@ -201,6 +221,9 @@ export function deduplicateHomeworkResults(
   for (const result of results) {
     const classId = String(result.class_id || "");
     const studentId = String(result.student_id || "");
+    const assignmentId = String(
+      result.cambridge_exam_assignment_id || ""
+    );
     const week = getHomeworkWeek(result);
     const skill = normalizeHomeworkSkill(result.skill);
     const percentage = toTeacherResultNumber(result.percentage);
@@ -208,15 +231,17 @@ export function deduplicateHomeworkResults(
     if (
       !classId ||
       !studentId ||
-      !week ||
       !skill ||
       percentage === null ||
-      !enrolledStudentIdsByClass.get(classId)?.has(studentId)
+      !enrolledStudentIdsByClass.get(classId)?.has(studentId) ||
+      (!assignmentId && !week)
     ) {
       continue;
     }
 
-    const key = `${classId}:${studentId}:${week}:${skill}`;
+    const key = assignmentId
+      ? `${classId}:${studentId}:assignment:${assignmentId}`
+      : `${classId}:${studentId}:week:${week}:${skill}`;
     const existing = newestByKey.get(key);
 
     if (
@@ -268,8 +293,9 @@ export function buildHomeworkAnalytics(
     const skill = normalizeHomeworkSkill(result.skill);
     const week = getHomeworkWeek(result);
 
-    if (!skill || !week) continue;
+    if (!skill) continue;
     skillGroups.set(skill, [...(skillGroups.get(skill) || []), result]);
+    if (!week) continue;
     weekGroups.set(`${week}:${skill}`, [
       ...(weekGroups.get(`${week}:${skill}`) || []),
       result,

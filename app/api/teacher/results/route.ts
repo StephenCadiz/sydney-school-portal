@@ -158,9 +158,9 @@ function uniqueRosterCount(rosters: Map<string, Set<string>>) {
 }
 
 const resultSelectColumns =
-  "id, class_id, student_id, result_type, title, skill, percentage, mock_number, reading, writing, listening, speaking, overall, published_at, updated_at, created_at";
+  "id, class_id, student_id, result_type, title, skill, percentage, cambridge_exam_assignment_id, mock_number, reading, writing, listening, speaking, overall, published_at, updated_at, created_at";
 const resultSelectColumnsWithoutTimestamps =
-  "id, class_id, student_id, result_type, title, skill, percentage, mock_number, reading, writing, listening, speaking, overall, published_at";
+  "id, class_id, student_id, result_type, title, skill, percentage, cambridge_exam_assignment_id, mock_number, reading, writing, listening, speaking, overall, published_at";
 
 function isMissingResultTimestampColumn(error: any) {
   const message = String(error?.message || "").toLowerCase();
@@ -171,6 +171,56 @@ function isMissingResultTimestampColumn(error: any) {
       message.includes("column updated_at") ||
       message.includes("column created_at"))
   );
+}
+
+function oneRelation(value: any) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+async function enrichHomeworkAssignmentMetadata(rows: any[]) {
+  const assignmentIds = Array.from(
+    new Set(
+      rows
+        .map((row) => String(row.cambridge_exam_assignment_id || ""))
+        .filter(Boolean)
+    )
+  );
+
+  if (assignmentIds.length === 0) return rows;
+
+  const { data, error } = await supabaseAdmin
+    .from("cambridge_exam_assignments")
+    .select(`
+      id,
+      part:cambridge_exam_parts!cambridge_exam_assignments_exam_part_id_fkey (
+        part_type,
+        exam:cambridge_exam_sets!cambridge_exam_parts_exam_set_id_fkey (
+          exam_number
+        )
+      )
+    `)
+    .in("id", assignmentIds);
+
+  if (error) throw error;
+
+  const metadataByAssignmentId = new Map(
+    (data || []).map((assignment: any) => [String(assignment.id), assignment])
+  );
+
+  return rows.map((row) => {
+    const assignmentId = String(row.cambridge_exam_assignment_id || "");
+    const assignment = metadataByAssignmentId.get(assignmentId) as any;
+    const part = oneRelation(assignment?.part);
+    const exam = oneRelation(part?.exam);
+
+    return assignment
+      ? {
+          ...row,
+          skill: part?.part_type || row.skill,
+          exam_number: exam?.exam_number ?? null,
+        }
+      : row;
+  });
 }
 
 async function buildCambridgeResponse(classes: TeacherResultClassOption[], view: "class" | "level") {
@@ -197,8 +247,11 @@ async function buildCambridgeResponse(classes: TeacherResultClassOption[], view:
 
   if (resultError) throw resultError;
 
+  const homeworkRows = await enrichHomeworkAssignmentMetadata(
+    (resultRows || []).filter((row) => row.result_type === "homework")
+  );
   const deduplicated = deduplicateHomeworkResults(
-    (resultRows || []).filter((row) => row.result_type === "homework") as HomeworkSourceResult[],
+    homeworkRows as HomeworkSourceResult[],
     rosters
   );
   const mockResults = deduplicateMockResults(
