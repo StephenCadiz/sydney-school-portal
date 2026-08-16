@@ -3,6 +3,11 @@ import {
   fridayTutorialCambridgeLevels,
   normalizeCambridgeLevel,
 } from "./fridayTutorialResults";
+import {
+  getFridayTutorialSessionTypeForDate,
+  getFridayTutorialSettings,
+  isB1FridayTutorialSession,
+} from "./fridayTutorials";
 
 const allowedLevels = [...fridayTutorialCambridgeLevels];
 
@@ -245,7 +250,11 @@ function getTeacherName(profile: any) {
 
 async function enrichFridayAt6Duties(duties: any[]) {
   const teacherIds = Array.from(
-    new Set(duties.map((duty) => duty.teacher_id).filter(Boolean))
+    new Set(
+      duties
+        .flatMap((duty) => [duty.teacher_id, duty.b1_teacher_id])
+        .filter(Boolean)
+    )
   );
 
   const { data: teachers, error: teachersError } =
@@ -264,17 +273,24 @@ async function enrichFridayAt6Duties(duties: any[]) {
     const teacher = (teachers || []).find(
       (profile) => profile.id === duty.teacher_id
     );
+    const b1Teacher = (teachers || []).find(
+      (profile) => profile.id === duty.b1_teacher_id
+    );
 
     return {
       ...duty,
       teacher_name: getTeacherName(teacher),
+      b1_teacher_name: duty.b1_teacher_id
+        ? getTeacherName(b1Teacher)
+        : "Not assigned",
     };
   });
 }
 
-function validateFridayAt6DutyPayload(payload: any) {
+async function validateFridayAt6DutyPayload(payload: any) {
   const sessionDate = String(payload.session_date || "").trim();
   const teacherId = String(payload.teacher_id || "").trim();
+  const requestedB1TeacherId = String(payload.b1_teacher_id || "").trim();
 
   if (!sessionDate) {
     throw new Error("Please choose a duty date.");
@@ -284,9 +300,26 @@ function validateFridayAt6DutyPayload(payload: any) {
     throw new Error("Please choose a teacher.");
   }
 
+  const settings = await getFridayTutorialSettings();
+  const sessionType = getFridayTutorialSessionTypeForDate(
+    settings,
+    sessionDate
+  );
+
+  if (!sessionType) {
+    throw new Error("Choose a Friday from the current Friday Tutorial rotation.");
+  }
+
+  if (isB1FridayTutorialSession(sessionType) && !requestedB1TeacherId) {
+    throw new Error("Please choose the B1 Tutorial Duty teacher.");
+  }
+
   return {
     session_date: sessionDate,
     teacher_id: teacherId,
+    b1_teacher_id: isB1FridayTutorialSession(sessionType)
+      ? requestedB1TeacherId
+      : null,
     note: payload.note ? String(payload.note).trim() : null,
     active: payload.active ?? true,
   };
@@ -327,7 +360,7 @@ export async function getFridayAt6Duties() {
 export async function getFridayAt6DutyForDate(date: string) {
   const { data, error } = await supabase
     .from("friday_at_6_duties")
-    .select("id, session_date, teacher_id, note, active")
+    .select("id, session_date, teacher_id, b1_teacher_id, note, active")
     .eq("session_date", date)
     .eq("active", true)
     .maybeSingle();
@@ -342,11 +375,27 @@ export async function getFridayAt6DutyForDate(date: string) {
 
   const [duty] = await enrichFridayAt6Duties([data]);
 
-  return duty || null;
+  let tutorialGroup = null;
+  try {
+    const settings = await getFridayTutorialSettings();
+    tutorialGroup = getFridayTutorialSessionTypeForDate(settings, date);
+  } catch (settingsError) {
+    console.error(
+      "Unable to resolve Friday Tutorial rotation for duty:",
+      settingsError
+    );
+  }
+
+  return duty
+    ? {
+        ...duty,
+        tutorial_group: tutorialGroup,
+      }
+    : null;
 }
 
 export async function saveFridayAt6Duty(payload: any) {
-  const dutyPayload = validateFridayAt6DutyPayload(payload);
+  const dutyPayload = await validateFridayAt6DutyPayload(payload);
 
   const { data: existingDuty, error: existingError } = await supabase
     .from("friday_at_6_duties")
@@ -373,7 +422,7 @@ export async function saveFridayAt6Duty(payload: any) {
 }
 
 export async function updateFridayAt6Duty(id: string, updates: any) {
-  const dutyPayload = validateFridayAt6DutyPayload(updates);
+  const dutyPayload = await validateFridayAt6DutyPayload(updates);
 
   await ensureNoDuplicateFridayAt6DutyDate(dutyPayload.session_date, id);
 

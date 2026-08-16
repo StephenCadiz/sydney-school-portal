@@ -111,20 +111,38 @@ export default function FridayTutorialAttendanceCard() {
 
   if (!attendance) return null;
 
+  const dutyLabel = Array.isArray(attendance.duty_labels)
+    ? attendance.duty_labels.join(" + ")
+    : attendance.tutorial_group_label;
+  const responsibilityLevels = Array.isArray(attendance.responsibility_levels)
+    ? attendance.responsibility_levels
+    : [];
+
   return (
     <section className="teacher-dashboard-section teacher-dashboard-attendance">
       <div className="teacher-dashboard-section-title teacher-dashboard-attendance-header">
         <div>
           <h2>Friday Tutorial Attendance</h2>
           <p>{formatFriday(attendance.session_date)} · {attendance.start_time}–{attendance.end_time}</p>
+          {responsibilityLevels.length > 0 && (
+            <p className="teacher-dashboard-attendance-levels">
+              {responsibilityLevels.join(" · ")}
+            </p>
+          )}
         </div>
-        <span className="teacher-dashboard-attendance-group">{attendance.tutorial_group_label}</span>
+        <span className="teacher-dashboard-attendance-group">{dutyLabel}</span>
       </div>
+
+      {attendance.note && (
+        <p className="teacher-dashboard-attendance-note">
+          <strong>Note:</strong> {attendance.note}
+        </p>
+      )}
 
       {!attendance.open ? (
         <p className="teacher-dashboard-attendance-state">Friday Tutorial attendance opens at 18:00.</p>
       ) : attendance.students.length === 0 ? (
-        <p className="teacher-dashboard-attendance-state">No Kids 2–Teens 1 students are on today&apos;s Friday Tutorial list.</p>
+        <p className="teacher-dashboard-attendance-state">No students are on today&apos;s assigned Friday Tutorial list.</p>
       ) : (
         <>
           {message && <div className="teacher-dashboard-attendance-success" role="status"><span aria-hidden="true">✓</span>{message}</div>}

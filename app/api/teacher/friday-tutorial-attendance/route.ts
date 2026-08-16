@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  FRIDAY_AT_6_DUTY_LABELS,
+  type FridayTutorialSessionType,
+  getFridayAt6DutyTypesForTeacher,
+  getFridayAt6ResponsibilityLevelLabels,
+  getFridayAt6ResponsibilityLevels,
+  getFridayTutorialSessionTypeForDate,
+  getTutorialGroupLabel,
+} from "../../../../lib/fridayTutorials";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
-
-const ELIGIBLE_LEVELS = new Set([
-  "KIDS 2",
-  "JUNIOR 1",
-  "JUNIOR 2",
-  "JUNIOR 3",
-  "JUNIOR 4",
-  "TEENS 1",
-]);
-
-const GROUP_LABELS: Record<string, string> = {
-  kids2_junior3: "Kids 2 - Junior 3",
-  junior4_teens_b1: "Junior 4 - Teens + B1 Training",
-};
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -58,23 +53,6 @@ function getMadridNow(date = new Date()) {
   };
 }
 
-function getExpectedGroup(settings: any, date: string) {
-  const firstDate = String(settings?.first_friday_date || "");
-  const firstGroup = String(settings?.first_session_type || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(firstDate) || !GROUP_LABELS[firstGroup]) return null;
-  const difference = Math.round(
-    (Date.parse(`${date}T00:00:00Z`) - Date.parse(`${firstDate}T00:00:00Z`)) /
-      86_400_000
-  );
-  if (difference < 0 || difference % 7 !== 0) return null;
-  const week = difference / 7;
-  return week % 2 === 0
-    ? firstGroup
-    : firstGroup === "kids2_junior3"
-      ? "junior4_teens_b1"
-      : "kids2_junior3";
-}
-
 async function requireAssignedTeacher(request: NextRequest) {
   const authorization = request.headers.get("authorization");
   const token = authorization?.startsWith("Bearer ")
@@ -112,9 +90,8 @@ async function getAttendanceContext(request: NextRequest) {
 
   const { data: duty, error: dutyError } = await supabaseAdmin
     .from("friday_at_6_duties")
-    .select("id, session_date, teacher_id, note, active")
+    .select("id, session_date, teacher_id, b1_teacher_id, note, active")
     .eq("session_date", now.date)
-    .eq("teacher_id", actor.actorId)
     .eq("active", true)
     .maybeSingle();
   if (dutyError) {
@@ -134,10 +111,26 @@ async function getAttendanceContext(request: NextRequest) {
     logAttendanceError("settings", settingsError);
     return { response: jsonError("Unable to load Friday Tutorial attendance.", 500), context: null };
   }
-  const expectedGroup = getExpectedGroup(settings, now.date);
+  const expectedGroup = getFridayTutorialSessionTypeForDate(
+    settings,
+    now.date
+  );
   if (!expectedGroup) {
     return { response: jsonError("Friday Tutorial attendance not found.", 404), context: null };
   }
+
+  const dutyTypes = getFridayAt6DutyTypesForTeacher(
+    duty,
+    actor.actorId,
+    expectedGroup
+  );
+  if (dutyTypes.length === 0) {
+    return { response: jsonError("Friday Tutorial attendance not found.", 404), context: null };
+  }
+
+  const allowedLevels = new Set(
+    getFridayAt6ResponsibilityLevels(expectedGroup, dutyTypes)
+  );
 
   return {
     response: null,
@@ -145,6 +138,8 @@ async function getAttendanceContext(request: NextRequest) {
       actorId: actor.actorId,
       now,
       duty,
+      dutyTypes,
+      allowedLevels,
       expectedGroup,
       open: now.minutes >= 18 * 60,
     },
@@ -210,7 +205,11 @@ async function loadEligibleRows(context: any) {
     const classRow: any = classMap.get(student?.class_id);
     const level: any = levelMap.get(classRow?.level_id);
     const levelName = normalizeLevel(level?.name);
-    if (!student || student.tutorial_group !== context.expectedGroup || !ELIGIBLE_LEVELS.has(levelName)) return [];
+    if (
+      !student ||
+      student.tutorial_group !== context.expectedGroup ||
+      !context.allowedLevels.has(levelName)
+    ) return [];
     const identity = student.profile_student_id
       ? profileMap.get(student.profile_student_id)
       : learnerMap.get(student.young_learner_id);
@@ -235,7 +234,19 @@ export async function GET(request: NextRequest) {
       attendance: {
         session_date: access.context.now.date,
         tutorial_group: access.context.expectedGroup,
-        tutorial_group_label: GROUP_LABELS[access.context.expectedGroup],
+        tutorial_group_label: getTutorialGroupLabel(
+          access.context.expectedGroup
+        ),
+        duty_types: access.context.dutyTypes,
+        duty_labels: access.context.dutyTypes.map(
+          (dutyType: keyof typeof FRIDAY_AT_6_DUTY_LABELS) =>
+            FRIDAY_AT_6_DUTY_LABELS[dutyType]
+        ),
+        responsibility_levels: getFridayAt6ResponsibilityLevelLabels(
+          access.context.expectedGroup as FridayTutorialSessionType,
+          access.context.dutyTypes
+        ),
+        note: access.context.duty.note || null,
         start_time: loaded.session?.start_time || "18:00",
         end_time: loaded.session?.end_time || "19:00",
         open: access.context.open,

@@ -16,6 +16,7 @@ import { supabase } from "../../lib/supabase";
 import {
   getFridayAt6DutyForDate,
 } from "../../lib/fridayExamPractice";
+import { getFridayAt6DutyTypesForTeacher } from "../../lib/fridayTutorials";
 
 const tools = [
   {
@@ -180,8 +181,21 @@ export default function TeacherPage() {
           );
         }
 
+        const dutyTypes = getFridayAt6DutyTypesForTeacher(
+          duty,
+          session.user.id,
+          duty?.tutorial_group
+        );
+
         setFridayExamPracticeSessions(noticeResult.notices || []);
-        setFridayAt6Duty(duty?.teacher_id === session.user.id ? duty : null);
+        setFridayAt6Duty(
+          dutyTypes.length > 0
+            ? {
+                ...duty,
+                duty_types: dutyTypes,
+              }
+            : null
+        );
       } catch (error) {
         console.error("Unable to load Friday @ 6 dashboard items:", error);
         setFridayExamPracticeSessions([]);

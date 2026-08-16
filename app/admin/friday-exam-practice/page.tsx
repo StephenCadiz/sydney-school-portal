@@ -20,6 +20,14 @@ import {
   updateFridayAt6Duty,
   updateFridayExamPracticeSession,
 } from "../../../lib/fridayExamPractice";
+import {
+  FRIDAY_AT_6_DUTY_LABELS,
+  FRIDAY_AT_6_DUTY_TYPES,
+  getFridayTutorialSessionTypeForDate,
+  getFridayTutorialSettings,
+  getTutorialGroupLabel,
+  isB1FridayTutorialSession,
+} from "../../../lib/fridayTutorials";
 import { supabase } from "../../../lib/supabase";
 
 const levelOptions = ["B1", "B2", "C1", "C2"];
@@ -79,6 +87,7 @@ function emptyDutyForm() {
   return {
     session_date: "",
     teacher_id: "",
+    b1_teacher_id: "",
     note: "",
     active: true,
   };
@@ -135,6 +144,7 @@ export default function FridayAt6Page() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [duties, setDuties] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [tutorialSettings, setTutorialSettings] = useState<any | null>(null);
   const [examForm, setExamForm] = useState(emptyExamForm());
   const [dutyForm, setDutyForm] = useState(emptyDutyForm());
   const [editingExamId, setEditingExamId] = useState("");
@@ -158,21 +168,28 @@ export default function FridayAt6Page() {
   const orderedSessionDates = Object.keys(groupedSessions).sort((first, second) =>
     first.localeCompare(second)
   );
+  const dutySessionType = getFridayTutorialSessionTypeForDate(
+    tutorialSettings,
+    dutyForm.session_date
+  );
+  const b1DutyRequired = isB1FridayTutorialSession(dutySessionType);
 
   async function loadPageData() {
     setLoading(true);
     setMessage("");
 
     try {
-      const [sessionData, dutyData, teacherData] = await Promise.all([
+      const [sessionData, dutyData, teacherData, settingsData] = await Promise.all([
         getFridayExamPracticeSessions(),
         getFridayAt6Duties(),
         getTeachers(),
+        getFridayTutorialSettings(),
       ]);
 
       setSessions(sessionData);
       setDuties(dutyData);
       setTeachers(teacherData);
+      setTutorialSettings(settingsData);
     } catch (error: any) {
       console.error(error);
       setMessage(error?.message || "Unable to load Friday @ 6 planning data.");
@@ -262,10 +279,23 @@ export default function FridayAt6Page() {
   }
 
   function updateDutyForm(field: string, value: any) {
-    setDutyForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setDutyForm((current) => {
+      const next = {
+        ...current,
+        [field]: value,
+      };
+
+      if (
+        field === "session_date" &&
+        !isB1FridayTutorialSession(
+          getFridayTutorialSessionTypeForDate(tutorialSettings, value)
+        )
+      ) {
+        next.b1_teacher_id = "";
+      }
+
+      return next;
+    });
   }
 
   function resetExamForm() {
@@ -305,6 +335,7 @@ export default function FridayAt6Page() {
     setDutyForm({
       session_date: item.session_date || "",
       teacher_id: item.teacher_id || "",
+      b1_teacher_id: item.b1_teacher_id || "",
       note: item.note || "",
       active: item.active !== false,
     });
@@ -341,19 +372,34 @@ export default function FridayAt6Page() {
     setMessage("");
 
     try {
+      if (!dutySessionType) {
+        throw new Error(
+          "Choose a Friday from the current Friday Tutorial rotation."
+        );
+      }
+
+      if (b1DutyRequired && !dutyForm.b1_teacher_id) {
+        throw new Error("Please choose the B1 Tutorial Duty teacher.");
+      }
+
+      const dutyPayload = {
+        ...dutyForm,
+        b1_teacher_id: b1DutyRequired ? dutyForm.b1_teacher_id : null,
+      };
+
       if (editingDutyId) {
-        await updateFridayAt6Duty(editingDutyId, dutyForm);
-        setMessage("General tutorial duty updated.");
+        await updateFridayAt6Duty(editingDutyId, dutyPayload);
+        setMessage("Friday @ 6 duties updated.");
       } else {
-        await saveFridayAt6Duty(dutyForm);
-        setMessage("General tutorial duty saved.");
+        await saveFridayAt6Duty(dutyPayload);
+        setMessage("Friday @ 6 duties saved.");
       }
 
       resetDutyForm();
       await loadPageData();
     } catch (error: any) {
       console.error(error);
-      setMessage(error?.message || "Unable to save general tutorial duty.");
+      setMessage(error?.message || "Unable to save Friday @ 6 duties.");
     } finally {
       setSavingDuty(false);
     }
@@ -411,17 +457,17 @@ export default function FridayAt6Page() {
   }
 
   async function removeDuty(id: string) {
-    if (!confirm("Delete this general tutorial duty?")) return;
+    if (!confirm("Delete the tutorial duty assignments for this Friday?")) return;
 
     setMessage("");
 
     try {
       await deleteFridayAt6Duty(id);
-      setMessage("General tutorial duty deleted.");
+      setMessage("Friday @ 6 duties deleted.");
       await loadPageData();
     } catch (error: any) {
       console.error(error);
-      setMessage(error?.message || "Unable to delete general tutorial duty.");
+      setMessage(error?.message || "Unable to delete Friday @ 6 duties.");
     }
   }
 
@@ -433,8 +479,8 @@ export default function FridayAt6Page() {
             Friday @ 6
           </h1>
           <p style={{ color: "#4b5563", margin: 0 }}>
-            Plan Friday 18:00-19:00 exam practice activities and general
-            tutorial duty.
+            Plan Friday 18:00-19:00 exam practice activities and tutorial
+            duties.
           </p>
         </header>
 
@@ -504,10 +550,10 @@ export default function FridayAt6Page() {
           style={{ ...cardStyle, marginBottom: "26px" }}
         >
           <header className="friday-weekly-panel-header friday-six-general-header">
-            <h2>General Tutorial Duty</h2>
+            <h2>Tutorial Duties</h2>
             <p>
-              Choose the teacher responsible for the general tutorial on each
-              Friday.
+              Assign General Tutorial Duty and, on Junior 4, Teens 1 and B1
+              Fridays, a separate B1 Tutorial Duty teacher.
             </p>
           </header>
 
@@ -527,26 +573,87 @@ export default function FridayAt6Page() {
               />
             </label>
 
-            <label>
-              <span>Teacher</span>
-              <select
-                value={dutyForm.teacher_id}
-                onChange={(event) =>
-                  updateDutyForm("teacher_id", event.target.value)
-                }
-                required
-              >
-                <option value="">Select teacher</option>
-                {teachers.map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>
-                    {getTeacherName(teacher)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="friday-six-duty-rotation" aria-live="polite">
+              <span>Session rotation</span>
+              <strong>
+                {dutySessionType
+                  ? getTutorialGroupLabel(dutySessionType)
+                  : dutyForm.session_date
+                    ? "Not in the current rotation"
+                    : "Choose a Friday date"}
+              </strong>
+            </div>
 
-            <label>
-              <span>Note</span>
+            <div className="friday-six-duty-assignments">
+              <label className="friday-six-duty-assignment">
+                <span>
+                  {FRIDAY_AT_6_DUTY_LABELS[FRIDAY_AT_6_DUTY_TYPES.GENERAL]}
+                </span>
+                <select
+                  value={dutyForm.teacher_id}
+                  onChange={(event) =>
+                    updateDutyForm("teacher_id", event.target.value)
+                  }
+                  required
+                >
+                  <option value="">Select teacher</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {getTeacherName(teacher)}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  {dutySessionType
+                    ? b1DutyRequired
+                      ? "Responsible for Junior 4 and Teens 1."
+                      : "Responsible for Kids 2 and Junior 1-3."
+                    : "Select a rotation Friday first."}
+                </small>
+              </label>
+
+              <label
+                className={`friday-six-duty-assignment ${
+                  dutySessionType && !b1DutyRequired ? "is-not-required" : ""
+                }`}
+              >
+                <span>
+                  {FRIDAY_AT_6_DUTY_LABELS[FRIDAY_AT_6_DUTY_TYPES.B1]}
+                </span>
+                {b1DutyRequired ? (
+                  <select
+                    value={dutyForm.b1_teacher_id}
+                    onChange={(event) =>
+                      updateDutyForm("b1_teacher_id", event.target.value)
+                    }
+                    required
+                  >
+                    <option value="">Select teacher</option>
+                    {teachers.map((teacher) => (
+                      <option key={teacher.id} value={teacher.id}>
+                        {getTeacherName(teacher)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="friday-six-duty-not-required">
+                    {dutySessionType
+                      ? "Not required this Friday"
+                      : "Select a rotation Friday first"}
+                  </span>
+                )}
+                <small>
+                  {b1DutyRequired
+                    ? "Responsible only for B1 students."
+                    : dutySessionType
+                      ? "B1 returns on the alternate Friday rotation."
+                      : "Select a rotation Friday first."}
+                </small>
+              </label>
+            </div>
+
+            <label className="friday-six-duty-note">
+              <span>Duty note</span>
               <input
                 value={dutyForm.note}
                 onChange={(event) => updateDutyForm("note", event.target.value)}
@@ -571,7 +678,7 @@ export default function FridayAt6Page() {
                 disabled={savingDuty}
                 className="friday-six-general-primary"
               >
-                {savingDuty ? "Saving..." : "Save Duty"}
+                {savingDuty ? "Saving..." : "Save Duties"}
               </button>
               {editingDutyId && (
                 <button
@@ -589,14 +696,16 @@ export default function FridayAt6Page() {
             <p className="friday-six-general-empty">Loading duties...</p>
           ) : duties.length === 0 ? (
             <p className="friday-six-general-empty">
-              No general tutorial duties have been planned yet.
+              No Friday @ 6 duties have been planned yet.
             </p>
           ) : (
             <div className="friday-weekly-table-scroll friday-six-general-register-scroll">
               <table className="friday-weekly-table friday-six-general-register">
                 <colgroup>
                   <col className="is-date" />
+                  <col className="is-rotation" />
                   <col className="is-teacher" />
+                  <col className="is-b1-teacher" />
                   <col className="is-note" />
                   <col className="is-time" />
                   <col className="is-status" />
@@ -605,7 +714,9 @@ export default function FridayAt6Page() {
                 <thead>
                   <tr>
                     <th>Date</th>
-                    <th>Assigned Teacher</th>
+                    <th>Session Group</th>
+                    <th>General Duty</th>
+                    <th>B1 Duty</th>
                     <th>Note</th>
                     <th>Time</th>
                     <th>Status</th>
@@ -613,43 +724,63 @@ export default function FridayAt6Page() {
                   </tr>
                 </thead>
                 <tbody>
-                  {duties.map((duty) => (
-                    <tr key={duty.id}>
-                      <td>{formatDate(duty.session_date)}</td>
-                      <td className="friday-six-general-teacher">
-                        {duty.teacher_name}
-                      </td>
-                      <td>{duty.note || "—"}</td>
-                      <td className="friday-six-general-time">18:00-19:00</td>
-                      <td>
-                        <span
-                          className={`friday-six-general-status ${
-                            duty.active ? "is-active" : "is-inactive"
-                          }`}
-                        >
-                          {duty.active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="friday-six-general-row-actions">
-                          <button
-                            type="button"
-                            onClick={() => editDuty(duty)}
-                            className="friday-six-general-edit"
+                  {duties.map((duty) => {
+                    const sessionType = getFridayTutorialSessionTypeForDate(
+                      tutorialSettings,
+                      duty.session_date
+                    );
+                    const requiresB1Duty = isB1FridayTutorialSession(sessionType);
+
+                    return (
+                      <tr key={duty.id}>
+                        <td>{formatDate(duty.session_date)}</td>
+                        <td>{
+                          sessionType
+                            ? getTutorialGroupLabel(sessionType)
+                            : "Rotation unavailable"
+                        }</td>
+                        <td className="friday-six-general-teacher">
+                          {duty.teacher_name}
+                        </td>
+                        <td className="friday-six-general-teacher">
+                          {!sessionType
+                            ? "Rotation unavailable"
+                            : requiresB1Duty
+                              ? duty.b1_teacher_name
+                              : "Not required"}
+                        </td>
+                        <td>{duty.note || "—"}</td>
+                        <td className="friday-six-general-time">18:00-19:00</td>
+                        <td>
+                          <span
+                            className={`friday-six-general-status ${
+                              duty.active ? "is-active" : "is-inactive"
+                            }`}
                           >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeDuty(duty.id)}
-                            className="friday-six-general-delete"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {duty.active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="friday-six-general-row-actions">
+                            <button
+                              type="button"
+                              onClick={() => editDuty(duty)}
+                              className="friday-six-general-edit"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeDuty(duty.id)}
+                              className="friday-six-general-delete"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -1,8 +1,53 @@
 import { supabase } from "./supabase";
 
-const sessionLabels: Record<string, string> = {
+export const FRIDAY_TUTORIAL_SESSION_TYPES = {
+  KIDS_2_TO_JUNIOR_3: "kids2_junior3",
+  JUNIOR_4_TEENS_1_B1: "junior4_teens_b1",
+} as const;
+
+export type FridayTutorialSessionType =
+  (typeof FRIDAY_TUTORIAL_SESSION_TYPES)[keyof typeof FRIDAY_TUTORIAL_SESSION_TYPES];
+
+export const FRIDAY_AT_6_DUTY_TYPES = {
+  GENERAL: "general",
+  B1: "b1",
+} as const;
+
+export type FridayAt6DutyType =
+  (typeof FRIDAY_AT_6_DUTY_TYPES)[keyof typeof FRIDAY_AT_6_DUTY_TYPES];
+
+export const FRIDAY_AT_6_DUTY_LABELS: Record<FridayAt6DutyType, string> = {
+  general: "General Tutorial Duty",
+  b1: "B1 Tutorial Duty",
+};
+
+const sessionLabels: Record<FridayTutorialSessionType, string> = {
   kids2_junior3: "Kids 2 - Junior 3",
   junior4_teens_b1: "Junior 4 - Teens + B1 Training",
+};
+
+const responsibilityLevels: Record<
+  FridayTutorialSessionType,
+  Record<FridayAt6DutyType, readonly string[]>
+> = {
+  kids2_junior3: {
+    general: ["KIDS 2", "JUNIOR 1", "JUNIOR 2", "JUNIOR 3"],
+    b1: [],
+  },
+  junior4_teens_b1: {
+    general: ["JUNIOR 4", "TEENS 1"],
+    b1: ["B1"],
+  },
+};
+
+const responsibilityLevelLabels: Record<string, string> = {
+  "KIDS 2": "Kids 2",
+  "JUNIOR 1": "Junior 1",
+  "JUNIOR 2": "Junior 2",
+  "JUNIOR 3": "Junior 3",
+  "JUNIOR 4": "Junior 4",
+  "TEENS 1": "Teens 1",
+  B1: "B1",
 };
 
 const registerStatusValues = ["choose", "yes", "no"];
@@ -37,10 +82,105 @@ function addDaysToDateOnly(dateValue: string, days: number) {
   ].join("-");
 }
 
-function getNextSessionType(sessionType: string) {
-  return sessionType === "kids2_junior3"
-    ? "junior4_teens_b1"
-    : "kids2_junior3";
+export function getNextFridayTutorialSessionType(
+  sessionType: FridayTutorialSessionType
+): FridayTutorialSessionType {
+  return sessionType === FRIDAY_TUTORIAL_SESSION_TYPES.KIDS_2_TO_JUNIOR_3
+    ? FRIDAY_TUTORIAL_SESSION_TYPES.JUNIOR_4_TEENS_1_B1
+    : FRIDAY_TUTORIAL_SESSION_TYPES.KIDS_2_TO_JUNIOR_3;
+}
+
+function getDateOnlyUtcTime(value: unknown) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "").trim());
+
+  if (!match) {
+    return null;
+  }
+
+  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+export function getFridayTutorialSessionTypeForDate(
+  settings: any,
+  sessionDate: string
+): FridayTutorialSessionType | null {
+  const firstSessionTypeValue = String(settings?.first_session_type || "");
+  const firstDateTime = getDateOnlyUtcTime(settings?.first_friday_date);
+  const sessionDateTime = getDateOnlyUtcTime(sessionDate);
+
+  if (
+    firstDateTime === null ||
+    sessionDateTime === null ||
+    !Object.prototype.hasOwnProperty.call(sessionLabels, firstSessionTypeValue)
+  ) {
+    return null;
+  }
+
+  const firstSessionType = firstSessionTypeValue as FridayTutorialSessionType;
+
+  const differenceInDays =
+    (sessionDateTime - firstDateTime) / (24 * 60 * 60 * 1000);
+
+  if (differenceInDays < 0 || differenceInDays % 7 !== 0) {
+    return null;
+  }
+
+  return (differenceInDays / 7) % 2 === 0
+    ? firstSessionType
+    : getNextFridayTutorialSessionType(firstSessionType);
+}
+
+export function isB1FridayTutorialSession(
+  sessionType: string | null | undefined
+) {
+  return sessionType === FRIDAY_TUTORIAL_SESSION_TYPES.JUNIOR_4_TEENS_1_B1;
+}
+
+export function getFridayAt6DutyTypesForTeacher(
+  duty: any,
+  teacherId: string,
+  sessionType: string | null | undefined
+): FridayAt6DutyType[] {
+  if (!duty || duty.active === false || !teacherId) {
+    return [];
+  }
+
+  const dutyTypes: FridayAt6DutyType[] = [];
+
+  if (duty.teacher_id === teacherId) {
+    dutyTypes.push(FRIDAY_AT_6_DUTY_TYPES.GENERAL);
+  }
+
+  if (
+    isB1FridayTutorialSession(sessionType) &&
+    duty.b1_teacher_id === teacherId
+  ) {
+    dutyTypes.push(FRIDAY_AT_6_DUTY_TYPES.B1);
+  }
+
+  return dutyTypes;
+}
+
+export function getFridayAt6ResponsibilityLevels(
+  sessionType: FridayTutorialSessionType,
+  dutyTypes: FridayAt6DutyType[]
+) {
+  return Array.from(
+    new Set(
+      dutyTypes.flatMap(
+        (dutyType) => responsibilityLevels[sessionType]?.[dutyType] || []
+      )
+    )
+  );
+}
+
+export function getFridayAt6ResponsibilityLevelLabels(
+  sessionType: FridayTutorialSessionType,
+  dutyTypes: FridayAt6DutyType[]
+) {
+  return getFridayAt6ResponsibilityLevels(sessionType, dutyTypes).map(
+    (level) => responsibilityLevelLabels[level] || level
+  );
 }
 
 function getProfileName(profile: any) {
@@ -177,7 +317,8 @@ export function isFridayTutorialSessionRemovable(session: any, now = new Date())
 }
 
 export function getTutorialGroupLabel(group: string | null | undefined) {
-  return sessionLabels[String(group || "")] || group || "-";
+  const sessionType = String(group || "") as FridayTutorialSessionType;
+  return sessionLabels[sessionType] || group || "-";
 }
 
 export type FridayTutorialStatusValue =
@@ -208,7 +349,9 @@ export function getTutorialGroupForLevel(
   const normalizedLevel = normalizeLevelName(levelName);
 
   if (studentType === "cambridge") {
-    return normalizedLevel === "B1" ? "junior4_teens_b1" : null;
+    return normalizedLevel === "B1"
+      ? FRIDAY_TUTORIAL_SESSION_TYPES.JUNIOR_4_TEENS_1_B1
+      : null;
   }
 
   if (
@@ -216,11 +359,11 @@ export function getTutorialGroupForLevel(
       normalizedLevel
     )
   ) {
-    return "kids2_junior3";
+    return FRIDAY_TUTORIAL_SESSION_TYPES.KIDS_2_TO_JUNIOR_3;
   }
 
   if (["JUNIOR 4", "TEENS 1"].includes(normalizedLevel)) {
-    return "junior4_teens_b1";
+    return FRIDAY_TUTORIAL_SESSION_TYPES.JUNIOR_4_TEENS_1_B1;
   }
 
   return null;
@@ -352,16 +495,22 @@ export function calculateUpcomingFridayTutorials(
   settings: any,
   count: number
 ) {
-  if (!settings?.first_friday_date || !settings?.first_session_type) {
+  if (
+    !settings?.first_friday_date ||
+    !getFridayTutorialSessionTypeForDate(
+      settings,
+      settings.first_friday_date
+    )
+  ) {
     return [];
   }
 
   return Array.from({ length: count }, (_, index) => {
-    const sessionType =
-      index % 2 === 0
-        ? settings.first_session_type
-        : getNextSessionType(settings.first_session_type);
     const sessionDate = addDaysToDateOnly(settings.first_friday_date, index * 7);
+    const sessionType = getFridayTutorialSessionTypeForDate(
+      settings,
+      sessionDate
+    ) as FridayTutorialSessionType;
     const sessionLabel = getTutorialGroupLabel(sessionType);
 
     return {
@@ -676,7 +825,7 @@ export async function getFridayTutorialStudents() {
       level_name: level?.name || "Unknown level",
       teacher_name: getProfileName(teacher) || "No teacher assigned",
       tutorial_group_label:
-        sessionLabels[item.tutorial_group] || item.tutorial_group || "-",
+        getTutorialGroupLabel(item.tutorial_group),
     };
   });
 }
