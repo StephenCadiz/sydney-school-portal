@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  getCambridgeStudentResourcesForLevel,
   getOfficialTeacherResourcesForLevel,
   type TeacherResource,
 } from "../../../lib/teacherResources";
@@ -45,6 +46,7 @@ export default function OfficialResourcesTab({
   levelName,
 }: OfficialResourcesTabProps) {
   const [resources, setResources] = useState<TeacherResource[]>([]);
+  const [studentResources, setStudentResources] = useState<TeacherResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
@@ -55,6 +57,7 @@ export default function OfficialResourcesTab({
     async function loadResources() {
       if (!levelId) {
         setResources([]);
+        setStudentResources([]);
         setLoading(false);
         return;
       }
@@ -64,15 +67,28 @@ export default function OfficialResourcesTab({
 
       try {
         const data = await getOfficialTeacherResourcesForLevel(levelId);
+        let applicableStudentResources: TeacherResource[] = [];
+
+        try {
+          applicableStudentResources =
+            await getCambridgeStudentResourcesForLevel(levelId);
+        } catch (studentResourceError) {
+          console.error(
+            "Cambridge Student Resources load failed:",
+            studentResourceError
+          );
+        }
 
         if (active) {
           setResources(data);
+          setStudentResources(applicableStudentResources);
         }
       } catch (loadError) {
         console.error("Official Resources load failed:", loadError);
 
         if (active) {
           setResources([]);
+          setStudentResources([]);
           setError("Resources could not be loaded. Please try again.");
         }
       } finally {
@@ -129,6 +145,29 @@ export default function OfficialResourcesTab({
             <TeacherResourceCard key={resource.id} resource={resource} />
           ))}
         </div>
+      )}
+
+      {studentResources.length > 0 && (
+        <section style={{ display: "grid", gap: "14px" }}>
+          <div style={{ display: "grid", gap: "6px" }}>
+            <h3
+              style={{
+                margin: 0,
+                color: "var(--ss-blue-dark, #1f3c88)",
+                fontSize: "20px",
+              }}
+            >
+              Sydney School Student Resources
+              {levelName ? ` - ${levelName}` : ""}
+            </h3>
+            <p style={{ margin: 0, color: "#667085", lineHeight: 1.5 }}>
+              Read-only resources available to every student at this level.
+            </p>
+          </div>
+          {studentResources.map((resource) => (
+            <TeacherResourceCard key={resource.id} resource={resource} />
+          ))}
+        </section>
       )}
 
       <CambridgeExamLibrary classId={classId} />

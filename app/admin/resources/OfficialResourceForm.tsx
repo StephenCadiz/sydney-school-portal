@@ -2,7 +2,10 @@
 
 import { useRef, useState } from "react";
 
-import { createOfficialTeacherResource } from "../../../lib/teacherResources";
+import {
+  createCambridgeStudentResource,
+  createOfficialTeacherResource,
+} from "../../../lib/teacherResources";
 import {
   formatTeacherResourceFileSize,
   TEACHER_RESOURCE_ALLOWED_MIME_TYPES,
@@ -32,6 +35,7 @@ type FieldErrors = {
 type OfficialResourceFormProps = {
   levels: LevelOption[];
   onCreated: (message: string) => void | Promise<void>;
+  resourceScope?: "official_teacher" | "cambridge_student";
 };
 
 const buttonStyle = {
@@ -80,6 +84,7 @@ function characterHelp(value: string, maxLength: number) {
 export default function OfficialResourceForm({
   levels,
   onCreated,
+  resourceScope = "official_teacher",
 }: OfficialResourceFormProps) {
   const [showForm, setShowForm] = useState(false);
   const [levelId, setLevelId] = useState("");
@@ -94,6 +99,16 @@ export default function OfficialResourceForm({
   const [publishing, setPublishing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isCambridgeStudentResource = resourceScope === "cambridge_student";
+  const formTitle = isCambridgeStudentResource
+    ? "Add Cambridge Student Resource"
+    : "Add Official Teacher Resource";
+  const resourceAudience = isCambridgeStudentResource
+    ? "All students whose current class is at the selected Cambridge level will receive this resource."
+    : "Official resources are available to teachers of the selected level.";
+  const fieldIdPrefix = isCambridgeStudentResource
+    ? "cambridge-student-resource"
+    : "official-resource";
 
   function resetForm() {
     setLevelId("");
@@ -192,7 +207,11 @@ export default function OfficialResourceForm({
     setPublishing(true);
 
     try {
-      await createOfficialTeacherResource({
+      const createResource = isCambridgeStudentResource
+        ? createCambridgeStudentResource
+        : createOfficialTeacherResource;
+
+      await createResource({
         levelId,
         title,
         description,
@@ -203,13 +222,17 @@ export default function OfficialResourceForm({
 
       resetForm();
       setShowForm(false);
-      await onCreated("Official Resource published.");
+      await onCreated(
+        isCambridgeStudentResource
+          ? "Cambridge Student Resource published."
+          : "Official Teacher Resource published."
+      );
     } catch (error) {
-      console.error("Official Resource publish failed:", error);
+      console.error("Admin resource publish failed:", error);
       setFormError(
         error instanceof Error
           ? error.message
-          : "Unable to publish official resource."
+          : "Unable to publish resource."
       );
     } finally {
       setPublishing(false);
@@ -226,7 +249,7 @@ export default function OfficialResourceForm({
         }}
         style={buttonStyle}
       >
-        Add Official Resource
+        {formTitle}
       </button>
 
       {showForm && (
@@ -239,19 +262,19 @@ export default function OfficialResourceForm({
                 fontSize: "20px",
               }}
             >
-              Add Official Resource
+              {formTitle}
             </h2>
             <p style={{ margin: 0, color: "#667085" }}>
-              Official resources are available to teachers of the selected level.
+              {resourceAudience}
             </p>
           </div>
 
           <div style={{ display: "grid", gap: "7px" }}>
-            <label htmlFor="official-resource-level" style={{ fontWeight: 700 }}>
+            <label htmlFor={`${fieldIdPrefix}-level`} style={{ fontWeight: 700 }}>
               Level
             </label>
             <select
-              id="official-resource-level"
+              id={`${fieldIdPrefix}-level`}
               value={levelId}
               onChange={(event) => setLevelId(event.target.value)}
               style={inputStyle}
@@ -269,11 +292,11 @@ export default function OfficialResourceForm({
           </div>
 
           <div style={{ display: "grid", gap: "7px" }}>
-            <label htmlFor="official-resource-title" style={{ fontWeight: 700 }}>
+            <label htmlFor={`${fieldIdPrefix}-title`} style={{ fontWeight: 700 }}>
               Title
             </label>
             <input
-              id="official-resource-title"
+              id={`${fieldIdPrefix}-title`}
               value={title}
               maxLength={TEACHER_RESOURCE_TITLE_MAX_LENGTH}
               onChange={(event) => setTitle(event.target.value)}
@@ -289,13 +312,13 @@ export default function OfficialResourceForm({
 
           <div style={{ display: "grid", gap: "7px" }}>
             <label
-              htmlFor="official-resource-description"
+              htmlFor={`${fieldIdPrefix}-description`}
               style={{ fontWeight: 700 }}
             >
               Short description
             </label>
             <textarea
-              id="official-resource-description"
+              id={`${fieldIdPrefix}-description`}
               value={description}
               maxLength={TEACHER_RESOURCE_DESCRIPTION_MAX_LENGTH}
               onChange={(event) => setDescription(event.target.value)}
@@ -303,7 +326,9 @@ export default function OfficialResourceForm({
               style={{ ...inputStyle, resize: "vertical" }}
             />
             <small style={{ color: "#667085" }}>
-              Explain what the resource contains and how teachers should use it.{" "}
+              {isCambridgeStudentResource
+                ? "Explain what the resource contains and how students should use it. "
+                : "Explain what the resource contains and how teachers should use it. "}
               {characterHelp(
                 description,
                 TEACHER_RESOURCE_DESCRIPTION_MAX_LENGTH
@@ -338,7 +363,7 @@ export default function OfficialResourceForm({
             >
               <input
                 type="radio"
-                name="official-resource-type"
+                name={`${fieldIdPrefix}-type`}
                 value="file"
                 checked={resourceType === "file"}
                 onChange={() => {
@@ -359,7 +384,7 @@ export default function OfficialResourceForm({
             >
               <input
                 type="radio"
-                name="official-resource-type"
+                name={`${fieldIdPrefix}-type`}
                 value="link"
                 checked={resourceType === "link"}
                 onChange={() => {
@@ -469,13 +494,13 @@ export default function OfficialResourceForm({
           ) : (
             <div style={{ display: "grid", gap: "7px" }}>
               <label
-                htmlFor="official-resource-external-url"
+                htmlFor={`${fieldIdPrefix}-external-url`}
                 style={{ fontWeight: 700 }}
               >
                 External HTTPS link
               </label>
               <input
-                id="official-resource-external-url"
+                id={`${fieldIdPrefix}-external-url`}
                 type="url"
                 value={externalUrl}
                 placeholder="https://drive.google.com/..."

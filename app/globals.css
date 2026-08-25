@@ -3073,6 +3073,43 @@ img {
   padding: 20px;
 }
 
+.student-resources-origin {
+  align-items: center;
+  display: flex;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.student-resources-origin span {
+  border-left: 3px solid var(--ss-blue);
+  color: var(--ss-blue-dark);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+  padding-left: 8px;
+}
+
+.student-resources-origin small {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.student-resources-error {
+  background: #fff5f5;
+  border: 1px solid #fecdca;
+  border-radius: 9px;
+  color: #b42318;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+}
+
+.student-resources-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
 .student-resources-item strong {
   color: #1f2937;
   display: block;
@@ -7877,6 +7914,12 @@ img {
 
   .student-resources-item {
     margin-top: 16px;
+  }
+
+  .student-resources-origin {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .student-announcements-list {

@@ -5,18 +5,24 @@ import { useEffect, useState } from "react";
 import StudentMenu from "../StudentMenu";
 import { supabase } from "../../../lib/supabase";
 
-type StudentClassResource = {
+type StudentResource = {
   id: string;
   title: string | null;
   description: string | null;
   resource_url: string | null;
+  source: "class" | "cambridge_level";
+  source_label: string;
+  level_name: string | null;
+  requires_signed_url: boolean;
 };
 
 export default function ResourcesPage() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [resources, setResources] = useState<StudentClassResource[]>([]);
+  const [resources, setResources] = useState<StudentResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [openingResourceId, setOpeningResourceId] = useState("");
+  const [openError, setOpenError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +74,60 @@ export default function ResourcesPage() {
     };
   }, []);
 
+  async function handleOpenPrivateResource(resource: StudentResource) {
+    if (!resource.requires_signed_url || openingResourceId) return;
+
+    setOpeningResourceId(resource.id);
+    setOpenError("");
+    const popup = window.open("about:blank", "_blank");
+
+    try {
+      if (popup) {
+        popup.document.title = "Opening resource";
+        popup.document.body.innerHTML =
+          '<p style="font-family: sans-serif; padding: 24px;">Opening resource...</p>';
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Authentication required.");
+      }
+
+      const response = await fetch("/api/student/resources", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ resourceId: resource.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || !payload?.signedUrl) {
+        throw new Error(payload?.error || "Unable to open resource file.");
+      }
+
+      if (popup) {
+        popup.opener = null;
+        popup.location.href = String(payload.signedUrl);
+      } else {
+        window.open(String(payload.signedUrl), "_blank", "noopener,noreferrer");
+      }
+    } catch (openResourceError) {
+      console.error("Student resource open failed:", openResourceError);
+      popup?.close();
+      setOpenError(
+        openResourceError instanceof Error
+          ? openResourceError.message
+          : "Unable to open resource file."
+      );
+    } finally {
+      setOpeningResourceId("");
+    }
+  }
+
   return (
     <div className="student-layout-shell">
       <div className="student-mobile-topbar">
@@ -113,18 +173,35 @@ export default function ResourcesPage() {
         </header>
 
         <section className="student-resources-card">
-          <h2>Class Resources</h2>
+          <h2>Learning Resources</h2>
+
+          {openError && (
+            <p className="student-resources-error" role="alert">
+              {openError}
+            </p>
+          )}
 
           {loading ? (
-            <p>Loading class resources...</p>
+            <p>Loading resources...</p>
           ) : error ? (
             <p role="alert">{error}</p>
           ) : resources.length === 0 ? (
-            <p>No class resources are available yet.</p>
+            <p>No learning resources are available yet.</p>
           ) : (
             resources.map((resource) => (
-              <div className="student-resources-item" key={resource.id}>
-                <strong>{resource.title || "Class resource"}</strong>
+              <article
+                className="student-resources-item"
+                key={`${resource.source}-${resource.id}`}
+              >
+                <div className="student-resources-origin">
+                  <span>{resource.source_label}</span>
+                  <small>
+                    {resource.source === "cambridge_level"
+                      ? "Sydney School"
+                      : "Your class"}
+                  </small>
+                </div>
+                <strong>{resource.title || "Learning resource"}</strong>
                 {resource.description && <p>{resource.description}</p>}
                 {resource.resource_url && (
                   <a
@@ -136,7 +213,19 @@ export default function ResourcesPage() {
                     Open Resource
                   </a>
                 )}
-              </div>
+                {resource.requires_signed_url && (
+                  <button
+                    type="button"
+                    className="student-resources-action"
+                    onClick={() => handleOpenPrivateResource(resource)}
+                    disabled={Boolean(openingResourceId)}
+                  >
+                    {openingResourceId === resource.id
+                      ? "Opening..."
+                      : "Open Resource"}
+                  </button>
+                )}
+              </article>
             ))
           )}
         </section>

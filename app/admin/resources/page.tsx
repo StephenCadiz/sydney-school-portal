@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
+import { isEligibleCambridgeExamLevel } from "../../../lib/cambridgeExamBank";
 import { supabase } from "../../../lib/supabase";
 import {
   deleteTeacherResourceForAdmin,
+  getAllCambridgeStudentResourcesForAdmin,
   getAllOfficialTeacherResourcesForAdmin,
   getAllSharedTeacherResourcesForAdmin,
   type TeacherResource,
@@ -18,7 +20,7 @@ type LevelOption = {
   name: string;
 };
 
-type AdminResourceTab = "official" | "shared";
+type AdminResourceTab = "official" | "shared" | "students";
 
 const cardShellStyle = {
   background: "#ffffff",
@@ -96,22 +98,39 @@ export default function AdminTeacherResourcesPage() {
     []
   );
   const [sharedResources, setSharedResources] = useState<TeacherResource[]>([]);
+  const [studentResources, setStudentResources] = useState<TeacherResource[]>([]);
   const [officialLoading, setOfficialLoading] = useState(true);
   const [sharedLoading, setSharedLoading] = useState(true);
+  const [studentLoading, setStudentLoading] = useState(true);
   const [officialError, setOfficialError] = useState("");
   const [sharedError, setSharedError] = useState("");
+  const [studentError, setStudentError] = useState("");
   const [levelsError, setLevelsError] = useState("");
   const [officialLevelFilter, setOfficialLevelFilter] = useState("all");
   const [sharedLevelFilter, setSharedLevelFilter] = useState("all");
+  const [studentLevelFilter, setStudentLevelFilter] = useState("all");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<TeacherResource | null>(null);
   const [deletingId, setDeletingId] = useState("");
 
   const currentLevelFilter =
-    activeTab === "official" ? officialLevelFilter : sharedLevelFilter;
+    activeTab === "official"
+      ? officialLevelFilter
+      : activeTab === "shared"
+        ? sharedLevelFilter
+        : studentLevelFilter;
   const setCurrentLevelFilter =
-    activeTab === "official" ? setOfficialLevelFilter : setSharedLevelFilter;
+    activeTab === "official"
+      ? setOfficialLevelFilter
+      : activeTab === "shared"
+        ? setSharedLevelFilter
+        : setStudentLevelFilter;
+
+  const cambridgeLevels = useMemo(
+    () => levels.filter((level) => isEligibleCambridgeExamLevel(level.name)),
+    [levels]
+  );
 
   const filteredOfficialResources = useMemo(
     () => getFilteredResources(officialResources, officialLevelFilter),
@@ -120,6 +139,10 @@ export default function AdminTeacherResourcesPage() {
   const filteredSharedResources = useMemo(
     () => getFilteredResources(sharedResources, sharedLevelFilter),
     [sharedResources, sharedLevelFilter]
+  );
+  const filteredStudentResources = useMemo(
+    () => getFilteredResources(studentResources, studentLevelFilter),
+    [studentResources, studentLevelFilter]
   );
 
   async function loadLevels() {
@@ -172,16 +195,47 @@ export default function AdminTeacherResourcesPage() {
     }
   }
 
+  async function loadStudentResources() {
+    setStudentLoading(true);
+    setStudentError("");
+
+    try {
+      const data = await getAllCambridgeStudentResourcesForAdmin();
+      setStudentResources(data);
+    } catch (loadError) {
+      console.error("Unable to load Cambridge Student Resources:", loadError);
+      setStudentResources([]);
+      setStudentError(
+        "Cambridge Student Resources could not be loaded. Please try again."
+      );
+    } finally {
+      setStudentLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadLevels();
     loadOfficialResources();
     loadSharedResources();
+    loadStudentResources();
   }, []);
 
   async function handleOfficialCreated(successMessage: string) {
     setMessage(successMessage);
     setError("");
     await loadOfficialResources();
+  }
+
+  async function handleStudentResourceCreated(successMessage: string) {
+    setMessage(successMessage);
+    setError("");
+    await loadStudentResources();
+  }
+
+  async function handleStudentResourceUpdated() {
+    setMessage("Cambridge Student Resource updated.");
+    setError("");
+    await loadStudentResources();
   }
 
   async function handleDeleteResource() {
@@ -200,8 +254,12 @@ export default function AdminTeacherResourcesPage() {
         setOfficialResources((current) =>
           current.filter((resource) => resource.id !== deleteTarget.id)
         );
-      } else {
+      } else if (deleteTarget.resource_scope === "shared_teacher") {
         setSharedResources((current) =>
+          current.filter((resource) => resource.id !== deleteTarget.id)
+        );
+      } else {
+        setStudentResources((current) =>
           current.filter((resource) => resource.id !== deleteTarget.id)
         );
       }
@@ -224,7 +282,9 @@ export default function AdminTeacherResourcesPage() {
     }
   }
 
-  function renderFilter() {
+  function renderFilter(levelOptions: LevelOption[] = levels) {
+    const filterId = `${activeTab}-resource-level-filter`;
+
     return (
       <div
         style={{
@@ -237,7 +297,7 @@ export default function AdminTeacherResourcesPage() {
         }}
       >
         <label
-          htmlFor="teacher-resource-level-filter"
+          htmlFor={filterId}
           style={{
             color: "#344054",
             fontWeight: 700,
@@ -246,13 +306,13 @@ export default function AdminTeacherResourcesPage() {
           Filter by level
         </label>
         <select
-          id="teacher-resource-level-filter"
+          id={filterId}
           value={currentLevelFilter}
           onChange={(event) => setCurrentLevelFilter(event.target.value)}
           style={selectStyle}
         >
           <option value="all">All Levels</option>
-          {levels.map((level) => (
+          {levelOptions.map((level) => (
             <option key={level.id} value={level.id}>
               {level.name}
             </option>
@@ -383,6 +443,73 @@ export default function AdminTeacherResourcesPage() {
     );
   }
 
+  function renderStudentResources() {
+    const emptyMessage =
+      studentLevelFilter === "all"
+        ? "No Cambridge Student Resources have been added yet."
+        : "No Cambridge Student Resources have been added for this level yet.";
+
+    return (
+      <div style={{ display: "grid", gap: "18px" }}>
+        <OfficialResourceForm
+          levels={cambridgeLevels}
+          resourceScope="cambridge_student"
+          onCreated={handleStudentResourceCreated}
+        />
+
+        <section style={cardShellStyle}>
+          <div style={{ display: "grid", gap: "6px", marginBottom: "18px" }}>
+            <h2
+              style={{
+                margin: 0,
+                color: "var(--ss-blue-dark, #1f3c88)",
+                fontSize: "22px",
+              }}
+            >
+              Cambridge Student Resources
+            </h2>
+            <p style={{ margin: 0, color: "#667085" }}>
+              Publish one resource to every current B1, B2, C1 or C2 student,
+              regardless of class or course type.
+            </p>
+          </div>
+
+          {renderFilter(cambridgeLevels)}
+
+          {studentLoading ? (
+            <StateBox>Loading Cambridge Student Resources...</StateBox>
+          ) : studentError ? (
+            <StateBox>
+              <span>{studentError}</span>
+              <button
+                type="button"
+                onClick={loadStudentResources}
+                style={primaryButtonStyle}
+              >
+                Retry
+              </button>
+            </StateBox>
+          ) : filteredStudentResources.length === 0 ? (
+            <StateBox>{emptyMessage}</StateBox>
+          ) : (
+            <div style={{ display: "grid", gap: "14px" }}>
+              {filteredStudentResources.map((resource) => (
+                <AdminResourceCard
+                  key={resource.id}
+                  resource={resource}
+                  deleting={deletingId === resource.id}
+                  onRequestDelete={setDeleteTarget}
+                  levels={cambridgeLevels}
+                  onUpdated={handleStudentResourceUpdated}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  }
+
   return (
     <AdminLayout>
       <div style={{ display: "grid", gap: "22px" }}>
@@ -394,10 +521,10 @@ export default function AdminTeacherResourcesPage() {
               fontSize: "34px",
             }}
           >
-            Teacher Resources
+            Resources
           </h1>
           <p style={{ color: "#667085", margin: 0, fontSize: "16px" }}>
-            Manage level-wide resources available to teachers.
+            Manage level-wide resources for teachers and Cambridge students.
           </p>
         </header>
 
@@ -420,7 +547,7 @@ export default function AdminTeacherResourcesPage() {
         )}
 
         <nav
-          aria-label="Teacher resource sections"
+          aria-label="Resource sections"
           style={{
             display: "flex",
             gap: "10px",
@@ -444,7 +571,7 @@ export default function AdminTeacherResourcesPage() {
                   : "var(--ss-blue-dark, #1f3c88)",
             }}
           >
-            Official Resources
+            Official Teacher Resources
           </button>
           <button
             type="button"
@@ -463,13 +590,34 @@ export default function AdminTeacherResourcesPage() {
                   : "var(--ss-blue-dark, #1f3c88)",
             }}
           >
-            Shared Resources
+            Shared Teacher Resources
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("students");
+              setMessage("");
+              setError("");
+            }}
+            style={{
+              ...tabButtonBaseStyle,
+              background:
+                activeTab === "students" ? "var(--ss-blue, #2f7db8)" : "#ffffff",
+              color:
+                activeTab === "students"
+                  ? "#ffffff"
+                  : "var(--ss-blue-dark, #1f3c88)",
+            }}
+          >
+            Cambridge Student Resources
           </button>
         </nav>
 
         {activeTab === "official"
           ? renderOfficialResources()
-          : renderSharedResources()}
+          : activeTab === "shared"
+            ? renderSharedResources()
+            : renderStudentResources()}
       </div>
 
       {deleteTarget && (
@@ -516,7 +664,12 @@ export default function AdminTeacherResourcesPage() {
                 ? `This will remove the resource for every teacher teaching ${
                     deleteTarget.level_name || getLevelName(levels, String(deleteTarget.level_id))
                   }.`
-                : "This teacher-shared resource will be removed for every teacher teaching this level."}
+                : deleteTarget.resource_scope === "cambridge_student"
+                  ? `This will remove the resource for every current ${
+                      deleteTarget.level_name ||
+                      getLevelName(levels, String(deleteTarget.level_id))
+                    } student.`
+                  : "This teacher-shared resource will be removed for every teacher teaching this level."}
             </p>
             <div
               style={{

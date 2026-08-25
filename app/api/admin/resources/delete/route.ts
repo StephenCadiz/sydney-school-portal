@@ -80,7 +80,7 @@ async function verifyAdmin(userId: string) {
   if (profile.role !== "admin") {
     return {
       allowed: false,
-      response: jsonError("Only admins can delete teacher resources.", 403),
+      response: jsonError("Only admins can delete Admin resources.", 403),
     };
   }
 
@@ -124,7 +124,8 @@ export async function POST(request: NextRequest) {
 
     if (
       resource.resource_scope !== "shared_teacher" &&
-      resource.resource_scope !== "official_teacher"
+      resource.resource_scope !== "official_teacher" &&
+      resource.resource_scope !== "cambridge_student"
     ) {
       return jsonError("This resource type cannot be deleted here.", 400);
     }

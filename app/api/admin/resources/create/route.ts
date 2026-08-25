@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
+import { isEligibleCambridgeExamLevel } from "../../../../../lib/cambridgeExamBank";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import {
   sanitizeTeacherResourceFilename,
@@ -13,6 +14,12 @@ import {
 } from "../../../../../lib/teacherResourceValidation";
 
 const teacherResourcesBucket = "teacher-resources";
+const adminResourceScopes = new Set([
+  "official_teacher",
+  "cambridge_student",
+] as const);
+
+type AdminResourceScope = "official_teacher" | "cambridge_student";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -103,16 +110,30 @@ async function verifyAdmin(userId: string) {
 async function verifyLevel(levelId: number) {
   const { data: level, error } = await supabaseAdmin
     .from("levels")
-    .select("id")
+    .select("id, name")
     .eq("id", levelId)
     .single();
 
   if (error || !level) {
     console.error("Admin resource level lookup failed:", formatError(error));
-    return false;
+    return null;
   }
 
-  return true;
+  return level;
+}
+
+function validateResourceScope(value: FormDataEntryValue | null) {
+  const scope = String(value || "official_teacher").trim();
+
+  return adminResourceScopes.has(scope as AdminResourceScope)
+    ? (scope as AdminResourceScope)
+    : null;
+}
+
+function getResourceLabel(scope: AdminResourceScope) {
+  return scope === "cambridge_student"
+    ? "Cambridge Student Resource"
+    : "Official Resource";
 }
 
 export async function POST(request: NextRequest) {
@@ -132,6 +153,7 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
+    const resourceScope = validateResourceScope(formData.get("resourceScope"));
     const levelValidation = validateTeacherResourceLevelId(formData.get("levelId"));
     const titleValidation = validateTeacherResourceTitle(formData.get("title"));
     const descriptionValidation = validateTeacherResourceDescription(
@@ -140,6 +162,7 @@ export async function POST(request: NextRequest) {
     const typeValidation = validateTeacherResourceType(formData.get("resourceType"));
 
     const firstValidationError =
+      (!resourceScope ? "Invalid resource destination." : "") ||
       levelValidation.error ||
       titleValidation.error ||
       descriptionValidation.error ||
@@ -149,12 +172,45 @@ export async function POST(request: NextRequest) {
       return jsonError(firstValidationError, 400);
     }
 
-    const levelId = levelValidation.value;
-    const levelExists = await verifyLevel(levelId);
+    if (!resourceScope) {
+      return jsonError("Invalid resource destination.", 400);
+    }
 
-    if (!levelExists) {
+    const levelId = levelValidation.value;
+    const level = await verifyLevel(levelId);
+
+    if (!level) {
       return jsonError("Selected level was not found.", 404);
     }
+
+    if (
+      resourceScope === "cambridge_student" &&
+      !isEligibleCambridgeExamLevel(level.name)
+    ) {
+      return jsonError(
+        "Cambridge Student Resources can only target B1, B2, C1 or C2.",
+        400
+      );
+    }
+
+    if (
+      resourceScope === "cambridge_student" &&
+      [
+        "classId",
+        "class_id",
+        "courseType",
+        "course_type",
+        "academicYearId",
+        "academic_year_id",
+      ].some((field) => String(formData.get(field) || "").trim())
+    ) {
+      return jsonError(
+        "Cambridge Student Resources must target one whole Cambridge level.",
+        400
+      );
+    }
+
+    const resourceLabel = getResourceLabel(resourceScope);
 
     if (typeValidation.value === "link") {
       const fileEntry = formData.get("file");
@@ -177,7 +233,7 @@ export async function POST(request: NextRequest) {
           {
             title: titleValidation.value,
             description: descriptionValidation.value,
-            resource_scope: "official_teacher",
+            resource_scope: resourceScope,
             level_id: levelId,
             created_by: user.id,
             external_url: urlValidation.value,
@@ -191,8 +247,8 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) {
-        console.error("Official resource link insert failed:", formatError(error));
-        return jsonError("Unable to publish official resource.", 500);
+        console.error("Admin resource link insert failed:", formatError(error));
+        return jsonError(`Unable to publish ${resourceLabel}.`, 500);
       }
 
       return NextResponse.json({ success: true, resourceId: data.id });
@@ -221,7 +277,9 @@ export async function POST(request: NextRequest) {
     }
 
     const safeFilename = sanitizeTeacherResourceFilename(fileEntry.name);
-    uploadedStoragePath = `official/${levelId}/${randomUUID()}-${safeFilename}`;
+    const storageFolder =
+      resourceScope === "cambridge_student" ? "cambridge-student" : "official";
+    uploadedStoragePath = `${storageFolder}/${levelId}/${randomUUID()}-${safeFilename}`;
     const fileBuffer = Buffer.from(await fileEntry.arrayBuffer());
 
     const { error: uploadError } = await supabaseAdmin.storage
@@ -232,8 +290,8 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      console.error("Official resource upload failed:", formatError(uploadError));
-      return jsonError("Unable to upload official resource file.", 500);
+      console.error("Admin resource upload failed:", formatError(uploadError));
+      return jsonError(`Unable to upload ${resourceLabel} file.`, 500);
     }
 
     const { data, error: insertError } = await supabaseAdmin
@@ -242,7 +300,7 @@ export async function POST(request: NextRequest) {
         {
           title: titleValidation.value,
           description: descriptionValidation.value,
-          resource_scope: "official_teacher",
+          resource_scope: resourceScope,
           level_id: levelId,
           created_by: user.id,
           external_url: null,
@@ -256,25 +314,22 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError) {
-      console.error("Official resource file insert failed:", formatError(insertError));
+      console.error("Admin resource file insert failed:", formatError(insertError));
 
       const { error: cleanupError } = await supabaseAdmin.storage
         .from(teacherResourcesBucket)
         .remove([uploadedStoragePath]);
 
       if (cleanupError) {
-        console.error(
-          "Official resource orphan file cleanup failed:",
-          formatError(cleanupError)
-        );
+        console.error("Admin resource orphan file cleanup failed:", formatError(cleanupError));
       }
 
-      return jsonError("Unable to publish official resource.", 500);
+      return jsonError(`Unable to publish ${resourceLabel}.`, 500);
     }
 
     return NextResponse.json({ success: true, resourceId: data.id });
   } catch (error) {
-    console.error("Official resource create route failed:", formatError(error));
+    console.error("Admin resource create route failed:", formatError(error));
 
     if (uploadedStoragePath) {
       const { error: cleanupError } = await supabaseAdmin.storage
@@ -282,13 +337,10 @@ export async function POST(request: NextRequest) {
         .remove([uploadedStoragePath]);
 
       if (cleanupError) {
-        console.error(
-          "Official resource unexpected cleanup failed:",
-          formatError(cleanupError)
-        );
+        console.error("Admin resource unexpected cleanup failed:", formatError(cleanupError));
       }
     }
 
-    return jsonError("Unable to publish official resource.", 500);
+    return jsonError("Unable to publish resource.", 500);
   }
 }

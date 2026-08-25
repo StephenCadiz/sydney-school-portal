@@ -1,7 +1,14 @@
 import { supabase } from "./supabase";
 import type { TeacherResourceType } from "./teacherResourceValidation";
 
-export type TeacherResourceScope = "shared_teacher" | "official_teacher";
+export type TeacherResourceScope =
+  | "shared_teacher"
+  | "official_teacher"
+  | "cambridge_student";
+
+type AdminManagedTeacherResourceScope =
+  | "official_teacher"
+  | "cambridge_student";
 
 export type TeacherResource = {
   id: string;
@@ -33,6 +40,14 @@ type CreateSharedTeacherResourceInput = {
 };
 
 type CreateOfficialTeacherResourceInput = CreateSharedTeacherResourceInput;
+
+type UpdateCambridgeStudentResourceInput = {
+  resourceId: string;
+  levelId: string | number;
+  title: string;
+  description: string;
+  externalUrl?: string | null;
+};
 
 function formatProfileName(profile: any) {
   return `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim();
@@ -139,6 +154,12 @@ export async function getOfficialTeacherResourcesForLevel(
   return getTeacherResourcesForLevel(levelId, "official_teacher");
 }
 
+export async function getCambridgeStudentResourcesForLevel(
+  levelId: string | number
+) {
+  return getTeacherResourcesForLevel(levelId, "cambridge_student");
+}
+
 async function getAllTeacherResourcesForAdmin(resourceScope: TeacherResourceScope) {
   const { data, error } = await supabase
     .from("teacher_resources")
@@ -163,6 +184,10 @@ export async function getAllOfficialTeacherResourcesForAdmin() {
 export async function getAllSharedTeacherResourcesForAdmin() {
   const resources = await getAllTeacherResourcesForAdmin("shared_teacher");
   return attachCreatorNames(resources);
+}
+
+export async function getAllCambridgeStudentResourcesForAdmin() {
+  return getAllTeacherResourcesForAdmin("cambridge_student");
 }
 
 async function getAccessToken() {
@@ -221,12 +246,14 @@ export async function createSharedTeacherResource(
   return result;
 }
 
-export async function createOfficialTeacherResource(
-  input: CreateOfficialTeacherResourceInput
+async function createAdminManagedTeacherResource(
+  input: CreateOfficialTeacherResourceInput,
+  resourceScope: AdminManagedTeacherResourceScope
 ) {
   const accessToken = await getAccessToken();
   const formData = new FormData();
 
+  formData.append("resourceScope", resourceScope);
   formData.append("levelId", String(input.levelId));
   formData.append("title", input.title);
   formData.append("description", input.description);
@@ -252,6 +279,39 @@ export async function createOfficialTeacherResource(
 
   if (!response.ok) {
     throw new Error(result.error || "Unable to publish official resource.");
+  }
+
+  return result;
+}
+
+export async function createOfficialTeacherResource(
+  input: CreateOfficialTeacherResourceInput
+) {
+  return createAdminManagedTeacherResource(input, "official_teacher");
+}
+
+export async function createCambridgeStudentResource(
+  input: CreateOfficialTeacherResourceInput
+) {
+  return createAdminManagedTeacherResource(input, "cambridge_student");
+}
+
+export async function updateCambridgeStudentResource(
+  input: UpdateCambridgeStudentResourceInput
+) {
+  const accessToken = await getAccessToken();
+  const response = await fetch("/api/admin/resources/update", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  const result = await parseApiResponse(response);
+
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to update resource.");
   }
 
   return result;
