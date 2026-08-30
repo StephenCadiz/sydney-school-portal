@@ -112,6 +112,7 @@ export type AcademicYearReadiness = {
 };
 
 const NEXT_LEVEL_BY_NAME = new Map<string, string>([
+  ["PRE-KIDS 1", "PRE-KIDS 2"],
   ["PRE-KIDS 2", "PRE-KIDS 3"],
   ["PRE-KIDS 3", "KIDS 1"],
   ["KIDS 1", "KIDS 2"],

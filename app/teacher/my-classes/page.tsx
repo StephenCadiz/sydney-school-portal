@@ -51,7 +51,19 @@ const weekdayShort: Record<string, string> = {
   sunday: "Sun",
 };
 const levelOrder = ["B1", "B2", "C1", "C2"];
-const youngLearnerOrder = ["PRE-KIDS", "KIDS", "JUNIOR", "TEENS"];
+const youngLearnerOrder = [
+  "PRE-KIDS 1",
+  "PRE-KIDS 2",
+  "PRE-KIDS 3",
+  "KIDS 1",
+  "KIDS 2",
+  "JUNIOR 1",
+  "JUNIOR 2",
+  "JUNIOR 3",
+  "JUNIOR 4",
+  "TEENS 1",
+];
+const youngLearnerFamilyOrder = ["PRE-KIDS", "KIDS", "JUNIOR", "TEENS"];
 const courseOrder = ["regular", "intensive", "express", "online"];
 
 function getMadridParts(date = new Date()) {
@@ -238,8 +250,15 @@ function getLevelSort(item: ClassRow) {
     const index = levelOrder.indexOf(level);
     return index === -1 ? levelOrder.length : index;
   }
-  const index = youngLearnerOrder.findIndex((name) => level.startsWith(name));
-  return index === -1 ? youngLearnerOrder.length : index;
+  const index = youngLearnerOrder.indexOf(level);
+  if (index >= 0) return index;
+
+  const familyIndex = youngLearnerFamilyOrder.findIndex((name) =>
+    level.startsWith(name)
+  );
+  return familyIndex === -1
+    ? youngLearnerOrder.length + youngLearnerFamilyOrder.length
+    : youngLearnerOrder.length + familyIndex;
 }
 
 function compareAllClasses(first: ClassRow, second: ClassRow) {

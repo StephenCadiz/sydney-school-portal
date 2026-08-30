@@ -47,6 +47,7 @@ type SelectOption = {
 const cambridgeLevelOrder = ["B1", "B2", "C1", "C2"];
 
 const youngLearnerPreferredLevelOrder = [
+  "PRE-KIDS 1",
   "PRE-KIDS 2",
   "PRE-KIDS 3",
   "KIDS 1",
