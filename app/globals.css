@@ -20993,3 +20993,745 @@ img {
   .admin-course-planning-directory { padding: 14px; }
   .admin-course-planning-filters { flex-direction: column; }
 }
+
+/* Mock Exam Admin review workflow */
+.admin-dashboard-alert-card.admin-dashboard-mock-review-alert {
+  border-color: #b8d8ef;
+  border-left-color: var(--ss-blue);
+}
+
+.student-workspace-badge.is-awaiting-review {
+  background: #eef6fd;
+  border: 1px solid #c9e1f1;
+  color: #255f88;
+}
+
+.student-workspace-badge.is-changes-required {
+  background: #fff4e5;
+  border: 1px solid #efc98c;
+  color: #8a4b08;
+}
+
+.mock-result-workflow-comment,
+.mock-result-workflow-review-note {
+  border-radius: 9px;
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+}
+
+.mock-result-workflow-comment {
+  background: #f8fafd;
+  border: 1px solid #e1e9f2;
+}
+
+.mock-result-workflow-review-note {
+  background: #fff7e9;
+  border: 1px solid #efcf9b;
+}
+
+.mock-result-workflow-comment strong,
+.mock-result-workflow-review-note strong {
+  color: var(--ss-blue-dark);
+  font-size: 13px;
+}
+
+.mock-result-workflow-comment p,
+.mock-result-workflow-review-note p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mock-result-workflow-review-note strong,
+.mock-result-workflow-review-note p {
+  color: #75430b;
+}
+
+.mock-result-workflow-date {
+  color: #667085 !important;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-mock-review-page {
+  color: #1f2937;
+  display: grid;
+  gap: 20px;
+  margin: 0 auto;
+  max-width: 1480px;
+  min-width: 0;
+  width: 100%;
+}
+
+.admin-mock-review-header,
+.admin-mock-review-controls,
+.admin-mock-review-row,
+.admin-mock-review-empty {
+  background: #ffffff;
+  border: 1px solid var(--ss-border);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(31, 60, 136, 0.06);
+}
+
+.admin-mock-review-header {
+  align-items: center;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding: 24px 26px;
+}
+
+.admin-mock-review-header > div:first-child {
+  min-width: 0;
+}
+
+.admin-mock-review-eyebrow {
+  color: var(--ss-blue);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin: 0 0 6px !important;
+  text-transform: uppercase;
+}
+
+.admin-mock-review-header h1 {
+  color: var(--ss-blue-dark);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  line-height: 1.15;
+  margin: 0;
+}
+
+.admin-mock-review-header p:not(.admin-mock-review-eyebrow) {
+  color: #667085;
+  line-height: 1.5;
+  margin: 8px 0 0;
+  max-width: 760px;
+}
+
+.admin-mock-review-count {
+  align-items: center;
+  background: #eef6fd;
+  border: 1px solid #c9e1f1;
+  border-radius: 11px;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 12px;
+  padding: 12px 15px;
+}
+
+.admin-mock-review-count span {
+  color: #53657a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-mock-review-count strong {
+  color: var(--ss-blue-dark);
+  font-size: 1.5rem;
+}
+
+.admin-mock-review-message {
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 750;
+  padding: 12px 14px;
+}
+
+.admin-mock-review-message.is-success {
+  background: #edf7f1;
+  border: 1px solid #cfe9d8;
+  color: #236b3b;
+}
+
+.admin-mock-review-message.is-error {
+  background: #fff5f5;
+  border: 1px solid #f0b8b8;
+  color: #9f1d1d;
+}
+
+.admin-mock-review-controls {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.admin-mock-review-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-mock-review-status-tabs button {
+  align-items: center;
+  background: #f8fafd;
+  border: 1px solid #d9e4f0;
+  border-radius: 8px;
+  color: #526173;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.admin-mock-review-status-tabs button span {
+  align-items: center;
+  background: #e6edf5;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  justify-content: center;
+  min-height: 21px;
+  min-width: 21px;
+  padding: 3px 6px;
+}
+
+.admin-mock-review-status-tabs button.is-active {
+  background: var(--ss-blue-dark);
+  border-color: var(--ss-blue-dark);
+  color: #ffffff;
+}
+
+.admin-mock-review-status-tabs button.is-active span {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.admin-mock-review-filter-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-mock-review-filter-grid label {
+  color: #344054;
+  display: grid;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-mock-review-filter-grid input,
+.admin-mock-review-filter-grid select {
+  background: #ffffff;
+  border: 1px solid #cfd9e6;
+  border-radius: 8px;
+  color: #1f2937;
+  font: inherit;
+  min-height: 42px;
+  min-width: 0;
+  padding: 9px 11px;
+  width: 100%;
+}
+
+.admin-mock-review-status-tabs button:focus-visible,
+.admin-mock-review-filter-grid input:focus,
+.admin-mock-review-filter-grid select:focus,
+.admin-mock-review-actions button:focus-visible,
+.admin-mock-review-return-form button:focus-visible,
+.admin-mock-review-return-form textarea:focus {
+  outline: 3px solid rgba(47, 125, 184, 0.24);
+  outline-offset: 2px;
+}
+
+.admin-mock-review-list {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-mock-review-row {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.admin-mock-review-row-heading,
+.admin-mock-review-row-footer,
+.admin-mock-review-title-line,
+.admin-mock-review-actions {
+  align-items: center;
+  display: flex;
+}
+
+.admin-mock-review-row-heading,
+.admin-mock-review-row-footer {
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.admin-mock-review-row-heading > div:first-child {
+  min-width: 0;
+}
+
+.admin-mock-review-title-line {
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.admin-mock-review-title-line h2 {
+  color: var(--ss-blue-dark);
+  font-size: 1.15rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-mock-review-row-heading p {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-mock-review-badge {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.admin-mock-review-badge.is-draft {
+  background: #f5f7fa;
+  border: 1px solid #d9e1eb;
+  color: #526173;
+}
+
+.admin-mock-review-badge.is-awaiting-review {
+  background: #eef6fd;
+  border: 1px solid #c9e1f1;
+  color: #255f88;
+}
+
+.admin-mock-review-badge.is-changes-required {
+  background: #fff4e5;
+  border: 1px solid #efc98c;
+  color: #8a4b08;
+}
+
+.admin-mock-review-badge.is-published {
+  background: #edf7f1;
+  border: 1px solid #cfe9d8;
+  color: #236b3b;
+}
+
+.admin-mock-review-mock-number {
+  align-items: baseline;
+  background: #f8fafd;
+  border: 1px solid #e1e9f2;
+  border-radius: 9px;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+  padding: 9px 11px;
+}
+
+.admin-mock-review-mock-number span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-mock-review-mock-number strong {
+  color: var(--ss-blue-dark);
+  font-size: 18px;
+}
+
+.admin-mock-review-score-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.admin-mock-review-score-grid > div {
+  background: #f8fafd;
+  border: 1px solid #e4ebf4;
+  border-radius: 9px;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.admin-mock-review-score-grid > div.is-average {
+  background: #eef6fd;
+  border-color: #c9e1f1;
+}
+
+.admin-mock-review-score-grid span,
+.admin-mock-review-comment span,
+.admin-mock-review-correction-note span {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.admin-mock-review-score-grid strong {
+  color: var(--ss-blue-dark);
+  font-size: 1.15rem;
+}
+
+.admin-mock-review-comment,
+.admin-mock-review-correction-note {
+  border-radius: 9px;
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+}
+
+.admin-mock-review-comment {
+  background: #f8fafd;
+  border: 1px solid #e4ebf4;
+}
+
+.admin-mock-review-correction-note {
+  background: #fff7e9;
+  border: 1px solid #efcf9b;
+}
+
+.admin-mock-review-comment p,
+.admin-mock-review-correction-note p {
+  color: #475467;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-mock-review-correction-note span,
+.admin-mock-review-correction-note p {
+  color: #75430b;
+}
+
+.admin-mock-review-row-footer {
+  border-top: 1px solid #edf1f7;
+  padding-top: 14px;
+}
+
+.admin-mock-review-dates {
+  color: #667085;
+  display: grid;
+  font-size: 12px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-mock-review-actions {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.admin-mock-review-actions button,
+.admin-mock-review-return-form button {
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.admin-mock-review-actions button.is-publish {
+  background: var(--ss-blue);
+  border: 1px solid var(--ss-blue);
+  color: #ffffff;
+}
+
+.admin-mock-review-actions button.is-return,
+.admin-mock-review-return-form button.is-return {
+  background: #ffffff;
+  border: 1px solid #d9a45c;
+  color: #85500d;
+}
+
+.admin-mock-review-actions button.is-edit {
+  background: #ffffff;
+  border: 1px solid #9fc7e5;
+  color: var(--ss-blue-dark);
+}
+
+.admin-mock-review-actions button:disabled,
+.admin-mock-review-return-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.admin-mock-review-return-form {
+  background: #fffaf1;
+  border: 1px solid #efcf9b;
+  border-radius: 10px;
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+}
+
+.admin-mock-review-return-form label {
+  color: #75430b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-mock-review-return-form textarea {
+  border: 1px solid #d9bd8f;
+  border-radius: 8px;
+  color: #1f2937;
+  font: inherit;
+  padding: 10px 11px;
+  resize: vertical;
+  width: 100%;
+}
+
+.admin-mock-review-return-form > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.admin-mock-review-return-form button:not(.is-return) {
+  background: #ffffff;
+  border: 1px solid #cfd9e6;
+  color: #526173;
+}
+
+.admin-mock-review-empty {
+  color: #667085;
+  padding: 30px 20px;
+  text-align: center;
+}
+
+.admin-mock-review-row.is-editing {
+  border-color: #b8d8ef;
+  box-shadow: 0 10px 28px rgba(21, 78, 117, 0.09);
+}
+
+.admin-mock-review-edit-score-grid > label {
+  background: #f8fafd;
+  border: 1px solid #e4ebf4;
+  border-radius: 9px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.admin-mock-review-edit-score-control {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  min-width: 0;
+}
+
+.admin-mock-review-edit-score-control input {
+  background: #ffffff;
+  border: 1px solid #b9c9d9;
+  border-radius: 8px;
+  color: var(--ss-blue-dark);
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 900;
+  min-height: 46px;
+  min-width: 0;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+.admin-mock-review-edit-score-control > span {
+  color: #667085;
+  flex: 0 0 auto;
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: none;
+}
+
+.admin-mock-review-edit-average output {
+  color: var(--ss-blue-dark);
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 46px;
+}
+
+.admin-mock-review-edit-comment {
+  background: #f8fafd;
+  border: 1px solid #e4ebf4;
+  border-radius: 9px;
+  color: #344054;
+  display: grid;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 7px;
+  min-width: 0;
+  padding: 13px 14px 14px;
+}
+
+.admin-mock-review-edit-comment > span {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.admin-mock-review-edit-comment textarea {
+  background: #ffffff;
+  border: 1px solid #cbd8e6;
+  border-radius: 8px;
+  color: #1f2937;
+  font: inherit;
+  font-weight: 500;
+  line-height: 1.55;
+  min-height: 118px;
+  padding: 11px 12px;
+  resize: vertical;
+  width: 100%;
+}
+
+.admin-mock-review-edit-actions {
+  align-items: center;
+  border-top: 1px solid #edf1f7;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 14px;
+}
+
+.admin-mock-review-edit-actions button {
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.admin-mock-review-edit-actions button.is-cancel {
+  background: #ffffff;
+  border: 1px solid #cfd9e6;
+  color: #526173;
+}
+
+.admin-mock-review-published-warning {
+  background: #fff7e9;
+  border: 1px solid #efcf9b;
+  border-radius: 9px;
+  color: #75430b;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+  padding: 11px 13px;
+}
+
+.admin-mock-review-edit-actions button.is-save {
+  background: var(--ss-blue);
+  border: 1px solid var(--ss-blue);
+  color: #ffffff;
+}
+
+.admin-mock-review-edit-actions button.is-publish {
+  background: #1f704a;
+  border: 1px solid #1f704a;
+  color: #ffffff;
+}
+
+.admin-mock-review-edit-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.admin-mock-review-edit-actions button:focus-visible,
+.admin-mock-review-edit-score-grid input:focus-visible,
+.admin-mock-review-edit-comment textarea:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.24);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1040px) {
+  .admin-mock-review-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-mock-review-score-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+}
+
+@media (max-width: 768px) {
+  .admin-mock-review-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 20px 18px;
+  }
+
+  .admin-mock-review-count {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .admin-mock-review-controls,
+  .admin-mock-review-row {
+    padding: 16px;
+  }
+
+  .admin-mock-review-status-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-mock-review-status-tabs button {
+    justify-content: space-between;
+    min-width: 0;
+  }
+
+  .admin-mock-review-row-heading,
+  .admin-mock-review-row-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-mock-review-mock-number {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .admin-mock-review-actions {
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .admin-mock-review-actions button {
+    flex: 1 1 180px;
+  }
+
+  .admin-mock-review-edit-score-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 540px) {
+  .admin-mock-review-filter-grid,
+  .admin-mock-review-score-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-mock-review-status-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-mock-review-actions button,
+  .admin-mock-review-return-form button,
+  .admin-mock-review-edit-actions button {
+    width: 100%;
+  }
+
+}

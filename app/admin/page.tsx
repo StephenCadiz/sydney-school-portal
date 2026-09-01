@@ -385,6 +385,7 @@ function BreakdownList({
 
 export default function AdminDashboard() {
   const [unreviewedFollowUps, setUnreviewedFollowUps] = useState<any[]>([]);
+  const [mockResultsAwaitingReview, setMockResultsAwaitingReview] = useState(0);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [overview, setOverview] = useState({
     classes: 0,
@@ -407,6 +408,32 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function loadDashboard() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.access_token) {
+          const response = await fetch("/api/admin/mock-results?mode=count", {
+            cache: "no-store",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+          const payload = await response.json().catch(() => ({}));
+
+          if (!response.ok) {
+            throw new Error(payload.error || "Unable to load the review count.");
+          }
+
+          setMockResultsAwaitingReview(
+            Math.max(0, Number(payload.awaiting_review) || 0)
+          );
+        }
+      } catch (error) {
+        console.error("Unable to load Mock Results awaiting review:", error);
+      }
+
       try {
         const data = await getUnreviewedFollowUpsForAdmin();
         setUnreviewedFollowUps(data);
@@ -539,6 +566,26 @@ export default function AdminDashboard() {
             <div className="admin-dashboard-date">{getDisplayDate()}</div>
           </div>
         </header>
+
+        {mockResultsAwaitingReview > 0 && (
+          <section className="admin-dashboard-alert-card admin-dashboard-mock-review-alert">
+            <div className="admin-dashboard-alert-header">
+              <div>
+                <h2>Mock Results Awaiting Review</h2>
+                <p>
+                  {mockResultsAwaitingReview} Mock Result
+                  {mockResultsAwaitingReview === 1 ? " is" : "s are"} ready
+                  for Admin review and publishing.
+                </p>
+              </div>
+
+              <Link href="/admin/mock-results" className="admin-dashboard-button">
+                Review Mock Results
+                <DashboardIcon name="chevron" size={16} />
+              </Link>
+            </div>
+          </section>
+        )}
 
         {unreviewedFollowUps.length > 0 && (
           <section className="admin-dashboard-alert-card">

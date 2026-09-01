@@ -323,6 +323,7 @@ export default function AdminLayout({
       items: [
         { name: "Exam Bank", href: "/admin/exam-bank", icon: "clipboard" as AdminNavIconName },
         { name: "Assigned Exams", href: "/admin/exam-bank/assignments", icon: "book" as AdminNavIconName },
+        { name: "Mock Results Review", href: "/admin/mock-results", icon: "clipboardCheck" as AdminNavIconName },
         { name: "Course Planning", href: "/admin/course-planning", icon: "calendarCheck" as AdminNavIconName },
       ],
     },

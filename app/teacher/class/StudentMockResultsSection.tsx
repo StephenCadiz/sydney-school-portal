@@ -3,6 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
+import {
+  calculateMockResultAverage,
+  canTeacherEditMockResult,
+  canTeacherRemoveMockResult,
+  canTeacherSubmitMockResult,
+  getMockResultStatusLabel,
+  hasCompleteMockResultScores,
+  toMockScore,
+  type MockResultWorkflowRow,
+} from "../../../lib/mockResultWorkflow";
 import { supabase } from "../../../lib/supabase";
 
 type StudentMockResultsSectionProps = {
@@ -13,101 +23,41 @@ type StudentMockResultsSectionProps = {
   teacherId?: string;
 };
 
-function toNumber(value: any) {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  const number = Number(value);
-
-  return Number.isFinite(number) ? number : null;
+function formatPercent(value: unknown) {
+  const number = toMockScore(value);
+  if (number === null) return "-";
+  const rounded = Math.round(number * 10) / 10;
+  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}%`;
 }
 
-function formatPercent(value: any) {
-  const number = toNumber(value);
-
-  if (number === null) {
-    return "-";
-  }
-
-  return `${Math.round(number)}%`;
+function formatDateTime(value: string | null) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(value));
 }
 
-function getMockAverage(result: any) {
-  const reading = toNumber(result.reading);
-  const writing = toNumber(result.writing);
-  const listening = toNumber(result.listening);
-  const speaking = toNumber(result.speaking);
-
-  if (
-    reading !== null &&
-    writing !== null &&
-    listening !== null &&
-    speaking !== null
-  ) {
-    return (reading + writing + listening + speaking) / 4;
-  }
-
-  return toNumber(result.overall);
+function mockTitle(result: MockResultWorkflowRow) {
+  return result.mock_number ? `Mock ${result.mock_number}` : result.title;
 }
 
-function isMockResultPublished(result: any) {
-  return Boolean(result?.published_at);
-}
-
-function hasCompleteMockScores(result: any) {
+function compareMockResults(
+  first: MockResultWorkflowRow,
+  second: MockResultWorkflowRow
+) {
   return (
-    result.reading !== null &&
-    result.reading !== undefined &&
-    result.reading !== "" &&
-    result.writing !== null &&
-    result.writing !== undefined &&
-    result.writing !== "" &&
-    result.listening !== null &&
-    result.listening !== undefined &&
-    result.listening !== "" &&
-    result.speaking !== null &&
-    result.speaking !== undefined &&
-    result.speaking !== ""
+    first.mock_number - second.mock_number || first.id.localeCompare(second.id)
   );
 }
 
-function mockTitle(result: any) {
-  if (result.mock_number) {
-    return `Mock ${result.mock_number}`;
-  }
-
-  return result.title || "Mock Exam";
-}
-
-function getMockSortNumber(result: any) {
-  const mockNumber = Number(result?.mock_number);
-
-  return Number.isFinite(mockNumber) && mockNumber > 0
-    ? mockNumber
-    : Number.MAX_SAFE_INTEGER;
-}
-
-function compareMockResults(first: any, second: any) {
-  const mockDifference = getMockSortNumber(first) - getMockSortNumber(second);
-
-  if (mockDifference !== 0) {
-    return mockDifference;
-  }
-
-  const titleDifference = String(first?.title || "").localeCompare(
-    String(second?.title || "")
-  );
-
-  if (titleDifference !== 0) {
-    return titleDifference;
-  }
-
-  return String(first?.id || "").localeCompare(String(second?.id || ""));
-}
-
-function ProgressBar({ value }: { value: any }) {
-  const number = toNumber(value);
+function ProgressBar({ value }: { value: unknown }) {
+  const number = toMockScore(value);
   const width = number === null ? 0 : Math.max(0, Math.min(100, number));
 
   return (
@@ -125,9 +75,8 @@ export default function StudentMockResultsSection({
   studentId,
   studentName,
   levelName,
-  teacherId = "",
 }: StudentMockResultsSectionProps) {
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<MockResultWorkflowRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [resultsLoadFailed, setResultsLoadFailed] = useState(false);
   const [mockNumber, setMockNumber] = useState("1");
@@ -137,28 +86,47 @@ export default function StudentMockResultsSection({
   const [speaking, setSpeaking] = useState("");
   const [comments, setComments] = useState("");
   const [editingMockId, setEditingMockId] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [publishingMockId, setPublishingMockId] = useState("");
-  const [unpublishingMockId, setUnpublishingMockId] = useState("");
-  const [pendingUnpublishResult, setPendingUnpublishResult] = useState<any>(null);
+  const [savingAction, setSavingAction] = useState<
+    "save_draft" | "submit" | ""
+  >("");
+  const [removingMockId, setRemovingMockId] = useState("");
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   const readingLabel = getCambridgeReadingSkillLabel(levelName);
-  const mockAverage = useMemo(() => {
-    const values = [reading, writing, listening, speaking].map(toNumber);
+  const mockAverage = useMemo(
+    () => calculateMockResultAverage([reading, writing, listening, speaking]),
+    [reading, writing, listening, speaking]
+  );
+  const editingResult = useMemo(
+    () => results.find((result) => result.id === editingMockId) || null,
+    [editingMockId, results]
+  );
 
-    if (values.some((value) => value === null)) {
-      return null;
+  async function request(
+    url: string,
+    init: RequestInit = {}
+  ): Promise<Record<string, any>> {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error("Authentication required.");
+
+    const response = await fetch(url, {
+      ...init,
+      cache: "no-store",
+      headers: {
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || "Unable to update the Mock Result.");
     }
-
-    return (
-      (values[0] as number) +
-      (values[1] as number) +
-      (values[2] as number) +
-      (values[3] as number)
-    ) / 4;
-  }, [reading, writing, listening, speaking]);
+    return payload;
+  }
 
   async function loadResults() {
     if (!classId || !studentId) {
@@ -171,32 +139,31 @@ export default function StudentMockResultsSection({
     setErrorMessage("");
     setResultsLoadFailed(false);
 
-    const { data, error } = await supabase
-      .from("results")
-      .select("*")
-      .eq("class_id", classId)
-      .eq("student_id", studentId);
-
-    if (error) {
-      console.error("Failed to load mock results", error);
+    try {
+      const params = new URLSearchParams({
+        class_id: classId,
+        student_id: studentId,
+      });
+      const payload = await request(`/api/teacher/mock-results?${params}`);
+      setResults(
+        ([...(payload.results || [])] as MockResultWorkflowRow[]).sort(
+          compareMockResults
+        )
+      );
+    } catch (error) {
+      console.error("Unable to load Mock Results:", error);
       setResults([]);
       setResultsLoadFailed(true);
-      setErrorMessage("Unable to load mock results.");
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to load Mock Results."
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setResults(
-      (data || [])
-        .filter((result) => result.result_type === "mock")
-        .sort(compareMockResults)
-    );
-    setResultsLoadFailed(false);
-    setLoading(false);
   }
 
   useEffect(() => {
-    loadResults();
+    void loadResults();
   }, [classId, studentId]);
 
   function clearForm() {
@@ -209,25 +176,47 @@ export default function StudentMockResultsSection({
     setEditingMockId("");
   }
 
-  async function getSafeTeacherId() {
-    if (teacherId) return teacherId;
+  function getFormPayload(action: "save_draft" | "submit") {
+    const rawScores = [reading, writing, listening, speaking];
+    if (
+      rawScores.some(
+        (value) =>
+          value.trim() &&
+          (toMockScore(value) === null ||
+            (toMockScore(value) as number) < 0 ||
+            (toMockScore(value) as number) > 100)
+      )
+    ) {
+      throw new Error("Mock Exam scores must be between 0 and 100.");
+    }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const payload = {
+      result_id: editingMockId || null,
+      class_id: classId,
+      student_id: studentId,
+      mock_number: Number(mockNumber),
+      reading: toMockScore(reading),
+      writing: toMockScore(writing),
+      listening: toMockScore(listening),
+      speaking: toMockScore(speaking),
+      comments,
+      action,
+    };
 
-    return session?.user.id || null;
+    if (!Number.isInteger(payload.mock_number) || payload.mock_number < 1) {
+      throw new Error("Mock number must be a positive whole number.");
+    }
+    if (action === "submit" && !hasCompleteMockResultScores(payload)) {
+      throw new Error(
+        "Enter all four Mock Exam scores before submitting for Admin review."
+      );
+    }
+    return payload;
   }
 
-  async function saveMockResult() {
-    const readingScore = toNumber(reading);
-    const writingScore = toNumber(writing);
-    const listeningScore = toNumber(listening);
-    const speakingScore = toNumber(speaking);
-
+  async function saveMockResult(action: "save_draft" | "submit") {
     setMessage("");
     setErrorMessage("");
-
     if (resultsLoadFailed) {
       setErrorMessage(
         "Results cannot be saved until the existing records load successfully."
@@ -235,183 +224,142 @@ export default function StudentMockResultsSection({
       return;
     }
 
-    if (
-      readingScore === null ||
-      writingScore === null ||
-      listeningScore === null ||
-      speakingScore === null
-    ) {
-      setErrorMessage("Enter valid scores for all mock exam skills.");
-      return;
+    try {
+      const body = getFormPayload(action);
+      setSavingAction(action);
+      const payload = await request("/api/teacher/mock-results", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      setResults(
+        ([...(payload.results || [])] as MockResultWorkflowRow[]).sort(
+          compareMockResults
+        )
+      );
+      setMessage(
+        action === "submit"
+          ? "Mock Result submitted for Admin review."
+          : editingMockId
+            ? "Mock Result draft updated."
+            : "Mock Result saved as Draft."
+      );
+      clearForm();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to save the Mock Result."
+      );
+    } finally {
+      setSavingAction("");
     }
-
-    setSaving(true);
-
-    const average =
-      (readingScore + writingScore + listeningScore + speakingScore) / 4;
-    const currentTeacherId = await getSafeTeacherId();
-    const wasPublished =
-      editingMockId &&
-      isMockResultPublished(results.find((result) => result.id === editingMockId));
-    const payload: any = {
-      class_id: classId,
-      student_id: studentId,
-      result_type: "mock",
-      mock_number: Number(mockNumber) || 1,
-      title: `Mock ${Number(mockNumber) || 1}`,
-      reading: readingScore,
-      writing: writingScore,
-      listening: listeningScore,
-      speaking: speakingScore,
-      overall: average,
-      comments,
-      published_at: null,
-    };
-
-    if (currentTeacherId) {
-      payload.teacher_id = currentTeacherId;
-    }
-
-    const { error } = editingMockId
-      ? await supabase.from("results").update(payload).eq("id", editingMockId)
-      : await supabase.from("results").insert([payload]);
-
-    if (error) {
-      console.error("Unable to save mock result:", error);
-      setErrorMessage(error.message);
-      setSaving(false);
-      return;
-    }
-
-    setMessage(
-      editingMockId
-        ? wasPublished
-          ? "Mock result updated and returned to Draft. Publish it when ready."
-          : "Mock exam result updated."
-        : "Mock exam result saved as Draft."
-    );
-    clearForm();
-    setSaving(false);
-    await loadResults();
   }
 
-  function editMock(result: any) {
+  async function submitExisting(result: MockResultWorkflowRow) {
+    setMessage("");
+    setErrorMessage("");
+    if (!hasCompleteMockResultScores(result)) {
+      setErrorMessage("Complete all four scores before submitting for review.");
+      return;
+    }
+
+    try {
+      setSavingAction("submit");
+      const payload = await request("/api/teacher/mock-results", {
+        method: "POST",
+        body: JSON.stringify({
+          result_id: result.id,
+          class_id: classId,
+          student_id: studentId,
+          mock_number: result.mock_number,
+          reading: result.reading,
+          writing: result.writing,
+          listening: result.listening,
+          speaking: result.speaking,
+          comments: result.comments || "",
+          action: "submit",
+        }),
+      });
+      setResults(
+        ([...(payload.results || [])] as MockResultWorkflowRow[]).sort(
+          compareMockResults
+        )
+      );
+      setMessage("Mock Result submitted for Admin review.");
+      clearForm();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to submit the Mock Result."
+      );
+    } finally {
+      setSavingAction("");
+    }
+  }
+
+  function editMock(result: MockResultWorkflowRow) {
+    if (!canTeacherEditMockResult(result.status)) return;
     setEditingMockId(result.id);
     setMockNumber(String(result.mock_number || 1));
-    setReading(
-      result.reading === null || result.reading === undefined
-        ? ""
-        : String(result.reading)
-    );
-    setWriting(
-      result.writing === null || result.writing === undefined
-        ? ""
-        : String(result.writing)
-    );
-    setListening(
-      result.listening === null || result.listening === undefined
-        ? ""
-        : String(result.listening)
-    );
-    setSpeaking(
-      result.speaking === null || result.speaking === undefined
-        ? ""
-        : String(result.speaking)
-    );
+    setReading(result.reading === null ? "" : String(result.reading));
+    setWriting(result.writing === null ? "" : String(result.writing));
+    setListening(result.listening === null ? "" : String(result.listening));
+    setSpeaking(result.speaking === null ? "" : String(result.speaking));
     setComments(result.comments || "");
+    setMessage("");
+    setErrorMessage("");
   }
 
-  async function deleteMockResult(id: string) {
-    const confirmed = confirm("Delete this mock exam result?");
-
+  async function removeMockResult(result: MockResultWorkflowRow) {
+    const discardingRevision = result.approved_version_available;
+    const confirmed = window.confirm(
+      discardingRevision
+        ? "Discard these unapproved changes and keep the last published result?"
+        : "Delete this Mock Result draft?"
+    );
     if (!confirmed) return;
 
+    setRemovingMockId(result.id);
     setMessage("");
     setErrorMessage("");
-
-    const { error } = await supabase.from("results").delete().eq("id", id);
-
-    if (error) {
-      console.error("Unable to delete mock result:", error);
-      setErrorMessage(error.message);
-      return;
+    try {
+      const payload = await request("/api/teacher/mock-results", {
+        method: "DELETE",
+        body: JSON.stringify({
+          result_id: result.id,
+          class_id: classId,
+          student_id: studentId,
+        }),
+      });
+      setResults(
+        ([...(payload.results || [])] as MockResultWorkflowRow[]).sort(
+          compareMockResults
+        )
+      );
+      setMessage(
+        discardingRevision
+          ? "Unapproved changes discarded. The published result is unchanged."
+          : "Mock Result draft deleted."
+      );
+      if (editingMockId === result.id) clearForm();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to remove the Mock Result."
+      );
+    } finally {
+      setRemovingMockId("");
     }
-
-    setMessage("Mock exam result deleted.");
-    await loadResults();
-  }
-
-  async function publishMockResult(result: any) {
-    if (!result?.id || publishingMockId || unpublishingMockId) return;
-
-    setMessage("");
-    setErrorMessage("");
-
-    if (!hasCompleteMockScores(result)) {
-      setErrorMessage("Complete all four mock scores before publishing.");
-      return;
-    }
-
-    setPublishingMockId(result.id);
-
-    const { error } = await supabase
-      .from("results")
-      .update({ published_at: new Date().toISOString() })
-      .eq("id", result.id)
-      .eq("class_id", classId)
-      .eq("result_type", "mock");
-
-    if (error) {
-      console.error("Unable to publish mock result:", error);
-      setErrorMessage("The mock result could not be published. Please try again.");
-      setPublishingMockId("");
-      return;
-    }
-
-    setMessage("Mock result published successfully.");
-    setPublishingMockId("");
-    await loadResults();
-  }
-
-  function requestUnpublishMockResult(result: any) {
-    setMessage("");
-    setErrorMessage("");
-    setPendingUnpublishResult(result);
-  }
-
-  async function confirmUnpublishMockResult() {
-    if (!pendingUnpublishResult?.id || unpublishingMockId) return;
-
-    const resultId = pendingUnpublishResult.id;
-    setUnpublishingMockId(resultId);
-    setMessage("");
-    setErrorMessage("");
-
-    const { error } = await supabase
-      .from("results")
-      .update({ published_at: null })
-      .eq("id", resultId)
-      .eq("class_id", classId)
-      .eq("result_type", "mock");
-
-    if (error) {
-      console.error("Unable to unpublish mock result:", error);
-      setErrorMessage("The mock result could not be unpublished. Please try again.");
-      setUnpublishingMockId("");
-      return;
-    }
-
-    setMessage("Mock result returned to Draft.");
-    setUnpublishingMockId("");
-    setPendingUnpublishResult(null);
-    await loadResults();
   }
 
   return (
-    <section className="student-workspace-section">
+    <section className="student-workspace-section mock-result-workflow-section">
       <div className="student-workspace-section-header">
         <h3>Mock Exams</h3>
-        <p>Enter, correct and publish mock exam results for {studentName}.</p>
+        <p>
+          Enter results for {studentName}. Admin publishes approved results to
+          the Student Portal.
+        </p>
       </div>
 
       {message && (
@@ -419,7 +367,6 @@ export default function StudentMockResultsSection({
           {message}
         </div>
       )}
-
       {errorMessage && (
         <div className="student-workspace-error" role="alert">
           {errorMessage}
@@ -432,6 +379,21 @@ export default function StudentMockResultsSection({
             Results cannot be saved until the existing records load successfully.
           </p>
         )}
+
+        {editingResult?.approved_version_available && (
+          <div className="student-workspace-context-note is-existing">
+            Saving changes creates an unapproved revision. The last Admin-approved
+            result remains visible to the student until the revision is published.
+          </div>
+        )}
+
+        {editingResult?.status === "changes_required" &&
+          editingResult.review_note && (
+            <div className="mock-result-workflow-review-note">
+              <strong>Admin correction note</strong>
+              <p>{editingResult.review_note}</p>
+            </div>
+          )}
 
         <div className="student-workspace-form-grid">
           <label className="student-workspace-field">
@@ -469,9 +431,10 @@ export default function StudentMockResultsSection({
         </div>
 
         <label className="student-workspace-field">
-          <span>Comments</span>
+          <span>Teacher comment</span>
           <textarea
             rows={4}
+            maxLength={5000}
             value={comments}
             onChange={(event) => setComments(event.target.value)}
           />
@@ -480,22 +443,28 @@ export default function StudentMockResultsSection({
         <div className="student-workspace-actions">
           <button
             type="button"
-            className="student-workspace-primary-button"
-            onClick={saveMockResult}
-            disabled={saving || resultsLoadFailed}
+            className="student-workspace-secondary-button"
+            onClick={() => void saveMockResult("save_draft")}
+            disabled={Boolean(savingAction) || resultsLoadFailed}
           >
-            {saving
-              ? "Saving..."
-              : editingMockId
-              ? "Save Mock Changes"
-              : "Save Mock Result"}
+            {savingAction === "save_draft" ? "Saving..." : "Save Draft"}
           </button>
-
+          <button
+            type="button"
+            className="student-workspace-primary-button"
+            onClick={() => void saveMockResult("submit")}
+            disabled={Boolean(savingAction) || resultsLoadFailed}
+          >
+            {savingAction === "submit"
+              ? "Submitting..."
+              : "Submit for Admin Review"}
+          </button>
           {editingMockId && (
             <button
               type="button"
               className="student-workspace-secondary-button"
               onClick={clearForm}
+              disabled={Boolean(savingAction)}
             >
               Cancel
             </button>
@@ -505,16 +474,16 @@ export default function StudentMockResultsSection({
 
       <div className="student-workspace-list">
         <h4>Saved Mock Results</h4>
-
         {loading ? (
-          <p className="student-workspace-muted">Loading mock results...</p>
+          <p className="student-workspace-muted">Loading Mock Results...</p>
         ) : results.length === 0 ? (
-          <p className="student-workspace-muted">No mock exam results yet.</p>
+          <p className="student-workspace-muted">No Mock Exam results yet.</p>
         ) : (
           results.map((result) => {
-            const published = isMockResultPublished(result);
-            const isPublishing = publishingMockId === result.id;
-            const isUnpublishing = unpublishingMockId === result.id;
+            const canEdit = canTeacherEditMockResult(result.status);
+            const canSubmit = canTeacherSubmitMockResult(result.status);
+            const canRemove = canTeacherRemoveMockResult(result.status);
+            const submittedDate = formatDateTime(result.submitted_at);
 
             return (
               <article className="student-workspace-item" key={result.id}>
@@ -522,14 +491,15 @@ export default function StudentMockResultsSection({
                   <div>
                     <strong>{mockTitle(result)}</strong>
                     <span
-                      className={`student-workspace-badge ${
-                        published ? "is-published" : "is-draft"
-                      }`}
+                      className={`student-workspace-badge is-${result.status.replace(
+                        "_",
+                        "-"
+                      )}`}
                     >
-                      {published ? "Published" : "Draft"}
+                      {getMockResultStatusLabel(result.status)}
                     </span>
                   </div>
-                  <strong>Average {formatPercent(getMockAverage(result))}</strong>
+                  <strong>Average {formatPercent(result.overall)}</strong>
                 </div>
 
                 <div className="student-workspace-score-grid">
@@ -547,52 +517,77 @@ export default function StudentMockResultsSection({
                   ))}
                 </div>
 
-                {result.comments && <p>{result.comments}</p>}
+                {result.comments && (
+                  <div className="mock-result-workflow-comment">
+                    <strong>Teacher comment</strong>
+                    <p>{result.comments}</p>
+                  </div>
+                )}
+
+                {result.review_note && (
+                  <div className="mock-result-workflow-review-note">
+                    <strong>Admin correction note</strong>
+                    <p>{result.review_note}</p>
+                  </div>
+                )}
+
+                {result.status === "awaiting_review" && submittedDate && (
+                  <p className="mock-result-workflow-date">
+                    Submitted {submittedDate}
+                  </p>
+                )}
 
                 <div className="student-workspace-action-footer">
                   <span
                     className={`student-workspace-visibility ${
-                      published ? "is-visible" : "is-draft"
+                      result.status === "published"
+                        ? "is-visible"
+                        : "is-draft"
                     }`}
                   >
-                    {published ? "Visible to student" : "Not visible to student"}
+                    {result.status === "published"
+                      ? "Visible to student"
+                      : result.approved_version_available
+                        ? "Previous approved version remains visible"
+                        : "Not visible to student"}
                   </span>
 
                   <div className="student-workspace-actions is-compact">
-                    {published ? (
-                      <button
-                        type="button"
-                        className="student-workspace-secondary-button"
-                        onClick={() => requestUnpublishMockResult(result)}
-                        disabled={isUnpublishing}
-                      >
-                        {isUnpublishing ? "Unpublishing..." : "Unpublish"}
-                      </button>
-                    ) : (
+                    {canSubmit && (
                       <button
                         type="button"
                         className="student-workspace-primary-button"
-                        onClick={() => publishMockResult(result)}
-                        disabled={isPublishing}
+                        onClick={() => void submitExisting(result)}
+                        disabled={Boolean(savingAction)}
                       >
-                        {isPublishing ? "Publishing..." : "Publish"}
+                        {savingAction === "submit"
+                          ? "Submitting..."
+                          : "Submit for Admin Review"}
                       </button>
                     )}
-
-                    <button
-                      type="button"
-                      className="student-workspace-secondary-button"
-                      onClick={() => editMock(result)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="student-workspace-danger-button"
-                      onClick={() => deleteMockResult(result.id)}
-                    >
-                      Delete
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className="student-workspace-secondary-button"
+                        onClick={() => editMock(result)}
+                      >
+                        Edit Result
+                      </button>
+                    )}
+                    {canRemove && (
+                      <button
+                        type="button"
+                        className="student-workspace-danger-button"
+                        onClick={() => void removeMockResult(result)}
+                        disabled={removingMockId === result.id}
+                      >
+                        {removingMockId === result.id
+                          ? "Removing..."
+                          : result.approved_version_available
+                            ? "Discard Changes"
+                            : "Delete Draft"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>
@@ -600,41 +595,6 @@ export default function StudentMockResultsSection({
           })
         )}
       </div>
-
-      {pendingUnpublishResult && (
-        <div className="student-workspace-confirm-backdrop" role="presentation">
-          <div
-            className="student-workspace-confirm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="student-workspace-unpublish-title"
-          >
-            <h4 id="student-workspace-unpublish-title">Unpublish Mock Result?</h4>
-            <p>
-              The marks will remain saved, but the student will no longer see
-              this mock result until it is published again.
-            </p>
-            <div className="student-workspace-actions">
-              <button
-                type="button"
-                className="student-workspace-secondary-button"
-                onClick={() => setPendingUnpublishResult(null)}
-                disabled={Boolean(unpublishingMockId)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="student-workspace-danger-button"
-                onClick={confirmUnpublishMockResult}
-                disabled={Boolean(unpublishingMockId)}
-              >
-                {unpublishingMockId ? "Unpublishing..." : "Unpublish"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }
