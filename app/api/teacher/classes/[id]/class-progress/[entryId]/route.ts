@@ -38,7 +38,7 @@ export async function PATCH(
       return fail("Unable to load Class Progress.", 500);
     }
     if (!existing) return fail("Class Progress entry was not found.", 404);
-    verifyScheduledLesson(
+    await verifyScheduledLesson(
       context,
       String(existing.lesson_date),
       String(existing.scheduled_start_time),

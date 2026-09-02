@@ -12,6 +12,7 @@ import { getUpcomingTeacherCalendarEvents } from "../../lib/teacherCalendar";
 import { supabase } from "../../lib/supabase";
 import { getCurrentAcademicYear } from "../../lib/academicYears";
 import { resolveCurrentStudentClass } from "../../lib/academicYearRules";
+import type { SchoolClosure } from "../../lib/schoolClosures";
 
 type IconName =
   | "classes"
@@ -397,6 +398,8 @@ export default function AdminDashboard() {
   const [unreviewedFollowUps, setUnreviewedFollowUps] = useState<any[]>([]);
   const [mockResultsAwaitingReview, setMockResultsAwaitingReview] = useState(0);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [nextSchoolClosure, setNextSchoolClosure] =
+    useState<SchoolClosure | null>(null);
   const [overview, setOverview] = useState({
     classes: 0,
     teachers: 0,
@@ -415,6 +418,7 @@ export default function AdminDashboard() {
   >("");
   const [overviewError, setOverviewError] = useState(false);
   const [calendarError, setCalendarError] = useState(false);
+  const [schoolCalendarError, setSchoolCalendarError] = useState(false);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -457,6 +461,30 @@ export default function AdminDashboard() {
       } catch (error) {
         console.error("Unable to load teacher calendar events:", error);
         setCalendarError(true);
+      }
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error("Admin session unavailable.");
+        const response = await fetch("/api/admin/school-closures", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || "Unable to load School Calendar.");
+        }
+        const today = String(payload.today_madrid || "");
+        setNextSchoolClosure(
+          (Array.isArray(payload.closures) ? payload.closures : []).find(
+            (closure: SchoolClosure) => closure.end_date >= today
+          ) || null
+        );
+      } catch (error) {
+        console.error("Unable to load School Calendar summary:", error);
+        setSchoolCalendarError(true);
       }
 
       try {
@@ -722,6 +750,31 @@ export default function AdminDashboard() {
             Counts are based on enrolled Cambridge students and active Young
             Learners.
           </p>
+        </section>
+
+        <section className="admin-dashboard-school-calendar" aria-labelledby="dashboard-school-calendar-title">
+          <div className="admin-dashboard-school-calendar-icon" aria-hidden="true">
+            <DashboardIcon name="calendar" size={22} />
+          </div>
+          <div className="admin-dashboard-school-calendar-copy">
+            <span>Next School Closure</span>
+            <h2 id="dashboard-school-calendar-title">
+              {schoolCalendarError
+                ? "School Calendar unavailable"
+                : nextSchoolClosure?.name || "No upcoming closures"}
+            </h2>
+            {nextSchoolClosure && !schoolCalendarError && (
+              <p>
+                {nextSchoolClosure.start_date === nextSchoolClosure.end_date
+                  ? formatDate(nextSchoolClosure.start_date)
+                  : `${formatDate(nextSchoolClosure.start_date)} – ${formatDate(nextSchoolClosure.end_date)}`}
+              </p>
+            )}
+          </div>
+          <Link href="/admin/school-calendar" className="admin-dashboard-secondary-link">
+            Manage School Calendar
+            <DashboardIcon name="chevron" size={16} />
+          </Link>
         </section>
 
         <section className="admin-dashboard-main-grid">

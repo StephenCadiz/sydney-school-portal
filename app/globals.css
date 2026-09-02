@@ -179,6 +179,42 @@
   max-width: 720px;
 }
 
+.class-register-school-closed {
+  align-items: flex-start;
+  background: #eef7fd;
+  border: 1px solid #c6dfef;
+  border-radius: 10px;
+  color: #226493;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+}
+
+.class-register-school-closed > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.class-register-school-closed div {
+  display: grid;
+  gap: 4px;
+}
+
+.class-register-school-closed strong {
+  color: #173b66;
+  font-size: 1rem;
+}
+
+.class-register-school-closed span {
+  color: #285f87;
+  font-weight: 800;
+}
+
+.class-register-school-closed p {
+  color: #52728b;
+  margin: 2px 0 0;
+}
+
 .attendance-summary-state.is-unavailable {
   background: #fffbeb;
   border-color: #ead6a5;
@@ -5019,6 +5055,59 @@ img {
   padding: 24px;
 }
 
+.admin-dashboard-school-calendar {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--ss-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(31, 60, 136, 0.07);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+}
+
+.admin-dashboard-school-calendar-icon {
+  align-items: center;
+  background: #eef7fd;
+  border: 1px solid #d0e5f3;
+  border-radius: 12px;
+  color: #2f7db8;
+  display: inline-flex;
+  height: 46px;
+  justify-content: center;
+  width: 46px;
+}
+
+.admin-dashboard-school-calendar-copy {
+  min-width: 0;
+}
+
+.admin-dashboard-school-calendar-copy > span {
+  color: #2f7db8;
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.admin-dashboard-school-calendar-copy h2 {
+  color: var(--ss-blue-dark);
+  font-size: 1.05rem;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.admin-dashboard-school-calendar-copy p {
+  color: #667085;
+  font-size: 0.83rem;
+  font-weight: 750;
+  margin: 4px 0 0;
+}
+
 .admin-dashboard-section-heading {
   margin-bottom: 18px;
 }
@@ -5311,6 +5400,14 @@ img {
 }
 
 @media (max-width: 920px) {
+  .admin-dashboard-school-calendar {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .admin-dashboard-school-calendar > .admin-dashboard-secondary-link {
+    grid-column: 1 / -1;
+  }
+
   .admin-dashboard-kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

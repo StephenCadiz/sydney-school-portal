@@ -8,6 +8,7 @@ import {
   getFridayTutorialSettings,
   isB1FridayTutorialSession,
 } from "./fridayTutorials";
+import { isSchoolClosedClient } from "./schoolClosuresClient";
 
 const allowedLevels = [...fridayTutorialCambridgeLevels];
 
@@ -138,6 +139,7 @@ export async function getActiveFridayExamPracticeSessions() {
 }
 
 export async function getFridayExamPracticeSessionsForDate(date: string) {
+  if (await isSchoolClosedClient(date)) return [];
   const { data, error } = await supabase
     .from("friday_exam_practice_sessions")
     .select("id, session_date, level_name, activity_type, exam_part, pdf_url, audio_url, key_url, note, active")
@@ -300,6 +302,12 @@ async function validateFridayAt6DutyPayload(payload: any) {
     throw new Error("Please choose a teacher.");
   }
 
+  if (await isSchoolClosedClient(sessionDate)) {
+    throw new Error(
+      "School is closed on this date. No Friday Tutorial duty is required."
+    );
+  }
+
   const settings = await getFridayTutorialSettings();
   const sessionType = getFridayTutorialSessionTypeForDate(
     settings,
@@ -358,6 +366,7 @@ export async function getFridayAt6Duties() {
 }
 
 export async function getFridayAt6DutyForDate(date: string) {
+  if (await isSchoolClosedClient(date)) return null;
   const { data, error } = await supabase
     .from("friday_at_6_duties")
     .select("id, session_date, teacher_id, b1_teacher_id, note, active")

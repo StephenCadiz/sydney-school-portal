@@ -84,6 +84,14 @@ export type ClassRegisterSnapshot = {
     scheduled_end_time: string;
   };
   today_madrid: string;
+  today_closure: {
+    id: string;
+    name: string;
+    closure_type: "public_holiday" | "school_holiday" | "other";
+    start_date: string;
+    end_date: string;
+    notes: string | null;
+  } | null;
   today_lesson: ClassRegisterLesson | null;
   recent_registers: ClassRegisterLesson[];
   selected_lesson: ClassRegisterLesson | null;

@@ -25,6 +25,8 @@ import {
   type AdminAttendanceHistoryRow,
 } from "./classRegister";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { findSchoolClosure } from "./schoolClosures";
+import { loadSchoolClosures } from "./schoolClosuresServer";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -309,7 +311,7 @@ async function loadDataset(classRows: RawClass[]): Promise<AttendanceDataset> {
     };
   }
 
-  const [registers, profileEnrolmentsResult, learnerEnrolmentsResult, currentLearnersResult] =
+  const [allRegisters, profileEnrolmentsResult, learnerEnrolmentsResult, currentLearnersResult] =
     await Promise.all([
       loadRegisters(classIds),
       supabaseAdmin
@@ -328,6 +330,20 @@ async function loadDataset(classRows: RawClass[]): Promise<AttendanceDataset> {
   if (profileEnrolmentsResult.error) throw profileEnrolmentsResult.error;
   if (learnerEnrolmentsResult.error) throw learnerEnrolmentsResult.error;
   if (currentLearnersResult.error) throw currentLearnersResult.error;
+
+  const registerDates = allRegisters
+    .map((register) => text(register.lesson_date))
+    .filter(Boolean)
+    .sort();
+  const closures = registerDates.length
+    ? await loadSchoolClosures({
+        startDate: registerDates[0],
+        endDate: registerDates[registerDates.length - 1],
+      })
+    : [];
+  const registers = allRegisters.filter(
+    (register) => !findSchoolClosure(text(register.lesson_date), closures)
+  );
 
   for (const enrolment of profileEnrolmentsResult.data || []) {
     const classId = text(enrolment.class_id);

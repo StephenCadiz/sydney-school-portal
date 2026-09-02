@@ -7,6 +7,8 @@ import {
   getEmptyFridayTutorialProgressSummary,
   type FridayTutorialProgressSourceRow,
 } from "../../../lib/fridayTutorialResults";
+import { findSchoolClosure } from "../../../lib/schoolClosures";
+import { loadSchoolClosures } from "../../../lib/schoolClosuresServer";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -240,9 +242,24 @@ async function loadProgressRows(studentId: string, classId?: string) {
     throw new Error("Unable to load Friday tutorial progress.");
   }
 
+  const sessionDates = (sessions || [])
+    .map((session) => String(session.session_date || ""))
+    .filter(Boolean)
+    .sort();
+  const closures = sessionDates.length
+    ? await loadSchoolClosures({
+        startDate: sessionDates[0],
+        endDate: sessionDates[sessionDates.length - 1],
+      })
+    : [];
+  const openDateSessions = (sessions || []).filter(
+    (session) =>
+      !findSchoolClosure(String(session.session_date || ""), closures)
+  );
+
   const sheetById = new Map((sheets || []).map((sheet) => [sheet.id, sheet]));
   const sessionById = new Map(
-    (sessions || []).map((session) => [session.id, session])
+    openDateSessions.map((session) => [session.id, session])
   );
 
   return resultRows

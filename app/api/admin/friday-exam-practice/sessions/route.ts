@@ -11,6 +11,7 @@ import {
   isValidExternalUrl,
 } from "../../../../../lib/cambridgeExamBank";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { getSchoolClosureForDate } from "../../../../../lib/schoolClosuresServer";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -112,6 +113,13 @@ async function validatePayload(input: unknown) {
 
   if (!isDateOnly(sessionDate)) {
     return { value: null, error: "Choose a valid session date." };
+  }
+  const closure = await getSchoolClosureForDate(sessionDate);
+  if (closure) {
+    return {
+      value: null,
+      error: `School is closed on this date for ${closure.name}. No Friday Tutorial session is required.`,
+    };
   }
   if (!isEligibleCambridgeExamLevel(levelName)) {
     return { value: null, error: "Level must be B1, B2, C1 or C2." };

@@ -10,6 +10,8 @@ import {
   type FridayTutorialResultSheet,
   type FridayTutorialTeacherSheetStudentRow,
 } from "../../../../lib/fridayTutorialResults";
+import { findSchoolClosure } from "../../../../lib/schoolClosures";
+import { loadSchoolClosures } from "../../../../lib/schoolClosuresServer";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -255,8 +257,22 @@ async function getMatchingSessions(levelName: string) {
     throw new Error("Unable to load Friday @ 6 sessions.");
   }
 
-  return (data || []).filter(
+  const matching = (data || []).filter(
     (session) => normalizeCambridgeLevel(session.level_name) === levelName
+  );
+  const sessionDates = matching
+    .map((session) => String(session.session_date || ""))
+    .filter(Boolean)
+    .sort();
+  const closures = sessionDates.length
+    ? await loadSchoolClosures({
+        startDate: sessionDates[0],
+        endDate: sessionDates[sessionDates.length - 1],
+      })
+    : [];
+  return matching.filter(
+    (session) =>
+      !findSchoolClosure(String(session.session_date || ""), closures)
   );
 }
 

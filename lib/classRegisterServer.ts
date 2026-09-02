@@ -31,6 +31,12 @@ import {
   getEmptyClassAttendanceSummary,
 } from "./classRegister";
 import { supabaseAdmin } from "./supabaseAdmin";
+import {
+  getSchoolClosureForDate,
+  loadSchoolClosures,
+  schoolClosedMessage,
+} from "./schoolClosuresServer";
+import { findSchoolClosure, type SchoolClosureSummary } from "./schoolClosures";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -345,6 +351,7 @@ export function verifyClassRegisterLesson(
 
 function getRecentScheduledLessons(
   context: ClassRegisterContext,
+  closures: readonly SchoolClosureSummary[],
   limit = 12,
   now = new Date()
 ) {
@@ -356,7 +363,7 @@ function getRecentScheduledLessons(
   let date = lastDate;
   let inspected = 0;
   while (date >= context.periodStart && lessons.length < limit && inspected < 740) {
-    if (isLegitimateScheduledDate(context, date)) {
+    if (isLegitimateScheduledDate(context, date) && !findSchoolClosure(date, closures)) {
       lessons.push({
         lesson_date: date,
         scheduled_start_time: context.scheduledStartTime,
@@ -509,10 +516,29 @@ export async function loadClassRegisterSnapshot(
 ): Promise<ClassRegisterSnapshot> {
   const now = new Date();
   const today = getMadridDateString(now);
-  const recentLessons = getRecentScheduledLessons(context, 12, now);
+  const closureEnd = today < context.periodEnd ? today : context.periodEnd;
+  const closures =
+    closureEnd >= context.periodStart
+      ? await loadSchoolClosures({
+          startDate: context.periodStart,
+          endDate: closureEnd,
+        })
+      : [];
+  const todayClosure =
+    findSchoolClosure(today, closures) || (await getSchoolClosureForDate(today));
+  const recentLessons = getRecentScheduledLessons(context, closures, 12, now);
   let selectedLesson: ScheduledRegisterLesson | null = null;
 
   if (selected?.lessonDate) {
+    const selectedClosure =
+      findSchoolClosure(selected.lessonDate, closures) ||
+      (await getSchoolClosureForDate(selected.lessonDate));
+    if (selectedClosure) {
+      throw new ClassRegisterError(
+        schoolClosedMessage(selected.lessonDate, selectedClosure),
+        409
+      );
+    }
     selectedLesson = verifyClassRegisterLesson(
       context,
       selected.lessonDate,
@@ -610,6 +636,7 @@ export async function loadClassRegisterSnapshot(
       scheduled_end_time: context.scheduledEndTime,
     },
     today_madrid: today,
+    today_closure: todayClosure,
     today_lesson:
       lessonRows.find((lesson) => lesson.lesson_date === today) || null,
     recent_registers: lessonRows.filter(
@@ -691,6 +718,10 @@ export async function openClassRegister(
   lessonDate: string,
   scheduledStartTime: string
 ) {
+  const closure = await getSchoolClosureForDate(lessonDate);
+  if (closure) {
+    throw new ClassRegisterError(schoolClosedMessage(lessonDate, closure), 409);
+  }
   const lesson = verifyClassRegisterLesson(
     context,
     lessonDate,
@@ -762,6 +793,14 @@ export async function saveClassRegister(
   if (registerError) throw registerError;
   if (!register) throw new ClassRegisterError("Class Register was not found.", 404);
 
+  const closure = await getSchoolClosureForDate(text(register.lesson_date));
+  if (closure) {
+    throw new ClassRegisterError(
+      schoolClosedMessage(text(register.lesson_date), closure),
+      409
+    );
+  }
+
   const lesson = verifyClassRegisterLesson(
     context,
     text(register.lesson_date),
@@ -785,6 +824,7 @@ export async function saveClassRegister(
 
 function getAllScheduledLessonsThroughNow(
   context: ClassRegisterContext,
+  closures: readonly SchoolClosureSummary[],
   now = new Date()
 ) {
   const today = getMadridDateString(now);
@@ -797,6 +837,7 @@ function getAllScheduledLessonsThroughNow(
   while (date <= lastDate && inspected < 740) {
     if (
       isLegitimateScheduledDate(context, date) &&
+      !findSchoolClosure(date, closures) &&
       lessonIsAvailable(date, context.scheduledStartTime, now)
     ) {
       lessons.push({
@@ -847,8 +888,17 @@ export async function loadClassRegisterReminders(request: NextRequest) {
 
   const now = new Date();
   const today = getMadridDateString(now);
+  const earliestPeriodStart = contexts.reduce(
+    (earliest, context) =>
+      context.periodStart < earliest ? context.periodStart : earliest,
+    contexts[0].periodStart
+  );
+  const closures = await loadSchoolClosures({
+    startDate: earliestPeriodStart,
+    endDate: today,
+  });
   const candidates = contexts.flatMap((context) =>
-    getAllScheduledLessonsThroughNow(context, now).map((lesson) => ({
+    getAllScheduledLessonsThroughNow(context, closures, now).map((lesson) => ({
       context,
       lesson,
     }))
@@ -963,11 +1013,29 @@ export async function getStudentClassAttendanceSummary(
   }
   const { data: registers, error: registerError } = await supabaseAdmin
     .from("class_registers")
-    .select("id")
+    .select("id, lesson_date")
     .eq("class_id", classId)
     .not("completed_at", "is", null);
   if (registerError) throw registerError;
-  const registerIds = (registers || []).map((register) => text(register.id));
+  const registerRows = registers || [];
+  const closureStart = registerRows.reduce(
+    (earliest, register) =>
+      !earliest || text(register.lesson_date) < earliest
+        ? text(register.lesson_date)
+        : earliest,
+    ""
+  );
+  const closureEnd = registerRows.reduce(
+    (latest, register) =>
+      text(register.lesson_date) > latest ? text(register.lesson_date) : latest,
+    ""
+  );
+  const closures = closureStart
+    ? await loadSchoolClosures({ startDate: closureStart, endDate: closureEnd })
+    : [];
+  const registerIds = registerRows
+    .filter((register) => !findSchoolClosure(text(register.lesson_date), closures))
+    .map((register) => text(register.id));
   if (!registerIds.length) return getEmptyClassAttendanceSummary();
 
   let query = supabaseAdmin
@@ -1053,14 +1121,28 @@ async function loadAttendanceHistory(
     .in("id", registerIds)
     .not("completed_at", "is", null);
   if (registerError) throw registerError;
+  const registerRows = registers || [];
+  const closureDates = registerRows
+    .map((register) => text(register.lesson_date))
+    .filter(Boolean)
+    .sort();
+  const closures = closureDates.length
+    ? await loadSchoolClosures({
+        startDate: closureDates[0],
+        endDate: closureDates[closureDates.length - 1],
+      })
+    : [];
+  const openDateRegisters = registerRows.filter(
+    (register) => !findSchoolClosure(text(register.lesson_date), closures)
+  );
   const completedRegisterIds = new Set(
-    (registers || []).map((register) => text(register.id))
+    openDateRegisters.map((register) => text(register.id))
   );
   const completedEntries = (entries || []).filter((entry) =>
     completedRegisterIds.has(text(entry.register_id))
   );
   const classIds = Array.from(
-    new Set((registers || []).map((register) => text(register.class_id)))
+    new Set(openDateRegisters.map((register) => text(register.class_id)))
   );
   const { data: classes, error: classError } = classIds.length
     ? await supabaseAdmin
@@ -1078,7 +1160,7 @@ async function loadAttendanceHistory(
   const teacherIds = Array.from(
     new Set([
       ...(classes || []).map((classroom) => text(classroom.teacher_id)),
-      ...(registers || []).map((register) => text(register.completed_by)),
+      ...openDateRegisters.map((register) => text(register.completed_by)),
     ])
   ).filter(Boolean);
   const academicYearIds = Array.from(
@@ -1125,7 +1207,7 @@ async function loadAttendanceHistory(
     (classes || []).map((classroom) => [text(classroom.id), classroom])
   );
   const registerMap = new Map(
-    (registers || []).map((register) => [text(register.id), register])
+    openDateRegisters.map((register) => [text(register.id), register])
   );
   const history = completedEntries
     .map((entry): AdminAttendanceHistoryRow | null => {

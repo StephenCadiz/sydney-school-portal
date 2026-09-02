@@ -10,6 +10,7 @@ import {
   getTutorialGroupLabel,
 } from "../../../../lib/fridayTutorials";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { getSchoolClosureForDate } from "../../../../lib/schoolClosuresServer";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -86,6 +87,16 @@ async function getAttendanceContext(request: NextRequest) {
   const now = getMadridNow();
   if (now.weekday !== "Friday") {
     return { response: jsonError("No Friday Tutorial attendance is assigned today.", 404), context: null };
+  }
+
+  if (await getSchoolClosureForDate(now.date)) {
+    return {
+      response: jsonError(
+        "School is closed today. No Friday Tutorial attendance is required.",
+        404
+      ),
+      context: null,
+    };
   }
 
   const { data: duty, error: dutyError } = await supabaseAdmin

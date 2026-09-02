@@ -581,7 +581,16 @@ export default function ClassRegisterTab({
               <CalendarDays aria-hidden="true" size={22} />
             </div>
 
-            {snapshot.today_lesson ? (
+            {snapshot.today_closure ? (
+              <div className="class-register-school-closed" role="status">
+                <CalendarDays aria-hidden="true" size={21} />
+                <div>
+                  <strong>School closed today</strong>
+                  <span>{snapshot.today_closure.name}</span>
+                  <p>No Class Register is required.</p>
+                </div>
+              </div>
+            ) : snapshot.today_lesson ? (
               <div className="class-register-today-lesson">
                 <div className="class-register-lesson-time">
                   <Clock3 aria-hidden="true" size={19} />

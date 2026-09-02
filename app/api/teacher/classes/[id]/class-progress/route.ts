@@ -53,7 +53,7 @@ export async function POST(
     const entry = parseClassProgressInput(body, !context.isCambridge, {
       allowSchedule: true,
     });
-    verifyScheduledLesson(
+    await verifyScheduledLesson(
       context,
       String(entry.lesson_date),
       String(entry.scheduled_start_time),

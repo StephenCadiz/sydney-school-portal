@@ -15,6 +15,12 @@ import {
 import { supabaseAdmin } from "./supabaseAdmin";
 import { getCurrentAcademicYearServer } from "./academicYearsServer";
 import { filterClassesForCurrentTeaching } from "./academicYearRules";
+import { findSchoolClosure, type SchoolClosureSummary } from "./schoolClosures";
+import {
+  getSchoolClosureForDate,
+  loadSchoolClosures,
+  schoolClosedMessage,
+} from "./schoolClosuresServer";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -175,7 +181,8 @@ export function getRecentScheduledLessons(
   scheduledStartTime: string,
   scheduledEndTime: string,
   daysBack = 42,
-  date = new Date()
+  date = new Date(),
+  closures: readonly SchoolClosureSummary[] = []
 ) {
   const today = getMadridDateString(date);
   const start = normalizeScheduledTime(scheduledStartTime);
@@ -195,6 +202,7 @@ export function getRecentScheduledLessons(
     if (lessonDate < CLASS_PROGRESS_START_DATE) break;
     const weekday = madridWeekdayForDate(lessonDate);
     if (!isScheduledOnClassDays(classDays, weekday)) continue;
+    if (findSchoolClosure(lessonDate, closures)) continue;
     lessons.push({
       lesson_date: lessonDate,
       scheduled_start_time: start,
@@ -365,7 +373,7 @@ export function parseClassProgressInput(
   return entry;
 }
 
-export function verifyScheduledLesson(
+export async function verifyScheduledLesson(
   context: ClassProgressContext,
   lessonDate: string,
   scheduledStartTime: string,
@@ -389,6 +397,11 @@ export function verifyScheduledLesson(
     }
     throw new ClassProgressError("This is not a scheduled lesson for the selected class.", 422);
   }
+
+  const closure = await getSchoolClosureForDate(lessonDate);
+  if (closure) {
+    throw new ClassProgressError(schoolClosedMessage(lessonDate, closure), 409);
+  }
 }
 
 function getTeacherName(profile: any) {
@@ -399,10 +412,20 @@ function getTeacherName(profile: any) {
 }
 
 export async function loadClassProgressSnapshot(context: ClassProgressContext) {
-  const recentLessons = getRecentScheduledLessons(
+  const scheduledCandidates = getRecentScheduledLessons(
     context.classDays,
     context.scheduledStartTime,
     context.scheduledEndTime
+  );
+  const candidateDates = scheduledCandidates.map((lesson) => lesson.lesson_date);
+  const closures = candidateDates.length
+    ? await loadSchoolClosures({
+        startDate: candidateDates[candidateDates.length - 1],
+        endDate: candidateDates[0],
+      })
+    : [];
+  const recentLessons = scheduledCandidates.filter(
+    (lesson) => !findSchoolClosure(lesson.lesson_date, closures)
   );
   const recentDates = recentLessons.map((lesson) => lesson.lesson_date);
   const entryResult = recentDates.length
@@ -532,8 +555,20 @@ export async function loadSameLevelProgress(context: ClassProgressContext) {
   const names = new Map(
     (profileResult.data || []).map((profile) => [String(profile.id), getTeacherName(profile)])
   );
+  const sameLevelEntries = entriesResult.data || [];
+  const sameLevelDates = sameLevelEntries
+    .map((entry) => String(entry.lesson_date || ""))
+    .filter(Boolean)
+    .sort();
+  const sameLevelClosures = sameLevelDates.length
+    ? await loadSchoolClosures({
+        startDate: sameLevelDates[0],
+        endDate: sameLevelDates[sameLevelDates.length - 1],
+      })
+    : [];
   const entriesByClass = new Map<string, any[]>();
-  for (const entry of entriesResult.data || []) {
+  for (const entry of sameLevelEntries) {
+    if (findSchoolClosure(String(entry.lesson_date), sameLevelClosures)) continue;
     const id = String(entry.class_id);
     entriesByClass.set(id, [...(entriesByClass.get(id) || []), entry]);
   }
@@ -660,16 +695,21 @@ export async function loadClassProgressReminders(request: NextRequest) {
     )
   );
   const reminderHistoryDays = Math.min(42, daysSinceLaunch);
+  const earliestDate = addMadridCalendarDays(today, -reminderHistoryDays);
+  const closures = await loadSchoolClosures({
+    startDate: earliestDate,
+    endDate: today,
+  });
   const candidateLessons = eligibleClasses.flatMap((classroom) =>
     getRecentScheduledLessons(
       String(classroom.days || ""),
       classroom.start,
       classroom.end,
       reminderHistoryDays,
-      now
+      now,
+      closures
     ).map((lesson) => ({ classroom, lesson }))
   );
-  const earliestDate = addMadridCalendarDays(today, -reminderHistoryDays);
   const { data: entries, error: entryError } = await supabaseAdmin
     .from("class_progress_entries")
     .select("class_id, lesson_date, scheduled_start_time")

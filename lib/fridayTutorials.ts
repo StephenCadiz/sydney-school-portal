@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { isSchoolClosedClient } from "./schoolClosuresClient";
 
 export const FRIDAY_TUTORIAL_SESSION_TYPES = {
   KIDS_2_TO_JUNIOR_3: "kids2_junior3",
@@ -531,6 +532,11 @@ export async function getOrCreateFridayTutorialSession(
   sessionDate: string,
   tutorialGroup: string
 ) {
+  if (await isSchoolClosedClient(sessionDate)) {
+    throw new Error(
+      "School is closed on this date. No Friday Tutorial register is required."
+    );
+  }
   const { data: existingSession, error: existingError } = await supabase
     .from("friday_tutorial_sessions")
     .select("*")

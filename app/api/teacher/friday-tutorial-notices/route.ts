@@ -7,6 +7,7 @@ import {
 } from "../../../../lib/cambridgeExamBank";
 import { normalizeCambridgeLevel } from "../../../../lib/fridayTutorialResults";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { getSchoolClosureForDate } from "../../../../lib/schoolClosuresServer";
 
 const RESOURCE_ORDER: Record<
   CambridgeExamPartType,
@@ -93,6 +94,10 @@ export async function GET(request: NextRequest) {
     if (actor.response) return actor.response;
 
     const today = getMadridDateString();
+    const closure = await getSchoolClosureForDate(today);
+    if (closure) {
+      return NextResponse.json({ notices: [], school_closed: true, closure });
+    }
     const { data: sessions, error: sessionError } = await supabaseAdmin
       .from("friday_exam_practice_sessions")
       .select(
@@ -259,7 +264,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ notices });
+    return NextResponse.json({ notices, school_closed: false });
   } catch {
     return jsonError("Unable to load Friday Tutorial notices.", 500);
   }

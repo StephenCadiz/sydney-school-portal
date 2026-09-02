@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { resolveStudentCurrentClassServer } from "../../../../lib/academicYearsServer";
+import { isSchoolClosed } from "../../../../lib/schoolClosuresServer";
 
 type ReminderStage = "monday" | "thursday";
 
@@ -156,6 +157,7 @@ async function resolveReminderContext(
 ): Promise<ReminderContext | null> {
   const window = getCurrentReminderWindow();
   if (!window) return null;
+  if (await isSchoolClosed(window.fridayDate)) return null;
 
   const classResolution = await resolveStudentCurrentClassServer(studentId);
   if (classResolution.error || !classResolution.classroom) return null;

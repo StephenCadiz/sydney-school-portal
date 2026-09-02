@@ -31,6 +31,7 @@ function knownDatabaseMessage(error: unknown) {
     "Completed Class Registers must remain complete",
     "Class Register was not found",
     "Class Register access denied",
+    "School is closed on this date",
   ];
   return expected.find((part) => message.includes(part)) ? message : "";
 }

@@ -397,6 +397,7 @@ export default function AdminLayout({
     {
       label: "Scheduling & Activities",
       items: [
+        { name: "School Calendar", href: "/admin/school-calendar", icon: "calendarCheck" as AdminNavIconName },
         { name: "Teacher Calendar", href: "/admin/teacher-calendar", icon: "calendar" as AdminNavIconName },
         { name: "Friday Tutorials", href: "/admin/friday-tutorials", icon: "calendarCheck" as AdminNavIconName },
         { name: "Friday @ 6", href: "/admin/friday-exam-practice", icon: "clock" as AdminNavIconName },
