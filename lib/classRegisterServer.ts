@@ -934,7 +934,9 @@ export async function loadClassRegisterReminders(request: NextRequest) {
   return { reminders };
 }
 
-function calculateAttendanceSummary(entries: any[]): ClassAttendanceSummary {
+export function calculateAttendanceSummary(
+  entries: ReadonlyArray<{ attendance_status?: unknown }>
+): ClassAttendanceSummary {
   const presentCount = entries.filter(
     (entry) => entry.attendance_status === "present"
   ).length;

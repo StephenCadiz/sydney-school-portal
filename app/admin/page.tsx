@@ -24,6 +24,7 @@ type IconName =
   | "announcements"
   | "calendar"
   | "followUps"
+  | "attendance"
   | "envelope"
   | "chevron";
 
@@ -137,6 +138,15 @@ function DashboardIcon({ name, size = 22 }: { name: IconName; size?: number }) {
         <svg {...commonProps}>
           <path d="M9 11l3 3L22 4" />
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      );
+    case "attendance":
+      return (
+        <svg {...commonProps}>
+          <path d="M9 11l2 2 4-4" />
+          <path d="M9 17h6" />
+          <rect x="5" y="3" width="14" height="18" rx="2" />
+          <path d="M9 3V2h6v1" />
         </svg>
       );
     case "envelope":
@@ -521,7 +531,7 @@ export default function AdminDashboard() {
   const latestFollowUps = unreviewedFollowUps.slice(0, 3);
   return (
     <AdminLayout>
-      {(unreadMessageCount) => {
+      {(unreadMessageCount, attendanceAlertCount) => {
         const unreadMessageLabel =
           unreadMessageCount === 0
             ? "Messages, no unread messages"
@@ -530,6 +540,8 @@ export default function AdminDashboard() {
               }`;
         const visibleUnreadCount =
           unreadMessageCount > 99 ? "99+" : String(unreadMessageCount);
+        const visibleAttendanceCount =
+          attendanceAlertCount > 99 ? "99+" : String(attendanceAlertCount);
 
         return (
           <div className="admin-dashboard-page">
@@ -581,6 +593,29 @@ export default function AdminDashboard() {
 
               <Link href="/admin/mock-results" className="admin-dashboard-button">
                 Review Mock Results
+                <DashboardIcon name="chevron" size={16} />
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {attendanceAlertCount > 0 && (
+          <section className="admin-dashboard-alert-card admin-dashboard-attendance-alert">
+            <div className="admin-dashboard-alert-header">
+              <div>
+                <div className="admin-dashboard-attendance-alert-title">
+                  <DashboardIcon name="attendance" size={21} />
+                  <h2>Attendance Alerts</h2>
+                  <span aria-hidden="true">{visibleAttendanceCount}</span>
+                </div>
+                <p>
+                  {attendanceAlertCount} attendance issue
+                  {attendanceAlertCount === 1 ? " requires" : "s require"} Admin attention.
+                </p>
+              </div>
+
+              <Link href="/admin/attendance" className="admin-dashboard-button">
+                Review Attendance
                 <DashboardIcon name="chevron" size={16} />
               </Link>
             </div>

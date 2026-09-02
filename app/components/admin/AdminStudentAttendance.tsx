@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarCheck2, Filter } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -114,12 +115,25 @@ export default function AdminStudentAttendance({
       }
     />
   );
+  const attendanceCentreHref = `/admin/attendance?tab=students&studentType=${encodeURIComponent(
+    studentType
+  )}&studentId=${encodeURIComponent(studentId)}`;
 
-  if (summaryOnly) return summaryCard;
+  if (summaryOnly) {
+    return (
+      <div className="admin-attendance-summary-link-wrap">
+        {summaryCard}
+        <Link href={attendanceCentreHref}>View Attendance Details</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-student-attendance">
-      {summaryCard}
+      <div className="admin-attendance-summary-link-wrap">
+        {summaryCard}
+        <Link href={attendanceCentreHref}>View in Attendance Centre</Link>
+      </div>
 
       <section className="admin-attendance-history" aria-labelledby="admin-attendance-history-title">
         <div className="admin-attendance-history-heading">

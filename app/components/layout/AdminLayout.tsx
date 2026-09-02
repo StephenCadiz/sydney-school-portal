@@ -26,6 +26,7 @@ type AdminNavIconName =
   | "clock"
   | "folder"
   | "envelope"
+  | "attendance"
   | "megaphone";
 
 function AdminNavIcon({
@@ -142,6 +143,15 @@ function AdminNavIcon({
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
         </svg>
       );
+    case "attendance":
+      return (
+        <svg {...commonProps}>
+          <path d="M9 11l2 2 4-4" />
+          <path d="M9 17h6" />
+          <rect x="5" y="3" width="14" height="18" rx="2" />
+          <path d="M9 3V2h6v1" />
+        </svg>
+      );
     case "clock":
       return (
         <svg {...commonProps}>
@@ -212,14 +222,18 @@ function UnreadBadge({ count }: { count: number }) {
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode | ((unreadMessageCount: number) => React.ReactNode);
+  children:
+    | React.ReactNode
+    | ((unreadMessageCount: number, attendanceAlertCount: number) => React.ReactNode);
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [adminId, setAdminId] = useState("");
   const [unreadTeacherMessages, setUnreadTeacherMessages] = useState(0);
+  const [attendanceAlertCount, setAttendanceAlertCount] = useState(0);
   const mountedRef = useRef(false);
   const unreadCountErrorLoggedRef = useRef(false);
+  const attendanceCountErrorLoggedRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -279,6 +293,52 @@ export default function AdminLayout({
       }
     }
   }, []);
+
+  const loadAttendanceAlertCount = useCallback(async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        if (mountedRef.current) setAttendanceAlertCount(0);
+        return;
+      }
+
+      const response = await fetch("/api/admin/attendance?view=count", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to load attendance alerts.");
+      }
+
+      attendanceCountErrorLoggedRef.current = false;
+      if (mountedRef.current) {
+        setAttendanceAlertCount(Math.max(0, Number(payload.count) || 0));
+      }
+    } catch (error) {
+      if (!attendanceCountErrorLoggedRef.current) {
+        attendanceCountErrorLoggedRef.current = true;
+        console.error("Unable to load Admin attendance alert count:", error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!adminId) return;
+
+    const refresh = () => void loadAttendanceAlertCount();
+    refresh();
+    const intervalId = window.setInterval(refresh, 60000);
+    window.addEventListener("admin-attendance-alerts-changed", refresh);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("admin-attendance-alerts-changed", refresh);
+    };
+  }, [adminId, loadAttendanceAlertCount]);
 
   useMessageRealtimeRefresh({
     onRefresh: loadUnreadCount,
@@ -345,6 +405,7 @@ export default function AdminLayout({
     {
       label: "Student Support",
       items: [
+        { name: "Attendance", href: "/admin/attendance", icon: "attendance" as AdminNavIconName },
         { name: "Follow Ups", href: "/admin/follow-ups", icon: "clipboardCheck" as AdminNavIconName },
       ],
     },
@@ -384,6 +445,10 @@ export default function AdminLayout({
   const unreadAccessibleLabel = hasUnreadTeacherMessages
     ? `Messages, ${unreadTeacherMessages} unread`
     : "Messages";
+  const hasAttendanceAlerts = attendanceAlertCount > 0;
+  const attendanceAccessibleLabel = hasAttendanceAlerts
+    ? `Attendance, ${attendanceAlertCount} alert${attendanceAlertCount === 1 ? "" : "s"} requiring attention`
+    : "Attendance";
   const showDashboardMessageAlert =
     pathname === "/admin" && hasUnreadTeacherMessages;
 
@@ -399,6 +464,7 @@ export default function AdminLayout({
       <div className="mobile-topbar">
         <div className="mobile-topbar-title">Sydney School / Admin</div>
         <div
+          className="admin-mobile-topbar-actions"
           style={{
             alignItems: "center",
             display: "flex",
@@ -407,6 +473,7 @@ export default function AdminLayout({
         >
           <Link
             href="/admin/messages"
+            className="admin-mobile-status-link"
             aria-label={unreadAccessibleLabel}
             style={{
               alignItems: "center",
@@ -426,6 +493,29 @@ export default function AdminLayout({
           >
             <EnvelopeIcon size={18} />
             <UnreadBadge count={unreadTeacherMessages} />
+          </Link>
+
+          <Link
+            href="/admin/attendance"
+            className="admin-mobile-status-link"
+            aria-label={attendanceAccessibleLabel}
+            style={{
+              alignItems: "center",
+              background: hasAttendanceAlerts ? "#fff1f2" : "#ffffff",
+              border: hasAttendanceAlerts
+                ? "1px solid #fecdd3"
+                : "1px solid var(--ss-border)",
+              borderRadius: "10px",
+              color: hasAttendanceAlerts ? "#991b1b" : "var(--ss-blue-dark)",
+              display: "inline-flex",
+              gap: "7px",
+              minHeight: "42px",
+              padding: "9px 10px",
+              textDecoration: "none",
+            }}
+          >
+            <AdminNavIcon name="attendance" size={18} />
+            <UnreadBadge count={attendanceAlertCount} />
           </Link>
 
           <button
@@ -487,13 +577,20 @@ export default function AdminLayout({
                 )}
                 {group.items.map((item) => {
                   const isMessagesItem = item.href === "/admin/messages";
+                  const isAttendanceItem = item.href === "/admin/attendance";
 
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
                       aria-current={isActive(item.href) ? "page" : undefined}
-                      aria-label={isMessagesItem ? unreadAccessibleLabel : item.name}
+                      aria-label={
+                        isMessagesItem
+                          ? unreadAccessibleLabel
+                          : isAttendanceItem
+                            ? attendanceAccessibleLabel
+                            : item.name
+                      }
                       className="ss-sidebar-link admin-sidebar-link"
                       onClick={() => setMenuOpen(false)}
                       style={{
@@ -527,6 +624,7 @@ export default function AdminLayout({
                         <span>{item.name}</span>
                       </span>
                       {isMessagesItem && <UnreadBadge count={unreadTeacherMessages} />}
+                      {isAttendanceItem && <UnreadBadge count={attendanceAlertCount} />}
                     </Link>
                   );
                 })}
@@ -620,7 +718,7 @@ export default function AdminLayout({
           </section>
         )}
         {typeof children === "function"
-          ? children(unreadTeacherMessages)
+          ? children(unreadTeacherMessages, attendanceAlertCount)
           : children}
       </main>
     </div>

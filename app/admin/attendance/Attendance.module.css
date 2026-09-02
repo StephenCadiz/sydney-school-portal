@@ -1,0 +1,978 @@
+.page {
+  color: #172033;
+  margin: 0 auto;
+  max-width: 1420px;
+}
+
+.header {
+  align-items: flex-end;
+  display: flex;
+  gap: 28px;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.eyebrow {
+  color: #64748b;
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  color: var(--ss-blue-dark);
+  font-size: 34px;
+  letter-spacing: 0;
+  line-height: 1.15;
+  margin: 0 0 7px;
+}
+
+.header p,
+.panelHeading p,
+.classDetailHeader p,
+.studentSummaryIdentity p {
+  color: #667085;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.yearSelector,
+.compactSelect {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.yearSelector span,
+.compactSelect span {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.yearSelector select,
+.compactSelect select {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #172033;
+  font: inherit;
+  min-height: 42px;
+  min-width: 220px;
+  padding: 8px 34px 8px 11px;
+}
+
+.tabs {
+  align-items: center;
+  border-bottom: 1px solid #dce3ed;
+  display: flex;
+  gap: 26px;
+  margin-bottom: 22px;
+  overflow-x: auto;
+}
+
+.tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #64748b;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  min-height: 46px;
+  padding: 0 1px;
+}
+
+.tabs button:hover,
+.tabs .tabActive {
+  color: var(--ss-blue-dark);
+}
+
+.tabs .tabActive {
+  border-bottom-color: var(--ss-blue);
+}
+
+.sectionStack {
+  display: grid;
+  gap: 20px;
+}
+
+.metricsGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metric {
+  background: #ffffff;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  box-shadow: 0 7px 22px rgba(31, 60, 136, 0.05);
+  min-height: 144px;
+  padding: 18px 19px;
+}
+
+.metricWarning {
+  border-left: 4px solid #c2413d;
+}
+
+.metric > span {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  font-weight: 750;
+  margin-bottom: 12px;
+}
+
+.metric > strong {
+  color: var(--ss-blue-dark);
+  display: block;
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.metric > p {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(31, 60, 136, 0.055);
+  min-width: 0;
+  padding: 22px;
+}
+
+.panelHeading,
+.classDetailHeader {
+  align-items: flex-start;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.panelHeading > svg {
+  color: var(--ss-blue);
+  flex: 0 0 auto;
+}
+
+.panelHeading h2,
+.classDetailHeader h2,
+.studentSummaryIdentity h2 {
+  color: var(--ss-blue-dark);
+  font-size: 21px;
+  letter-spacing: 0;
+  margin: 0 0 5px;
+}
+
+.panelHeading p,
+.classDetailHeader p,
+.studentSummaryIdentity p {
+  font-size: 13px;
+}
+
+.segmented {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+
+.segmented button {
+  background: #f8fafc;
+  border: 1px solid #d9e1eb;
+  border-radius: 6px;
+  color: #526174;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  min-height: 36px;
+  padding: 7px 11px;
+}
+
+.segmented button:hover,
+.segmented .segmentedActive {
+  background: #edf4ff;
+  border-color: #9bb9e8;
+  color: var(--ss-blue-dark);
+}
+
+.alertList,
+.compactList,
+.levelList,
+.classList,
+.searchResults,
+.historyList {
+  border-top: 1px solid #e5eaf1;
+}
+
+.alertRow {
+  align-items: center;
+  border-bottom: 1px solid #e5eaf1;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(190px, 1.1fr) minmax(230px, 1.3fr) auto;
+  padding: 17px 0;
+}
+
+.alertRow:last-child,
+.compactList > button:last-child,
+.levelList > button:last-child,
+.classList > button:last-child,
+.searchResults > button:last-child,
+.historyList article:last-child {
+  border-bottom: 0;
+}
+
+.alertIdentity,
+.alertReason,
+.classIdentity,
+.searchResults button > span:first-child,
+.historyContext {
+  min-width: 0;
+}
+
+.alertNameLine {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.alertNameLine > strong,
+.alertReason > strong {
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.alertIdentity > span,
+.alertReason > span,
+.alertReason > small {
+  color: #667085;
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.alertReason > small {
+  color: #8a94a3;
+  margin-top: 4px;
+}
+
+.statusBadge,
+.attendanceStatus,
+.alertCount {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1;
+  min-height: 25px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.statusNeedsAttention,
+.absent {
+  background: #fff1f0;
+  border: 1px solid #fecaca;
+  color: #9f2d2a;
+}
+
+.statusDealt {
+  background: #fff8e8;
+  border: 1px solid #f4d38a;
+  color: #80520c;
+}
+
+.statusResolved,
+.present {
+  background: #eef8f2;
+  border: 1px solid #b7dfc5;
+  color: #20653b;
+}
+
+.rowActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.primaryButton,
+.secondaryButton {
+  align-items: center;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 39px;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.primaryButton {
+  background: var(--ss-blue);
+  border: 1px solid var(--ss-blue);
+  color: #ffffff;
+}
+
+.secondaryButton {
+  background: #ffffff;
+  border: 1px solid #b8c3d2;
+  color: var(--ss-blue-dark);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--ss-blue-hover);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: #f5f8fc;
+  border-color: #8fa3be;
+}
+
+.tabs button:focus-visible,
+.yearSelector select:focus-visible,
+.compactSelect select:focus-visible,
+.segmented button:focus-visible,
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.compactList button:focus-visible,
+.levelList button:focus-visible,
+.classList button:focus-visible,
+.searchResults button:focus-visible,
+.studentNameButton:focus-visible,
+.searchForm input:focus-visible {
+  outline: 3px solid rgba(31, 96, 191, 0.25);
+  outline-offset: 2px;
+}
+
+.emptyState,
+.loadingState {
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid #e3e8ef;
+  border-radius: 7px;
+  color: #667085;
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  line-height: 1.5;
+  padding: 16px;
+}
+
+.emptyState > svg {
+  color: #42835b;
+  flex: 0 0 auto;
+}
+
+.emptyState strong,
+.emptyState p {
+  display: block;
+  margin: 0;
+}
+
+.emptyState strong {
+  color: #344054;
+  margin-bottom: 2px;
+}
+
+.overviewGrid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+}
+
+.compactList > button,
+.levelList > button,
+.classList > button,
+.searchResults > button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #e5eaf1;
+  color: #344054;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.compactList > button {
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto 18px;
+  padding: 14px 2px;
+}
+
+.compactList strong,
+.compactList small,
+.levelList strong,
+.levelList small,
+.classIdentity strong,
+.classIdentity small,
+.searchResults strong,
+.searchResults small,
+.historyContext strong,
+.historyContext span,
+.historyDate strong,
+.historyDate span {
+  display: block;
+}
+
+.compactList strong,
+.levelList strong,
+.classIdentity strong,
+.searchResults strong,
+.historyContext strong,
+.historyDate strong {
+  color: #253247;
+  font-size: 13px;
+}
+
+.compactList small,
+.levelList small,
+.classIdentity small,
+.searchResults small,
+.historyContext span,
+.historyDate span {
+  color: #718096;
+  font-size: 11px;
+  line-height: 1.4;
+  margin-top: 3px;
+}
+
+.compactValue,
+.levelPercentage {
+  color: var(--ss-blue-dark);
+  font-size: 14px;
+  font-weight: 850;
+  text-align: right;
+}
+
+.compactValue small {
+  color: #a33a36;
+  display: block;
+  font-size: 10px;
+  font-weight: 750;
+  margin-top: 3px;
+}
+
+.levelList > button {
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 14px 2px;
+}
+
+.classList > button {
+  gap: 16px;
+  grid-template-columns: minmax(210px, 1.35fr) minmax(140px, 0.8fr) 90px 74px auto 18px;
+  padding: 15px 4px;
+}
+
+.classList > button:hover,
+.classList .classSelected {
+  background: #f7faff;
+}
+
+.classList > button > span:not(.classIdentity):not(.alertCount) {
+  color: #59677a;
+  font-size: 12px;
+}
+
+.classPercentage {
+  color: var(--ss-blue-dark);
+  font-size: 14px;
+  text-align: right;
+}
+
+.alertCount {
+  background: #fff1f0;
+  border: 1px solid #fecaca;
+  color: #9f2d2a;
+  min-width: 27px;
+}
+
+.classAggregate {
+  background: #edf4ff;
+  border: 1px solid #cadcf5;
+  border-radius: 7px;
+  flex: 0 0 auto;
+  min-width: 205px;
+  padding: 13px 15px;
+}
+
+.classAggregate span,
+.classAggregate strong,
+.classAggregate small {
+  display: block;
+}
+
+.classAggregate span {
+  color: #52647c;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.classAggregate strong {
+  color: var(--ss-blue-dark);
+  font-size: 25px;
+  margin: 4px 0;
+}
+
+.classAggregate small {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.roster {
+  border: 1px solid #dfe5ee;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.rosterHeader,
+.rosterRow {
+  align-items: center;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(210px, 1.5fr) repeat(2, 80px) 110px 100px;
+  padding: 12px 14px;
+}
+
+.rosterHeader {
+  background: #f4f7fb;
+  color: #526174;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rosterRow {
+  border-top: 1px solid #e5eaf1;
+  color: #4b596c;
+  font-size: 13px;
+}
+
+.studentNameButton {
+  background: transparent;
+  border: 0;
+  color: var(--ss-blue-dark);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 750;
+  padding: 0;
+  text-align: left;
+}
+
+.studentNameButton small {
+  color: #8a4e16;
+  display: block;
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+.lowPercentage {
+  color: #a33a36;
+}
+
+.searchForm {
+  align-items: stretch;
+  display: flex;
+  gap: 9px;
+  max-width: 720px;
+}
+
+.searchForm label {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #64748b;
+  display: flex;
+  flex: 1;
+  gap: 9px;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.searchForm input {
+  background: transparent;
+  border: 0;
+  color: #172033;
+  flex: 1;
+  font: inherit;
+  min-height: 42px;
+  min-width: 0;
+  outline: none;
+}
+
+.searchResults {
+  margin-top: 18px;
+}
+
+.searchResults > button {
+  gap: 16px;
+  grid-template-columns: minmax(200px, 1fr) minmax(180px, 0.8fr) 18px;
+  padding: 14px 3px;
+}
+
+.searchResults > button > span:nth-child(2) {
+  color: #667085;
+  font-size: 12px;
+}
+
+.studentSummary {
+  align-items: stretch;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(250px, 1.3fr) repeat(3, minmax(170px, 0.7fr));
+}
+
+.studentSummaryIdentity {
+  background: var(--ss-blue-dark);
+  border-radius: 8px;
+  color: #ffffff;
+  padding: 20px;
+}
+
+.studentSummaryIdentity .eyebrow,
+.studentSummaryIdentity h2,
+.studentSummaryIdentity p {
+  color: #ffffff;
+}
+
+.studentSummaryIdentity p {
+  opacity: 0.78;
+  overflow-wrap: anywhere;
+}
+
+.historyFilters {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.historyFilters .segmented {
+  margin-bottom: 0;
+}
+
+.historyList article {
+  align-items: center;
+  border-bottom: 1px solid #e5eaf1;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 165px 90px minmax(220px, 1fr);
+  padding: 14px 2px;
+}
+
+.historyContext {
+  overflow-wrap: anywhere;
+}
+
+.successMessage,
+.errorMessage {
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+}
+
+.successMessage {
+  background: #eef8f2;
+  border: 1px solid #b7dfc5;
+  color: #205f38;
+}
+
+.errorMessage {
+  background: #fff4f3;
+  border: 1px solid #fecaca;
+  color: #982f2b;
+}
+
+.visuallyHidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (max-width: 1180px) {
+  .metricsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overviewGrid,
+  .studentSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .studentSummaryIdentity {
+    grid-column: 1 / -1;
+  }
+
+  .classList > button {
+    grid-template-columns: minmax(200px, 1.3fr) minmax(130px, 0.8fr) 80px 70px auto 18px;
+  }
+}
+
+@media (max-width: 900px) {
+  .alertRow {
+    align-items: flex-start;
+    grid-template-columns: minmax(180px, 0.9fr) minmax(220px, 1.1fr);
+  }
+
+  .alertRow .rowActions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .classList > button {
+    grid-template-columns: minmax(200px, 1fr) minmax(140px, 0.7fr) auto 18px;
+  }
+
+  .classList > button > span:nth-child(3),
+  .classList > button > .alertCount {
+    display: none;
+  }
+
+  .rosterHeader,
+  .rosterRow {
+    grid-template-columns: minmax(190px, 1.4fr) repeat(2, 70px) 100px 85px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    align-items: stretch;
+    display: grid;
+    gap: 16px;
+  }
+
+  .header h1 {
+    font-size: 28px;
+  }
+
+  .yearSelector select,
+  .compactSelect select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .tabs {
+    gap: 20px;
+  }
+
+  .metricsGrid,
+  .overviewGrid,
+  .studentSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .metric {
+    min-height: 0;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .panelHeading,
+  .classDetailHeader {
+    display: grid;
+  }
+
+  .panelHeading > svg {
+    display: none;
+  }
+
+  .alertRow {
+    gap: 13px;
+    grid-template-columns: 1fr;
+  }
+
+  .alertRow .rowActions {
+    grid-column: auto;
+  }
+
+  .rowActions {
+    justify-content: stretch;
+  }
+
+  .rowActions button {
+    flex: 1 1 135px;
+  }
+
+  .classList > button {
+    align-items: flex-start;
+    gap: 7px 12px;
+    grid-template-columns: minmax(0, 1fr) auto 18px;
+    padding: 15px 3px;
+  }
+
+  .classList > button > span:nth-child(2) {
+    display: none;
+  }
+
+  .classPercentage {
+    align-self: center;
+  }
+
+  .classAggregate {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .roster {
+    border: 0;
+    display: grid;
+    gap: 10px;
+    overflow: visible;
+  }
+
+  .rosterHeader {
+    display: none;
+  }
+
+  .rosterRow {
+    background: #f8fafc;
+    border: 1px solid #dfe5ee;
+    border-radius: 7px;
+    display: grid;
+    gap: 9px 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 14px;
+  }
+
+  .studentNameButton {
+    grid-column: 1 / -1;
+  }
+
+  .rosterRow > span,
+  .rosterRow > strong {
+    display: grid;
+    gap: 3px;
+  }
+
+  .rosterRow > span::before,
+  .rosterRow > strong::before {
+    color: #7b8797;
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  .searchForm {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .searchForm .primaryButton {
+    width: 100%;
+  }
+
+  .searchResults > button {
+    gap: 5px 10px;
+    grid-template-columns: minmax(0, 1fr) 18px;
+  }
+
+  .searchResults > button > span:nth-child(2) {
+    grid-column: 1;
+  }
+
+  .searchResults > button > svg {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+
+  .historyFilters {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .historyList {
+    border-top: 0;
+    display: grid;
+    gap: 10px;
+  }
+
+  .historyList article {
+    background: #f8fafc;
+    border: 1px solid #dfe5ee;
+    border-radius: 7px;
+    gap: 11px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 14px;
+  }
+
+  .historyContext {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel,
+  .metric,
+  .studentSummaryIdentity {
+    padding: 15px;
+  }
+
+  .segmented {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .segmented button {
+    min-width: 0;
+  }
+
+  .rosterRow {
+    grid-template-columns: 1fr;
+  }
+
+  .studentNameButton {
+    grid-column: auto;
+  }
+
+  .rowActions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
