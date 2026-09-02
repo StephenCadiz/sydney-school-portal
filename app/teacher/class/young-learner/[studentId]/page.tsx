@@ -6,13 +6,21 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import TeacherLayout from "../../../../components/layout/TeacherLayout";
 import StudentFollowUpPanelSection from "../../StudentFollowUpPanelSection";
+import TeacherStudentAttendanceSection from "../../TeacherStudentAttendanceSection";
 import { getStudentAcademicYearDisplayValue } from "../../../../../lib/academicYearRules";
 import { supabase } from "../../../../../lib/supabase";
 
-type WorkspaceTab = "information" | "notes" | "unit-results" | "follow-up" | "progress";
+type WorkspaceTab =
+  | "information"
+  | "attendance"
+  | "notes"
+  | "unit-results"
+  | "follow-up"
+  | "progress";
 
 const tabs: Array<{ id: WorkspaceTab; label: string }> = [
   { id: "information", label: "Student Information" },
+  { id: "attendance", label: "Attendance" },
   { id: "notes", label: "Notes" },
   { id: "unit-results", label: "Unit Exam Results" },
   { id: "follow-up", label: "Follow Up" },
@@ -290,7 +298,11 @@ export default function YoungLearnerStudentWorkspacePage() {
         </header>
 
         <nav className="student-workspace-nav young-learner-workspace-tabs" aria-label="Young Learner workspace sections" role="tablist">
-          {tabs.map((tab) => (
+          {tabs
+            .filter(
+              (tab) => tab.id !== "unit-results" || workspace.unit_exam_supported
+            )
+            .map((tab) => (
             <button key={tab.id} type="button" role="tab" aria-selected={activeTab === tab.id}
               className={`student-workspace-nav-button ${activeTab === tab.id ? "is-active" : ""}`}
               onClick={() => setActiveTab(tab.id)}>
@@ -338,6 +350,14 @@ export default function YoungLearnerStudentWorkspacePage() {
                 ))}
               </div>
             </section>
+          )}
+
+          {activeTab === "attendance" && (
+            <TeacherStudentAttendanceSection
+              classId={classId}
+              studentId={studentId}
+              studentType="young_learner"
+            />
           )}
 
           {activeTab === "unit-results" && (

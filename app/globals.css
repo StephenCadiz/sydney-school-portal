@@ -12,6 +12,966 @@
   --ss-border: #dbe7f3;
 }
 
+/* Normal class registers and attendance summaries */
+.class-register-page {
+  color: #243b5a;
+  display: grid;
+  gap: 18px;
+  margin: 0 auto;
+  max-width: 1120px;
+  min-width: 0;
+  width: 100%;
+}
+
+.class-register-page-header,
+.class-register-today,
+.class-register-history,
+.class-register-editor,
+.attendance-summary-card,
+.admin-attendance-history,
+.teacher-register-reminders {
+  background: #ffffff;
+  border: 1px solid #dbe6f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(31, 60, 136, 0.06);
+}
+
+.class-register-page-header {
+  align-items: flex-start;
+  background: #f4f9fd;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding: 24px;
+}
+
+.class-register-page-header > div:first-child,
+.class-register-editor-header > div:first-child,
+.class-register-lesson-summary,
+.teacher-register-reminder-copy,
+.admin-attendance-history-context {
+  min-width: 0;
+}
+
+.class-register-eyebrow,
+.class-register-section-heading p,
+.attendance-summary-heading p,
+.admin-attendance-history-heading p {
+  color: #2f7db8;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin: 0 0 5px;
+  text-transform: uppercase;
+}
+
+.class-register-page-header h2,
+.class-register-editor-header h3,
+.class-register-section-heading h3,
+.attendance-summary-heading h3,
+.admin-attendance-history-heading h3,
+.teacher-register-reminders-heading h2 {
+  color: #173b66;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.class-register-page-header h2 {
+  font-size: 1.9rem;
+}
+
+.class-register-page-header > div:first-child > p:last-child {
+  color: #607590;
+  line-height: 1.55;
+  margin: 8px 0 0;
+  max-width: 680px;
+}
+
+.class-register-class-context {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid #d8e7f2;
+  border-radius: 8px;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 4px;
+  max-width: 330px;
+  padding: 12px 14px;
+}
+
+.class-register-class-context strong {
+  color: #173b66;
+}
+
+.class-register-class-context span,
+.class-register-editor-header p,
+.class-register-lesson-summary span,
+.class-register-history-row > div:first-child span,
+.attendance-summary-heading span,
+.admin-attendance-history-heading span,
+.admin-attendance-history-date span,
+.admin-attendance-history-context span,
+.teacher-register-reminder-copy span,
+.teacher-register-reminder-copy small {
+  color: #66778e;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.class-register-message,
+.class-register-state,
+.attendance-summary-state,
+.admin-attendance-state {
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 13px 15px;
+}
+
+.class-register-message.is-success {
+  background: #edf7f1;
+  border: 1px solid #cce8d7;
+  color: #236b3b;
+}
+
+.class-register-message.is-error,
+.class-register-state.is-error,
+.attendance-summary-state.is-error,
+.admin-attendance-state.is-error {
+  background: #fff5f5;
+  border: 1px solid #efc5c5;
+  color: #9f1d1d;
+}
+
+.class-register-unavailable {
+  align-items: flex-start;
+  background: #fffbeb;
+  border: 1px solid #ead6a5;
+  border-radius: 8px;
+  display: flex;
+  gap: 13px;
+  padding: 18px;
+}
+
+.class-register-unavailable-icon {
+  align-items: center;
+  background: #fff4cf;
+  border: 1px solid #e7cd8b;
+  border-radius: 8px;
+  color: #8a5a00;
+  display: inline-flex;
+  flex: 0 0 38px;
+  height: 38px;
+  justify-content: center;
+}
+
+.class-register-unavailable h2 {
+  color: #5f430e;
+  font-size: 1.15rem;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.class-register-unavailable > div > p:not(.class-register-eyebrow) {
+  color: #765b25;
+  line-height: 1.5;
+  margin: 6px 0 13px;
+  max-width: 720px;
+}
+
+.attendance-summary-state.is-unavailable {
+  background: #fffbeb;
+  border-color: #ead6a5;
+  color: #5f430e;
+}
+
+.attendance-summary-state.is-unavailable strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.attendance-summary-state.is-unavailable p {
+  color: #765b25;
+  margin: 0;
+}
+
+.class-register-state,
+.attendance-summary-state,
+.admin-attendance-state {
+  background: #ffffff;
+  border: 1px solid #dbe6f0;
+  color: #607590;
+}
+
+.class-register-state p,
+.attendance-summary-state p,
+.admin-attendance-state p {
+  margin: 0 0 10px;
+}
+
+.class-register-state button,
+.attendance-summary-state button,
+.admin-attendance-state button {
+  background: #ffffff;
+  border: 1px solid #a9bdd2;
+  border-radius: 7px;
+  color: #173b66;
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 11px;
+}
+
+.class-register-today,
+.class-register-history,
+.class-register-editor {
+  padding: 20px;
+}
+
+.class-register-section-heading,
+.class-register-editor-header,
+.class-register-toolbar,
+.class-register-editor-footer,
+.teacher-register-reminders-heading,
+.attendance-summary-heading,
+.admin-attendance-history-heading,
+.admin-attendance-filters {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.class-register-section-heading > svg,
+.admin-attendance-history-heading > svg {
+  color: #2f7db8;
+  flex: 0 0 auto;
+}
+
+.class-register-today-lesson {
+  align-items: center;
+  border-top: 1px solid #e7eef5;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  margin-top: 16px;
+  padding-top: 17px;
+}
+
+.class-register-lesson-time {
+  align-items: center;
+  color: #173b66;
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.class-register-lesson-time svg {
+  color: #2f7db8;
+}
+
+.class-register-lesson-summary {
+  display: grid;
+  gap: 4px;
+}
+
+.class-register-lesson-summary strong,
+.class-register-history-row strong {
+  color: #173b66;
+}
+
+.class-register-no-lesson,
+.class-register-empty-roster p,
+.attendance-summary-empty,
+.admin-attendance-empty {
+  color: #66778e;
+  line-height: 1.5;
+  margin: 16px 0 0;
+}
+
+.class-register-history-list,
+.class-register-roster,
+.teacher-register-reminder-list,
+.admin-attendance-history-list {
+  border-top: 1px solid #e7eef5;
+  display: grid;
+  margin-top: 16px;
+}
+
+.class-register-history-row {
+  align-items: center;
+  border-bottom: 1px solid #edf2f7;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(150px, 0.55fr) minmax(230px, 1fr) auto;
+  padding: 13px 0;
+}
+
+.class-register-history-row:last-child,
+.class-register-student-row:last-child,
+.teacher-register-reminder-list article:last-child,
+.admin-attendance-history-list article:last-child {
+  border-bottom: 0;
+}
+
+.class-register-history-row > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.class-register-history-status,
+.class-register-completion-badge,
+.class-register-editor-footer p {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.class-register-history-status {
+  color: #8a5a00;
+  font-size: 0.83rem;
+  font-weight: 750;
+}
+
+.class-register-history-status.is-completed {
+  color: #236b3b;
+}
+
+.class-register-primary-button,
+.class-register-secondary-button,
+.class-register-mark-all-button,
+.class-register-back-button,
+.teacher-register-reminder-list button {
+  align-items: center;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 41px;
+  padding: 8px 13px;
+  text-decoration: none;
+}
+
+.class-register-primary-button,
+.teacher-register-reminder-list button {
+  background: #1465a6;
+  border: 1px solid #1465a6;
+  color: #ffffff;
+}
+
+.class-register-secondary-button,
+.class-register-mark-all-button {
+  background: #ffffff;
+  border: 1px solid #a9bdd2;
+  color: #173b66;
+}
+
+.class-register-mark-all-button {
+  gap: 7px;
+}
+
+.class-register-back-button {
+  background: transparent;
+  border: 0;
+  color: #1465a6;
+  min-height: auto;
+  padding: 0 0 8px;
+}
+
+.class-register-primary-button:disabled,
+.class-register-secondary-button:disabled,
+.class-register-mark-all-button:disabled,
+.teacher-register-reminder-list button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.class-register-available-note {
+  color: #78889c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.class-register-completion-badge {
+  border: 1px solid;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.class-register-completion-badge.is-complete {
+  background: #edf7f1;
+  border-color: #cce8d7;
+  color: #236b3b;
+}
+
+.class-register-completion-badge.is-open {
+  background: #fff7e6;
+  border-color: #efd39c;
+  color: #8a5a00;
+}
+
+.class-register-toolbar {
+  border-bottom: 1px solid #e7eef5;
+  border-top: 1px solid #e7eef5;
+  margin-top: 18px;
+  padding: 13px 0;
+}
+
+.class-register-live-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+
+.class-register-live-counts span {
+  color: #66778e;
+  font-size: 0.82rem;
+}
+
+.class-register-live-counts strong {
+  color: #173b66;
+  font-size: 1rem;
+  margin-right: 3px;
+}
+
+.class-register-student-row {
+  align-items: center;
+  border-bottom: 1px solid #edf2f7;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(200px, 1fr) auto;
+  min-height: 67px;
+  padding: 10px 0;
+}
+
+.class-register-student-name {
+  align-items: center;
+  display: flex;
+  gap: 11px;
+  min-width: 0;
+}
+
+.class-register-student-name > span {
+  align-items: center;
+  background: #f2f6fa;
+  border: 1px solid #e0e8f1;
+  border-radius: 50%;
+  color: #66778e;
+  display: inline-flex;
+  flex: 0 0 31px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  height: 31px;
+  justify-content: center;
+}
+
+.class-register-student-name strong {
+  color: #203f63;
+  overflow-wrap: anywhere;
+}
+
+.class-register-attendance-control {
+  background: #f5f8fb;
+  border: 1px solid #dce6f0;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  padding: 3px;
+}
+
+.class-register-attendance-control button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #596d85;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 6px;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.class-register-attendance-control button.is-present {
+  background: #e8f5ed;
+  border-color: #bcdcc8;
+  color: #1f7046;
+}
+
+.class-register-attendance-control button.is-absent {
+  background: #fff0f0;
+  border-color: #efc2c2;
+  color: #a32828;
+}
+
+.class-register-empty-roster {
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid #e0e8f1;
+  border-radius: 8px;
+  color: #2f7db8;
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 17px;
+}
+
+.class-register-empty-roster strong {
+  color: #173b66;
+}
+
+.class-register-empty-roster p {
+  margin: 4px 0 0;
+}
+
+.class-register-editor-footer {
+  border-top: 1px solid #e7eef5;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.class-register-editor-footer p {
+  color: #8a5a00;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.class-register-editor-footer p.is-ready {
+  color: #236b3b;
+}
+
+.class-register-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.class-register-primary-button:focus-visible,
+.class-register-secondary-button:focus-visible,
+.class-register-mark-all-button:focus-visible,
+.class-register-back-button:focus-visible,
+.class-register-attendance-control button:focus-visible,
+.teacher-register-reminder-list button:focus-visible,
+.admin-attendance-status-filter button:focus-visible,
+.admin-attendance-course-filter select:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.28);
+  outline-offset: 2px;
+}
+
+.teacher-register-reminders {
+  border-left: 4px solid #2f7db8;
+  padding: 18px 20px;
+}
+
+.teacher-register-reminders-title {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.teacher-register-reminders-title > svg {
+  color: #2f7db8;
+  flex: 0 0 auto;
+}
+
+.teacher-register-reminders-heading h2 {
+  font-size: 1.08rem;
+}
+
+.teacher-register-reminders-heading p {
+  color: #66778e;
+  font-size: 0.8rem;
+  margin: 4px 0 0;
+}
+
+.teacher-register-overdue-count {
+  background: #fff1f1;
+  border: 1px solid #efc5c5;
+  border-radius: 999px;
+  color: #a32828;
+  font-size: 0.75rem;
+  font-weight: 850;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.teacher-register-reminder-list {
+  margin-top: 13px;
+}
+
+.teacher-register-reminder-list article {
+  align-items: center;
+  border-bottom: 1px solid #edf2f7;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 12px 0;
+}
+
+.teacher-register-reminder-status {
+  align-items: center;
+  background: #edf6fc;
+  border-radius: 8px;
+  color: #2f7db8;
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.teacher-register-reminder-list article.is-overdue .teacher-register-reminder-status {
+  background: #fff1f1;
+  color: #a32828;
+}
+
+.teacher-register-reminder-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.teacher-register-reminder-copy strong {
+  color: #173b66;
+}
+
+.teacher-register-reminder-copy small {
+  color: #8a5a00;
+  font-weight: 750;
+}
+
+.attendance-summary-card {
+  border-left: 4px solid #2f7db8;
+  padding: 20px;
+}
+
+.attendance-summary-heading {
+  align-items: flex-start;
+}
+
+.attendance-summary-heading > strong {
+  color: #173b66;
+  font-size: 2.25rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.attendance-summary-counts {
+  border-top: 1px solid #e7eef5;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 17px;
+  padding-top: 15px;
+}
+
+.attendance-summary-counts > div {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e3eaf2;
+  border-radius: 8px;
+  color: #2f7db8;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.attendance-summary-counts > div:last-child {
+  color: #a32828;
+}
+
+.attendance-summary-counts span {
+  color: #66778e;
+  display: grid;
+  font-size: 0.78rem;
+  gap: 2px;
+}
+
+.attendance-summary-counts strong {
+  color: #173b66;
+  font-size: 1.05rem;
+}
+
+.attendance-summary-card.is-compact {
+  padding: 16px;
+}
+
+.student-progress-class-attendance {
+  min-width: 0;
+}
+
+.student-progress-class-attendance .attendance-summary-card {
+  box-shadow: 0 8px 24px rgba(31, 60, 136, 0.05);
+}
+
+.admin-student-attendance {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-attendance-history {
+  padding: 20px;
+}
+
+.admin-attendance-filters {
+  border-bottom: 1px solid #e7eef5;
+  border-top: 1px solid #e7eef5;
+  margin-top: 16px;
+  padding: 13px 0;
+}
+
+.admin-attendance-status-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.admin-attendance-status-filter button {
+  background: #ffffff;
+  border: 1px solid #cbd8e5;
+  border-radius: 7px;
+  color: #536980;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  min-height: 36px;
+  padding: 7px 11px;
+}
+
+.admin-attendance-status-filter button.is-active {
+  background: #173b66;
+  border-color: #173b66;
+  color: #ffffff;
+}
+
+.admin-attendance-course-filter {
+  align-items: center;
+  color: #607590;
+  display: flex;
+  gap: 7px;
+  min-width: 250px;
+}
+
+.admin-attendance-course-filter select {
+  background: #ffffff;
+  border: 1px solid #cbd8e5;
+  border-radius: 7px;
+  color: #284764;
+  font: inherit;
+  min-height: 38px;
+  min-width: 0;
+  padding: 7px 9px;
+  width: 100%;
+}
+
+.admin-attendance-visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.admin-attendance-history-list article {
+  align-items: center;
+  border-bottom: 1px solid #edf2f7;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(140px, 0.55fr) auto minmax(220px, 1fr);
+  padding: 13px 0;
+}
+
+.admin-attendance-history-date,
+.admin-attendance-history-context {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-attendance-history-date strong,
+.admin-attendance-history-context strong {
+  color: #173b66;
+}
+
+.admin-attendance-status {
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 850;
+  padding: 5px 9px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.admin-attendance-status.is-present {
+  background: #edf7f1;
+  border-color: #cce8d7;
+  color: #236b3b;
+}
+
+.admin-attendance-status.is-absent {
+  background: #fff1f1;
+  border-color: #efc5c5;
+  color: #a32828;
+}
+
+@media (max-width: 900px) {
+  .class-register-page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .class-register-class-context {
+    max-width: none;
+  }
+
+  .class-register-today-lesson,
+  .class-register-history-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .class-register-lesson-summary,
+  .class-register-history-status {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .class-register-page {
+    gap: 14px;
+  }
+
+  .class-register-page-header,
+  .class-register-today,
+  .class-register-history,
+  .class-register-editor,
+  .teacher-register-reminders,
+  .attendance-summary-card,
+  .admin-attendance-history {
+    padding: 16px;
+  }
+
+  .class-register-page-header h2 {
+    font-size: 1.55rem;
+  }
+
+  .class-register-editor-header,
+  .class-register-toolbar,
+  .class-register-editor-footer,
+  .teacher-register-reminders-heading,
+  .admin-attendance-filters,
+  .admin-attendance-history-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .class-register-completion-badge,
+  .teacher-register-overdue-count {
+    align-self: flex-start;
+  }
+
+  .class-register-student-row {
+    align-items: stretch;
+    gap: 10px;
+    grid-template-columns: 1fr;
+    padding: 14px 0;
+  }
+
+  .class-register-attendance-control {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .class-register-attendance-control button {
+    min-height: 46px;
+  }
+
+  .class-register-footer-actions,
+  .class-register-footer-actions button,
+  .class-register-mark-all-button {
+    width: 100%;
+  }
+
+  .teacher-register-reminder-list article {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .teacher-register-reminder-list button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .attendance-summary-heading {
+    gap: 12px;
+  }
+
+  .attendance-summary-heading > strong {
+    font-size: 1.9rem;
+  }
+
+  .admin-attendance-course-filter {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .admin-attendance-history-list article {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-attendance-history-context {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .class-register-unavailable {
+    padding: 15px;
+  }
+
+  .class-register-today-lesson,
+  .class-register-history-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .class-register-lesson-summary,
+  .class-register-history-status {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .class-register-today-lesson .class-register-secondary-button,
+  .class-register-history-row .class-register-secondary-button {
+    width: 100%;
+  }
+
+  .attendance-summary-heading,
+  .attendance-summary-counts {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-summary-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 /* Cambridge Exam Bank */
 .exam-bank-page { max-width: 1480px; margin: 0 auto; color: #172b4d; }
 .exam-bank-page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px; }

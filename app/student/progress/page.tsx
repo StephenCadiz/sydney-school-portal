@@ -16,6 +16,11 @@ import {
 } from "../../../lib/progress";
 import type { FridayTutorialProgressSummary } from "../../../lib/fridayTutorialResults";
 import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../../lib/academicYearRules";
+import AttendanceSummaryCard from "../../components/attendance/AttendanceSummaryCard";
+import {
+  type ClassAttendanceSummary,
+  getEmptyClassAttendanceSummary,
+} from "../../../lib/classRegister";
 
 function average(values: number[]) {
   if (values.length === 0) {
@@ -476,6 +481,9 @@ export default function ProgressPage() {
       getEmptyFridayTutorialProgressSummary()
     );
   const [level, setLevel] = useState("");
+  const [classAttendance, setClassAttendance] = useState<ClassAttendanceSummary>(
+    () => getEmptyClassAttendanceSummary()
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -545,6 +553,9 @@ export default function ProgressPage() {
       setResults(progressData.results);
       setHomeworkReleaseMetadata(progressData.homework_release_metadata);
       setFridayTutorialProgress(tutorialProgress);
+      setClassAttendance(
+        progressData.attendance || getEmptyClassAttendanceSummary()
+      );
     } catch (loadError) {
       console.error(loadError);
       setError(
@@ -556,6 +567,7 @@ export default function ProgressPage() {
       setResults([]);
       setHomeworkReleaseMetadata([]);
       setFridayTutorialProgress(getEmptyFridayTutorialProgressSummary());
+      setClassAttendance(getEmptyClassAttendanceSummary());
     } finally {
       setLoading(false);
     }
@@ -687,6 +699,12 @@ export default function ProgressPage() {
 
         {!loading && !error && (
           <>
+            <div className="student-progress-class-attendance">
+              <AttendanceSummaryCard
+                summary={classAttendance}
+                description="Completed lessons in your current class or course"
+              />
+            </div>
             <section
               className="student-progress-homework-averages"
               aria-labelledby="student-homework-averages-title"

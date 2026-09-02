@@ -157,7 +157,7 @@ async function getContext(
     logWorkspaceError("learner-context", levelError || learnerError);
     return { actor: auth.actor, context: null, response: jsonError("Unable to load Young Learner information.", 500) };
   }
-  if (!learner || !level || classRow.is_cambridge === true || !isUnitExamLevel(level.name)) {
+  if (!learner || !level || classRow.is_cambridge === true) {
     return { actor: auth.actor, context: null, response: jsonError("Young Learner workspace not found.", 404) };
   }
 
@@ -197,9 +197,13 @@ export async function GET(
           ? supabaseAdmin.from("profiles").select("id, first_name, last_name").eq("id", classRow.teacher_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
         supabaseAdmin.from("young_learner_notes").select("*").eq("young_learner_id", studentId).order("created_at", { ascending: false }),
-        supabaseAdmin.from("unit_exam_results").select("*").eq("young_learner_id", studentId).order("unit_exam_number", { ascending: false }).order("created_at", { ascending: false }),
+        isUnitExamLevel(level.name)
+          ? supabaseAdmin.from("unit_exam_results").select("*").eq("young_learner_id", studentId).order("unit_exam_number", { ascending: false }).order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
         supabaseAdmin.from("follow_up_documents").select("id, category, status, updated_at, created_at").eq("student_type", "young_learner").eq("young_learner_id", studentId).order("updated_at", { ascending: false }),
-        supabaseAdmin.from("class_exam_materials").select("id, level_id, exam_unit_number, active, created_at, updated_at").eq("level_id", level.id).eq("active", true).order("exam_unit_number", { ascending: true }),
+        isUnitExamLevel(level.name)
+          ? supabaseAdmin.from("class_exam_materials").select("id, level_id, exam_unit_number, active, created_at, updated_at").eq("level_id", level.id).eq("active", true).order("exam_unit_number", { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
     const failed = [academicYearResult, classroomResult, teacherResult, notesResult, resultsResult, followUpsResult, examsResult].find((result) => result.error);
@@ -246,6 +250,7 @@ export async function GET(
         ...academicYearContext,
       },
       notes,
+      unit_exam_supported: isUnitExamLevel(level.name),
       eligible_unit_exams: examsResult.data || [],
       unit_exam_results: results,
       follow_up_summary: followUpsResult.data || [],
@@ -277,6 +282,9 @@ export async function POST(request: NextRequest, routeContext: { params: Promise
   if (access.response || !access.context || !access.actor) return access.response;
   const body = await readNoteBody(request);
   if (body?.action === "unit_exam_result") {
+    if (!isUnitExamLevel(access.context.level.name)) {
+      return jsonError("Unit Exam Results are not available for this level.", 404);
+    }
     const examId = String(body.exam_id || "");
     if (!UUID_PATTERN.test(examId)) return jsonError("Select a valid Unit Exam.", 422);
 
@@ -359,6 +367,9 @@ export async function PATCH(request: NextRequest, routeContext: { params: Promis
   if (access.response || !access.context || !access.actor) return access.response;
   const body = await readNoteBody(request);
   if (body?.action === "unit_exam_result") {
+    if (!isUnitExamLevel(access.context.level.name)) {
+      return jsonError("Unit Exam Results are not available for this level.", 404);
+    }
     const resultId = String(body.result_id || "");
     if (!UUID_PATTERN.test(resultId)) return jsonError("Unit Exam Result not found.", 404);
 
@@ -424,6 +435,9 @@ export async function DELETE(request: NextRequest, routeContext: { params: Promi
   if (access.response || !access.context || !access.actor) return access.response;
   const resultId = String(request.nextUrl.searchParams.get("resultId") || "");
   if (resultId) {
+    if (!isUnitExamLevel(access.context.level.name)) {
+      return jsonError("Unit Exam Results are not available for this level.", 404);
+    }
     if (!UUID_PATTERN.test(resultId)) return jsonError("Unit Exam Result not found.", 404);
     const { data, error } = await supabaseAdmin
       .from("unit_exam_results")

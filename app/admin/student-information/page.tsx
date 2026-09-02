@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import AdminStudentsTabs from "../../components/admin/AdminStudentsTabs";
+import AdminStudentAttendance from "../../components/admin/AdminStudentAttendance";
 import { getStudentAcademicYearDisplayValue } from "../../../lib/academicYearRules";
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import {
@@ -1574,6 +1575,7 @@ function FollowUpsSection({ followUps }: { followUps: any[] }) {
 
 type StudentDetailSection =
   | "overview"
+  | "attendance"
   | "homework"
   | "friday"
   | "mocks"
@@ -1596,53 +1598,60 @@ function StudentOverview({ student }: { student: any }) {
   const academicYear = getCurrentAcademicYearDisplay(student);
 
   return (
-    <section
-      style={{
-        ...cardStyle,
-        borderLeft: "5px solid var(--ss-blue)",
-      }}
-    >
-      <SectionTitle>Student Overview</SectionTitle>
-      <div className="admin-student-detail-modal-overview">
-        <div
-          style={{
-            display: "grid",
-            gap: "8px",
-          }}
-        >
-          <span style={getBadgeStyle(student.student_type)}>
-            {getTypeLabel(student.student_type)}
-          </span>
-          <div>
-            <strong>Level</strong>
-            <p>{student.level_name || "Unknown Level"}</p>
-          </div>
-          <div>
-            <strong>Class</strong>
-            <p>{student.class_label || "Class not found"}</p>
-          </div>
-          <div>
-            <strong>Current Academic Year</strong>
-            <p style={{ color: academicYear.color, fontWeight: 600 }}>
-              {academicYear.text}
-            </p>
-          </div>
-          <div>
-            <strong>Teacher</strong>
-            <p>{student.teacher_name || "No teacher assigned"}</p>
-          </div>
-          <div>
-            <strong>Days/time</strong>
-            <p>
-              {student.class_days || "-"}{" "}
-              {student.start_time && student.end_time
-                ? `${student.start_time}-${student.end_time}`
-                : ""}
-            </p>
+    <div style={{ display: "grid", gap: "16px" }}>
+      <section
+        style={{
+          ...cardStyle,
+          borderLeft: "5px solid var(--ss-blue)",
+        }}
+      >
+        <SectionTitle>Student Overview</SectionTitle>
+        <div className="admin-student-detail-modal-overview">
+          <div
+            style={{
+              display: "grid",
+              gap: "8px",
+            }}
+          >
+            <span style={getBadgeStyle(student.student_type)}>
+              {getTypeLabel(student.student_type)}
+            </span>
+            <div>
+              <strong>Level</strong>
+              <p>{student.level_name || "Unknown Level"}</p>
+            </div>
+            <div>
+              <strong>Class</strong>
+              <p>{student.class_label || "Class not found"}</p>
+            </div>
+            <div>
+              <strong>Current Academic Year</strong>
+              <p style={{ color: academicYear.color, fontWeight: 600 }}>
+                {academicYear.text}
+              </p>
+            </div>
+            <div>
+              <strong>Teacher</strong>
+              <p>{student.teacher_name || "No teacher assigned"}</p>
+            </div>
+            <div>
+              <strong>Days/time</strong>
+              <p>
+                {student.class_days || "-"}{" "}
+                {student.start_time && student.end_time
+                  ? `${student.start_time}-${student.end_time}`
+                  : ""}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+      <AdminStudentAttendance
+        studentId={student.id}
+        studentType={student.student_type}
+        summaryOnly
+      />
+    </div>
   );
 }
 
@@ -1675,6 +1684,7 @@ function StudentDetailModal({
   const sections: Array<{ id: StudentDetailSection; label: string }> = isCambridge
     ? [
         { id: "overview", label: "Overview" },
+        { id: "attendance", label: "Attendance" },
         { id: "homework", label: "Homework" },
         { id: "friday", label: "Friday Tutorials" },
         { id: "mocks", label: "Mock Exams" },
@@ -1682,6 +1692,7 @@ function StudentDetailModal({
       ]
     : [
         { id: "overview", label: "Overview" },
+        { id: "attendance", label: "Attendance" },
         { id: "unit-exams", label: "Unit Exams" },
         { id: "follow-up", label: "Follow-up" },
       ];
@@ -1759,6 +1770,12 @@ function StudentDetailModal({
           {loading && <div className="admin-student-detail-modal-state">Loading student profile…</div>}
           {!loading && student && activeSection === "overview" && (
             <StudentOverview student={student} />
+          )}
+          {!loading && student && activeSection === "attendance" && (
+            <AdminStudentAttendance
+              studentId={student.id}
+              studentType={student.student_type}
+            />
           )}
           {!loading && student && isCambridge && activeSection === "homework" && (
             <CambridgeResults student={student} section="homework" />

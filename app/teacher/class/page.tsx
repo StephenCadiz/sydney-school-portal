@@ -15,6 +15,7 @@ import UnitExamResultsTab from "./UnitExamResultsTab";
 import YoungLearnerResultsSummary from "./YoungLearnerResultsSummary";
 import ClassPointsTab from "./ClassPointsTab";
 import ClassProgressTab from "./ClassProgressTab";
+import ClassRegisterTab from "./ClassRegisterTab";
 import CoursePlanningTab from "./CoursePlanningTab";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
@@ -84,6 +85,7 @@ const youngLearnerClassTabs = [
 
 const googleMeetTab = { id: "google-meet", label: "Google Meet" };
 const classProgressTab = { id: "class-progress", label: "Class Progress" };
+const classRegisterTab = { id: "class-register", label: "Class Register" };
 const coursePlanningTab = { id: "course-planning", label: "Course Planning" };
 
 type ShortcutRequest = {
@@ -618,12 +620,12 @@ if (classResult.data) {
     ...baseClassTabs,
     ...(showClassProgressTab ? [classProgressTab] : []),
     ...(showCoursePlanningTab ? [coursePlanningTab] : []),
-  ].flatMap(
-    (tab) =>
-      tab.id === "students" && googleMeetIsVisible
-        ? [tab, googleMeetTab]
-        : [tab]
-  );
+  ].flatMap((tab) => {
+    if (tab.id !== "students") return [tab];
+    return googleMeetIsVisible
+      ? [tab, classRegisterTab, googleMeetTab]
+      : [tab, classRegisterTab];
+  });
   const visibleTabs = classTabs
     .filter(
       (tab) =>
@@ -969,6 +971,14 @@ if (classResult.data) {
 
       {activeTab === "class-progress" && showClassProgressTab && classData && (
         <ClassProgressTab
+          classId={classData.id}
+          initialLessonDate={searchParams.get("lessonDate")}
+          initialStartTime={searchParams.get("startTime")}
+        />
+      )}
+
+      {activeTab === "class-register" && classData && (
+        <ClassRegisterTab
           classId={classData.id}
           initialLessonDate={searchParams.get("lessonDate")}
           initialStartTime={searchParams.get("startTime")}

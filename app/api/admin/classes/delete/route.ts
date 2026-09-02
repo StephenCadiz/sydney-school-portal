@@ -12,6 +12,7 @@ type ClassDeleteBlockers = {
   follow_ups: number;
   friday_tutorial_records: number;
   unit_exam_results: number;
+  class_registers: number;
 };
 
 function formatError(error: any) {
@@ -260,6 +261,11 @@ export async function POST(request: NextRequest) {
       ),
       unit_exam_results: await countLinkedRows(
         "unit_exam_results",
+        "class_id",
+        classId
+      ),
+      class_registers: await countLinkedRows(
+        "class_registers",
         "class_id",
         classId
       ),

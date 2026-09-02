@@ -623,6 +623,7 @@ const blockerLabels: Record<string, string> = {
   follow_ups: "Follow Ups",
   friday_tutorial_records: "Friday Tutorial Records",
   unit_exam_results: "Unit Exam Results",
+  class_registers: "Class Register History",
 };
 
 function formatDeleteBlockers(blockers: Record<string, number>) {
@@ -1156,13 +1157,32 @@ export default function AdminClassesPage() {
       const academicYear = academicYears.find(
         (year) => String(year.id) === String(item.academic_year_id || "")
       );
-      const academicContextLabel = usesAcademicYear
-        ? academicYear?.label || "Academic year not assigned"
-        : item.start_date && item.end_date
-        ? `${formatCourseDate(item.start_date)} – ${formatCourseDate(
-            item.end_date
-          )}`
-        : "Course dates not set";
+      const academicYearDates = usesAcademicYear
+        ? validateCoursePlanningDateRange({
+            startDate: academicYear?.start_date,
+            endDate: academicYear?.end_date,
+            required: true,
+          })
+        : null;
+      const courseDates = !usesAcademicYear
+        ? validateCoursePlanningDateRange({
+            startDate: item.start_date,
+            endDate: item.end_date,
+            required: true,
+          })
+        : null;
+      const classRegisterUnavailable = usesAcademicYear
+        ? Boolean(academicYearDates?.error)
+        : Boolean(courseDates?.error);
+      const academicContextLabel = classRegisterUnavailable
+        ? usesAcademicYear
+          ? "Academic Year required for Class Register"
+          : "Course dates required for Class Register"
+        : usesAcademicYear
+          ? academicYear?.label || "Academic year not assigned"
+          : `${formatCourseDate(courseDates?.startDate)} – ${formatCourseDate(
+              courseDates?.endDate
+            )}`;
       const operationalGroup = getOperationalGroup(item, level);
       const studentCount = Number(studentCountsByClassId[classId] || 0);
       const searchableText = [
@@ -1204,6 +1224,7 @@ export default function AdminClassesPage() {
         academicYearLabel: academicYear?.label || "",
         academicYearStatus: academicYear?.status || "",
         academicContextLabel,
+        classRegisterUnavailable,
         meetLink: String(item.meet_link || "").trim(),
         studentCount,
         searchText: normalizeSearchValue(searchableText),
@@ -1641,7 +1662,7 @@ export default function AdminClassesPage() {
                 <td>
                   <span
                     className={
-                      item.usesAcademicYear && !item.academicYearId
+                      item.classRegisterUnavailable
                         ? "admin-classes-academic-context is-unassigned"
                         : "admin-classes-academic-context"
                     }

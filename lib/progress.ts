@@ -4,6 +4,7 @@ import {
   getEmptyFridayTutorialProgressSummary,
   type FridayTutorialProgressSummary,
 } from "./fridayTutorialResults";
+import type { ClassAttendanceSummary } from "./classRegister";
 
 export { getEmptyFridayTutorialProgressSummary };
 
@@ -15,6 +16,7 @@ export type StudentProgressData = {
   };
   results: any[];
   homework_release_metadata: any[];
+  attendance: ClassAttendanceSummary;
 };
 
 export async function getStudentProgressData(): Promise<StudentProgressData> {

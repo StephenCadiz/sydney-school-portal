@@ -6,6 +6,10 @@ import {
 } from "../../../../lib/studentHomeworkServer";
 import { adjustHomeworkDatesForClassDays } from "../../../../lib/homework";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import {
+  getStudentClassAttendanceSummary,
+} from "../../../../lib/classRegisterServer";
+import { getEmptyClassAttendanceSummary } from "../../../../lib/classRegister";
 
 const METADATA_COLUMNS =
   "id, week_number, homework_skill, release_date, active, level, course_type, homework_order, created_at, updated_at";
@@ -93,6 +97,21 @@ export async function GET(request: NextRequest) {
         (result.published_at !== null && result.published_at !== undefined)
     );
 
+    let attendance = getEmptyClassAttendanceSummary();
+    try {
+      attendance = await getStudentClassAttendanceSummary(
+        context.classId,
+        "profile",
+        context.studentId
+      );
+    } catch (attendanceError) {
+      console.error("Student Class Register summary load failed:", {
+        actorId: context.studentId,
+        classId: context.classId,
+        error: attendanceError,
+      });
+    }
+
     return NextResponse.json({
       class: {
         id: context.classId,
@@ -101,6 +120,7 @@ export async function GET(request: NextRequest) {
       },
       results,
       homework_release_metadata: homeworkMetadata,
+      attendance,
     });
   } catch (error) {
     console.error("Student progress load failed:", {

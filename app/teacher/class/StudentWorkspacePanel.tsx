@@ -9,6 +9,7 @@ import StudentMessagePanelSection from "./StudentMessagePanelSection";
 import StudentMockResultsSection from "./StudentMockResultsSection";
 import StudentNotesPanelSection from "./StudentNotesPanelSection";
 import StudentProgressPanelSection from "./StudentProgressPanelSection";
+import TeacherStudentAttendanceSection from "./TeacherStudentAttendanceSection";
 
 export type StudentWorkspaceSection =
   | "notes"
@@ -16,6 +17,7 @@ export type StudentWorkspaceSection =
   | "friday-tutorial"
   | "mocks"
   | "progress"
+  | "attendance"
   | "follow-up"
   | "message";
 
@@ -47,6 +49,7 @@ const sections: StudentWorkspaceNavigationItem[] = [
   { id: "friday-tutorial", label: "Friday Tutorials" },
   { id: "mocks", label: "Mock Exams" },
   { id: "progress", label: "Progress" },
+  { id: "attendance", label: "Attendance" },
   { id: "follow-up", label: "Follow-up" },
   { id: "message", label: "Message" },
 ];
@@ -224,6 +227,14 @@ export default function StudentWorkspacePanel({
               onOpenFridayTutorial={() => setActiveSection("friday-tutorial")}
               onOpenMocks={() => setActiveSection("mocks")}
               onOpenFollowUp={() => setActiveSection("follow-up")}
+            />
+          )}
+
+          {activeSection === "attendance" && (
+            <TeacherStudentAttendanceSection
+              classId={classId}
+              studentId={studentId}
+              studentType="profile"
             />
           )}
 
