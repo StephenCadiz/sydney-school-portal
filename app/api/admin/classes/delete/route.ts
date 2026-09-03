@@ -1,191 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import type { TestClassPurgePreview } from "../../../../../lib/adminTestClassPurgeServer";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 
-type ClassDeleteBlockers = {
-  students: number;
-  young_learners: number;
-  results: number;
-  announcements: number;
-  resources: number;
-  teacher_notes: number;
-  follow_ups: number;
-  friday_tutorial_records: number;
-  unit_exam_results: number;
-  class_registers: number;
-};
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function formatError(error: any) {
-  if (!error) {
-    return "Unknown error.";
-  }
-
-  const parts = [
-    error.message ? `Message: ${error.message}` : "",
-    error.details ? `Details: ${error.details}` : "",
-    error.hint ? `Hint: ${error.hint}` : "",
-    error.code ? `Code: ${error.code}` : "",
-  ].filter(Boolean);
-
-  if (parts.length > 0) {
-    return parts.join("\n");
-  }
-
-  try {
-    const serialized = JSON.stringify(error);
-
-    if (serialized && serialized !== "{}") {
-      return serialized;
-    }
-  } catch {
-    // Fall back below.
-  }
-
-  const fallback = String(error);
-  return fallback === "[object Object]"
-    ? "Unknown error object received from Supabase."
-    : fallback;
+function jsonError(message: string, status: number) {
+  return NextResponse.json({ error: message }, { status });
 }
 
-function jsonError(message: string, status: number, details?: string) {
-  return NextResponse.json(
-    {
-      error: message,
-      ...(details ? { details } : {}),
-    },
-    {
-      status,
-    }
-  );
-}
-
-async function countLinkedRows(
-  table: string,
-  column: string,
-  classId: string
-) {
-  const { count, error } = await supabaseAdmin
-    .from(table)
-    .select(column, {
-      count: "exact",
-      head: true,
-    })
-    .eq(column, classId);
-
-  if (error) {
-    throw new Error(`${table} lookup failed.\n${formatError(error)}`);
-  }
-
-  return count || 0;
-}
-
-async function countYoungLearnerLinks(classId: string) {
-  const [currentResult, historyResult] = await Promise.all([
-    supabaseAdmin.from("young_learners").select("id").eq("class_id", classId),
-    supabaseAdmin
-      .from("young_learner_enrolments")
-      .select("young_learner_id")
-      .eq("class_id", classId),
-  ]);
-
-  if (currentResult.error) {
-    throw new Error(
-      `young_learners lookup failed.\n${formatError(currentResult.error)}`
-    );
-  }
-  if (historyResult.error) {
-    throw new Error(
-      `young_learner_enrolments lookup failed.\n${formatError(
-        historyResult.error
-      )}`
-    );
-  }
-
-  return new Set([
-    ...(currentResult.data || []).map((row) => String(row.id || "")),
-    ...(historyResult.data || []).map((row) =>
-      String(row.young_learner_id || "")
-    ),
-  ]).size;
-}
-
-async function cleanOrphanEnrolments(classId: string) {
-  const { data: enrolments, error: enrolmentsError } = await supabaseAdmin
-    .from("class_enrolments")
-    .select("student_id")
-    .eq("class_id", classId);
-
-  if (enrolmentsError) {
-    throw new Error(
-      `class_enrolments lookup failed.\n${formatError(enrolmentsError)}`
-    );
-  }
-
-  const studentIds = Array.from(
-    new Set((enrolments || []).map((row: any) => row.student_id).filter(Boolean))
-  );
-
-  if (studentIds.length === 0) {
-    return {
-      realStudentEnrolments: 0,
-      orphanEnrolmentsRemoved: 0,
-    };
-  }
-
-  const { data: profiles, error: profilesError } = await supabaseAdmin
-    .from("profiles")
-    .select("id")
-    .eq("role", "student")
-    .in("id", studentIds);
-
-  if (profilesError) {
-    throw new Error(`profiles lookup failed.\n${formatError(profilesError)}`);
-  }
-
-  const existingStudentIds = new Set((profiles || []).map((row: any) => row.id));
-  const orphanStudentIds = studentIds.filter(
-    (studentId) => !existingStudentIds.has(studentId)
-  );
-
-  if (orphanStudentIds.length > 0) {
-    const { error: orphanDeleteError } = await supabaseAdmin
-      .from("class_enrolments")
-      .delete()
-      .eq("class_id", classId)
-      .in("student_id", orphanStudentIds);
-
-    if (orphanDeleteError) {
-      throw new Error(
-        `orphan class_enrolments cleanup failed.\n${formatError(
-          orphanDeleteError
-        )}`
-      );
-    }
-  }
-
+function buildNormalDeleteBlockers(preview: TestClassPurgePreview) {
   return {
-    realStudentEnrolments: (enrolments || []).filter((row: any) =>
-      existingStudentIds.has(row.student_id)
-    ).length,
-    orphanEnrolmentsRemoved: (enrolments || []).filter((row: any) =>
-      orphanStudentIds.includes(row.student_id)
-    ).length,
+    students: preview.students.cambridge_current,
+    young_learners: preview.students.young_learners_current,
+    ...preview.dependencies,
   };
-}
-
-function hasBlockers(blockers: ClassDeleteBlockers) {
-  return Object.values(blockers).some((count) => count > 0);
 }
 
 export async function POST(request: NextRequest) {
   try {
     const authorization = request.headers.get("authorization");
     const token = authorization?.startsWith("Bearer ")
-      ? authorization.replace("Bearer ", "")
+      ? authorization.slice("Bearer ".length).trim()
       : "";
 
     if (!token) {
-      return jsonError("Missing authorization token.", 401);
+      return jsonError("You must be logged in as an admin.", 401);
     }
 
     const {
@@ -194,7 +35,7 @@ export async function POST(request: NextRequest) {
     } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
-      return jsonError("Invalid authorization token.", 401);
+      return jsonError("Your admin session is invalid or has expired.", 401);
     }
 
     const { data: adminProfile, error: adminProfileError } =
@@ -202,78 +43,47 @@ export async function POST(request: NextRequest) {
         .from("profiles")
         .select("role")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
     if (adminProfileError) {
-      console.error("Admin profile lookup failed:", adminProfileError);
-      return jsonError(
-        "Unable to verify admin user.",
-        500,
-        formatError(adminProfileError)
-      );
+      console.error("Normal class delete admin lookup failed:", adminProfileError);
+      return jsonError("Unable to verify the admin account.", 500);
     }
 
     if (adminProfile?.role !== "admin") {
       return jsonError("Only admins can delete classes.", 403);
     }
 
-    const body = await request.json();
-    const classId = body.class_id;
+    const body = await request.json().catch(() => null);
+    const classId = String(body?.class_id || "").trim();
 
-    if (!classId) {
-      return jsonError("class_id is required.", 400);
+    if (!uuidPattern.test(classId)) {
+      return jsonError("Choose a valid class.", 400);
     }
 
-    const { data: classRecord, error: classLookupError } = await supabaseAdmin
-      .from("classes")
-      .select("id")
-      .eq("id", classId)
-      .single();
+    const { data: previewData, error: previewError } = await supabaseAdmin.rpc(
+      "preview_test_class_purge",
+      { p_class_id: classId }
+    );
 
-    if (classLookupError || !classRecord) {
-      console.error("Class lookup failed:", classLookupError);
-      return jsonError("Class not found.", 404, formatError(classLookupError));
+    if (previewError) {
+      if (previewError.code === "P0002") {
+        return jsonError("Class not found.", 404);
+      }
+
+      console.error("Normal class delete dependency preview failed:", previewError);
+      return jsonError("Unable to verify whether the class can be deleted.", 500);
     }
 
-    const { realStudentEnrolments, orphanEnrolmentsRemoved } =
-      await cleanOrphanEnrolments(classId);
+    const preview = previewData as TestClassPurgePreview;
+    const blockers = buildNormalDeleteBlockers(preview);
+    const hasBlockers = Object.values(blockers).some(
+      (count) => Number(count) > 0
+    );
 
-    const blockers: ClassDeleteBlockers = {
-      students: realStudentEnrolments,
-      young_learners: await countYoungLearnerLinks(classId),
-      results: await countLinkedRows("results", "class_id", classId),
-      announcements: await countLinkedRows(
-        "announcements",
-        "classes_id",
-        classId
-      ),
-      resources: await countLinkedRows("resources", "class_id", classId),
-      teacher_notes: await countLinkedRows("teacher_notes", "class_id", classId),
-      follow_ups: await countLinkedRows(
-        "follow_up_documents",
-        "class_id",
-        classId
-      ),
-      friday_tutorial_records: await countLinkedRows(
-        "friday_tutorial_students",
-        "class_id",
-        classId
-      ),
-      unit_exam_results: await countLinkedRows(
-        "unit_exam_results",
-        "class_id",
-        classId
-      ),
-      class_registers: await countLinkedRows(
-        "class_registers",
-        "class_id",
-        classId
-      ),
-    };
-
-    if (hasBlockers(blockers)) {
+    if (hasBlockers) {
       const message =
-        "Cannot delete this class because it still has linked data.";
+        "This class cannot be deleted normally because it contains linked data.";
 
       return NextResponse.json(
         {
@@ -281,32 +91,36 @@ export async function POST(request: NextRequest) {
           error: message,
           message,
           blockers,
-          orphan_enrolments_removed: orphanEnrolmentsRemoved,
         },
-        {
-          status: 400,
-        }
+        { status: 409 }
       );
     }
 
-    const { error: deleteError } = await supabaseAdmin
+    const { data: deletedClass, error: deleteError } = await supabaseAdmin
       .from("classes")
       .delete()
-      .eq("id", classId);
+      .eq("id", classId)
+      .select("id")
+      .maybeSingle();
 
     if (deleteError) {
-      console.error("Class delete failed:", deleteError);
-      return jsonError("Unable to delete class.", 500, formatError(deleteError));
+      console.error("Normal class delete failed:", deleteError);
+      return jsonError(
+        "The class could not be deleted because linked data still exists.",
+        409
+      );
+    }
+
+    if (!deletedClass) {
+      return jsonError("Class not found.", 404);
     }
 
     return NextResponse.json({
       success: true,
       message: "Class deleted successfully.",
-      orphan_enrolments_removed: orphanEnrolmentsRemoved,
     });
-  } catch (error: any) {
-    const details = formatError(error);
-    console.error("Delete class route failed:", details);
-    return jsonError("Unable to delete class.", 500, details);
+  } catch (error) {
+    console.error("Normal class delete request failed:", error);
+    return jsonError("Unable to delete the class.", 500);
   }
 }

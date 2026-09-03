@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { createPortal } from "react-dom";
 
 import AdminLayout from "../../components/layout/AdminLayout";
 import { getAcademicYears } from "../../../lib/academicYears";
@@ -21,6 +28,36 @@ import { validateCoursePlanningDateRange } from "../../../lib/coursePlanningDate
 import { supabase } from "../../../lib/supabase";
 
 type ClassView = "all" | "level" | "schedule" | "teacher";
+type ClassPurgeContext = {
+  courseType: string;
+  academicContext: string;
+  teacher: string;
+};
+type ClassDeleteBlocker = {
+  classId: string;
+  classLabel: string;
+  classContext: ClassPurgeContext;
+  blockers: Record<string, number>;
+};
+type TestClassPurgePreview = {
+  students: {
+    cambridge_current: number;
+    young_learners_current: number;
+    total_current: number;
+  };
+  dependencies: Record<string, number>;
+  total_dependent_rows: number;
+  storage_files: number;
+  can_purge: boolean;
+  warnings: string[];
+  preserved: string[];
+};
+type TestClassPurgeTarget = {
+  classId: string;
+  classLabel: string;
+  classContext: ClassPurgeContext;
+  preview: TestClassPurgePreview;
+};
 
 const courseTypes = [
   { label: "Regular", value: "regular" },
@@ -614,33 +651,39 @@ function buildTeacherTimetable(rows: any[]) {
 }
 
 const blockerLabels: Record<string, string> = {
-  students: "Students",
-  young_learners: "Young Learners",
+  students: "Current Cambridge Students",
+  young_learners: "Current Young Learners",
+  class_register_entries: "Class Register Entries",
   results: "Results",
+  mock_result_reviews: "Mock Result Reviews",
   announcements: "Announcements",
+  announcement_reads: "Announcement Read Records",
   resources: "Resources",
   teacher_notes: "Teacher Notes",
-  follow_ups: "Follow Ups",
-  friday_tutorial_records: "Friday Tutorial Records",
+  follow_up_documents: "Follow-up Documents",
+  follow_up_entries: "Follow-up Entries",
+  friday_tutorial_students: "Friday Tutorial Student Records",
+  friday_tutorial_session_students: "Friday Tutorial Session Records",
+  friday_tutorial_result_sheets: "Friday Tutorial Result Sheets",
+  friday_tutorial_results: "Friday Tutorial Results",
   unit_exam_results: "Unit Exam Results",
   class_registers: "Class Register History",
+  attendance_alerts: "Attendance Alerts",
+  class_progress_entries: "Class Progress Records",
+  class_enrolments: "Cambridge Enrolment History",
+  young_learner_enrolments: "Young Learner Enrolment History",
+  young_learner_notes: "Young Learner Notes",
+  young_learner_class_point_entries: "Young Learner Class Points",
+  course_plans: "Course Plans",
+  course_plan_days: "Course Plan Days",
+  course_plan_exam_items: "Course Plan Exam Items",
+  course_plan_resources: "Course Plan Resources",
+  course_plan_homework_assignments: "Course Plan Homework Links",
+  cambridge_exam_assignments: "Class-owned Cambridge Exam Assignments",
+  student_assignment_homework_reads: "Assignment Read Records",
+  academic_year_rollover_classes: "Academic-year Rollover Class Links",
+  academic_year_rollover_students: "Academic-year Rollover Student Decisions",
 };
-
-function formatDeleteBlockers(blockers: Record<string, number>) {
-  const blockerLines = Object.entries(blockers)
-    .filter(([, count]) => Number(count) > 0)
-    .map(([key, count]) => `- ${blockerLabels[key] || key}: ${count}`);
-
-  if (blockerLines.length === 0) {
-    return "";
-  }
-
-  return [
-    "This class cannot be deleted yet because it still has linked data:",
-    "",
-    ...blockerLines,
-  ].join("\n");
-}
 
 export default function AdminClassesPage() {
   const [classes, setClasses] = useState<any[]>([]);
@@ -655,6 +698,19 @@ export default function AdminClassesPage() {
   const [saving, setSaving] = useState(false);
   const [editingClassId, setEditingClassId] = useState("");
   const [message, setMessage] = useState("");
+  const [classDeleteBlocker, setClassDeleteBlocker] =
+    useState<ClassDeleteBlocker | null>(null);
+  const [classPurgeTarget, setClassPurgeTarget] =
+    useState<TestClassPurgeTarget | null>(null);
+  const [classPurgePreparing, setClassPurgePreparing] = useState(false);
+  const [classPurging, setClassPurging] = useState(false);
+  const [classPurgeConfirmation, setClassPurgeConfirmation] = useState("");
+  const [classPurgeError, setClassPurgeError] = useState("");
+  const classDeleteDialogRef = useRef<HTMLDivElement>(null);
+  const classDeleteCancelRef = useRef<HTMLButtonElement>(null);
+  const classPurgeDialogRef = useRef<HTMLDivElement>(null);
+  const classPurgeConfirmationRef = useRef<HTMLInputElement>(null);
+  const classPurgeCloseRef = useRef<HTMLButtonElement>(null);
   const [levelsMessage, setLevelsMessage] = useState("");
   const [teachersMessage, setTeachersMessage] = useState("");
   const [classroomsMessage, setClassroomsMessage] = useState("");
@@ -665,6 +721,106 @@ export default function AdminClassesPage() {
   const [teacherFilter, setTeacherFilter] = useState("all");
   const [courseTypeFilter, setCourseTypeFilter] = useState("all");
   const [academicYearFilter, setAcademicYearFilter] = useState("all");
+
+  const classDialogOpen = Boolean(classDeleteBlocker || classPurgeTarget);
+
+  useEffect(() => {
+    if (!classDialogOpen) {
+      return;
+    }
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previousBodyOverflow = document.body.style.overflow;
+    const focusTimer = window.setTimeout(() => {
+      if (classPurgeTarget?.preview.can_purge) {
+        classPurgeConfirmationRef.current?.focus();
+      } else if (classPurgeTarget) {
+        classPurgeCloseRef.current?.focus();
+      } else {
+        classDeleteCancelRef.current?.focus();
+      }
+    }, 0);
+
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousBodyOverflow;
+
+      if (previouslyFocused?.isConnected) {
+        previouslyFocused.focus();
+      }
+    };
+  }, [
+    classDialogOpen,
+    classDeleteBlocker?.classId,
+    classPurgeTarget?.classId,
+  ]);
+
+  useEffect(() => {
+    if (!classDialogOpen) {
+      return;
+    }
+
+    function handleClassDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (classPurging || classPurgePreparing) {
+          return;
+        }
+
+        event.preventDefault();
+
+        if (classPurgeTarget) {
+          closeClassPurgeDialog();
+        } else {
+          setClassDeleteBlocker(null);
+          setClassPurgeError("");
+        }
+
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const activeDialog = classPurgeTarget
+        ? classPurgeDialogRef.current
+        : classDeleteDialogRef.current;
+      const focusableElements = Array.from(
+        activeDialog?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), summary, [tabindex]:not([tabindex="-1"])'
+        ) || []
+      );
+
+      if (focusableElements.length === 0) {
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleClassDialogKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleClassDialogKeyDown);
+    };
+  }, [
+    classDialogOpen,
+    classDeleteBlocker,
+    classPurgePreparing,
+    classPurgeTarget,
+    classPurging,
+  ]);
 
   const [form, setForm] = useState({
     level_id: "",
@@ -930,7 +1086,36 @@ export default function AdminClassesPage() {
     });
   }
 
-  async function handleDeleteClass(classId: string) {
+  function getClassDeleteLabel(item: any) {
+    const levelName = String(
+      item.levelName || item.original?.class_name || "Class"
+    );
+    const className = String(item.className || "").trim();
+
+    if (
+      className &&
+      normalizeSearchValue(className) !== normalizeSearchValue(levelName)
+    ) {
+      return `${levelName} — ${className}`;
+    }
+
+    return levelName;
+  }
+
+  function getClassPurgeContext(item: any): ClassPurgeContext {
+    return {
+      courseType: String(item.courseTypeLabel || "Class"),
+      academicContext: String(
+        item.academicContextLabel || "Academic context not assigned"
+      ),
+      teacher: String(item.teacherName || "Unassigned"),
+    };
+  }
+
+  async function handleDeleteClass(item: any) {
+    const classId = String(item.id || "");
+    const classLabel = getClassDeleteLabel(item);
+    const classContext = getClassPurgeContext(item);
     const confirmed = confirm(
       "Are you sure you want to delete this class? This cannot be undone."
     );
@@ -938,6 +1123,7 @@ export default function AdminClassesPage() {
     if (!confirmed) return;
 
     setMessage("");
+    setClassDeleteBlocker(null);
 
     try {
       const {
@@ -960,20 +1146,25 @@ export default function AdminClassesPage() {
         }),
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const blockerMessage = result.blockers
-          ? formatDeleteBlockers(result.blockers)
-          : "";
+        if (result.blockers) {
+          setClassDeleteBlocker({
+            classId,
+            classLabel,
+            classContext,
+            blockers: result.blockers,
+          });
+          return;
+        }
 
-        throw new Error(
-          blockerMessage ||
-            result.details ||
-            result.message ||
-            result.error ||
-            "Unable to delete class."
-        );
+        console.error("Unexpected normal class delete response:", {
+          status: response.status,
+          error: result.error,
+        });
+        setMessage(result.error || "Unable to delete class.");
+        return;
       }
 
       if (editingClassId === classId) {
@@ -984,8 +1175,152 @@ export default function AdminClassesPage() {
       await loadData();
       setMessage(result.message || "Class deleted successfully.");
     } catch (error: any) {
-      console.error("Unable to delete class:", error);
+      console.error("Unexpected class delete request failure:", error);
       setMessage(error.message || "Unable to delete class.");
+    }
+  }
+
+  function closeClassPurgeDialog() {
+    if (classPurging) {
+      return;
+    }
+
+    setClassPurgeTarget(null);
+    setClassPurgeConfirmation("");
+    setClassPurgeError("");
+  }
+
+  async function openClassPurgePreview() {
+    if (!classDeleteBlocker) {
+      return;
+    }
+
+    setClassPurgePreparing(true);
+    setClassPurgeError("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setClassPurgeError("You must be logged in as an admin.");
+        return;
+      }
+
+      const response = await fetch("/api/admin/test-class-purge/preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ class_id: classDeleteBlocker.classId }),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        console.error("Unexpected test class preview response:", {
+          status: response.status,
+          error: result.error,
+        });
+        setClassPurgeError(
+          result.error || "Unable to prepare the test class purge preview."
+        );
+        return;
+      }
+
+      setClassPurgeTarget({
+        classId: classDeleteBlocker.classId,
+        classLabel: classDeleteBlocker.classLabel,
+        classContext: classDeleteBlocker.classContext,
+        preview: result.preview,
+      });
+      setClassDeleteBlocker(null);
+      setClassPurgeConfirmation("");
+      setClassPurgeError("");
+    } catch (error: any) {
+      console.error("Unexpected test class preview failure:", error);
+      setClassPurgeError(
+        error.message || "Unable to prepare the test class purge preview."
+      );
+    } finally {
+      setClassPurgePreparing(false);
+    }
+  }
+
+  async function executeClassPurge() {
+    if (
+      !classPurgeTarget ||
+      !classPurgeTarget.preview.can_purge ||
+      classPurgeConfirmation !== "DELETE"
+    ) {
+      return;
+    }
+
+    setClassPurging(true);
+    setClassPurgeError("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setClassPurgeError("You must be logged in as an admin.");
+        return;
+      }
+
+      const response = await fetch("/api/admin/test-class-purge", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          class_id: classPurgeTarget.classId,
+          confirmation: classPurgeConfirmation,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        if (response.status !== 409 && response.status !== 404) {
+          console.error("Unexpected test class purge response:", {
+            status: response.status,
+            error: result.error,
+          });
+        }
+
+        setClassPurgeError(
+          result.error || "Unable to purge the selected test class."
+        );
+        return;
+      }
+
+      const classLabel = classPurgeTarget.classLabel;
+      const storageWarning = String(result.warning || "");
+
+      if (editingClassId === classPurgeTarget.classId) {
+        setEditingClassId("");
+        resetForm();
+      }
+
+      setClassPurgeTarget(null);
+      setClassPurgeConfirmation("");
+      setClassPurgeError("");
+      await loadData();
+      setMessage(
+        `${classLabel} and its class-specific test data were permanently deleted.${
+          storageWarning ? ` ${storageWarning}` : ""
+        }`
+      );
+    } catch (error: any) {
+      console.error("Unexpected test class purge failure:", error);
+      setClassPurgeError(
+        error.message || "Unable to purge the selected test class."
+      );
+    } finally {
+      setClassPurging(false);
     }
   }
 
@@ -1605,7 +1940,7 @@ export default function AdminClassesPage() {
         <button
           className="admin-classes-action-button admin-classes-action-delete"
           type="button"
-          onClick={() => handleDeleteClass(item.id)}
+          onClick={() => handleDeleteClass(item)}
         >
           Delete
         </button>
@@ -2590,6 +2925,318 @@ export default function AdminClassesPage() {
 
           {renderCurrentView()}
         </section>
+
+        {classDialogOpen &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <>
+              {classDeleteBlocker && (
+                <div className="admin-classes-dialog-backdrop">
+                  <div
+                    ref={classDeleteDialogRef}
+                    className="admin-classes-dialog admin-classes-delete-blocker-dialog"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="admin-classes-delete-blocker-title"
+                    aria-describedby="admin-classes-delete-blocker-description"
+                  >
+                    <header className="admin-classes-dialog-heading">
+                      <div
+                        className="admin-classes-dialog-warning-icon"
+                        aria-hidden="true"
+                      >
+                        !
+                      </div>
+                      <div className="admin-classes-dialog-heading-copy">
+                        <span>Normal deletion protected</span>
+                        <h2 id="admin-classes-delete-blocker-title">
+                          Class contains historical data
+                        </h2>
+                        <p id="admin-classes-delete-blocker-description">
+                          This class cannot be deleted normally because it
+                          contains linked academic or operational records.
+                        </p>
+                      </div>
+                    </header>
+
+                    <section className="admin-classes-dialog-class-identity">
+                      <span>Selected class</span>
+                      <strong>{classDeleteBlocker.classLabel}</strong>
+                      <div className="admin-classes-dialog-class-context">
+                        <span>{classDeleteBlocker.classContext.courseType}</span>
+                        <span>
+                          {classDeleteBlocker.classContext.academicContext}
+                        </span>
+                        <span>
+                          Teacher: {classDeleteBlocker.classContext.teacher}
+                        </span>
+                      </div>
+                    </section>
+
+                    <section className="admin-classes-purge-preview-section">
+                      <h3>Protected records found</h3>
+                      <dl className="admin-classes-delete-counts">
+                        {Object.entries(classDeleteBlocker.blockers)
+                          .filter(([, count]) => Number(count) > 0)
+                          .map(([key, count]) => (
+                            <div key={key}>
+                              <dt>{blockerLabels[key] || key}</dt>
+                              <dd>{count}</dd>
+                            </div>
+                          ))}
+                      </dl>
+                    </section>
+
+                    <p className="admin-classes-test-purge-explanation">
+                      If this is a test class, you may review a permanent
+                      deletion preview and remove only its class-specific data.
+                      Student identities will be preserved.
+                    </p>
+
+                    {classPurgePreparing && (
+                      <div
+                        className="admin-classes-dialog-loading"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <span aria-hidden="true" />
+                        Loading the current database preview…
+                      </div>
+                    )}
+
+                    {classPurgeError && (
+                      <div className="admin-classes-dialog-error" role="alert">
+                        {classPurgeError}
+                      </div>
+                    )}
+
+                    <footer className="admin-classes-dialog-actions">
+                      <button
+                        ref={classDeleteCancelRef}
+                        type="button"
+                        className="admin-classes-secondary-button"
+                        disabled={classPurgePreparing}
+                        onClick={() => {
+                          setClassDeleteBlocker(null);
+                          setClassPurgeError("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-classes-test-purge-button"
+                        disabled={classPurgePreparing}
+                        onClick={openClassPurgePreview}
+                      >
+                        {classPurgePreparing
+                          ? "Loading preview…"
+                          : "Permanently Delete Test Class"}
+                      </button>
+                    </footer>
+                  </div>
+                </div>
+              )}
+
+              {classPurgeTarget && (
+                <div className="admin-classes-dialog-backdrop">
+                  <div
+                    ref={classPurgeDialogRef}
+                    className="admin-classes-dialog admin-classes-purge-dialog"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="admin-classes-purge-title"
+                    aria-describedby="admin-classes-purge-description"
+                  >
+                    <header className="admin-classes-dialog-heading is-destructive">
+                      <div
+                        className="admin-classes-dialog-warning-icon"
+                        aria-hidden="true"
+                      >
+                        !
+                      </div>
+                      <div className="admin-classes-dialog-heading-copy">
+                        <span>Destructive admin action</span>
+                        <h2 id="admin-classes-purge-title">
+                          Permanent Test Class Deletion
+                        </h2>
+                        <p id="admin-classes-purge-description">
+                          This will permanently remove this test class and all
+                          data belonging specifically to it. This action cannot
+                          be undone.
+                        </p>
+                      </div>
+                    </header>
+
+                    <section className="admin-classes-dialog-class-identity">
+                      <span>Selected class</span>
+                      <strong>{classPurgeTarget.classLabel}</strong>
+                      <div className="admin-classes-dialog-class-context">
+                        <span>{classPurgeTarget.classContext.courseType}</span>
+                        <span>
+                          {classPurgeTarget.classContext.academicContext}
+                        </span>
+                        <span>
+                          Teacher: {classPurgeTarget.classContext.teacher}
+                        </span>
+                      </div>
+                    </section>
+
+                    <section
+                      className="admin-classes-purge-summary-section"
+                      aria-labelledby="admin-classes-purge-summary-title"
+                    >
+                      <div className="admin-classes-purge-section-heading">
+                        <h3 id="admin-classes-purge-summary-title">
+                          Deletion preview
+                        </h3>
+                        <p>Live counts from the database. No data has changed.</p>
+                      </div>
+                      <div className="admin-classes-purge-summary">
+                        <div>
+                          <span>Current students</span>
+                          <strong>
+                            {classPurgeTarget.preview.students.total_current}
+                          </strong>
+                        </div>
+                        <div>
+                          <span>Cambridge Students</span>
+                          <strong>
+                            {
+                              classPurgeTarget.preview.students
+                                .cambridge_current
+                            }
+                          </strong>
+                        </div>
+                        <div>
+                          <span>Young Learners</span>
+                          <strong>
+                            {
+                              classPurgeTarget.preview.students
+                                .young_learners_current
+                            }
+                          </strong>
+                        </div>
+                        <div>
+                          <span>Class-specific records</span>
+                          <strong>
+                            {classPurgeTarget.preview.total_dependent_rows}
+                          </strong>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="admin-classes-purge-preview-section">
+                      <h3>Records to be deleted</h3>
+                      <dl className="admin-classes-delete-counts">
+                        {Object.entries(classPurgeTarget.preview.dependencies)
+                          .filter(([, count]) => Number(count) > 0)
+                          .map(([key, count]) => (
+                            <div key={key}>
+                              <dt>{blockerLabels[key] || key}</dt>
+                              <dd>{count}</dd>
+                            </div>
+                          ))}
+                        {classPurgeTarget.preview.total_dependent_rows === 0 && (
+                          <div>
+                            <dt>Class-specific records</dt>
+                            <dd>0</dd>
+                          </div>
+                        )}
+                        {classPurgeTarget.preview.storage_files > 0 && (
+                          <div>
+                            <dt>Uploaded Course Plan Files</dt>
+                            <dd>{classPurgeTarget.preview.storage_files}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </section>
+
+                    {!classPurgeTarget.preview.can_purge && (
+                      <div className="admin-classes-purge-blocked" role="alert">
+                        <strong>Test Class Purge is blocked.</strong>
+                        {classPurgeTarget.preview.warnings.map((warning) => (
+                          <p key={warning}>{warning}</p>
+                        ))}
+                      </div>
+                    )}
+
+                    <details className="admin-classes-purge-preserved">
+                      <summary>Records that will be preserved</summary>
+                      <ul>
+                        {classPurgeTarget.preview.preserved.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </details>
+
+                    {classPurgeError && (
+                      <div className="admin-classes-dialog-error" role="alert">
+                        {classPurgeError}
+                      </div>
+                    )}
+
+                    {classPurgeTarget.preview.can_purge && (
+                      <section className="admin-classes-purge-confirmation-section">
+                        <label
+                          className="admin-classes-purge-confirmation"
+                          htmlFor="admin-classes-purge-confirmation-input"
+                        >
+                          <span>
+                            Type <strong>DELETE</strong> to confirm permanent
+                            deletion
+                          </span>
+                          <input
+                            ref={classPurgeConfirmationRef}
+                            id="admin-classes-purge-confirmation-input"
+                            value={classPurgeConfirmation}
+                            disabled={classPurging}
+                            autoComplete="off"
+                            spellCheck={false}
+                            aria-describedby="admin-classes-purge-confirmation-help"
+                            onChange={(event) => {
+                              setClassPurgeConfirmation(event.target.value);
+                              setClassPurgeError("");
+                            }}
+                          />
+                        </label>
+                        <p id="admin-classes-purge-confirmation-help">
+                          The confirmation is case-sensitive.
+                        </p>
+                      </section>
+                    )}
+
+                    <footer className="admin-classes-dialog-actions">
+                      <button
+                        ref={classPurgeCloseRef}
+                        type="button"
+                        className="admin-classes-secondary-button"
+                        disabled={classPurging}
+                        onClick={closeClassPurgeDialog}
+                      >
+                        {classPurgeTarget.preview.can_purge ? "Cancel" : "Close"}
+                      </button>
+                      {classPurgeTarget.preview.can_purge && (
+                        <button
+                          type="button"
+                          className="admin-classes-purge-confirm-button"
+                          disabled={
+                            classPurging || classPurgeConfirmation !== "DELETE"
+                          }
+                          onClick={executeClassPurge}
+                        >
+                          {classPurging
+                            ? "Deleting…"
+                            : "Delete Test Class Permanently"}
+                        </button>
+                      )}
+                    </footer>
+                  </div>
+                </div>
+              )}
+            </>,
+            document.body
+          )}
       </div>
     </AdminLayout>
   );

@@ -39,10 +39,64 @@ type DeleteTarget = {
   studentType: "cambridge" | "young_learner";
   name: string;
 };
+type PurgeStudentType = "profile" | "young_learner";
+type PurgeStudentIdentity = {
+  student_id: string;
+  student_type: PurgeStudentType;
+};
+type TestStudentPurgePreview = {
+  students: {
+    profile: number;
+    young_learner: number;
+    total: number;
+    auth_users: number;
+  };
+  dependencies: Record<string, number>;
+  total_dependent_rows: number;
+  warnings: string[];
+  preserved: string[];
+};
 type SelectOption = {
   value: string;
   label: string;
 };
+
+const purgeDependencyLabels: Record<string, string> = {
+  class_register_entries: "Class Register entries",
+  attendance_alerts: "Attendance alerts",
+  class_enrolments: "Cambridge enrolments",
+  young_learner_enrolments: "Young Learner enrolments",
+  academic_year_rollover_students: "Academic-year rollover decisions",
+  follow_up_documents: "Follow-up documents",
+  follow_up_entries: "Follow-up entries",
+  friday_tutorial_students: "Friday Tutorial student records",
+  friday_tutorial_session_students: "Friday Tutorial session records",
+  friday_tutorial_results: "Friday Tutorial results",
+  friday_tutorial_reminder_reads: "Friday Tutorial reminder records",
+  results: "Results",
+  mock_result_reviews: "Mock Result reviews",
+  teacher_notes: "Teacher notes",
+  student_homework_reads: "Homework read records",
+  student_assignment_homework_reads: "Assignment read records",
+  announcement_reads: "Announcement read records",
+  messages: "Student messages",
+  unit_exam_results: "Unit Exam results",
+  young_learner_notes: "Young Learner notes",
+  young_learner_class_point_entries: "Young Learner class-point entries",
+};
+
+function getPurgeSelectionKey(studentType: PurgeStudentType, studentId: string) {
+  return `${studentType}:${studentId}`;
+}
+
+function parsePurgeSelectionKey(key: string): PurgeStudentIdentity {
+  const separatorIndex = key.indexOf(":");
+
+  return {
+    student_type: key.slice(0, separatorIndex) as PurgeStudentType,
+    student_id: key.slice(separatorIndex + 1),
+  };
+}
 
 const cambridgeLevelOrder = ["B1", "B2", "C1", "C2"];
 
@@ -340,6 +394,18 @@ export default function AdminStudentsPage() {
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [selectedPurgeStudents, setSelectedPurgeStudents] = useState<
+    Set<string>
+  >(() => new Set());
+  const [purgePreparing, setPurgePreparing] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [purgePreview, setPurgePreview] =
+    useState<TestStudentPurgePreview | null>(null);
+  const [purgeSelection, setPurgeSelection] = useState<
+    PurgeStudentIdentity[]
+  >([]);
+  const [purgeConfirmation, setPurgeConfirmation] = useState("");
+  const [purgeError, setPurgeError] = useState("");
   const [editingStudentId, setEditingStudentId] = useState("");
   const [editingYoungLearnerId, setEditingYoungLearnerId] = useState("");
   const [message, setMessage] = useState<StudentMessage | null>(null);
@@ -481,6 +547,36 @@ export default function AdminStudentsPage() {
     activeStudentType === "youngLearners"
       ? (visibleRows as AdminYoungLearnerDirectoryRow[])
       : [];
+  const visiblePurgeIdentities = useMemo<PurgeStudentIdentity[]>(
+    () =>
+      visibleRows.map((student) => ({
+        student_id: student.id,
+        student_type:
+          activeStudentType === "cambridge" ? "profile" : "young_learner",
+      })),
+    [activeStudentType, visibleRows]
+  );
+  const allVisibleSelected =
+    visiblePurgeIdentities.length > 0 &&
+    visiblePurgeIdentities.every((identity) =>
+      selectedPurgeStudents.has(
+        getPurgeSelectionKey(identity.student_type, identity.student_id)
+      )
+    );
+  const someVisibleSelected = visiblePurgeIdentities.some((identity) =>
+    selectedPurgeStudents.has(
+      getPurgeSelectionKey(identity.student_type, identity.student_id)
+    )
+  );
+  const selectedPurgeIdentities = useMemo(
+    () => Array.from(selectedPurgeStudents, parsePurgeSelectionKey),
+    [selectedPurgeStudents]
+  );
+  const selectedProfileCount = selectedPurgeIdentities.filter(
+    (identity) => identity.student_type === "profile"
+  ).length;
+  const selectedYoungLearnerCount =
+    selectedPurgeIdentities.length - selectedProfileCount;
   const countText = getCountText(
     selectedRows.length,
     visibleRows.length,
@@ -771,6 +867,190 @@ export default function AdminStudentsPage() {
     }
   }
 
+  function isSelectedForPurge(
+    studentType: PurgeStudentType,
+    studentId: string
+  ) {
+    return selectedPurgeStudents.has(
+      getPurgeSelectionKey(studentType, studentId)
+    );
+  }
+
+  function togglePurgeStudent(
+    studentType: PurgeStudentType,
+    studentId: string
+  ) {
+    const key = getPurgeSelectionKey(studentType, studentId);
+
+    setSelectedPurgeStudents((current) => {
+      const next = new Set(current);
+
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+
+      return next;
+    });
+    setMessage(null);
+  }
+
+  function toggleAllVisibleForPurge() {
+    setSelectedPurgeStudents((current) => {
+      const next = new Set(current);
+
+      if (allVisibleSelected) {
+        for (const identity of visiblePurgeIdentities) {
+          next.delete(
+            getPurgeSelectionKey(identity.student_type, identity.student_id)
+          );
+        }
+      } else {
+        for (const identity of visiblePurgeIdentities) {
+          next.add(
+            getPurgeSelectionKey(identity.student_type, identity.student_id)
+          );
+        }
+      }
+
+      return next;
+    });
+    setMessage(null);
+  }
+
+  function closePurgeDialog() {
+    if (purging) {
+      return;
+    }
+
+    setPurgePreview(null);
+    setPurgeSelection([]);
+    setPurgeConfirmation("");
+    setPurgeError("");
+  }
+
+  async function openPurgePreview() {
+    const selection = [...selectedPurgeIdentities];
+
+    if (selection.length === 0) {
+      return;
+    }
+
+    setPurgePreparing(true);
+    setMessage(null);
+    setPurgeError("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error("You must be logged in as an admin.");
+      }
+
+      const response = await fetch("/api/admin/test-student-purge/preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ students: selection }),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Unable to prepare the test student purge preview."
+        );
+      }
+
+      setPurgeSelection(selection);
+      setPurgePreview(result.preview);
+      setPurgeConfirmation("");
+    } catch (error: any) {
+      console.error("Unable to preview test student purge:", error);
+      setMessage({
+        type: "error",
+        text:
+          error.message || "Unable to prepare the test student purge preview.",
+      });
+    } finally {
+      setPurgePreparing(false);
+    }
+  }
+
+  async function executeTestStudentPurge() {
+    if (!purgePreview || purgeConfirmation !== "DELETE") {
+      return;
+    }
+
+    setPurging(true);
+    setPurgeError("");
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error("You must be logged in as an admin.");
+      }
+
+      const response = await fetch("/api/admin/test-student-purge", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          students: purgeSelection,
+          confirmation: purgeConfirmation,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Unable to purge the selected test students."
+        );
+      }
+
+      const purgedKeys = new Set(
+        purgeSelection.map((identity) =>
+          getPurgeSelectionKey(identity.student_type, identity.student_id)
+        )
+      );
+      const purgedCount = purgeSelection.length;
+
+      setSelectedPurgeStudents((current) => {
+        const next = new Set(current);
+
+        for (const key of purgedKeys) {
+          next.delete(key);
+        }
+
+        return next;
+      });
+      setPurgePreview(null);
+      setPurgeSelection([]);
+      setPurgeConfirmation("");
+      await loadData();
+      setMessage({
+        type: "success",
+        text: `${purgedCount} test student${purgedCount === 1 ? "" : "s"} and associated test data permanently deleted.`,
+      });
+    } catch (error: any) {
+      console.error("Unable to purge test students:", error);
+      setPurgeError(
+        error.message || "Unable to purge the selected test students."
+      );
+    } finally {
+      setPurging(false);
+    }
+  }
+
   function openDeleteDialog(
     student:
       | AdminCambridgeStudentDirectoryRow
@@ -836,6 +1116,19 @@ export default function AdminStudentsPage() {
         resetYoungLearnerForm();
       }
 
+      setSelectedPurgeStudents((current) => {
+        const next = new Set(current);
+        next.delete(
+          getPurgeSelectionKey(
+            deleteTarget.studentType === "cambridge"
+              ? "profile"
+              : "young_learner",
+            deleteTarget.id
+          )
+        );
+        return next;
+      });
+
       setDeleteTarget(null);
       await loadData();
       setMessage({
@@ -862,6 +1155,20 @@ export default function AdminStudentsPage() {
           </caption>
           <thead>
             <tr>
+              <th scope="col" className="admin-students-select-column">
+                <input
+                  type="checkbox"
+                  aria-label="Select all visible Cambridge students for test data purge"
+                  checked={allVisibleSelected}
+                  ref={(input) => {
+                    if (input) {
+                      input.indeterminate =
+                        someVisibleSelected && !allVisibleSelected;
+                    }
+                  }}
+                  onChange={toggleAllVisibleForPurge}
+                />
+              </th>
               <th scope="col">#</th>
               <th scope="col">First Name</th>
               <th scope="col">Last Name</th>
@@ -875,7 +1182,22 @@ export default function AdminStudentsPage() {
           </thead>
           <tbody>
             {rows.map((student, index) => (
-              <tr key={student.id}>
+              <tr
+                key={student.id}
+                className={
+                  isSelectedForPurge("profile", student.id)
+                    ? "admin-students-row-selected"
+                    : undefined
+                }
+              >
+                <td className="admin-students-select-column">
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${getStudentName(student) || "Cambridge student"} for test data purge`}
+                    checked={isSelectedForPurge("profile", student.id)}
+                    onChange={() => togglePurgeStudent("profile", student.id)}
+                  />
+                </td>
                 <td>{index + 1}</td>
                 <td>{cleanText(student.first_name)}</td>
                 <td>{cleanText(student.last_name)}</td>
@@ -924,6 +1246,20 @@ export default function AdminStudentsPage() {
           </caption>
           <thead>
             <tr>
+              <th scope="col" className="admin-students-select-column">
+                <input
+                  type="checkbox"
+                  aria-label="Select all visible Young Learners for test data purge"
+                  checked={allVisibleSelected}
+                  ref={(input) => {
+                    if (input) {
+                      input.indeterminate =
+                        someVisibleSelected && !allVisibleSelected;
+                    }
+                  }}
+                  onChange={toggleAllVisibleForPurge}
+                />
+              </th>
               <th scope="col">#</th>
               <th scope="col">First Name</th>
               <th scope="col">Last Name</th>
@@ -937,7 +1273,24 @@ export default function AdminStudentsPage() {
           </thead>
           <tbody>
             {rows.map((student, index) => (
-              <tr key={student.id}>
+              <tr
+                key={student.id}
+                className={
+                  isSelectedForPurge("young_learner", student.id)
+                    ? "admin-students-row-selected"
+                    : undefined
+                }
+              >
+                <td className="admin-students-select-column">
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${getStudentName(student) || "Young Learner"} for test data purge`}
+                    checked={isSelectedForPurge("young_learner", student.id)}
+                    onChange={() =>
+                      togglePurgeStudent("young_learner", student.id)
+                    }
+                  />
+                </td>
                 <td>{index + 1}</td>
                 <td>{cleanText(student.first_name)}</td>
                 <td>{cleanText(student.last_name)}</td>
@@ -988,8 +1341,23 @@ export default function AdminStudentsPage() {
     return (
       <div className="admin-students-mobile-list">
         {rows.map((student, index) => (
-          <article className="admin-students-mobile-card" key={student.id}>
+          <article
+            className={`admin-students-mobile-card ${
+              isSelectedForPurge("profile", student.id)
+                ? "admin-students-mobile-card-selected"
+                : ""
+            }`}
+            key={student.id}
+          >
             <div className="admin-students-mobile-card-header">
+              <label className="admin-students-mobile-select">
+                <input
+                  type="checkbox"
+                  checked={isSelectedForPurge("profile", student.id)}
+                  onChange={() => togglePurgeStudent("profile", student.id)}
+                />
+                <span>Select for test data purge</span>
+              </label>
               <span>Student {index + 1}</span>
               <strong>{getStudentName(student) || "Unnamed student"}</strong>
             </div>
@@ -1043,8 +1411,25 @@ export default function AdminStudentsPage() {
     return (
       <div className="admin-students-mobile-list">
         {rows.map((student, index) => (
-          <article className="admin-students-mobile-card" key={student.id}>
+          <article
+            className={`admin-students-mobile-card ${
+              isSelectedForPurge("young_learner", student.id)
+                ? "admin-students-mobile-card-selected"
+                : ""
+            }`}
+            key={student.id}
+          >
             <div className="admin-students-mobile-card-header">
+              <label className="admin-students-mobile-select">
+                <input
+                  type="checkbox"
+                  checked={isSelectedForPurge("young_learner", student.id)}
+                  onChange={() =>
+                    togglePurgeStudent("young_learner", student.id)
+                  }
+                />
+                <span>Select for test data purge</span>
+              </label>
               <span>Student {index + 1}</span>
               <strong>{getStudentName(student) || "Unnamed student"}</strong>
             </div>
@@ -1567,6 +1952,66 @@ export default function AdminStudentsPage() {
               )}
             </div>
 
+            {(visibleRows.length > 0 || selectedPurgeStudents.size > 0) && (
+              <div className="admin-students-purge-bar">
+                <div className="admin-students-purge-selection">
+                  {visibleRows.length > 0 && (
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        ref={(input) => {
+                          if (input) {
+                            input.indeterminate =
+                              someVisibleSelected && !allVisibleSelected;
+                          }
+                        }}
+                        onChange={toggleAllVisibleForPurge}
+                      />
+                      <span>Select all visible</span>
+                    </label>
+                  )}
+                  <div aria-live="polite">
+                    <strong>
+                      {selectedPurgeStudents.size} student
+                      {selectedPurgeStudents.size === 1 ? "" : "s"} selected
+                    </strong>
+                    {selectedPurgeStudents.size > 0 && (
+                      <span>
+                        {selectedProfileCount} Cambridge,{" "}
+                        {selectedYoungLearnerCount} Young Learner
+                        {selectedYoungLearnerCount === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="admin-students-purge-actions">
+                  {selectedPurgeStudents.size > 0 && (
+                    <button
+                      type="button"
+                      className="admin-students-purge-clear-button"
+                      disabled={purgePreparing}
+                      onClick={() => setSelectedPurgeStudents(new Set())}
+                    >
+                      Clear selection
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="admin-students-purge-button"
+                    disabled={
+                      selectedPurgeStudents.size === 0 || purgePreparing
+                    }
+                    onClick={openPurgePreview}
+                  >
+                    {purgePreparing
+                      ? "Preparing preview..."
+                      : "Permanently Delete Test Students"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {renderResults()}
           </section>
         </section>
@@ -1615,6 +2060,134 @@ export default function AdminStudentsPage() {
                 }}
               >
                 {pendingConfirmation.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {purgePreview && (
+        <div className="admin-students-dialog-backdrop">
+          <div
+            className="admin-students-dialog admin-students-purge-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-students-purge-title"
+          >
+            <div className="admin-students-purge-dialog-heading">
+              <span>Destructive admin action</span>
+              <h2 id="admin-students-purge-title">
+                Permanent Test Data Deletion
+              </h2>
+              <p>
+                This will permanently remove the selected test students and all
+                associated test data. This action cannot be undone.
+              </p>
+            </div>
+
+            <section className="admin-students-purge-summary">
+              <div>
+                <strong>{purgePreview.students.total}</strong>
+                <span>Students selected</span>
+              </div>
+              <div>
+                <strong>{purgePreview.students.profile}</strong>
+                <span>Cambridge Students</span>
+              </div>
+              <div>
+                <strong>{purgePreview.students.young_learner}</strong>
+                <span>Young Learners</span>
+              </div>
+              <div>
+                <strong>{purgePreview.total_dependent_rows}</strong>
+                <span>Dependent rows</span>
+              </div>
+            </section>
+
+            <section className="admin-students-purge-preview-section">
+              <h3>Database preview</h3>
+              <p>
+                These counts come from the current database. No data has been
+                changed.
+              </p>
+              <dl className="admin-students-purge-counts">
+                {Object.entries(purgePreview.dependencies)
+                  .filter(([, count]) => count > 0)
+                  .map(([key, count]) => (
+                    <div key={key}>
+                      <dt>{purgeDependencyLabels[key] || key}</dt>
+                      <dd>{count}</dd>
+                    </div>
+                  ))}
+                {purgePreview.total_dependent_rows === 0 && (
+                  <div>
+                    <dt>Dependent student records</dt>
+                    <dd>0</dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+
+            {purgePreview.warnings.length > 0 && (
+              <div className="admin-students-purge-warning" role="status">
+                {purgePreview.warnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            )}
+
+            <details className="admin-students-purge-preserved">
+              <summary>Shared records that will be preserved</summary>
+              <ul>
+                {purgePreview.preserved.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </details>
+
+            {purgeError && (
+              <div
+                className="admin-students-message admin-students-message-error admin-students-purge-error"
+                role="alert"
+              >
+                {purgeError}
+              </div>
+            )}
+
+            <label className="admin-students-purge-confirmation">
+              <span>
+                Type <strong>DELETE</strong> to confirm permanent deletion
+              </span>
+              <input
+                value={purgeConfirmation}
+                disabled={purging}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => {
+                  setPurgeConfirmation(event.target.value);
+                  setPurgeError("");
+                }}
+              />
+            </label>
+
+            <div className="admin-students-dialog-actions">
+              <button
+                type="button"
+                className="admin-students-secondary-button"
+                disabled={purging}
+                onClick={closePurgeDialog}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-students-danger-button"
+                disabled={purging || purgeConfirmation !== "DELETE"}
+                onClick={executeTestStudentPurge}
+              >
+                {purging
+                  ? "Permanently deleting..."
+                  : "Delete Test Data Permanently"}
               </button>
             </div>
           </div>
