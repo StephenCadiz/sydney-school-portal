@@ -6,6 +6,14 @@ import {
   getExamPartLabel,
 } from "../../../../lib/cambridgeExamBank";
 import { normalizeCambridgeLevel } from "../../../../lib/fridayTutorialResults";
+import {
+  getFridayTutorialSessionTypeForDate,
+  isB1FridayTutorialSession,
+} from "../../../../lib/fridayTutorialRotation";
+import {
+  loadEffectiveFridayTutorialDutyForDate,
+  loadFridayTutorialRotationContext,
+} from "../../../../lib/fridayTutorialRotationServer";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { getSchoolClosureForDate } from "../../../../lib/schoolClosuresServer";
 
@@ -96,25 +104,44 @@ export async function GET(request: NextRequest) {
     const today = getMadridDateString();
     const closure = await getSchoolClosureForDate(today);
     if (closure) {
-      return NextResponse.json({ notices: [], school_closed: true, closure });
+      return NextResponse.json({ notices: [], duty: null, school_closed: true, closure });
     }
-    const { data: sessions, error: sessionError } = await supabaseAdmin
-      .from("friday_exam_practice_sessions")
-      .select(
-        "id, session_date, level_name, activity_type, exam_part, note, active, cambridge_exam_part_id, pdf_url, audio_url, key_url"
-      )
-      .eq("active", true)
-      .eq("session_date", today)
-      .order("level_name", { ascending: true })
-      .order("activity_type", { ascending: true });
+    const rotation = await loadFridayTutorialRotationContext({ endDate: today });
+    const tutorialGroup = getFridayTutorialSessionTypeForDate(
+      rotation.settings || {},
+      today,
+      rotation.closures
+    );
+    if (!tutorialGroup) {
+      return NextResponse.json({ notices: [], duty: null, school_closed: false });
+    }
+
+    const [{ data: sessions, error: sessionError }, duty] =
+      await Promise.all([
+        supabaseAdmin
+          .from("friday_exam_practice_sessions")
+          .select(
+            "id, session_date, level_name, activity_type, exam_part, note, active, cambridge_exam_part_id, pdf_url, audio_url, key_url"
+          )
+          .eq("active", true)
+          .eq("session_date", today)
+          .order("level_name", { ascending: true })
+          .order("activity_type", { ascending: true }),
+        loadEffectiveFridayTutorialDutyForDate(today),
+      ]);
 
     if (sessionError) {
       return jsonError("Unable to load Friday Tutorial notices.", 500);
     }
+    const visibleSessions = (sessions || []).filter(
+      (session) =>
+        normalizeCambridgeLevel(session.level_name) !== "B1" ||
+        isB1FridayTutorialSession(tutorialGroup)
+    );
 
     const partIds = Array.from(
       new Set(
-        (sessions || [])
+        visibleSessions
           .map((session) => session.cambridge_exam_part_id)
           .filter(Boolean)
       )
@@ -175,7 +202,7 @@ export async function GET(request: NextRequest) {
       ]);
     }
 
-    const notices = (sessions || []).map((session) => {
+    const notices = visibleSessions.map((session) => {
       const partId = String(session.cambridge_exam_part_id || "");
       const part = validParts.get(partId);
       const exam = one(part?.exam);
@@ -264,7 +291,11 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ notices, school_closed: false });
+    return NextResponse.json({
+      notices,
+      duty: duty ? { ...duty, tutorial_group: tutorialGroup } : null,
+      school_closed: false,
+    });
   } catch {
     return jsonError("Unable to load Friday Tutorial notices.", 500);
   }

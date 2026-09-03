@@ -1,13 +1,25 @@
 import { supabase } from "./supabase";
 import { isSchoolClosedClient } from "./schoolClosuresClient";
+import {
+  FRIDAY_TUTORIAL_SESSION_TYPES,
+  calculateUpcomingFridayTutorials,
+  getFridayTutorialSessionTypeForDate,
+  getNextFridayTutorialSessionType,
+  getTutorialGroupLabel,
+  isB1FridayTutorialSession,
+  type FridayTutorialRotationClosure,
+  type FridayTutorialSessionType,
+} from "./fridayTutorialRotation";
 
-export const FRIDAY_TUTORIAL_SESSION_TYPES = {
-  KIDS_2_TO_JUNIOR_3: "kids2_junior3",
-  JUNIOR_4_TEENS_1_B1: "junior4_teens_b1",
-} as const;
-
-export type FridayTutorialSessionType =
-  (typeof FRIDAY_TUTORIAL_SESSION_TYPES)[keyof typeof FRIDAY_TUTORIAL_SESSION_TYPES];
+export {
+  FRIDAY_TUTORIAL_SESSION_TYPES,
+  calculateUpcomingFridayTutorials,
+  getFridayTutorialSessionTypeForDate,
+  getNextFridayTutorialSessionType,
+  getTutorialGroupLabel,
+  isB1FridayTutorialSession,
+};
+export type { FridayTutorialRotationClosure, FridayTutorialSessionType };
 
 export const FRIDAY_AT_6_DUTY_TYPES = {
   GENERAL: "general",
@@ -20,11 +32,6 @@ export type FridayAt6DutyType =
 export const FRIDAY_AT_6_DUTY_LABELS: Record<FridayAt6DutyType, string> = {
   general: "General Tutorial Duty",
   b1: "B1 Tutorial Duty",
-};
-
-const sessionLabels: Record<FridayTutorialSessionType, string> = {
-  kids2_junior3: "Kids 2 - Junior 3",
-  junior4_teens_b1: "Junior 4 - Teens + B1 Training",
 };
 
 const responsibilityLevels: Record<
@@ -61,81 +68,6 @@ const sessionStudentUpdateFields = [
   "student_attended_status",
   "comment",
 ];
-
-function addDaysToDateOnly(dateValue: string, days: number) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue);
-
-  if (!match) {
-    return dateValue;
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-
-  date.setUTCDate(date.getUTCDate() + days);
-
-  return [
-    date.getUTCFullYear(),
-    String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-export function getNextFridayTutorialSessionType(
-  sessionType: FridayTutorialSessionType
-): FridayTutorialSessionType {
-  return sessionType === FRIDAY_TUTORIAL_SESSION_TYPES.KIDS_2_TO_JUNIOR_3
-    ? FRIDAY_TUTORIAL_SESSION_TYPES.JUNIOR_4_TEENS_1_B1
-    : FRIDAY_TUTORIAL_SESSION_TYPES.KIDS_2_TO_JUNIOR_3;
-}
-
-function getDateOnlyUtcTime(value: unknown) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "").trim());
-
-  if (!match) {
-    return null;
-  }
-
-  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-}
-
-export function getFridayTutorialSessionTypeForDate(
-  settings: any,
-  sessionDate: string
-): FridayTutorialSessionType | null {
-  const firstSessionTypeValue = String(settings?.first_session_type || "");
-  const firstDateTime = getDateOnlyUtcTime(settings?.first_friday_date);
-  const sessionDateTime = getDateOnlyUtcTime(sessionDate);
-
-  if (
-    firstDateTime === null ||
-    sessionDateTime === null ||
-    !Object.prototype.hasOwnProperty.call(sessionLabels, firstSessionTypeValue)
-  ) {
-    return null;
-  }
-
-  const firstSessionType = firstSessionTypeValue as FridayTutorialSessionType;
-
-  const differenceInDays =
-    (sessionDateTime - firstDateTime) / (24 * 60 * 60 * 1000);
-
-  if (differenceInDays < 0 || differenceInDays % 7 !== 0) {
-    return null;
-  }
-
-  return (differenceInDays / 7) % 2 === 0
-    ? firstSessionType
-    : getNextFridayTutorialSessionType(firstSessionType);
-}
-
-export function isB1FridayTutorialSession(
-  sessionType: string | null | undefined
-) {
-  return sessionType === FRIDAY_TUTORIAL_SESSION_TYPES.JUNIOR_4_TEENS_1_B1;
-}
 
 export function getFridayAt6DutyTypesForTeacher(
   duty: any,
@@ -317,11 +249,6 @@ export function isFridayTutorialSessionRemovable(session: any, now = new Date())
   return startMinutes > madridNow.minutes;
 }
 
-export function getTutorialGroupLabel(group: string | null | undefined) {
-  const sessionType = String(group || "") as FridayTutorialSessionType;
-  return sessionLabels[sessionType] || group || "-";
-}
-
 export type FridayTutorialStatusValue =
   | "added"
   | "not_added"
@@ -458,83 +385,78 @@ export function formatFridayTutorialApprovedDate(dateValue: string | null | unde
   }).format(date);
 }
 
-export async function getFridayTutorialSettings() {
-  const { data, error } = await supabase
-    .from("friday_tutorial_settings")
-    .select("*")
-    .eq("id", 1)
-    .maybeSingle();
+async function getFridayTutorialAdminToken() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Your Admin session has expired.");
+  return session.access_token;
+}
 
-  if (error) {
-    console.error("getFridayTutorialSettings Supabase error:", error);
-    throw error;
+export async function getFridayTutorialRotationContext(): Promise<{
+  settings: any | null;
+  closures: FridayTutorialRotationClosure[];
+}> {
+  const token = await getFridayTutorialAdminToken();
+  const response = await fetch("/api/admin/friday-tutorials/rotation", {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to load the Friday Tutorial rotation.");
   }
+  return {
+    settings: result.settings || null,
+    closures: Array.isArray(result.closures) ? result.closures : [],
+  };
+}
 
-  return data;
+export async function getFridayTutorialSettings() {
+  return (await getFridayTutorialRotationContext()).settings;
 }
 
 export async function saveFridayTutorialSettings(
   firstFridayDate: string,
   firstSessionType: string
 ) {
-  const { error } = await supabase
-    .from("friday_tutorial_settings")
-    .upsert({
-      id: 1,
+  const token = await getFridayTutorialAdminToken();
+  const response = await fetch("/api/admin/friday-tutorials/rotation", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
       first_friday_date: firstFridayDate,
       first_session_type: firstSessionType,
-      updated_at: new Date().toISOString(),
-    });
-
-  if (error) {
-    console.error("saveFridayTutorialSettings Supabase error:", error);
-    throw error;
-  }
-}
-
-export function calculateUpcomingFridayTutorials(
-  settings: any,
-  count: number
-) {
-  if (
-    !settings?.first_friday_date ||
-    !getFridayTutorialSessionTypeForDate(
-      settings,
-      settings.first_friday_date
-    )
-  ) {
-    return [];
-  }
-
-  return Array.from({ length: count }, (_, index) => {
-    const sessionDate = addDaysToDateOnly(settings.first_friday_date, index * 7);
-    const sessionType = getFridayTutorialSessionTypeForDate(
-      settings,
-      sessionDate
-    ) as FridayTutorialSessionType;
-    const sessionLabel = getTutorialGroupLabel(sessionType);
-
-    return {
-      session_date: sessionDate,
-      tutorial_group: sessionType,
-      tutorial_group_label: sessionLabel,
-      start_time: "18:00",
-      end_time: "19:00",
-      date: sessionDate,
-      session_type: sessionType,
-      session_label: sessionLabel,
-      time: "18:00-19:00",
-    };
+    }),
   });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to save the Friday Tutorial rotation.");
+  }
+  return result;
 }
 
 export async function getOrCreateFridayTutorialSession(
   sessionDate: string,
   tutorialGroup: string
 ) {
-  if (await isSchoolClosedClient(sessionDate)) {
+  const { settings, closures } = await getFridayTutorialRotationContext();
+  const expectedGroup = getFridayTutorialSessionTypeForDate(
+    settings || {},
+    sessionDate,
+    closures
+  );
+  if (!expectedGroup || await isSchoolClosedClient(sessionDate)) {
     throw new Error(
       "School is closed on this date. No Friday Tutorial register is required."
+    );
+  }
+  if (tutorialGroup !== expectedGroup) {
+    throw new Error(
+      "The selected group no longer matches the current open-Friday rotation. Refresh and try again."
     );
   }
   const { data: existingSession, error: existingError } = await supabase

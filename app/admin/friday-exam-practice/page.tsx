@@ -24,7 +24,7 @@ import {
   FRIDAY_AT_6_DUTY_LABELS,
   FRIDAY_AT_6_DUTY_TYPES,
   getFridayTutorialSessionTypeForDate,
-  getFridayTutorialSettings,
+  getFridayTutorialRotationContext,
   getTutorialGroupLabel,
   isB1FridayTutorialSession,
 } from "../../../lib/fridayTutorials";
@@ -145,6 +145,7 @@ export default function FridayAt6Page() {
   const [duties, setDuties] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [tutorialSettings, setTutorialSettings] = useState<any | null>(null);
+  const [rotationClosures, setRotationClosures] = useState<any[]>([]);
   const [examForm, setExamForm] = useState(emptyExamForm());
   const [dutyForm, setDutyForm] = useState(emptyDutyForm());
   const [editingExamId, setEditingExamId] = useState("");
@@ -170,7 +171,8 @@ export default function FridayAt6Page() {
   );
   const dutySessionType = getFridayTutorialSessionTypeForDate(
     tutorialSettings,
-    dutyForm.session_date
+    dutyForm.session_date,
+    rotationClosures
   );
   const b1DutyRequired = isB1FridayTutorialSession(dutySessionType);
 
@@ -179,17 +181,18 @@ export default function FridayAt6Page() {
     setMessage("");
 
     try {
-      const [sessionData, dutyData, teacherData, settingsData] = await Promise.all([
+      const [sessionData, dutyData, teacherData, rotationData] = await Promise.all([
         getFridayExamPracticeSessions(),
         getFridayAt6Duties(),
         getTeachers(),
-        getFridayTutorialSettings(),
+        getFridayTutorialRotationContext(),
       ]);
 
       setSessions(sessionData);
       setDuties(dutyData);
       setTeachers(teacherData);
-      setTutorialSettings(settingsData);
+      setTutorialSettings(rotationData.settings);
+      setRotationClosures(rotationData.closures);
     } catch (error: any) {
       console.error(error);
       setMessage(error?.message || "Unable to load Friday @ 6 planning data.");
@@ -288,7 +291,11 @@ export default function FridayAt6Page() {
       if (
         field === "session_date" &&
         !isB1FridayTutorialSession(
-          getFridayTutorialSessionTypeForDate(tutorialSettings, value)
+          getFridayTutorialSessionTypeForDate(
+            tutorialSettings,
+            value,
+            rotationClosures
+          )
         )
       ) {
         next.b1_teacher_id = "";
@@ -727,13 +734,21 @@ export default function FridayAt6Page() {
                   {duties.map((duty) => {
                     const sessionType = getFridayTutorialSessionTypeForDate(
                       tutorialSettings,
-                      duty.session_date
+                      duty.effective_session_date,
+                      rotationClosures
                     );
                     const requiresB1Duty = isB1FridayTutorialSession(sessionType);
 
                     return (
                       <tr key={duty.id}>
-                        <td>{formatDate(duty.session_date)}</td>
+                        <td>
+                          {formatDate(duty.effective_session_date)}
+                          {duty.deferred_by_school_closure && (
+                            <small className="friday-six-deferred-duty">
+                              Deferred from {formatDate(duty.original_session_date)}
+                            </small>
+                          )}
+                        </td>
                         <td>{
                           sessionType
                             ? getTutorialGroupLabel(sessionType)

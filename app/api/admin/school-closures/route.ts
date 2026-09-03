@@ -11,6 +11,7 @@ import {
   parseSchoolClosureInput,
 } from "../../../../lib/schoolClosuresServer";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { reconcileFutureFridayTutorialSessions } from "../../../../lib/fridayTutorialRotationServer";
 
 function noStore(payload: unknown, status = 200) {
   return NextResponse.json(payload, {
@@ -75,7 +76,9 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    return noStore({ closure: data }, 201);
+    const fridayTutorialReconciliation =
+      await reconcileFutureFridayTutorialSessions();
+    return noStore({ closure: data, friday_tutorial_reconciliation: fridayTutorialReconciliation }, 201);
   } catch (error) {
     if (error instanceof SchoolClosureError) {
       return examBankJsonError(error.message, error.status);

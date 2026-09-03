@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { resolveStudentCurrentClassServer } from "../../../../lib/academicYearsServer";
-import { isSchoolClosed } from "../../../../lib/schoolClosuresServer";
+import {
+  getFridayTutorialSessionTypeForDate,
+  isB1FridayTutorialSession,
+} from "../../../../lib/fridayTutorialRotation";
+import { loadFridayTutorialRotationContext } from "../../../../lib/fridayTutorialRotationServer";
 
 type ReminderStage = "monday" | "thursday";
 
@@ -157,7 +161,16 @@ async function resolveReminderContext(
 ): Promise<ReminderContext | null> {
   const window = getCurrentReminderWindow();
   if (!window) return null;
-  if (await isSchoolClosed(window.fridayDate)) return null;
+
+  const rotation = await loadFridayTutorialRotationContext({
+    endDate: window.fridayDate,
+  });
+  const tutorialGroup = getFridayTutorialSessionTypeForDate(
+    rotation.settings || {},
+    window.fridayDate,
+    rotation.closures
+  );
+  if (!tutorialGroup) return null;
 
   const classResolution = await resolveStudentCurrentClassServer(studentId);
   if (classResolution.error || !classResolution.classroom) return null;
@@ -181,6 +194,7 @@ async function resolveReminderContext(
 
   const level = normalizeLevel(levelRow?.name);
   if (!eligibleLevels.has(level)) return null;
+  if (level === "B1" && !isB1FridayTutorialSession(tutorialGroup)) return null;
 
   const { data: sessionRows, error: sessionError } = await supabaseAdmin
     .from("friday_exam_practice_sessions")

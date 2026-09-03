@@ -9,6 +9,7 @@ import {
   parseSchoolClosureInput,
 } from "../../../../../lib/schoolClosuresServer";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { reconcileFutureFridayTutorialSessions } from "../../../../../lib/fridayTutorialRotationServer";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -67,7 +68,9 @@ export async function PATCH(
       throw error;
     }
     if (!data) return examBankJsonError("School Closure was not found.", 404);
-    return noStore({ closure: data });
+    const fridayTutorialReconciliation =
+      await reconcileFutureFridayTutorialSessions();
+    return noStore({ closure: data, friday_tutorial_reconciliation: fridayTutorialReconciliation });
   } catch (error) {
     if (error instanceof SchoolClosureError) {
       return examBankJsonError(error.message, error.status);
@@ -97,7 +100,9 @@ export async function DELETE(
       .maybeSingle();
     if (error) throw error;
     if (!data) return examBankJsonError("School Closure was not found.", 404);
-    return noStore({ deleted: true, id });
+    const fridayTutorialReconciliation =
+      await reconcileFutureFridayTutorialSessions();
+    return noStore({ deleted: true, id, friday_tutorial_reconciliation: fridayTutorialReconciliation });
   } catch (error) {
     console.error("School Closure delete failed:", error);
     return examBankJsonError("Unable to delete the School Closure.", 500);

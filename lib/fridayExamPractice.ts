@@ -3,9 +3,10 @@ import {
   fridayTutorialCambridgeLevels,
   normalizeCambridgeLevel,
 } from "./fridayTutorialResults";
+import { assignEffectiveFridayTutorialDutyDates } from "./fridayTutorialRotation";
 import {
   getFridayTutorialSessionTypeForDate,
-  getFridayTutorialSettings,
+  getFridayTutorialRotationContext,
   isB1FridayTutorialSession,
 } from "./fridayTutorials";
 import { isSchoolClosedClient } from "./schoolClosuresClient";
@@ -308,10 +309,11 @@ async function validateFridayAt6DutyPayload(payload: any) {
     );
   }
 
-  const settings = await getFridayTutorialSettings();
+  const { settings, closures } = await getFridayTutorialRotationContext();
   const sessionType = getFridayTutorialSessionTypeForDate(
-    settings,
-    sessionDate
+    settings || {},
+    sessionDate,
+    closures
   );
 
   if (!sessionType) {
@@ -362,45 +364,16 @@ export async function getFridayAt6Duties() {
     throw new Error(formatSupabaseError("duty load", error));
   }
 
-  return enrichFridayAt6Duties(data || []);
-}
-
-export async function getFridayAt6DutyForDate(date: string) {
-  if (await isSchoolClosedClient(date)) return null;
-  const { data, error } = await supabase
-    .from("friday_at_6_duties")
-    .select("id, session_date, teacher_id, b1_teacher_id, note, active")
-    .eq("session_date", date)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(formatSupabaseError("duty date load", error));
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  const [duty] = await enrichFridayAt6Duties([data]);
-
-  let tutorialGroup = null;
-  try {
-    const settings = await getFridayTutorialSettings();
-    tutorialGroup = getFridayTutorialSessionTypeForDate(settings, date);
-  } catch (settingsError) {
-    console.error(
-      "Unable to resolve Friday Tutorial rotation for duty:",
-      settingsError
-    );
-  }
-
-  return duty
-    ? {
+  const enriched = await enrichFridayAt6Duties(data || []);
+  const { settings, closures } = await getFridayTutorialRotationContext();
+  return settings
+    ? assignEffectiveFridayTutorialDutyDates(settings, closures, enriched)
+    : enriched.map((duty) => ({
         ...duty,
-        tutorial_group: tutorialGroup,
-      }
-    : null;
+        original_session_date: duty.session_date,
+        effective_session_date: duty.session_date,
+        deferred_by_school_closure: false,
+      }));
 }
 
 export async function saveFridayAt6Duty(payload: any) {

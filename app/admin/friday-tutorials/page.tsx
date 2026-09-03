@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
+import { calculateFridayTutorialCalendar } from "../../../lib/fridayTutorialRotation";
 import {
   calculateUpcomingFridayTutorials,
   getFridayTutorialSessionRegister,
-  getFridayTutorialSettings,
+  getFridayTutorialRotationContext,
   getFridayTutorialStudents,
   getTutorialGroupLabel,
   isFridayTutorialSessionRemovable,
@@ -177,6 +178,7 @@ function StatusSelect({
 export default function AdminFridayTutorialsPage() {
   const [activeTab, setActiveTab] = useState("weekly");
   const [settings, setSettings] = useState<any>(null);
+  const [rotationClosures, setRotationClosures] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [selectedSessionKey, setSelectedSessionKey] = useState("");
@@ -201,8 +203,12 @@ export default function AdminFridayTutorialsPage() {
   });
 
   const upcomingTutorials = useMemo(
-    () => calculateUpcomingFridayTutorials(settings, 10),
-    [settings]
+    () => calculateUpcomingFridayTutorials(settings, 10, rotationClosures),
+    [rotationClosures, settings]
+  );
+  const rotationPreview = useMemo(
+    () => calculateFridayTutorialCalendar(settings, 6, rotationClosures),
+    [rotationClosures, settings]
   );
   const selectedTutorial =
     upcomingTutorials.find(
@@ -222,12 +228,14 @@ export default function AdminFridayTutorialsPage() {
     setError("");
 
     try {
-      const [settingsData, studentData] = await Promise.all([
-        getFridayTutorialSettings(),
+      const [rotationData, studentData] = await Promise.all([
+        getFridayTutorialRotationContext(),
         getFridayTutorialStudents(),
       ]);
+      const settingsData = rotationData.settings;
 
       setSettings(settingsData);
+      setRotationClosures(rotationData.closures);
       setStudents(studentData);
       setMasterCommentDrafts(
         studentData.reduce((drafts: Record<string, string>, item: any) => {
@@ -284,8 +292,14 @@ export default function AdminFridayTutorialsPage() {
 
     const firstSession = upcomingTutorials[0];
     const nextKey = `${firstSession.session_date}|${firstSession.tutorial_group}`;
-
-    setSelectedSessionKey((current) => current || nextKey);
+    setSelectedSessionKey((current) =>
+      upcomingTutorials.some(
+        (tutorial) =>
+          `${tutorial.session_date}|${tutorial.tutorial_group}` === current
+      )
+        ? current
+        : nextKey
+    );
   }, [settings, upcomingTutorials]);
 
   useEffect(() => {
@@ -630,9 +644,10 @@ export default function AdminFridayTutorialsPage() {
         >
           <strong style={{ color: "var(--ss-blue-dark)" }}>How it works</strong>
           <p style={{ color: "#4b5563", lineHeight: 1.6, margin: "8px 0 0" }}>
-            Friday tutorials run every Friday from 18:00 to 19:00. The sessions
-            alternate between Kids 2 - Junior 3 and Junior 4 - Teens + B1
-            Training.
+            Friday tutorials run on each open Friday from 18:00 to 19:00. The
+            sessions alternate between Kids 2 - Junior 3 and Junior 4 - Teens +
+            B1 Training. A School Closure pauses the rotation, so the pending
+            group moves to the next open Friday.
           </p>
         </section>
 
@@ -1158,9 +1173,9 @@ export default function AdminFridayTutorialsPage() {
                 </p>
               ) : (
                 <div style={{ display: "grid", gap: "10px", marginTop: "16px" }}>
-                  {calculateUpcomingFridayTutorials(settings, 6).map((tutorial) => (
+                  {rotationPreview.map((tutorial) => (
                     <div
-                      key={`${tutorial.session_date}-${tutorial.tutorial_group}`}
+                      key={tutorial.session_date}
                       style={{
                         display: "grid",
                         gridTemplateColumns:
@@ -1177,7 +1192,9 @@ export default function AdminFridayTutorialsPage() {
                         {formatDate(tutorial.session_date)}
                       </strong>
                       <span style={{ color: "#374151" }}>
-                        {tutorial.tutorial_group_label}
+                        {tutorial.school_closed
+                          ? `School closed — ${tutorial.closure?.name || "School Closure"}`
+                          : tutorial.tutorial_group_label}
                       </span>
                       <span
                         style={{
@@ -1186,7 +1203,7 @@ export default function AdminFridayTutorialsPage() {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        18:00-19:00
+                        {tutorial.school_closed ? "No Friday Tutorial" : "18:00-19:00"}
                       </span>
                     </div>
                   ))}

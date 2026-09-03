@@ -16,9 +16,8 @@ import TeacherClassRegisterDashboardReminders from "../components/teacher/Teache
 import TeacherWorkingDayPanel from "../components/teacher/TeacherWorkingDayPanel";
 import { supabase } from "../../lib/supabase";
 import {
-  getFridayAt6DutyForDate,
-} from "../../lib/fridayExamPractice";
-import { getFridayAt6DutyTypesForTeacher } from "../../lib/fridayTutorials";
+  getFridayAt6DutyTypesForTeacher,
+} from "../../lib/fridayTutorials";
 
 const tools = [
   {
@@ -94,17 +93,6 @@ function ToolIcon({ name, size = 18 }: { name: string; size?: number }) {
   );
 }
 
-function getMadridDateString(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Madrid",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
 function getMadridHeader(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Madrid",
@@ -170,15 +158,11 @@ export default function TeacherPage() {
       setTeacherId(session.user.id);
 
       try {
-        const today = getMadridDateString();
-        const [noticeResponse, duty] = await Promise.all([
-          fetch("/api/teacher/friday-tutorial-notices", {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-          }),
-          getFridayAt6DutyForDate(today),
-        ]);
+        const noticeResponse = await fetch("/api/teacher/friday-tutorial-notices", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
 
         const noticeResult = await noticeResponse.json();
         if (!noticeResponse.ok) {
@@ -187,6 +171,7 @@ export default function TeacherPage() {
           );
         }
 
+        const duty = noticeResult.duty || null;
         const dutyTypes = getFridayAt6DutyTypesForTeacher(
           duty,
           session.user.id,

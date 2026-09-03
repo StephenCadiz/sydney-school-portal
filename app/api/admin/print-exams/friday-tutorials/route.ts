@@ -6,6 +6,11 @@ import {
 } from "../../../../../lib/cambridgeExamBankServer";
 import { normalizeCambridgeLevel } from "../../../../../lib/fridayTutorialResults";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import {
+  getFridayTutorialSessionTypeForDate,
+  isB1FridayTutorialSession,
+} from "../../../../../lib/fridayTutorialRotation";
+import { loadFridayTutorialRotationContext } from "../../../../../lib/fridayTutorialRotationServer";
 
 function one(value: any) {
   return Array.isArray(value) ? value[0] : value;
@@ -51,6 +56,17 @@ export async function GET(request: NextRequest) {
 
     const window = getTutorialWeekWindow();
     if (!window) {
+      return NextResponse.json({ tutorials: [] });
+    }
+    const rotation = await loadFridayTutorialRotationContext({
+      endDate: window.friday,
+    });
+    const tutorialGroup = getFridayTutorialSessionTypeForDate(
+      rotation.settings || {},
+      window.friday,
+      rotation.closures
+    );
+    if (!tutorialGroup) {
       return NextResponse.json({ tutorials: [] });
     }
 
@@ -143,6 +159,11 @@ export async function GET(request: NextRequest) {
       ])
     );
     const tutorials = (data || [])
+      .filter(
+        (tutorial) =>
+          normalizeCambridgeLevel(tutorial.level_name) !== "B1" ||
+          isB1FridayTutorialSession(tutorialGroup)
+      )
       .map((tutorial) => {
         const partId = String(tutorial.cambridge_exam_part_id || "");
         const exactLevel = validPartLevel.get(partId);

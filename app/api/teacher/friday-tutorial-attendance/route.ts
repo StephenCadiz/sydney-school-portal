@@ -11,6 +11,10 @@ import {
 } from "../../../../lib/fridayTutorials";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { getSchoolClosureForDate } from "../../../../lib/schoolClosuresServer";
+import {
+  loadEffectiveFridayTutorialDutyForDate,
+  loadFridayTutorialRotationContext,
+} from "../../../../lib/fridayTutorialRotationServer";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -99,13 +103,10 @@ async function getAttendanceContext(request: NextRequest) {
     };
   }
 
-  const { data: duty, error: dutyError } = await supabaseAdmin
-    .from("friday_at_6_duties")
-    .select("id, session_date, teacher_id, b1_teacher_id, note, active")
-    .eq("session_date", now.date)
-    .eq("active", true)
-    .maybeSingle();
-  if (dutyError) {
+  let duty;
+  try {
+    duty = await loadEffectiveFridayTutorialDutyForDate(now.date);
+  } catch (dutyError) {
     logAttendanceError("duty", dutyError);
     return { response: jsonError("Unable to load Friday Tutorial attendance.", 500), context: null };
   }
@@ -113,18 +114,17 @@ async function getAttendanceContext(request: NextRequest) {
     return { response: jsonError("Friday Tutorial attendance not found.", 404), context: null };
   }
 
-  const { data: settings, error: settingsError } = await supabaseAdmin
-    .from("friday_tutorial_settings")
-    .select("first_friday_date, first_session_type")
-    .eq("id", 1)
-    .maybeSingle();
-  if (settingsError) {
+  let rotation;
+  try {
+    rotation = await loadFridayTutorialRotationContext({ endDate: now.date });
+  } catch (settingsError) {
     logAttendanceError("settings", settingsError);
     return { response: jsonError("Unable to load Friday Tutorial attendance.", 500), context: null };
   }
   const expectedGroup = getFridayTutorialSessionTypeForDate(
-    settings,
-    now.date
+    rotation.settings || {},
+    now.date,
+    rotation.closures
   );
   if (!expectedGroup) {
     return { response: jsonError("Friday Tutorial attendance not found.", 404), context: null };
