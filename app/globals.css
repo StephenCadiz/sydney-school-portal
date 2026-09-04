@@ -19950,6 +19950,78 @@ img {
   background: #f1f7fb;
 }
 
+.teacher-portal-header-brand {
+  flex: 1 1 420px;
+}
+
+.teacher-live-clock {
+  background: #f3f8fc;
+  border: 1px solid #d5e4ef;
+  border-radius: 11px;
+  box-sizing: border-box;
+  color: var(--ss-blue-dark);
+  display: grid;
+  flex: 0 0 auto;
+  gap: 3px;
+  justify-items: end;
+  min-width: 132px;
+  padding: 10px 13px;
+}
+
+.teacher-live-clock > span {
+  color: #5f7185;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.teacher-live-clock > time {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  line-height: 1.15;
+  min-width: 8ch;
+  text-align: right;
+}
+
+.teacher-live-clock.is-mobile {
+  align-items: baseline;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  gap: 6px;
+  justify-content: flex-start;
+  min-width: 0;
+  padding: 0;
+}
+
+.teacher-live-clock.is-mobile > span {
+  font-size: 9px;
+}
+
+.teacher-live-clock.is-mobile > time {
+  font-size: 13px;
+  min-width: 7.5ch;
+  text-align: left;
+}
+
+.teacher-mobile-topbar-context {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.teacher-mobile-topbar-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
 @media (max-width: 640px) {
   .teacher-portal-header {
     padding: 14px 16px !important;
@@ -19980,8 +20052,45 @@ img {
 }
 
 @media (max-width: 768px) {
+  .teacher-layout-shell > .mobile-topbar {
+    display: grid !important;
+    gap: 12px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .teacher-mobile-topbar-context .mobile-topbar-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .teacher-live-clock.is-header {
+    display: none;
+  }
+
   .teacher-dashboard-page .admin-dashboard-message-control {
     display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .teacher-layout-shell > .mobile-topbar {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .teacher-mobile-topbar-actions {
+    gap: 6px;
+  }
+
+  .teacher-mobile-topbar-actions > a {
+    min-height: 38px !important;
+    padding: 7px 8px !important;
+  }
+
+  .teacher-mobile-topbar-actions .mobile-menu-button {
+    min-height: 38px;
+    padding: 8px 10px;
   }
 }
 

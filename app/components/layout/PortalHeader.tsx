@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import TeacherLiveClock from "./TeacherLiveClock";
 
 type Props = {
   title: string;
@@ -17,14 +18,19 @@ export default function PortalHeader({ title }: Props) {
         marginBottom: "24px",
         display: "flex",
         alignItems: "center",
+        justifyContent: "space-between",
+        gap: "20px",
+        flexWrap: "wrap",
         border: "1px solid #e3e8ef",
       }}
     >
       <div
+        className="teacher-portal-header-brand"
         style={{
           display: "flex",
           alignItems: "center",
           gap: "16px",
+          minWidth: 0,
         }}
       >
         <Image
@@ -58,7 +64,7 @@ export default function PortalHeader({ title }: Props) {
           </p>
         </div>
       </div>
-
+      <TeacherLiveClock />
     </div>
   );
 }

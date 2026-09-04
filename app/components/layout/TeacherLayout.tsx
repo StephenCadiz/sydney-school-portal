@@ -9,6 +9,7 @@ import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotific
 import { getTeacherUnreadMessageCount } from "../../../lib/teacherMessageUnreadCount";
 import { supabase } from "../../../lib/supabase";
 import TeacherClassProgressReminder from "../teacher/TeacherClassProgressReminder";
+import TeacherLiveClock from "./TeacherLiveClock";
 
 interface TeacherLayoutProps {
   children: ReactNode | ((unreadMessageCount: number) => ReactNode);
@@ -172,14 +173,11 @@ export default function TeacherLayout({
       }}
     >
       <div className="mobile-topbar">
-        <div className="mobile-topbar-title">Sydney School / Teacher</div>
-        <div
-          style={{
-            alignItems: "center",
-            display: "flex",
-            gap: "10px",
-          }}
-        >
+        <div className="teacher-mobile-topbar-context">
+          <div className="mobile-topbar-title">Sydney School / Teacher</div>
+          <TeacherLiveClock compact />
+        </div>
+        <div className="teacher-mobile-topbar-actions">
           <Link
             href="/teacher/messages"
             aria-label={unreadAccessibleLabel}
