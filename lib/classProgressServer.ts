@@ -15,6 +15,12 @@ import {
 import { supabaseAdmin } from "./supabaseAdmin";
 import { getCurrentAcademicYearServer } from "./academicYearsServer";
 import { filterClassesForCurrentTeaching } from "./academicYearRules";
+import { classUsesAcademicYear } from "./academicYearRules";
+import {
+  getEffectiveClassDateRange,
+  isDateWithinEffectiveClassRange,
+  type EffectiveClassDateRange,
+} from "./classDateRange";
 import { findSchoolClosure, type SchoolClosureSummary } from "./schoolClosures";
 import {
   getSchoolClosureForDate,
@@ -64,6 +70,8 @@ export type ClassProgressContext = {
   classDays: string;
   scheduledStartTime: string;
   scheduledEndTime: string;
+  activeStartDate: string;
+  activeEndDate: string;
 };
 
 export type ClassProgressInput = {
@@ -182,7 +190,8 @@ export function getRecentScheduledLessons(
   scheduledEndTime: string,
   daysBack = 42,
   date = new Date(),
-  closures: readonly SchoolClosureSummary[] = []
+  closures: readonly SchoolClosureSummary[] = [],
+  activeRange: EffectiveClassDateRange | null = null
 ) {
   const today = getMadridDateString(date);
   const start = normalizeScheduledTime(scheduledStartTime);
@@ -200,6 +209,10 @@ export function getRecentScheduledLessons(
   for (let offset = 0; offset <= daysBack; offset += 1) {
     const lessonDate = addMadridCalendarDays(today, -offset);
     if (lessonDate < CLASS_PROGRESS_START_DATE) break;
+    if (activeRange && lessonDate < activeRange.startDate) break;
+    if (activeRange && !isDateWithinEffectiveClassRange(lessonDate, activeRange)) {
+      continue;
+    }
     const weekday = madridWeekdayForDate(lessonDate);
     if (!isScheduledOnClassDays(classDays, weekday)) continue;
     if (findSchoolClosure(lessonDate, closures)) continue;
@@ -233,7 +246,7 @@ export async function getClassProgressContext(
 
   const { data: classroom, error: classError } = await supabaseAdmin
     .from("classes")
-    .select("id, class_name, level_id, is_cambridge, course_type, days, start_time, end_time")
+    .select("id, class_name, level_id, is_cambridge, course_type, days, start_time, end_time, start_date, end_date, academic_year_id")
     .eq("id", access.classId)
     .maybeSingle();
   if (classError) throw classError;
@@ -270,6 +283,45 @@ export async function getClassProgressContext(
     );
   }
 
+  const usesAcademicYear = classUsesAcademicYear(classroom.course_type);
+  const { data: academicYear, error: academicYearError } =
+    classroom.academic_year_id
+      ? await supabaseAdmin
+          .from("academic_years")
+          .select("id, start_date, end_date")
+          .eq("id", classroom.academic_year_id)
+          .maybeSingle()
+      : { data: null, error: null };
+  if (academicYearError) throw academicYearError;
+  if (usesAcademicYear && !academicYear) {
+    throw new ClassProgressError(
+      "Class Progress requires a valid Academic Year for this class.",
+      422
+    );
+  }
+  if (
+    !usesAcademicYear &&
+    (!String(classroom.start_date || "").trim() ||
+      !String(classroom.end_date || "").trim())
+  ) {
+    throw new ClassProgressError(
+      "Class Progress requires valid class start and end dates for this course.",
+      422
+    );
+  }
+  const activeRange = getEffectiveClassDateRange({
+    academicYearStart: academicYear?.start_date,
+    academicYearEnd: academicYear?.end_date,
+    classStart: classroom.start_date,
+    classEnd: classroom.end_date,
+  });
+  if (!activeRange) {
+    throw new ClassProgressError(
+      "Class Progress requires a valid active class date range.",
+      422
+    );
+  }
+
   return {
     actorId: access.actorId,
     role: access.role,
@@ -282,6 +334,8 @@ export async function getClassProgressContext(
     classDays: String(classroom.days || ""),
     scheduledStartTime,
     scheduledEndTime,
+    activeStartDate: activeRange.startDate,
+    activeEndDate: activeRange.endDate,
   };
 }
 
@@ -381,10 +435,15 @@ export async function verifyScheduledLesson(
   now = new Date()
 ) {
   const weekday = madridWeekdayForDate(lessonDate);
+  const activeRange = {
+    startDate: context.activeStartDate,
+    endDate: context.activeEndDate,
+  };
   if (
     !weekday ||
     lessonDate < CLASS_PROGRESS_START_DATE ||
     lessonDate > getMadridDateString(now) ||
+    !isDateWithinEffectiveClassRange(lessonDate, activeRange) ||
     !isScheduledOnClassDays(context.classDays, weekday) ||
     normalizeScheduledTime(scheduledStartTime) !== context.scheduledStartTime ||
     normalizeScheduledTime(scheduledEndTime) !== context.scheduledEndTime
@@ -415,7 +474,14 @@ export async function loadClassProgressSnapshot(context: ClassProgressContext) {
   const scheduledCandidates = getRecentScheduledLessons(
     context.classDays,
     context.scheduledStartTime,
-    context.scheduledEndTime
+    context.scheduledEndTime,
+    42,
+    new Date(),
+    [],
+    {
+      startDate: context.activeStartDate,
+      endDate: context.activeEndDate,
+    }
   );
   const candidateDates = scheduledCandidates.map((lesson) => lesson.lesson_date);
   const closures = candidateDates.length
@@ -669,12 +735,27 @@ export async function loadClassProgressReminders(request: NextRequest) {
       levelName: levelNames.get(Number(classroom.level_id)) || "",
       start: normalizeScheduledTime(classroom.start_time),
       end: normalizeScheduledTime(classroom.end_time),
+      activeRange: getEffectiveClassDateRange({
+        academicYearStart:
+          String(classroom.academic_year_id || "") ===
+          String(currentAcademicYear?.id || "")
+            ? currentAcademicYear?.start_date
+            : null,
+        academicYearEnd:
+          String(classroom.academic_year_id || "") ===
+          String(currentAcademicYear?.id || "")
+            ? currentAcademicYear?.end_date
+            : null,
+        classStart: classroom.start_date,
+        classEnd: classroom.end_date,
+      }),
     }))
     .filter(
       (classroom) =>
         classroom.start &&
         classroom.end &&
         classroom.start !== classroom.end &&
+        classroom.activeRange &&
         isClassProgressEligible({
           isCambridge: classroom.is_cambridge === true,
           levelName: classroom.levelName,
@@ -707,7 +788,8 @@ export async function loadClassProgressReminders(request: NextRequest) {
       classroom.end,
       reminderHistoryDays,
       now,
-      closures
+      closures,
+      classroom.activeRange
     ).map((lesson) => ({ classroom, lesson }))
   );
   const { data: entries, error: entryError } = await supabaseAdmin

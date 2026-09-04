@@ -1,4 +1,8 @@
 import Link from "next/link";
+import {
+  getEffectiveClassDateRange,
+  isDateWithinEffectiveClassRange,
+} from "../../../lib/classDateRange";
 
 type Props = {
   classes: any[];
@@ -85,12 +89,29 @@ function formatDays(days?: string | null) {
 }
 
 export default function TodaySchedule({ classes }: Props) {
-  const today = new Date().toLocaleDateString("en-GB", {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
     weekday: "long",
-  });
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const today = values.weekday || "";
+  const todayDate = `${values.year || ""}-${values.month || ""}-${values.day || ""}`;
 
   const todaysClasses = classes
-    .filter((item) => item.days?.includes(today))
+    .filter((item) => {
+      if (!item.days?.includes(today)) return false;
+      const explicitRange = getEffectiveClassDateRange({
+        classStart: item.start_date,
+        classEnd: item.end_date,
+      });
+      return (
+        !explicitRange ||
+        isDateWithinEffectiveClassRange(todayDate, explicitRange)
+      );
+    })
     .sort((a, b) =>
       (a.start_time || "").localeCompare(b.start_time || "")
     );

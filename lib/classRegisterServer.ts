@@ -37,6 +37,7 @@ import {
   schoolClosedMessage,
 } from "./schoolClosuresServer";
 import { findSchoolClosure, type SchoolClosureSummary } from "./schoolClosures";
+import { getEffectiveClassDateRange } from "./classDateRange";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -200,7 +201,7 @@ async function buildClassContext(
         .select("id, name")
         .eq("id", classroom.level_id)
         .maybeSingle(),
-      classUsesAcademicYear(classroom.course_type) && classroom.academic_year_id
+      classroom.academic_year_id
         ? supabaseAdmin
             .from("academic_years")
             .select("id, label, start_date, end_date")
@@ -228,24 +229,35 @@ async function buildClassContext(
   }
 
   const usesAcademicYear = classUsesAcademicYear(classroom.course_type);
-  const periodStart = usesAcademicYear
-    ? text(academicYearResult.data?.start_date)
-    : text(classroom.start_date);
-  const periodEnd = usesAcademicYear
-    ? text(academicYearResult.data?.end_date)
-    : text(classroom.end_date);
-  if (!validDate(periodStart) || !validDate(periodEnd) || periodEnd < periodStart) {
-    if (usesAcademicYear) {
+  const academicStart = text(academicYearResult.data?.start_date);
+  const academicEnd = text(academicYearResult.data?.end_date);
+  const classStart = text(classroom.start_date);
+  const classEnd = text(classroom.end_date);
+  const hasAcademicRange = validDate(academicStart) && validDate(academicEnd);
+  const hasClassRange = validDate(classStart) && validDate(classEnd);
+  if (usesAcademicYear && !hasAcademicRange) {
       throw new ClassRegisterUnavailableError(
         "missing_academic_year",
         "This class needs a valid Academic Year before attendance can be recorded."
       );
-    }
-
+  }
+  if (!usesAcademicYear && !hasClassRange) {
     const courseLabel = courseTypeLabel(classroom.course_type) || "Date-based";
     throw new ClassRegisterUnavailableError(
       "missing_course_dates",
       `This ${courseLabel} course does not have a start and end date yet. Ask Admin to add the course dates before taking attendance.`
+    );
+  }
+  const effectiveRange = getEffectiveClassDateRange({
+    academicYearStart: hasAcademicRange ? academicStart : null,
+    academicYearEnd: hasAcademicRange ? academicEnd : null,
+    classStart: hasClassRange ? classStart : null,
+    classEnd: hasClassRange ? classEnd : null,
+  });
+  if (!effectiveRange) {
+    throw new ClassRegisterUnavailableError(
+      usesAcademicYear ? "missing_academic_year" : "missing_course_dates",
+      "This class does not have a valid active date range. Ask Admin to check its dates."
     );
   }
 
@@ -262,8 +274,8 @@ async function buildClassContext(
     classDays: text(classroom.days),
     scheduledStartTime: start,
     scheduledEndTime: end,
-    periodStart: maxDate(periodStart, CLASS_REGISTER_START_DATE),
-    periodEnd,
+    periodStart: maxDate(effectiveRange.startDate, CLASS_REGISTER_START_DATE),
+    periodEnd: effectiveRange.endDate,
     academicYearLabel: text(academicYearResult.data?.label) || null,
   };
 }
@@ -1011,13 +1023,42 @@ export async function getStudentClassAttendanceSummary(
   if (!UUID_PATTERN.test(classId) || !UUID_PATTERN.test(studentId)) {
     throw new ClassRegisterError("Attendance information was not found.", 404);
   }
-  const { data: registers, error: registerError } = await supabaseAdmin
-    .from("class_registers")
-    .select("id, lesson_date")
-    .eq("class_id", classId)
-    .not("completed_at", "is", null);
+  const [registerResult, classResult] = await Promise.all([
+    supabaseAdmin
+      .from("class_registers")
+      .select("id, lesson_date")
+      .eq("class_id", classId)
+      .not("completed_at", "is", null),
+    supabaseAdmin
+      .from("classes")
+      .select("id, start_date, end_date, academic_year_id")
+      .eq("id", classId)
+      .maybeSingle(),
+  ]);
+  const { data: registers, error: registerError } = registerResult;
   if (registerError) throw registerError;
-  const registerRows = registers || [];
+  if (classResult.error) throw classResult.error;
+  const { data: academicYear, error: academicYearError } =
+    classResult.data?.academic_year_id
+      ? await supabaseAdmin
+          .from("academic_years")
+          .select("id, start_date, end_date")
+          .eq("id", classResult.data.academic_year_id)
+          .maybeSingle()
+      : { data: null, error: null };
+  if (academicYearError) throw academicYearError;
+  const effectiveRange = getEffectiveClassDateRange({
+    academicYearStart: academicYear?.start_date,
+    academicYearEnd: academicYear?.end_date,
+    classStart: classResult.data?.start_date,
+    classEnd: classResult.data?.end_date,
+  });
+  const registerRows = (registers || []).filter(
+    (register) =>
+      !effectiveRange ||
+      (text(register.lesson_date) >= effectiveRange.startDate &&
+        text(register.lesson_date) <= effectiveRange.endDate)
+  );
   const closureStart = registerRows.reduce(
     (earliest, register) =>
       !earliest || text(register.lesson_date) < earliest

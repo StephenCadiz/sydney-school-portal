@@ -8,6 +8,10 @@ import TeacherLayout from "../../components/layout/TeacherLayout";
 import { getCurrentAcademicYear } from "../../../lib/academicYears";
 import { supabase } from "../../../lib/supabase";
 import { getTeacherClasses } from "../../../lib/teacher";
+import {
+  getEffectiveClassDateRange,
+  isDateWithinEffectiveClassRange,
+} from "../../../lib/classDateRange";
 
 type View = "today" | "all";
 type Timing = "past" | "now" | "upcoming";
@@ -84,6 +88,7 @@ function getMadridParts(date = new Date()) {
     dateLabel: `${values.weekday || ""}, ${values.day || ""} ${
       values.month || ""
     } ${values.year || ""}`.trim(),
+    dateString: `${values.year || ""}-${values.month || ""}-${values.day || ""}`,
     minutes: Number(values.hour || 0) * 60 + Number(values.minute || 0),
   };
 }
@@ -465,9 +470,19 @@ export default function MyClassesPage() {
   const todayClasses = useMemo(
     () =>
       classes
-        .filter((item) => isScheduledOn(item.days, madrid.weekday))
+        .filter((item) => {
+          if (!isScheduledOn(item.days, madrid.weekday)) return false;
+          const explicitRange = getEffectiveClassDateRange({
+            classStart: item.start_date,
+            classEnd: item.end_date,
+          });
+          return (
+            !explicitRange ||
+            isDateWithinEffectiveClassRange(madrid.dateString, explicitRange)
+          );
+        })
         .sort(compareBySchedule),
-    [classes, madrid.weekday]
+    [classes, madrid.dateString, madrid.weekday]
   );
   const searchResults = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();

@@ -27,6 +27,10 @@ import {
 import { supabaseAdmin } from "./supabaseAdmin";
 import { findSchoolClosure } from "./schoolClosures";
 import { loadSchoolClosures } from "./schoolClosuresServer";
+import {
+  getEffectiveClassDateRange,
+  isDateWithinEffectiveClassRange,
+} from "./classDateRange";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -481,21 +485,41 @@ async function loadDataset(classRows: RawClass[]): Promise<AttendanceDataset> {
     );
   }
 
+  const academicYearMap = new Map(
+    ((yearsResult.data || []) as AdminAttendanceAcademicYear[]).map((year) => [
+      text(year.id),
+      year,
+    ])
+  );
+  const effectiveRanges = new Map(
+    classRows.map((classroom) => {
+      const academicYear = academicYearMap.get(text(classroom.academic_year_id));
+      return [
+        text(classroom.id),
+        getEffectiveClassDateRange({
+          academicYearStart: academicYear?.start_date,
+          academicYearEnd: academicYear?.end_date,
+          classStart: classroom.start_date,
+          classEnd: classroom.end_date,
+        }),
+      ];
+    })
+  );
+  const eligibleFacts = facts.filter((fact) => {
+    const range = effectiveRanges.get(fact.class_id);
+    return !range || isDateWithinEffectiveClassRange(fact.lesson_date, range);
+  });
+
   return {
     classRows,
-    facts,
+    facts: eligibleFacts,
     alerts,
     levels: new Map(
       (levelsResult.data || []).map((level) => [text(level.id), text(level.name)])
     ),
     profiles: profileMap,
     youngLearners: youngLearnerMap,
-    academicYears: new Map(
-      ((yearsResult.data || []) as AdminAttendanceAcademicYear[]).map((year) => [
-        text(year.id),
-        year,
-      ])
-    ),
+    academicYears: academicYearMap,
     rosterByClass,
   };
 }
