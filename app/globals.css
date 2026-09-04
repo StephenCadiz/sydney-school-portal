@@ -9738,6 +9738,15 @@ img {
     width: 100%;
   }
 
+  .teacher-main-content > .teacher-portal-header {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .teacher-main-content > .teacher-portal-header > .teacher-portal-header-brand {
+    flex: 0 1 auto !important;
+  }
+
   .teacher-main-content > div:first-child img {
     max-width: 180px !important;
     width: 100% !important;
