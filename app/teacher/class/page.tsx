@@ -138,6 +138,28 @@ function canDeleteTeacherClassAnnouncement(
   );
 }
 
+function formatClassAnnouncementDate(value: unknown) {
+  if (!value) return "Date unavailable";
+
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return "Date unavailable";
+
+  const datePart = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+  const timePart = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+
+  return `${datePart} · ${timePart}`;
+}
+
 function getPanelSectionForAction(
   action: ClassStudentShortcutAction
 ): StudentWorkspaceSection | null {
@@ -179,6 +201,11 @@ function ClassPageContent() {
   const [announcementContent, setAnnouncementContent] = useState("");
   const [announcementMessage, setAnnouncementMessage] = useState("");
   const [announcementError, setAnnouncementError] = useState("");
+  const [announcementTitleError, setAnnouncementTitleError] = useState("");
+  const [announcementContentError, setAnnouncementContentError] = useState("");
+  const [announcementComposerOpen, setAnnouncementComposerOpen] =
+    useState(false);
+  const [publishingAnnouncement, setPublishingAnnouncement] = useState(false);
   const [pendingAnnouncementDeleteId, setPendingAnnouncementDeleteId] =
     useState("");
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState("");
@@ -398,32 +425,54 @@ if (classResult.data) {
   async function handleSaveAnnouncement() {
     const classId = searchParams.get("id");
 
-    if (!classId) return;
+    if (!classId || publishingAnnouncement) return;
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const title = announcementTitle.trim();
+    const content = announcementContent.trim();
+    const titleError = title ? "" : "Enter an announcement title.";
+    const contentError = content ? "" : "Enter an announcement message.";
+    setAnnouncementTitleError(titleError);
+    setAnnouncementContentError(contentError);
+    setAnnouncementMessage("");
+    setAnnouncementError("");
+    if (titleError || contentError) return;
 
-    const { error } = await supabase
-      .from("announcements")
-      .insert([
+    setPublishingAnnouncement(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.user.id) {
+        setAnnouncementError("Your session has expired. Please sign in again.");
+        return;
+      }
+
+      const { error } = await supabase.from("announcements").insert([
         {
           classes_id: classId,
-          title: announcementTitle,
-          content: announcementContent,
-          created_by: session?.user.id,
+          title,
+          content,
+          created_by: session.user.id,
         },
       ]);
 
-    if (error) {
-      alert(error.message);
-      return;
+      if (error) throw error;
+
+      setAnnouncementTitle("");
+      setAnnouncementContent("");
+      setAnnouncementComposerOpen(false);
+      setAnnouncementMessage("Announcement published.");
+      await loadData();
+    } catch (error) {
+      console.error("Unable to publish class announcement:", error);
+      setAnnouncementError(
+        "The announcement could not be published. Please try again."
+      );
+    } finally {
+      setPublishingAnnouncement(false);
     }
-
-    setAnnouncementTitle("");
-    setAnnouncementContent("");
-
-    loadData();
   }
 
   async function handleDeleteClassAnnouncement() {
@@ -805,156 +854,225 @@ if (classResult.data) {
 )}
 
       {activeTab === "announcements" && isCambridgeClass && (
-        <>
-          <h3>Announcements</h3>
-
-          {announcementMessage && (
-            <p
-              role="status"
-              style={{
-                color: "#166534",
-                fontWeight: 700,
-                margin: "0 0 12px",
+        <section className="teacher-class-announcements">
+          <header className="teacher-class-announcements-header">
+            <div>
+              <h2>Announcements</h2>
+              <p>Share important updates with students in this class.</p>
+            </div>
+            <button
+              type="button"
+              className="teacher-class-announcements-new-button"
+              aria-expanded={announcementComposerOpen}
+              aria-controls="teacher-class-announcement-composer"
+              onClick={() => {
+                setAnnouncementComposerOpen(true);
+                setAnnouncementMessage("");
+                setAnnouncementError("");
               }}
             >
+              <span aria-hidden="true">+</span> New Announcement
+            </button>
+          </header>
+
+          {announcementMessage && (
+            <p className="teacher-class-announcements-feedback is-success" role="status">
               {announcementMessage}
             </p>
           )}
-
           {announcementError && (
-            <p
-              role="alert"
-              style={{
-                color: "#b42318",
-                fontWeight: 700,
-                margin: "0 0 12px",
-              }}
-            >
+            <p className="teacher-class-announcements-feedback is-error" role="alert">
               {announcementError}
             </p>
           )}
 
-          {announcements.map((announcement) => (
-            <div key={announcement.id}>
-              <strong>{announcement.title}</strong>
-              <br />
-              {announcement.content}
-              <br />
-              {canDeleteTeacherClassAnnouncement(
-                announcement,
-                String(classData?.id || ""),
-                teacherId,
-                String(classData?.teacher_id || "")
-              ) &&
-                (pendingAnnouncementDeleteId === announcement.id ? (
-                  <div
-                    role="alertdialog"
-                    aria-label="Delete class announcement"
-                    style={{
-                      border: "1px solid #f1c6c6",
-                      borderRadius: "8px",
-                      marginTop: "10px",
-                      maxWidth: "440px",
-                      padding: "12px",
-                    }}
-                  >
-                    <p style={{ color: "#5e6b7d", margin: "0 0 10px" }}>
-                      Delete this class announcement permanently?
-                    </p>
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPendingAnnouncementDeleteId("");
-                          setAnnouncementError("");
-                        }}
-                        disabled={deletingAnnouncementId === announcement.id}
-                        style={{
-                          background: "#ffffff",
-                          border: "1px solid #c7d3e3",
-                          borderRadius: "8px",
-                          color: "#24446f",
-                          cursor: "pointer",
-                          fontWeight: 800,
-                          padding: "8px 11px",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDeleteClassAnnouncement}
-                        disabled={deletingAnnouncementId === announcement.id}
-                        style={{
-                          background: "#b42318",
-                          border: "1px solid #b42318",
-                          borderRadius: "8px",
-                          color: "#ffffff",
-                          cursor: "pointer",
-                          fontWeight: 800,
-                          padding: "8px 11px",
-                        }}
-                      >
-                        {deletingAnnouncementId === announcement.id
-                          ? "Deleting..."
-                          : "Delete Announcement"}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPendingAnnouncementDeleteId(announcement.id);
-                      setAnnouncementMessage("");
-                      setAnnouncementError("");
-                    }}
-                    style={{
-                      background: "#ffffff",
-                      color: "#b00020",
-                      border: "1px solid #f1c6c6",
-                      borderRadius: "8px",
-                      padding: "8px 11px",
-                      cursor: "pointer",
-                      fontWeight: 800,
-                      marginTop: "10px",
-                    }}
-                  >
-                    Delete
-                  </button>
-                ))}
-              <br />
+          {announcementComposerOpen && (
+            <form
+              id="teacher-class-announcement-composer"
+              className="teacher-class-announcement-composer"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleSaveAnnouncement();
+              }}
+              noValidate
+            >
+              <div className="teacher-class-announcement-composer-heading">
+                <div>
+                  <h3>Create announcement</h3>
+                  <p>Visible only to students in this class.</p>
+                </div>
+              </div>
+
+              <label className="teacher-class-announcement-field">
+                <span>Title</span>
+                <small>Keep it short and clear.</small>
+                <input
+                  type="text"
+                  value={announcementTitle}
+                  placeholder="e.g. Materials for Thursday"
+                  aria-invalid={Boolean(announcementTitleError)}
+                  aria-describedby={
+                    announcementTitleError ? "announcement-title-error" : undefined
+                  }
+                  onChange={(event) => {
+                    setAnnouncementTitle(event.target.value);
+                    if (announcementTitleError) setAnnouncementTitleError("");
+                  }}
+                />
+                {announcementTitleError && (
+                  <strong id="announcement-title-error" role="alert">
+                    {announcementTitleError}
+                  </strong>
+                )}
+              </label>
+
+              <label className="teacher-class-announcement-field">
+                <span>Message</span>
+                <small>This will be visible to students in this class.</small>
+                <textarea
+                  value={announcementContent}
+                  placeholder="Write your announcement..."
+                  rows={6}
+                  aria-invalid={Boolean(announcementContentError)}
+                  aria-describedby={
+                    announcementContentError
+                      ? "announcement-content-error"
+                      : undefined
+                  }
+                  onChange={(event) => {
+                    setAnnouncementContent(event.target.value);
+                    if (announcementContentError) setAnnouncementContentError("");
+                  }}
+                />
+                {announcementContentError && (
+                  <strong id="announcement-content-error" role="alert">
+                    {announcementContentError}
+                  </strong>
+                )}
+              </label>
+
+              <div className="teacher-class-announcement-composer-actions">
+                <button
+                  type="button"
+                  className="is-secondary"
+                  disabled={publishingAnnouncement}
+                  onClick={() => {
+                    setAnnouncementComposerOpen(false);
+                    setAnnouncementTitle("");
+                    setAnnouncementContent("");
+                    setAnnouncementTitleError("");
+                    setAnnouncementContentError("");
+                    setAnnouncementError("");
+                  }}
+                >
+                  Cancel
+                </button>
+                <button type="submit" disabled={publishingAnnouncement}>
+                  {publishingAnnouncement
+                    ? "Publishing..."
+                    : "Publish Announcement"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {announcements.length === 0 ? (
+            <div className="teacher-class-announcements-empty">
+              <h3>No announcements yet</h3>
+              <p>Create an announcement to share an update with this class.</p>
+              {!announcementComposerOpen && (
+                <button
+                  type="button"
+                  onClick={() => setAnnouncementComposerOpen(true)}
+                >
+                  <span aria-hidden="true">+</span> New Announcement
+                </button>
+              )}
             </div>
-          ))}
+          ) : (
+            <div className="teacher-class-announcements-list">
+              <div className="teacher-class-announcements-list-heading">
+                <h3>Published announcements</h3>
+                <span>{announcements.length}</span>
+              </div>
+              {announcements.map((announcement) => (
+                <article
+                  className="teacher-class-announcement-item"
+                  key={announcement.id}
+                >
+                  <div className="teacher-class-announcement-item-heading">
+                    <div>
+                      <h4>{announcement.title || "Announcement"}</h4>
+                      <p>
+                        {formatClassAnnouncementDate(announcement.created_at)} · Students in this class
+                      </p>
+                    </div>
+                    {canDeleteTeacherClassAnnouncement(
+                      announcement,
+                      String(classData?.id || ""),
+                      teacherId,
+                      String(classData?.teacher_id || "")
+                    ) &&
+                      pendingAnnouncementDeleteId !== announcement.id && (
+                        <button
+                          type="button"
+                          className="teacher-class-announcement-delete-trigger"
+                          onClick={() => {
+                            setPendingAnnouncementDeleteId(announcement.id);
+                            setAnnouncementMessage("");
+                            setAnnouncementError("");
+                          }}
+                        >
+                          Delete
+                        </button>
+                      )}
+                  </div>
+                  <p className="teacher-class-announcement-content">
+                    {announcement.content}
+                  </p>
 
-          <h3>Add Announcement</h3>
-
-          <input
-            placeholder="Title"
-            value={announcementTitle}
-            onChange={(e) =>
-              setAnnouncementTitle(e.target.value)
-            }
-          />
-
-          <br />
-          <br />
-
-          <textarea
-            placeholder="Content"
-            value={announcementContent}
-            onChange={(e) =>
-              setAnnouncementContent(e.target.value)
-            }
-          />
-
-          <br />
-          <br />
-
-          <button onClick={handleSaveAnnouncement}>
-            Save Announcement
-          </button>
-        </>
+                  {pendingAnnouncementDeleteId === announcement.id && (
+                    <div
+                      className="teacher-class-announcement-delete-dialog"
+                      role="alertdialog"
+                      aria-labelledby={`delete-announcement-${announcement.id}`}
+                    >
+                      <h5 id={`delete-announcement-${announcement.id}`}>
+                        Delete announcement?
+                      </h5>
+                      <p>
+                        This announcement will no longer be visible to students in this class.
+                      </p>
+                      <div>
+                        <button
+                          type="button"
+                          className="is-secondary"
+                          onClick={() => {
+                            setPendingAnnouncementDeleteId("");
+                            setAnnouncementError("");
+                          }}
+                          disabled={deletingAnnouncementId === announcement.id}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="is-danger"
+                          onClick={handleDeleteClassAnnouncement}
+                          disabled={deletingAnnouncementId === announcement.id}
+                        >
+                          {deletingAnnouncementId === announcement.id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {activeTab === "results" && isYoungLearnerClass && classData && (
