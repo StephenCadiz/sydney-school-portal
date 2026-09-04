@@ -9289,6 +9289,348 @@ img {
   max-width: var(--teacher-content-max-width);
 }
 
+/* Teacher Class Workspace — class-specific announcements */
+.teacher-class-announcements {
+  color: #243044;
+  display: grid;
+  gap: 20px;
+  margin: 0 auto;
+  max-width: 1120px;
+  width: 100%;
+}
+
+.teacher-class-announcements-header {
+  align-items: flex-start;
+  border-bottom: 1px solid #dce5ee;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding-bottom: 18px;
+}
+
+.teacher-class-announcements-header h2 {
+  color: #172b55;
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.teacher-class-announcements-header p {
+  color: #5f6b7a;
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
+.teacher-class-announcements-new-button,
+.teacher-class-announcements-empty button,
+.teacher-class-announcement-composer-actions button,
+.teacher-class-announcement-delete-dialog button {
+  align-items: center;
+  background: var(--ss-blue-dark);
+  border: 1px solid var(--ss-blue-dark);
+  border-radius: 9px;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 14px;
+}
+
+.teacher-class-announcements-new-button:hover,
+.teacher-class-announcements-empty button:hover,
+.teacher-class-announcement-composer-actions button:hover:not(:disabled) {
+  background: #183273;
+}
+
+.teacher-class-announcements-new-button:focus-visible,
+.teacher-class-announcements-empty button:focus-visible,
+.teacher-class-announcement-composer button:focus-visible,
+.teacher-class-announcement-composer input:focus-visible,
+.teacher-class-announcement-composer textarea:focus-visible,
+.teacher-class-announcement-delete-trigger:focus-visible,
+.teacher-class-announcement-delete-dialog button:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.25);
+  outline-offset: 2px;
+}
+
+.teacher-class-announcements-feedback {
+  border: 1px solid;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  padding: 11px 13px;
+}
+
+.teacher-class-announcements-feedback.is-success {
+  background: #f0f9f2;
+  border-color: #b9dfc2;
+  color: #166534;
+}
+
+.teacher-class-announcements-feedback.is-error {
+  background: #fff5f4;
+  border-color: #f2c4be;
+  color: #a5261c;
+}
+
+.teacher-class-announcement-composer {
+  background: #f7fafc;
+  border: 1px solid #d9e4ed;
+  border-left: 3px solid var(--ss-blue);
+  border-radius: 12px;
+  display: grid;
+  gap: 18px;
+  max-width: 780px;
+  padding: 20px;
+}
+
+.teacher-class-announcement-composer-heading h3 {
+  color: #172b55;
+  font-size: 18px;
+  margin: 0;
+}
+
+.teacher-class-announcement-composer-heading p {
+  color: #667085;
+  font-size: 14px;
+  margin: 4px 0 0;
+}
+
+.teacher-class-announcement-field {
+  display: grid;
+  gap: 6px;
+}
+
+.teacher-class-announcement-field > span {
+  color: #243044;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.teacher-class-announcement-field > small {
+  color: #667085;
+  font-size: 13px;
+}
+
+.teacher-class-announcement-field input,
+.teacher-class-announcement-field textarea {
+  background: #ffffff;
+  border: 1px solid #c8d4e0;
+  border-radius: 9px;
+  color: #1d2939;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 11px 12px;
+  width: 100%;
+}
+
+.teacher-class-announcement-field textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
+.teacher-class-announcement-field input[aria-invalid="true"],
+.teacher-class-announcement-field textarea[aria-invalid="true"] {
+  border-color: #c7463b;
+}
+
+.teacher-class-announcement-field > strong {
+  color: #a5261c;
+  font-size: 13px;
+}
+
+.teacher-class-announcement-composer-actions {
+  display: flex;
+  gap: 9px;
+  justify-content: flex-end;
+}
+
+.teacher-class-announcement-composer-actions button.is-secondary,
+.teacher-class-announcement-delete-dialog button.is-secondary {
+  background: #ffffff;
+  border-color: #bfcddb;
+  color: #344054;
+}
+
+.teacher-class-announcement-composer-actions button:disabled,
+.teacher-class-announcement-delete-dialog button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.teacher-class-announcements-empty {
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px dashed #cbd8e4;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.teacher-class-announcements-empty h3 {
+  color: #243044;
+  font-size: 17px;
+  margin: 0;
+}
+
+.teacher-class-announcements-empty p {
+  color: #667085;
+  font-size: 14px;
+  margin: 6px 0 15px;
+}
+
+.teacher-class-announcements-list {
+  background: #ffffff;
+  border: 1px solid #dfe6ee;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.teacher-class-announcements-list-heading {
+  align-items: center;
+  background: #f7f9fc;
+  border-bottom: 1px solid #dfe6ee;
+  display: flex;
+  justify-content: space-between;
+  padding: 13px 17px;
+}
+
+.teacher-class-announcements-list-heading h3 {
+  color: #344054;
+  font-size: 14px;
+  margin: 0;
+}
+
+.teacher-class-announcements-list-heading span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.teacher-class-announcement-item {
+  border-bottom: 1px solid #e7ecf2;
+  padding: 17px;
+}
+
+.teacher-class-announcement-item:last-child {
+  border-bottom: 0;
+}
+
+.teacher-class-announcement-item-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.teacher-class-announcement-item-heading h4 {
+  color: #172b55;
+  font-size: 16px;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.teacher-class-announcement-item-heading p {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
+.teacher-class-announcement-content {
+  color: #475467;
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 12px 0 0;
+  max-width: 78ch;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.teacher-class-announcement-delete-trigger {
+  background: transparent;
+  border: 0;
+  color: #a5261c;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 5px;
+}
+
+.teacher-class-announcement-delete-dialog {
+  background: #fff8f7;
+  border: 1px solid #efc5c0;
+  border-radius: 10px;
+  margin-top: 15px;
+  max-width: 520px;
+  padding: 15px;
+}
+
+.teacher-class-announcement-delete-dialog h5 {
+  color: #7f1d1d;
+  font-size: 15px;
+  margin: 0;
+}
+
+.teacher-class-announcement-delete-dialog p {
+  color: #5f4a48;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 5px 0 13px;
+}
+
+.teacher-class-announcement-delete-dialog > div {
+  display: flex;
+  gap: 8px;
+}
+
+.teacher-class-announcement-delete-dialog button.is-danger {
+  background: #b42318;
+  border-color: #b42318;
+}
+
+@media (max-width: 640px) {
+  .teacher-class-announcements-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .teacher-class-announcements-new-button {
+    width: 100%;
+  }
+
+  .teacher-class-announcement-composer {
+    padding: 16px;
+  }
+
+  .teacher-class-announcement-composer-actions,
+  .teacher-class-announcement-delete-dialog > div {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .teacher-class-announcement-composer-actions button,
+  .teacher-class-announcement-delete-dialog button {
+    width: 100%;
+  }
+
+  .teacher-class-announcement-item-heading {
+    gap: 10px;
+  }
+}
+
 @media (max-width: 768px) {
   .mobile-topbar {
     align-items: center;
