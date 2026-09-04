@@ -2,6 +2,29 @@ export const TEACHER_RESOURCE_TITLE_MAX_LENGTH = 120;
 export const TEACHER_RESOURCE_DESCRIPTION_MAX_LENGTH = 500;
 export const TEACHER_RESOURCE_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
+export const TEACHER_RESOURCE_SCOPES = [
+  "shared_teacher",
+  "official_teacher",
+  "cambridge_student",
+  "general_teacher",
+] as const;
+
+export type TeacherResourceScope = (typeof TEACHER_RESOURCE_SCOPES)[number];
+
+export const ADMIN_MANAGED_TEACHER_RESOURCE_SCOPES = [
+  "official_teacher",
+  "cambridge_student",
+  "general_teacher",
+] as const;
+
+export type AdminManagedTeacherResourceScope =
+  (typeof ADMIN_MANAGED_TEACHER_RESOURCE_SCOPES)[number];
+
+const teacherResourceScopeSet = new Set<string>(TEACHER_RESOURCE_SCOPES);
+const adminManagedTeacherResourceScopeSet = new Set<string>(
+  ADMIN_MANAGED_TEACHER_RESOURCE_SCOPES
+);
+
 export const TEACHER_RESOURCE_ALLOWED_MIME_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -111,6 +134,34 @@ export function validateTeacherResourceType(value: unknown) {
   return { value: resourceType as TeacherResourceType, error: "" };
 }
 
+export function isTeacherResourceScope(
+  value: unknown
+): value is TeacherResourceScope {
+  return teacherResourceScopeSet.has(String(value || "").trim());
+}
+
+export function isAdminManagedTeacherResourceScope(
+  value: unknown
+): value is AdminManagedTeacherResourceScope {
+  return adminManagedTeacherResourceScopeSet.has(String(value || "").trim());
+}
+
+export function validateTeacherResourceScope(value: unknown) {
+  const resourceScope = String(value || "").trim();
+
+  if (!isTeacherResourceScope(resourceScope)) {
+    return { value: null, error: "Invalid resource destination." };
+  }
+
+  return { value: resourceScope, error: "" };
+}
+
+export function teacherResourceScopeRequiresLevel(
+  resourceScope: TeacherResourceScope
+) {
+  return resourceScope !== "general_teacher";
+}
+
 export function validateTeacherResourceLevelId(value: unknown) {
   const levelId = Number(String(value || "").trim());
 
@@ -119,6 +170,24 @@ export function validateTeacherResourceLevelId(value: unknown) {
   }
 
   return { value: levelId, error: "" };
+}
+
+export function validateTeacherResourceLevelForScope(
+  resourceScope: TeacherResourceScope,
+  value: unknown
+) {
+  if (!teacherResourceScopeRequiresLevel(resourceScope)) {
+    if (String(value ?? "").trim()) {
+      return {
+        value: null,
+        error: "General teacher resources cannot be assigned to a level.",
+      };
+    }
+
+    return { value: null, error: "" };
+  }
+
+  return validateTeacherResourceLevelId(value);
 }
 
 export function validateTeacherResourceExternalUrl(value: unknown) {

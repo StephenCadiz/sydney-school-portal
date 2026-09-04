@@ -8,17 +8,24 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function formatError(error: any) {
-  if (!error) {
-    return "Unknown error.";
+function formatError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return String(error || "Unknown error.");
   }
+
+  const value = error as {
+    message?: string;
+    details?: string;
+    hint?: string;
+    code?: string;
+  };
 
   return (
     [
-      error.message ? `Message: ${error.message}` : "",
-      error.details ? `Details: ${error.details}` : "",
-      error.hint ? `Hint: ${error.hint}` : "",
-      error.code ? `Code: ${error.code}` : "",
+      value.message ? `Message: ${value.message}` : "",
+      value.details ? `Details: ${value.details}` : "",
+      value.hint ? `Hint: ${value.hint}` : "",
+      value.code ? `Code: ${value.code}` : "",
     ]
       .filter(Boolean)
       .join("\n") || String(error)
@@ -125,7 +132,8 @@ export async function POST(request: NextRequest) {
     if (
       resource.resource_scope !== "shared_teacher" &&
       resource.resource_scope !== "official_teacher" &&
-      resource.resource_scope !== "cambridge_student"
+      resource.resource_scope !== "cambridge_student" &&
+      resource.resource_scope !== "general_teacher"
     ) {
       return jsonError("This resource type cannot be deleted here.", 400);
     }

@@ -4,38 +4,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { isEligibleCambridgeExamLevel } from "../../../../../lib/cambridgeExamBank";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import {
+  isAdminManagedTeacherResourceScope,
   sanitizeTeacherResourceFilename,
   validateTeacherResourceDescription,
   validateTeacherResourceExternalUrl,
   validateTeacherResourceFile,
-  validateTeacherResourceLevelId,
+  validateTeacherResourceLevelForScope,
+  validateTeacherResourceScope,
   validateTeacherResourceTitle,
   validateTeacherResourceType,
+  type AdminManagedTeacherResourceScope,
 } from "../../../../../lib/teacherResourceValidation";
 
 const teacherResourcesBucket = "teacher-resources";
-const adminResourceScopes = new Set([
-  "official_teacher",
-  "cambridge_student",
-] as const);
-
-type AdminResourceScope = "official_teacher" | "cambridge_student";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function formatError(error: any) {
-  if (!error) {
-    return "Unknown error.";
+function formatError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return String(error || "Unknown error.");
   }
+
+  const value = error as {
+    message?: string;
+    details?: string;
+    hint?: string;
+    code?: string;
+  };
 
   return (
     [
-      error.message ? `Message: ${error.message}` : "",
-      error.details ? `Details: ${error.details}` : "",
-      error.hint ? `Hint: ${error.hint}` : "",
-      error.code ? `Code: ${error.code}` : "",
+      value.message ? `Message: ${value.message}` : "",
+      value.details ? `Details: ${value.details}` : "",
+      value.hint ? `Hint: ${value.hint}` : "",
+      value.code ? `Code: ${value.code}` : "",
     ]
       .filter(Boolean)
       .join("\n") || String(error)
@@ -122,17 +126,13 @@ async function verifyLevel(levelId: number) {
   return level;
 }
 
-function validateResourceScope(value: FormDataEntryValue | null) {
-  const scope = String(value || "official_teacher").trim();
+function getResourceLabel(scope: AdminManagedTeacherResourceScope) {
+  if (scope === "cambridge_student") {
+    return "Cambridge Student Resource";
+  }
 
-  return adminResourceScopes.has(scope as AdminResourceScope)
-    ? (scope as AdminResourceScope)
-    : null;
-}
-
-function getResourceLabel(scope: AdminResourceScope) {
-  return scope === "cambridge_student"
-    ? "Cambridge Student Resource"
+  return scope === "general_teacher"
+    ? "General Teacher Resource"
     : "Official Resource";
 }
 
@@ -153,8 +153,20 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const resourceScope = validateResourceScope(formData.get("resourceScope"));
-    const levelValidation = validateTeacherResourceLevelId(formData.get("levelId"));
+    const scopeValidation = validateTeacherResourceScope(
+      formData.get("resourceScope") || "official_teacher"
+    );
+    const resourceScope =
+      scopeValidation.value &&
+      isAdminManagedTeacherResourceScope(scopeValidation.value)
+        ? scopeValidation.value
+        : null;
+    const levelValidation = resourceScope
+      ? validateTeacherResourceLevelForScope(
+          resourceScope,
+          formData.get("levelId")
+        )
+      : { value: null, error: "" };
     const titleValidation = validateTeacherResourceTitle(formData.get("title"));
     const descriptionValidation = validateTeacherResourceDescription(
       formData.get("description")
@@ -162,6 +174,7 @@ export async function POST(request: NextRequest) {
     const typeValidation = validateTeacherResourceType(formData.get("resourceType"));
 
     const firstValidationError =
+      scopeValidation.error ||
       (!resourceScope ? "Invalid resource destination." : "") ||
       levelValidation.error ||
       titleValidation.error ||
@@ -177,15 +190,15 @@ export async function POST(request: NextRequest) {
     }
 
     const levelId = levelValidation.value;
-    const level = await verifyLevel(levelId);
+    const level = levelId === null ? null : await verifyLevel(levelId);
 
-    if (!level) {
+    if (levelId !== null && !level) {
       return jsonError("Selected level was not found.", 404);
     }
 
     if (
       resourceScope === "cambridge_student" &&
-      !isEligibleCambridgeExamLevel(level.name)
+      (!level || !isEligibleCambridgeExamLevel(level.name))
     ) {
       return jsonError(
         "Cambridge Student Resources can only target B1, B2, C1 or C2.",
@@ -278,8 +291,18 @@ export async function POST(request: NextRequest) {
 
     const safeFilename = sanitizeTeacherResourceFilename(fileEntry.name);
     const storageFolder =
-      resourceScope === "cambridge_student" ? "cambridge-student" : "official";
-    uploadedStoragePath = `${storageFolder}/${levelId}/${randomUUID()}-${safeFilename}`;
+      resourceScope === "cambridge_student"
+        ? "cambridge-student"
+        : resourceScope === "general_teacher"
+          ? "general-teacher"
+          : "official";
+    uploadedStoragePath = [
+      storageFolder,
+      levelId === null ? null : String(levelId),
+      `${randomUUID()}-${safeFilename}`,
+    ]
+      .filter(Boolean)
+      .join("/");
     const fileBuffer = Buffer.from(await fileEntry.arrayBuffer());
 
     const { error: uploadError } = await supabaseAdmin.storage

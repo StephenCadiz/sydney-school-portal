@@ -20094,6 +20094,248 @@ img {
   }
 }
 
+/* Teacher Portal — school-wide resource library. */
+.teacher-general-resources-page {
+  display: grid;
+  gap: 22px;
+  margin: 0 auto;
+  max-width: 1480px;
+  width: 100%;
+}
+
+.teacher-general-resources-header {
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff 0%, #f5faff 100%);
+  border: 1px solid #d8e4ef;
+  border-left: 4px solid var(--ss-blue);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(31, 60, 136, 0.07);
+  display: grid;
+  gap: 18px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: clamp(21px, 3vw, 30px);
+}
+
+.teacher-general-resources-icon {
+  align-items: center;
+  background: #e7f3fb;
+  border: 1px solid #c9deed;
+  border-radius: 14px;
+  color: var(--ss-blue-dark);
+  display: inline-flex;
+  height: 58px;
+  justify-content: center;
+  width: 58px;
+}
+
+.teacher-general-resources-heading {
+  min-width: 0;
+}
+
+.teacher-general-resources-heading > span,
+.teacher-general-resources-library-heading span {
+  color: #397da9;
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.teacher-general-resources-heading h1 {
+  color: var(--ss-blue-dark);
+  font-size: clamp(27px, 3vw, 35px);
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.teacher-general-resources-heading p {
+  color: #526174;
+  line-height: 1.55;
+  margin: 7px 0 0;
+  max-width: 760px;
+}
+
+.teacher-general-resources-audience {
+  background: #eaf6ef;
+  border: 1px solid #c8e5d3;
+  border-radius: 999px;
+  color: #287047;
+  font-size: 12px;
+  font-weight: 850;
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+
+.teacher-general-resources-library {
+  background: #ffffff;
+  border: 1px solid #dce5ee;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(31, 60, 136, 0.055);
+  display: grid;
+  gap: 20px;
+  padding: clamp(20px, 3vw, 28px);
+}
+
+.teacher-general-resources-library-heading {
+  align-items: flex-end;
+  border-bottom: 1px solid #e8edf3;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding-bottom: 16px;
+}
+
+.teacher-general-resources-library-heading h2 {
+  color: #173b66;
+  font-size: 23px;
+  margin: 0;
+}
+
+.teacher-general-resources-library-heading p {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 750;
+  margin: 0;
+}
+
+.teacher-general-resources-grid,
+.teacher-general-resources-loading {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+}
+
+.teacher-general-resources-grid > article {
+  align-content: start;
+  height: 100%;
+}
+
+.teacher-general-resources-state {
+  background: #f8fbfd;
+  border: 1px dashed #c9d9e6;
+  border-radius: 14px;
+  color: #5d6c7e;
+  display: grid;
+  gap: 7px;
+  justify-items: start;
+  padding: 24px;
+}
+
+.teacher-general-resources-state strong {
+  color: #173b66;
+  font-size: 17px;
+}
+
+.teacher-general-resources-state p {
+  line-height: 1.55;
+  margin: 0;
+}
+
+.teacher-general-resources-state.is-error {
+  background: #fff7f7;
+  border-color: #efc5c5;
+}
+
+.teacher-general-resources-state.is-error strong,
+.teacher-general-resources-state.is-error p {
+  color: #9f1d1d;
+}
+
+.teacher-general-resources-state button {
+  background: var(--ss-blue);
+  border: 0;
+  border-radius: 9px;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 800;
+  margin-top: 5px;
+  min-height: 40px;
+  padding: 9px 14px;
+}
+
+.teacher-general-resource-skeleton {
+  background: #ffffff;
+  border: 1px solid #e3eaf1;
+  border-radius: 14px;
+  display: grid;
+  gap: 12px;
+  min-height: 174px;
+  padding: 18px;
+}
+
+.teacher-general-resource-skeleton span {
+  animation: teacher-resource-shimmer 1.25s ease-in-out infinite alternate;
+  background: #edf2f6;
+  border-radius: 7px;
+  display: block;
+  height: 16px;
+}
+
+.teacher-general-resource-skeleton span:first-child {
+  height: 22px;
+  width: 58%;
+}
+
+.teacher-general-resource-skeleton span:last-child {
+  width: 76%;
+}
+
+@keyframes teacher-resource-shimmer {
+  from {
+    opacity: 0.55;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .teacher-general-resources-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .teacher-general-resources-audience {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 480px) {
+  .teacher-general-resources-header {
+    align-items: start;
+    gap: 14px;
+    padding: 19px 17px;
+  }
+
+  .teacher-general-resources-icon {
+    height: 46px;
+    width: 46px;
+  }
+
+  .teacher-general-resources-icon svg {
+    height: 23px;
+    width: 23px;
+  }
+
+  .teacher-general-resources-heading h1 {
+    font-size: 25px;
+  }
+
+  .teacher-general-resources-library {
+    padding: 18px 16px;
+  }
+
+  .teacher-general-resources-library-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+}
+
 /* Teacher My Classes — a single, meaningful classroom identity. */
 .teacher-my-classes-heading {
   align-items: stretch;

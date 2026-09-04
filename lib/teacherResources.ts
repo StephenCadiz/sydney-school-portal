@@ -1,21 +1,18 @@
 import { supabase } from "./supabase";
-import type { TeacherResourceType } from "./teacherResourceValidation";
+import type {
+  AdminManagedTeacherResourceScope,
+  TeacherResourceScope,
+  TeacherResourceType,
+} from "./teacherResourceValidation";
 
-export type TeacherResourceScope =
-  | "shared_teacher"
-  | "official_teacher"
-  | "cambridge_student";
-
-type AdminManagedTeacherResourceScope =
-  | "official_teacher"
-  | "cambridge_student";
+export type { TeacherResourceScope } from "./teacherResourceValidation";
 
 export type TeacherResource = {
   id: string;
   title: string;
   description: string;
   resource_scope: TeacherResourceScope;
-  level_id: number | string;
+  level_id: number | string | null;
   created_by: string | null;
   external_url: string | null;
   storage_path: string | null;
@@ -24,11 +21,23 @@ export type TeacherResource = {
   file_size: number | null;
   created_at: string;
   updated_at: string;
+  has_private_file?: boolean;
   creator_name?: string;
   level_name?: string;
 };
 
 type TeacherResourceRow = Omit<TeacherResource, "creator_name" | "level_name">;
+
+type ProfileNameRow = {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+};
+
+type LevelNameRow = {
+  id: string | number;
+  name?: string | null;
+};
 
 type CreateSharedTeacherResourceInput = {
   levelId: string | number;
@@ -41,6 +50,15 @@ type CreateSharedTeacherResourceInput = {
 
 type CreateOfficialTeacherResourceInput = CreateSharedTeacherResourceInput;
 
+type CreateGeneralTeacherResourceInput = Omit<
+  CreateSharedTeacherResourceInput,
+  "levelId"
+>;
+
+type CreateAdminManagedTeacherResourceInput =
+  | CreateOfficialTeacherResourceInput
+  | CreateGeneralTeacherResourceInput;
+
 type UpdateCambridgeStudentResourceInput = {
   resourceId: string;
   levelId: string | number;
@@ -49,7 +67,7 @@ type UpdateCambridgeStudentResourceInput = {
   externalUrl?: string | null;
 };
 
-function formatProfileName(profile: any) {
+function formatProfileName(profile: ProfileNameRow) {
   return `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim();
 }
 
@@ -96,7 +114,7 @@ async function attachCreatorNames(resources: TeacherResourceRow[]) {
   }
 
   const profileNames = new Map(
-    (profiles || []).map((profile: any) => [
+    ((profiles || []) as ProfileNameRow[]).map((profile) => [
       profile.id,
       formatProfileName(profile) || "Sydney School",
     ])
@@ -115,29 +133,31 @@ async function attachLevelNames(resources: TeacherResourceRow[]) {
     new Set(resources.map((resource) => resource.level_id).filter(Boolean))
   );
 
-  if (levelIds.length === 0) {
-    return resources.map((resource) => ({
-      ...resource,
-      level_name: "Unknown Level",
-    }));
-  }
+  let levels: LevelNameRow[] = [];
 
-  const { data: levels, error } = await supabase
-    .from("levels")
-    .select("id, name")
-    .in("id", levelIds);
+  if (levelIds.length > 0) {
+    const result = await supabase
+      .from("levels")
+      .select("id, name")
+      .in("id", levelIds);
 
-  if (error) {
-    console.error("Unable to load resource level names:", error);
+    if (result.error) {
+      console.error("Unable to load resource level names:", result.error);
+    } else {
+      levels = result.data || [];
+    }
   }
 
   const levelNames = new Map(
-    (levels || []).map((level: any) => [String(level.id), level.name])
+    levels.map((level) => [String(level.id), level.name || "Unknown Level"])
   );
 
   return resources.map((resource) => ({
     ...resource,
-    level_name: levelNames.get(String(resource.level_id)) || "Unknown Level",
+    level_name:
+      resource.resource_scope === "general_teacher"
+        ? undefined
+        : levelNames.get(String(resource.level_id)) || "Unknown Level",
   }));
 }
 
@@ -188,6 +208,10 @@ export async function getAllSharedTeacherResourcesForAdmin() {
 
 export async function getAllCambridgeStudentResourcesForAdmin() {
   return getAllTeacherResourcesForAdmin("cambridge_student");
+}
+
+export async function getAllGeneralTeacherResourcesForAdmin() {
+  return getAllTeacherResourcesForAdmin("general_teacher");
 }
 
 async function getAccessToken() {
@@ -247,14 +271,16 @@ export async function createSharedTeacherResource(
 }
 
 async function createAdminManagedTeacherResource(
-  input: CreateOfficialTeacherResourceInput,
+  input: CreateAdminManagedTeacherResourceInput,
   resourceScope: AdminManagedTeacherResourceScope
 ) {
   const accessToken = await getAccessToken();
   const formData = new FormData();
 
   formData.append("resourceScope", resourceScope);
-  formData.append("levelId", String(input.levelId));
+  if ("levelId" in input) {
+    formData.append("levelId", String(input.levelId));
+  }
   formData.append("title", input.title);
   formData.append("description", input.description);
   formData.append("resourceType", input.resourceType);
@@ -294,6 +320,12 @@ export async function createCambridgeStudentResource(
   input: CreateOfficialTeacherResourceInput
 ) {
   return createAdminManagedTeacherResource(input, "cambridge_student");
+}
+
+export async function createGeneralTeacherResource(
+  input: CreateGeneralTeacherResourceInput
+) {
+  return createAdminManagedTeacherResource(input, "general_teacher");
 }
 
 export async function updateCambridgeStudentResource(

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 
 import {
   createCambridgeStudentResource,
+  createGeneralTeacherResource,
   createOfficialTeacherResource,
 } from "../../../lib/teacherResources";
 import {
@@ -35,7 +36,10 @@ type FieldErrors = {
 type OfficialResourceFormProps = {
   levels: LevelOption[];
   onCreated: (message: string) => void | Promise<void>;
-  resourceScope?: "official_teacher" | "cambridge_student";
+  resourceScope?:
+    | "official_teacher"
+    | "cambridge_student"
+    | "general_teacher";
 };
 
 const buttonStyle = {
@@ -100,15 +104,22 @@ export default function OfficialResourceForm({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isCambridgeStudentResource = resourceScope === "cambridge_student";
-  const formTitle = isCambridgeStudentResource
-    ? "Add Cambridge Student Resource"
-    : "Add Official Teacher Resource";
-  const resourceAudience = isCambridgeStudentResource
-    ? "All students whose current class is at the selected Cambridge level will receive this resource."
-    : "Official resources are available to teachers of the selected level.";
-  const fieldIdPrefix = isCambridgeStudentResource
-    ? "cambridge-student-resource"
-    : "official-resource";
+  const isGeneralTeacherResource = resourceScope === "general_teacher";
+  const formTitle = isGeneralTeacherResource
+    ? "Add General Teacher Resource"
+    : isCambridgeStudentResource
+      ? "Add Cambridge Student Resource"
+      : "Add Official Teacher Resource";
+  const resourceAudience = isGeneralTeacherResource
+    ? "This resource will be available to every authenticated Teacher in the main Teacher Resources page."
+    : isCambridgeStudentResource
+      ? "All students whose current class is at the selected Cambridge level will receive this resource."
+      : "Official resources are available to teachers of the selected level.";
+  const fieldIdPrefix = isGeneralTeacherResource
+    ? "general-teacher-resource"
+    : isCambridgeStudentResource
+      ? "cambridge-student-resource"
+      : "official-resource";
 
   function resetForm() {
     setLevelId("");
@@ -156,12 +167,15 @@ export default function OfficialResourceForm({
 
   function validateForm() {
     const nextErrors: FieldErrors = {};
-    const levelValidation = validateTeacherResourceLevelId(levelId);
     const titleValidation = validateTeacherResourceTitle(title);
     const descriptionValidation = validateTeacherResourceDescription(description);
 
-    if (levelValidation.error) {
-      nextErrors.levelId = "Please choose a level.";
+    if (!isGeneralTeacherResource) {
+      const levelValidation = validateTeacherResourceLevelId(levelId);
+
+      if (levelValidation.error) {
+        nextErrors.levelId = "Please choose a level.";
+      }
     }
 
     if (titleValidation.error) {
@@ -207,25 +221,30 @@ export default function OfficialResourceForm({
     setPublishing(true);
 
     try {
-      const createResource = isCambridgeStudentResource
-        ? createCambridgeStudentResource
-        : createOfficialTeacherResource;
-
-      await createResource({
-        levelId,
+      const resourceInput = {
         title,
         description,
         resourceType,
         externalUrl,
         file: selectedFile,
-      });
+      };
+
+      if (isGeneralTeacherResource) {
+        await createGeneralTeacherResource(resourceInput);
+      } else if (isCambridgeStudentResource) {
+        await createCambridgeStudentResource({ ...resourceInput, levelId });
+      } else {
+        await createOfficialTeacherResource({ ...resourceInput, levelId });
+      }
 
       resetForm();
       setShowForm(false);
       await onCreated(
-        isCambridgeStudentResource
-          ? "Cambridge Student Resource published."
-          : "Official Teacher Resource published."
+        isGeneralTeacherResource
+          ? "General Teacher Resource published."
+          : isCambridgeStudentResource
+            ? "Cambridge Student Resource published."
+            : "Official Teacher Resource published."
       );
     } catch (error) {
       console.error("Admin resource publish failed:", error);
@@ -269,27 +288,34 @@ export default function OfficialResourceForm({
             </p>
           </div>
 
-          <div style={{ display: "grid", gap: "7px" }}>
-            <label htmlFor={`${fieldIdPrefix}-level`} style={{ fontWeight: 700 }}>
-              Level
-            </label>
-            <select
-              id={`${fieldIdPrefix}-level`}
-              value={levelId}
-              onChange={(event) => setLevelId(event.target.value)}
-              style={inputStyle}
-            >
-              <option value="">Choose a level</option>
-              {levels.map((level) => (
-                <option key={level.id} value={level.id}>
-                  {level.name}
-                </option>
-              ))}
-            </select>
-            {fieldErrors.levelId && (
-              <small style={{ color: "#b42318" }}>{fieldErrors.levelId}</small>
-            )}
-          </div>
+          {!isGeneralTeacherResource && (
+            <div style={{ display: "grid", gap: "7px" }}>
+              <label
+                htmlFor={`${fieldIdPrefix}-level`}
+                style={{ fontWeight: 700 }}
+              >
+                Level
+              </label>
+              <select
+                id={`${fieldIdPrefix}-level`}
+                value={levelId}
+                onChange={(event) => setLevelId(event.target.value)}
+                style={inputStyle}
+              >
+                <option value="">Choose a level</option>
+                {levels.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.levelId && (
+                <small style={{ color: "#b42318" }}>
+                  {fieldErrors.levelId}
+                </small>
+              )}
+            </div>
+          )}
 
           <div style={{ display: "grid", gap: "7px" }}>
             <label htmlFor={`${fieldIdPrefix}-title`} style={{ fontWeight: 700 }}>

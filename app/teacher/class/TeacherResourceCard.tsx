@@ -89,11 +89,13 @@ function ExternalLinkIcon() {
 type TeacherResourceCardProps = {
   resource: TeacherResource;
   showCreator?: boolean;
+  showResourceType?: boolean;
 };
 
 export default function TeacherResourceCard({
   resource,
   showCreator = false,
+  showResourceType = false,
 }: TeacherResourceCardProps) {
   const [openingFile, setOpeningFile] = useState(false);
   const [openError, setOpenError] = useState("");
@@ -103,9 +105,12 @@ export default function TeacherResourceCard({
     resource.mime_type,
     fileSize,
   ].filter(Boolean);
+  const hasPrivateFile = Boolean(
+    resource.storage_path || resource.has_private_file
+  );
 
   async function handleOpenFile() {
-    if (!resource.storage_path || openingFile) {
+    if (!hasPrivateFile || openingFile) {
       return;
     }
 
@@ -180,10 +185,13 @@ export default function TeacherResourceCard({
         {showCreator && (
           <span>Posted by {resource.creator_name || "Sydney School"}</span>
         )}
+        {showResourceType && (
+          <span>{resource.external_url ? "External link" : "Private file"}</span>
+        )}
         <span>Added {formatDate(resource.created_at)}</span>
       </div>
 
-      {resource.storage_path && (
+      {hasPrivateFile && (
         <div
           style={{
             background: "#f8fafd",
@@ -211,7 +219,7 @@ export default function TeacherResourceCard({
           >
             Open Resource <ExternalLinkIcon />
           </a>
-        ) : resource.storage_path ? (
+        ) : hasPrivateFile ? (
           <button
             type="button"
             onClick={handleOpenFile}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { isTeacherResourceScope } from "../../../../../lib/teacherResourceValidation";
 
 const teacherResourcesBucket = "teacher-resources";
 const signedUrlExpiresInSeconds = 120;
@@ -9,16 +10,23 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function formatError(error: any) {
-  if (!error) {
-    return "Unknown error.";
+function formatError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return String(error || "Unknown error.");
   }
 
+  const value = error as {
+    message?: string;
+    details?: string;
+    hint?: string;
+    code?: string;
+  };
+
   return [
-    error.message ? `Message: ${error.message}` : "",
-    error.details ? `Details: ${error.details}` : "",
-    error.hint ? `Hint: ${error.hint}` : "",
-    error.code ? `Code: ${error.code}` : "",
+    value.message ? `Message: ${value.message}` : "",
+    value.details ? `Details: ${value.details}` : "",
+    value.hint ? `Hint: ${value.hint}` : "",
+    value.code ? `Code: ${value.code}` : "",
   ]
     .filter(Boolean)
     .join("\n") || String(error);
@@ -109,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     const { data: resource, error: resourceError } = await supabaseAdmin
       .from("teacher_resources")
-      .select("id, level_id, external_url, storage_path")
+      .select("id, resource_scope, level_id, external_url, storage_path")
       .eq("id", resourceId)
       .single();
 
@@ -118,14 +126,27 @@ export async function POST(request: NextRequest) {
       return jsonError("Resource was not found.", 404);
     }
 
-    if (profile.role !== "admin") {
-      const hasLevelAccess = await teacherCanAccessLevel(
-        user.id,
-        Number(resource.level_id)
-      );
+    if (!isTeacherResourceScope(resource.resource_scope)) {
+      return jsonError("You do not have access to this resource.", 403);
+    }
 
-      if (!hasLevelAccess) {
-        return jsonError("You do not have access to this resource.", 403);
+    if (profile.role !== "admin") {
+      if (resource.resource_scope === "general_teacher") {
+        if (resource.level_id !== null) {
+          return jsonError("You do not have access to this resource.", 403);
+        }
+      } else {
+        const levelId = Number(resource.level_id);
+
+        if (!Number.isFinite(levelId) || levelId <= 0) {
+          return jsonError("You do not have access to this resource.", 403);
+        }
+
+        const hasLevelAccess = await teacherCanAccessLevel(user.id, levelId);
+
+        if (!hasLevelAccess) {
+          return jsonError("You do not have access to this resource.", 403);
+        }
       }
     }
 

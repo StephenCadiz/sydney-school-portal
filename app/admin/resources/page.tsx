@@ -8,6 +8,7 @@ import { supabase } from "../../../lib/supabase";
 import {
   deleteTeacherResourceForAdmin,
   getAllCambridgeStudentResourcesForAdmin,
+  getAllGeneralTeacherResourcesForAdmin,
   getAllOfficialTeacherResourcesForAdmin,
   getAllSharedTeacherResourcesForAdmin,
   type TeacherResource,
@@ -99,12 +100,15 @@ export default function AdminTeacherResourcesPage() {
   );
   const [sharedResources, setSharedResources] = useState<TeacherResource[]>([]);
   const [studentResources, setStudentResources] = useState<TeacherResource[]>([]);
+  const [generalResources, setGeneralResources] = useState<TeacherResource[]>([]);
   const [officialLoading, setOfficialLoading] = useState(true);
   const [sharedLoading, setSharedLoading] = useState(true);
   const [studentLoading, setStudentLoading] = useState(true);
+  const [generalLoading, setGeneralLoading] = useState(true);
   const [officialError, setOfficialError] = useState("");
   const [sharedError, setSharedError] = useState("");
   const [studentError, setStudentError] = useState("");
+  const [generalError, setGeneralError] = useState("");
   const [levelsError, setLevelsError] = useState("");
   const [officialLevelFilter, setOfficialLevelFilter] = useState("all");
   const [sharedLevelFilter, setSharedLevelFilter] = useState("all");
@@ -213,17 +217,46 @@ export default function AdminTeacherResourcesPage() {
     }
   }
 
+  async function loadGeneralResources() {
+    setGeneralLoading(true);
+    setGeneralError("");
+
+    try {
+      const data = await getAllGeneralTeacherResourcesForAdmin();
+      setGeneralResources(data);
+    } catch (loadError) {
+      console.error("Unable to load General Teacher Resources:", loadError);
+      setGeneralResources([]);
+      setGeneralError(
+        "General Teacher Resources could not be loaded. Please try again."
+      );
+    } finally {
+      setGeneralLoading(false);
+    }
+  }
+
   useEffect(() => {
-    loadLevels();
-    loadOfficialResources();
-    loadSharedResources();
-    loadStudentResources();
+    const loadTimer = window.setTimeout(() => {
+      loadLevels();
+      loadOfficialResources();
+      loadGeneralResources();
+      loadSharedResources();
+      loadStudentResources();
+    }, 0);
+
+    return () => window.clearTimeout(loadTimer);
   }, []);
 
   async function handleOfficialCreated(successMessage: string) {
     setMessage(successMessage);
     setError("");
     await loadOfficialResources();
+  }
+
+  async function handleGeneralCreated(successMessage: string) {
+    setMessage(successMessage);
+    setError("");
+    await loadGeneralResources();
   }
 
   async function handleStudentResourceCreated(successMessage: string) {
@@ -252,6 +285,10 @@ export default function AdminTeacherResourcesPage() {
 
       if (deleteTarget.resource_scope === "official_teacher") {
         setOfficialResources((current) =>
+          current.filter((resource) => resource.id !== deleteTarget.id)
+        );
+      } else if (deleteTarget.resource_scope === "general_teacher") {
+        setGeneralResources((current) =>
           current.filter((resource) => resource.id !== deleteTarget.id)
         );
       } else if (deleteTarget.resource_scope === "shared_teacher") {
@@ -329,12 +366,7 @@ export default function AdminTeacherResourcesPage() {
         : "No Official Resources have been added for this level yet.";
 
     return (
-      <div style={{ display: "grid", gap: "18px" }}>
-        <OfficialResourceForm
-          levels={levels}
-          onCreated={handleOfficialCreated}
-        />
-
+      <div style={{ display: "grid", gap: "24px" }}>
         <section style={cardShellStyle}>
           <div style={{ display: "grid", gap: "6px", marginBottom: "18px" }}>
             <h2
@@ -344,11 +376,19 @@ export default function AdminTeacherResourcesPage() {
                 fontSize: "22px",
               }}
             >
-              Official Resources
+              Level-Specific Resources
             </h2>
             <p style={{ margin: 0, color: "#667085" }}>
-              Add and manage official Sydney School resources for each level.
+              Official Sydney School resources assigned to one level and shown
+              only in the matching class-specific Teacher pages.
             </p>
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <OfficialResourceForm
+              levels={levels}
+              onCreated={handleOfficialCreated}
+            />
           </div>
 
           {renderFilter()}
@@ -371,6 +411,61 @@ export default function AdminTeacherResourcesPage() {
           ) : (
             <div style={{ display: "grid", gap: "14px" }}>
               {filteredOfficialResources.map((resource) => (
+                <AdminResourceCard
+                  key={resource.id}
+                  resource={resource}
+                  deleting={deletingId === resource.id}
+                  onRequestDelete={setDeleteTarget}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section style={cardShellStyle}>
+          <div style={{ display: "grid", gap: "6px", marginBottom: "18px" }}>
+            <h2
+              style={{
+                margin: 0,
+                color: "var(--ss-blue-dark, #1f3c88)",
+                fontSize: "22px",
+              }}
+            >
+              General Teacher Resources
+            </h2>
+            <p style={{ margin: 0, color: "#667085", lineHeight: 1.55 }}>
+              School-wide teaching materials available to every authenticated
+              Teacher from the main Teacher Portal Resources page. These
+              resources are not assigned to a level or class.
+            </p>
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <OfficialResourceForm
+              levels={[]}
+              resourceScope="general_teacher"
+              onCreated={handleGeneralCreated}
+            />
+          </div>
+
+          {generalLoading ? (
+            <StateBox>Loading General Teacher Resources...</StateBox>
+          ) : generalError ? (
+            <StateBox>
+              <span>{generalError}</span>
+              <button
+                type="button"
+                onClick={loadGeneralResources}
+                style={primaryButtonStyle}
+              >
+                Retry
+              </button>
+            </StateBox>
+          ) : generalResources.length === 0 ? (
+            <StateBox>No General Teacher Resources have been added yet.</StateBox>
+          ) : (
+            <div style={{ display: "grid", gap: "14px" }}>
+              {generalResources.map((resource) => (
                 <AdminResourceCard
                   key={resource.id}
                   resource={resource}
@@ -524,7 +619,8 @@ export default function AdminTeacherResourcesPage() {
             Resources
           </h1>
           <p style={{ color: "#667085", margin: 0, fontSize: "16px" }}>
-            Manage level-wide resources for teachers and Cambridge students.
+            Manage level-specific and school-wide resources for Teachers, plus
+            Cambridge Student materials.
           </p>
         </header>
 
@@ -657,13 +753,15 @@ export default function AdminTeacherResourcesPage() {
                 fontSize: "22px",
               }}
             >
-              Delete "{deleteTarget.title}"?
+              Delete &quot;{deleteTarget.title}&quot;?
             </h2>
             <p style={{ margin: 0, color: "#475467", lineHeight: 1.55 }}>
               {deleteTarget.resource_scope === "official_teacher"
                 ? `This will remove the resource for every teacher teaching ${
                     deleteTarget.level_name || getLevelName(levels, String(deleteTarget.level_id))
                   }.`
+                : deleteTarget.resource_scope === "general_teacher"
+                  ? "This will remove the resource from the main Resources page for every Teacher."
                 : deleteTarget.resource_scope === "cambridge_student"
                   ? `This will remove the resource for every current ${
                       deleteTarget.level_name ||

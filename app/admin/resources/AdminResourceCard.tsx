@@ -94,6 +94,10 @@ function formatDate(value: string | null | undefined) {
 }
 
 function getScopeLabel(resource: TeacherResource) {
+  if (resource.resource_scope === "general_teacher") {
+    return "General Teacher Resource";
+  }
+
   if (resource.resource_scope === "cambridge_student") {
     return "Cambridge Student Resource";
   }
@@ -150,6 +154,10 @@ export default function AdminResourceCard({
     fileSize,
   ].filter(Boolean);
   const levelName = String(resource.level_name || "Unknown Level").trim();
+  const resourceContext =
+    resource.resource_scope === "general_teacher"
+      ? getScopeLabel(resource)
+      : `${levelName} · ${getScopeLabel(resource)}`;
 
   async function handleOpenFile() {
     if (!resource.storage_path || openingFile) {
@@ -382,7 +390,7 @@ export default function AdminResourceCard({
             letterSpacing: 0,
           }}
         >
-          {levelName} · {getScopeLabel(resource)}
+          {resourceContext}
         </span>
         <h3
           style={{
