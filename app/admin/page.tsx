@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import AdminLayout from "../components/layout/AdminLayout";
+import TeacherWorkingDayPanel from "../components/teacher/TeacherWorkingDayPanel";
 import { getAdminClasses } from "../../lib/adminClasses";
 import { getTeachers } from "../../lib/adminTeachers";
 import { getUnreviewedFollowUpsForAdmin } from "../../lib/followUps";
@@ -606,6 +607,11 @@ export default function AdminDashboard() {
             <div className="admin-dashboard-date">{getDisplayDate()}</div>
           </div>
         </header>
+
+        <TeacherWorkingDayPanel
+          endpoint="/api/admin/staff-time/self"
+          hideWhenUnavailable
+        />
 
         {mockResultsAwaitingReview > 0 && (
           <section className="admin-dashboard-alert-card admin-dashboard-mock-review-alert">

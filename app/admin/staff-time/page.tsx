@@ -40,6 +40,8 @@ type TeacherSummary = {
   name: string;
   email: string | null;
   active: boolean;
+  staff_role: "teacher" | "admin";
+  staff_role_label: string;
   employment_records: any[];
   schedules: any[];
   remote_authorisations: any[];
@@ -47,7 +49,7 @@ type TeacherSummary = {
 
 const sections: Array<{ id: Section; label: string; icon: typeof Clock3 }> = [
   { id: "today", label: "Today", icon: Clock3 },
-  { id: "teachers", label: "Teachers", icon: UsersRound },
+  { id: "teachers", label: "Staff", icon: UsersRound },
   { id: "incidences", label: "Incidences", icon: AlertTriangle },
   { id: "reports", label: "Reports", icon: FileText },
   { id: "settings", label: "Settings", icon: Building2 },
@@ -122,6 +124,7 @@ export default function StaffTimeAdminPage() {
   const [resolveTarget, setResolveTarget] = useState<any>(null);
   const [resolutionStatus, setResolutionStatus] = useState<"resolved" | "dismissed">("resolved");
   const [resolutionNote, setResolutionNote] = useState("");
+  const [currentAdminId, setCurrentAdminId] = useState("");
 
   const currentMonth = getMadridDate().slice(0, 7);
   const initialMonth = monthDates(currentMonth);
@@ -202,7 +205,11 @@ export default function StaffTimeAdminPage() {
     return payload;
   }
 
-  const loadToday = useCallback(async () => setTodayData(await apiGet("view=today")), [apiGet]);
+  const loadToday = useCallback(async () => {
+    const payload = await apiGet("view=today");
+    setTodayData(payload);
+    setCurrentAdminId(payload.current_admin_id || "");
+  }, [apiGet]);
   const loadTeachers = useCallback(
     async (teacherId = selectedTeacherId) => {
       const params = new URLSearchParams({
@@ -213,6 +220,7 @@ export default function StaffTimeAdminPage() {
       if (teacherId) params.set("teacher", teacherId);
       const payload = await apiGet(params.toString());
       setTeacherData(payload);
+      setCurrentAdminId(payload.current_admin_id || "");
       if (!teacherId && payload.teachers?.length) {
         setSelectedTeacherId(payload.teachers[0].id);
       }
@@ -225,7 +233,9 @@ export default function StaffTimeAdminPage() {
       start: incidenceStart,
       end: incidenceEnd,
     });
-    setIncidenceData(await apiGet(params.toString()));
+    const payload = await apiGet(params.toString());
+    setIncidenceData(payload);
+    setCurrentAdminId(payload.current_admin_id || "");
   }, [apiGet, incidenceEnd, incidenceStart]);
   const loadSettings = useCallback(
     async () => setSettingsData(await apiGet("view=settings")),
@@ -264,6 +274,13 @@ export default function StaffTimeAdminPage() {
 
   const teachers = (teacherData?.teachers || []) as TeacherSummary[];
   const selectedTeacher = teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
+  const manualStaff = teachers.find(
+    (teacher) => teacher.id === manualForm.teacher_id
+  );
+  const manualSelfActionForbidden =
+    manualStaff?.staff_role === "admin" && manualStaff.id === currentAdminId;
+  const employmentControlledByEnrollment =
+    selectedTeacher?.staff_role === "admin";
   const currentEmployment = selectedTeacher?.employment_records.find((row) => !row.effective_to) || null;
   const currentSchedule = selectedTeacher?.schedules.find((row) => !row.effective_to) || null;
 
@@ -272,12 +289,17 @@ export default function StaffTimeAdminPage() {
     setEmploymentForm({
       effective_from: nextEffectiveDate(currentEmployment),
       dni_nie: currentEmployment?.dni_nie || "",
-      job_title: currentEmployment?.job_title || "Teacher",
+      job_title:
+        currentEmployment?.job_title ||
+        (selectedTeacher.staff_role === "admin" ? "Administrative staff" : "Teacher"),
       working_time_type: currentEmployment?.working_time_type || "part_time",
       contracted_weekly_hours: currentEmployment
         ? String(currentEmployment.contracted_weekly_hours)
         : "",
-      time_recording_enabled: currentEmployment?.time_recording_enabled !== false,
+      time_recording_enabled:
+        selectedTeacher.staff_role === "admin"
+          ? true
+          : currentEmployment?.time_recording_enabled !== false,
       clocking_location_policy:
         currentEmployment?.clocking_location_policy || "school_network_only",
     });
@@ -512,11 +534,11 @@ export default function StaffTimeAdminPage() {
                 </div>
                 <div className="staff-time-table-wrap">
                   <table className="staff-time-table">
-                    <thead><tr><th>Teacher</th><th>Planned schedule</th><th>Current status</th><th>Actual sessions</th><th>Verification</th><th>Incidence</th></tr></thead>
+                    <thead><tr><th>Staff member</th><th>Planned schedule</th><th>Current status</th><th>Actual sessions</th><th>Verification</th><th>Incidence</th></tr></thead>
                     <tbody>
                       {(todayData?.rows || []).map((row: any) => (
                         <tr key={row.teacher_id}>
-                          <td><strong>{row.teacher_name}</strong><small>{row.profile_active ? "Active profile" : "Inactive profile"}</small></td>
+                          <td><strong>{row.teacher_name}</strong><small>{row.staff_role_label} · {row.profile_active ? "Active profile" : "Inactive profile"}</small></td>
                           <td>{row.planned}</td>
                           <td><span className={`staff-time-text-status is-${row.status}`}>{row.status_label}</span></td>
                           <td>
@@ -541,9 +563,9 @@ export default function StaffTimeAdminPage() {
             {section === "teachers" && (
               <section className="staff-time-section" aria-labelledby="staff-time-teachers-title">
                 <div className="staff-time-section-heading">
-                  <div><h2 id="staff-time-teachers-title">Teachers</h2><p>Employment terms, schedule history, remote work and record audit.</p></div>
-                  <label className="staff-time-inline-control">Teacher<select value={selectedTeacherId} onChange={(event) => { setSelectedTeacherId(event.target.value); setTeacherData((data: any) => ({ ...data, selected: null })); }}>
-                    {teachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name}{teacher.active ? "" : " (inactive)"}</option>)}
+                  <div><h2 id="staff-time-teachers-title">Staff members</h2><p>Teacher and tracked Admin employment terms, schedules, remote work and record audit.</p></div>
+                  <label className="staff-time-inline-control">Staff member<select value={selectedTeacherId} onChange={(event) => { setSelectedTeacherId(event.target.value); setTeacherData((data: any) => ({ ...data, selected: null })); }}>
+                    {teachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name} · {teacher.staff_role_label}{teacher.active ? "" : " (inactive)"}</option>)}
                   </select></label>
                 </div>
 
@@ -551,7 +573,7 @@ export default function StaffTimeAdminPage() {
                   <div className="staff-time-teacher-admin-grid">
                     <form className="staff-time-form-panel" onSubmit={saveEmployment}>
                       <div className="staff-time-form-panel-heading"><UserRoundCog aria-hidden="true" size={19} /><div><h3>Employment information</h3><p>Names are sourced from the legal profile and snapshotted in each effective record.</p></div></div>
-                      <div className="staff-time-readonly-name"><span>Legal name</span><strong>{selectedTeacher.name}</strong></div>
+                      <div className="staff-time-readonly-name"><span>Legal name · {selectedTeacher.staff_role_label}</span><strong>{selectedTeacher.name}</strong></div>
                       <div className="staff-time-form-grid two-columns">
                         <label>Effective from<input type="date" value={employmentForm.effective_from} onChange={(event) => setEmploymentForm({ ...employmentForm, effective_from: event.target.value })} required /></label>
                         <label>DNI/NIE<input value={employmentForm.dni_nie} onChange={(event) => setEmploymentForm({ ...employmentForm, dni_nie: event.target.value })} maxLength={32} required /></label>
@@ -560,7 +582,8 @@ export default function StaffTimeAdminPage() {
                         <label>Contracted weekly hours<input type="number" min="0.01" max="168" step="0.25" value={employmentForm.contracted_weekly_hours} onChange={(event) => setEmploymentForm({ ...employmentForm, contracted_weekly_hours: event.target.value })} required /></label>
                         <label>Clocking-location policy<select value={employmentForm.clocking_location_policy} onChange={(event) => setEmploymentForm({ ...employmentForm, clocking_location_policy: event.target.value })}><option value="school_network_only">School network only</option><option value="school_or_authorised_remote">School or authorised remote</option></select></label>
                       </div>
-                      <label className="staff-time-checkbox"><input type="checkbox" checked={employmentForm.time_recording_enabled} onChange={(event) => setEmploymentForm({ ...employmentForm, time_recording_enabled: event.target.checked })} />Time recording enabled</label>
+                      <label className="staff-time-checkbox"><input type="checkbox" checked={employmentForm.time_recording_enabled} disabled={employmentControlledByEnrollment} onChange={(event) => setEmploymentForm({ ...employmentForm, time_recording_enabled: event.target.checked })} />Time recording enabled</label>
+                      {employmentControlledByEnrollment && <p className="staff-time-history-note">Admin time registration is controlled by the Requires sign-in and sign-out setting on the Admin Staff page.</p>}
                       {currentEmployment && <p className="staff-time-history-note">Current record: {displayDate(currentEmployment.effective_from)} onward. Saving creates a new dated record and closes this one.</p>}
                       <button className="staff-time-save-button" type="submit" disabled={busy}>Save new employment record</button>
                     </form>
@@ -597,7 +620,7 @@ export default function StaffTimeAdminPage() {
                     </form>
 
                     <form className="staff-time-form-panel" onSubmit={saveRemote}>
-                      <div className="staff-time-form-panel-heading"><ShieldCheck aria-hidden="true" size={19} /><div><h3>Authorised remote work</h3><p>Only applies when the Teacher policy permits authorised remote clocking.</p></div></div>
+                      <div className="staff-time-form-panel-heading"><ShieldCheck aria-hidden="true" size={19} /><div><h3>Authorised remote work</h3><p>Only applies when the staff member&apos;s policy permits authorised remote clocking.</p></div></div>
                       <div className="staff-time-form-grid two-columns">
                         <label>Start date<input type="date" value={remoteForm.start_date} onChange={(event) => setRemoteForm({ ...remoteForm, start_date: event.target.value })} required /></label>
                         <label>End date<input type="date" value={remoteForm.end_date} onChange={(event) => setRemoteForm({ ...remoteForm, end_date: event.target.value })} required /></label>
@@ -632,20 +655,21 @@ export default function StaffTimeAdminPage() {
               <section className="staff-time-section" aria-labelledby="staff-time-incidences-title">
                 <div className="staff-time-section-heading"><div><h2 id="staff-time-incidences-title">Incidences</h2><p>Non-punitive review queue for missing clock actions, corrections and network problems.</p></div><div className="staff-time-date-filter"><label>From<input type="date" value={incidenceStart} onChange={(event) => setIncidenceStart(event.target.value)} /></label><label>To<input type="date" value={incidenceEnd} onChange={(event) => setIncidenceEnd(event.target.value)} /></label><button type="button" onClick={() => void loadIncidences()}>Apply</button></div></div>
                 <div className="staff-time-queue-grid">
-                  <div className="staff-time-queue-panel"><h3>Correction requests</h3><p className="staff-time-queue-intro">Approve or reject requested effective times. Originals remain immutable.</p>{(incidenceData?.corrections || []).filter((row: any) => row.status === "pending").map((row: any) => <article key={row.id}><div><strong>{row.teacher_name}</strong><span>{displayDate(row.work_date)} · {row.request_type.replaceAll("_", " ")}</span><p>{row.reason}</p><small>Requested: {formatMadridTime(row.requested_sign_in_at)}–{formatMadridTime(row.requested_sign_out_at)}</small></div><div><button type="button" onClick={() => { setReviewTarget(row); setReviewDecision("approved"); }}>Review</button></div></article>)}{!(incidenceData?.corrections || []).some((row: any) => row.status === "pending") && <div className="staff-time-empty-queue"><Check size={20} aria-hidden="true" />No pending correction requests.</div>}</div>
-                  <div className="staff-time-queue-panel"><h3>Open incidences</h3><p className="staff-time-queue-intro">Automatic warnings use a grace period and never invent clock times.</p>{(incidenceData?.incidences || []).filter((row: any) => row.status === "open").map((row: any) => <article key={row.id}><div><strong>{row.teacher_name}</strong><span>{displayDate(row.work_date)} · {incidenceLabel(row.incidence_type)}</span><p>{row.description}</p></div><div><button type="button" onClick={() => { setResolveTarget(row); setResolutionStatus("resolved"); }}>Resolve</button></div></article>)}{!(incidenceData?.incidences || []).some((row: any) => row.status === "open") && <div className="staff-time-empty-queue"><Check size={20} aria-hidden="true" />No open incidences.</div>}</div>
+                  <div className="staff-time-queue-panel"><h3>Correction requests</h3><p className="staff-time-queue-intro">Approve or reject requested effective times. Originals remain immutable.</p>{(incidenceData?.corrections || []).filter((row: any) => row.status === "pending").map((row: any) => <article key={row.id}><div><strong>{row.teacher_name}</strong><span>{row.staff_role_label} · {displayDate(row.work_date)} · {row.request_type.replaceAll("_", " ")}</span><p>{row.reason}</p><small>Requested: {formatMadridTime(row.requested_sign_in_at)}–{formatMadridTime(row.requested_sign_out_at)}</small></div><div><button type="button" disabled={row.self_action_forbidden} title={row.self_action_forbidden ? "Another Admin must review your correction request." : undefined} onClick={() => { setReviewTarget(row); setReviewDecision("approved"); }}>Review</button></div></article>)}{!(incidenceData?.corrections || []).some((row: any) => row.status === "pending") && <div className="staff-time-empty-queue"><Check size={20} aria-hidden="true" />No pending correction requests.</div>}</div>
+                  <div className="staff-time-queue-panel"><h3>Open incidences</h3><p className="staff-time-queue-intro">Automatic warnings use a grace period and never invent clock times.</p>{(incidenceData?.incidences || []).filter((row: any) => row.status === "open").map((row: any) => <article key={row.id}><div><strong>{row.teacher_name}</strong><span>{row.staff_role_label} · {displayDate(row.work_date)} · {incidenceLabel(row.incidence_type)}</span><p>{row.description}</p></div><div><button type="button" disabled={row.self_action_forbidden} title={row.self_action_forbidden ? "Another Admin must resolve your Staff Time incidence." : undefined} onClick={() => { setResolveTarget(row); setResolutionStatus("resolved"); }}>Resolve</button></div></article>)}{!(incidenceData?.incidences || []).some((row: any) => row.status === "open") && <div className="staff-time-empty-queue"><Check size={20} aria-hidden="true" />No open incidences.</div>}</div>
                 </div>
                 <form className="staff-time-form-panel staff-time-manual-form" onSubmit={saveManualCorrection}>
                   <div className="staff-time-form-panel-heading"><UserRoundCog aria-hidden="true" size={19} /><div><h3>Audited manual resolution</h3><p>Create an approved correction for a missing or incorrect event. This never inserts a backdated original clock event.</p></div></div>
                   <div className="staff-time-form-grid three-columns">
-                    <label>Teacher<select value={manualForm.teacher_id} onChange={(event) => { const teacherId = event.target.value; setManualForm({ ...manualForm, teacher_id: teacherId, session_id: "" }); setSelectedTeacherId(teacherId); setTeacherData((data: any) => ({ ...data, selected: null })); if (teacherId) void loadTeachers(teacherId); }} required><option value="">Choose Teacher</option>{teachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name}</option>)}</select></label>
+                    <label>Staff member<select value={manualForm.teacher_id} onChange={(event) => { const teacherId = event.target.value; setManualForm({ ...manualForm, teacher_id: teacherId, session_id: "" }); setSelectedTeacherId(teacherId); setTeacherData((data: any) => ({ ...data, selected: null })); if (teacherId) void loadTeachers(teacherId); }} required><option value="">Choose staff member</option>{teachers.map((teacher) => <option value={teacher.id} key={teacher.id} disabled={teacher.staff_role === "admin" && teacher.id === currentAdminId}>{teacher.name} · {teacher.staff_role_label}{teacher.staff_role === "admin" && teacher.id === currentAdminId ? " (your record)" : ""}</option>)}</select></label>
                     <label>Work date<input type="date" value={manualForm.work_date} onChange={(event) => setManualForm({ ...manualForm, work_date: event.target.value })} required /></label>
                     <label>Related clock session<select value={manualForm.session_id} onChange={(event) => setManualForm({ ...manualForm, session_id: event.target.value })}><option value="">Missing event / no existing session</option>{(teacherData?.selected?.sessions || []).filter((session: any) => !String(session.id).startsWith("correction:") && session.work_date === manualForm.work_date).map((session: any) => <option value={session.id} key={session.id}>{displayDate(session.work_date)} · {formatMadridTime(session.effective_sign_in_at)}–{formatMadridTime(session.effective_sign_out_at)}</option>)}</select></label>
                     <label>Corrected sign-in<input type="time" value={manualForm.sign_in_time} onChange={(event) => setManualForm({ ...manualForm, sign_in_time: event.target.value })} /></label>
                     <label>Corrected sign-out<input type="time" value={manualForm.sign_out_time} onChange={(event) => setManualForm({ ...manualForm, sign_out_time: event.target.value })} /></label>
                   </div>
                   <label>Reason<textarea value={manualForm.reason} onChange={(event) => setManualForm({ ...manualForm, reason: event.target.value })} required maxLength={2000} placeholder="Record the evidence and reason for the correction." /></label>
-                  <button className="staff-time-save-button" type="submit" disabled={busy || (!manualForm.sign_in_time && !manualForm.sign_out_time)}>Approve audited correction</button>
+                  {manualSelfActionForbidden && <p className="staff-time-history-note">Another Admin must create a manual correction for your own record.</p>}
+                  <button className="staff-time-save-button" type="submit" disabled={busy || manualSelfActionForbidden || (!manualForm.sign_in_time && !manualForm.sign_out_time)}>Approve audited correction</button>
                 </form>
               </section>
             )}
@@ -658,7 +682,7 @@ export default function StaffTimeAdminPage() {
                     <label>Quick month<input type="month" value={reportMonth} onChange={(event) => { const month = event.target.value; const range = monthDates(month); setReportMonth(month); setReportStart(range.start); setReportEnd(range.end); }} /></label>
                     <label>From<input type="date" value={reportStart} onChange={(event) => setReportStart(event.target.value)} /></label>
                     <label>To<input type="date" value={reportEnd} onChange={(event) => setReportEnd(event.target.value)} /></label>
-                    <label>Teacher<select value={reportTeacher} onChange={(event) => setReportTeacher(event.target.value)}><option value="all">All Teachers</option>{teachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name}{teacher.active ? "" : " (inactive)"}</option>)}</select></label>
+                    <label>Staff member<select value={reportTeacher} onChange={(event) => setReportTeacher(event.target.value)}><option value="all">All enrolled staff</option>{teachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name} · {teacher.staff_role_label}{teacher.active ? "" : " (inactive)"}</option>)}</select></label>
                   </div>
                   <div className="staff-time-report-actions">
                     <button type="button" onClick={() => void download("pdf")} disabled={Boolean(downloading)}><FileText aria-hidden="true" size={20} /><span><strong>{downloading === "pdf" ? "Generating…" : "Official PDF"}</strong><small>Spanish · A4 · inspection-ready</small></span><Download aria-hidden="true" size={17} /></button>
@@ -690,7 +714,7 @@ export default function StaffTimeAdminPage() {
                     <button className="staff-time-save-button" type="submit" disabled={busy}>Save company settings</button>
                   </form>
                   <section className="staff-time-form-panel">
-                    <div className="staff-time-form-panel-heading"><ShieldCheck aria-hidden="true" size={19} /><div><h3>Allowed School Networks</h3><p>Public IP or CIDR checked only when a Teacher clocks in or out.</p></div></div>
+                    <div className="staff-time-form-panel-heading"><ShieldCheck aria-hidden="true" size={19} /><div><h3>Allowed School Networks</h3><p>Public IP or CIDR checked only when a staff member clocks in or out.</p></div></div>
                     <form className="staff-time-network-form" onSubmit={(event) => { event.preventDefault(); void perform("add_network", networkForm, "Allowed school network added.", loadSettings); }}><label>Label<input value={networkForm.label} onChange={(event) => setNetworkForm({ ...networkForm, label: event.target.value })} required placeholder="Main Academy Internet" /></label><label>IP address / CIDR<input value={networkForm.network} onChange={(event) => setNetworkForm({ ...networkForm, network: event.target.value })} required placeholder="85.10.20.30 or 85.10.20.0/24" /></label><button type="submit" disabled={busy}><Plus aria-hidden="true" size={16} />Add network</button></form>
                     <button type="button" className="staff-time-current-ip-button" disabled={busy || !settingsData?.current_ip || !networkForm.label} onClick={() => void perform("add_current_network", { label: networkForm.label }, "The current Admin network IP was added.", loadSettings)}><ShieldCheck aria-hidden="true" size={17} />Add current network IP{settingsData?.current_ip ? ` (${settingsData.current_ip})` : ""}</button>
                     <div className="staff-time-network-list">{(settingsData?.networks || []).map((network: any) => <article key={network.id}><div><strong>{network.label}</strong><span>{network.network}</span></div><button type="button" className={network.active ? "is-active" : ""} onClick={() => void perform("toggle_network", { id: network.id, active: !network.active }, network.active ? "Network deactivated; history retained." : "Network activated.", loadSettings)} disabled={busy}>{network.active ? "Active" : "Inactive"}</button></article>)}{!(settingsData?.networks || []).length && <p>No allowed school networks configured.</p>}</div>

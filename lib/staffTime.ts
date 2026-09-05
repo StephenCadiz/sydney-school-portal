@@ -22,6 +22,16 @@ export type StaffTimeCorrectionType =
   (typeof STAFF_TIME_CORRECTION_TYPES)[number];
 
 export type StaffTimeWorkingType = "full_time" | "part_time";
+export type StaffTimeStaffRole = "teacher" | "admin";
+
+export type StaffTimeAdminEnrollmentEvent = {
+  id?: string;
+  admin_id: string;
+  requires_time_registration: boolean;
+  effective_from: string;
+  changed_by?: string | null;
+  changed_at: string;
+};
 export type StaffTimeLocationPolicy =
   | "school_network_only"
   | "school_or_authorised_remote";
@@ -111,6 +121,8 @@ export type StaffTimeDayStatus =
 export type StaffTimeTeacherDay = {
   teacher_id: string;
   teacher_name: string;
+  staff_role: StaffTimeStaffRole;
+  staff_role_label: string;
   date: string;
   employment: StaffTimeEmploymentRecord | null;
   schedule: StaffTimeSchedule | null;
@@ -140,6 +152,7 @@ export type StaffTimeReportSession = {
 
 export type StaffTimeReportDay = {
   date: string;
+  included_in_time_register: boolean;
   weekday: string;
   planned: string;
   sessions: StaffTimeReportSession[];
@@ -155,6 +168,8 @@ export type StaffTimeReportDay = {
 export type StaffTimeReportTeacher = {
   teacher_id: string;
   name: string;
+  staff_role: StaffTimeStaffRole;
+  staff_role_label: string;
   dni_nie: string;
   job_title: string;
   working_time_type: StaffTimeWorkingType;
@@ -184,6 +199,46 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/;
 
 export function text(value: unknown) {
   return String(value ?? "").trim();
+}
+
+export function staffTimeRoleLabel(role: StaffTimeStaffRole) {
+  return role === "admin" ? "Admin staff" : "Teacher";
+}
+
+export function isAdminTimeRegistrationRequired(
+  events: StaffTimeAdminEnrollmentEvent[],
+  date: string
+) {
+  const effective = events
+    .filter((event) => event.effective_from <= date)
+    .sort(
+      (left, right) =>
+        right.effective_from.localeCompare(left.effective_from) ||
+        right.changed_at.localeCompare(left.changed_at) ||
+        String(right.id || "").localeCompare(String(left.id || ""))
+    )[0];
+  return effective?.requires_time_registration === true;
+}
+
+export function wasAdminTimeRegistrationRequiredDuring(
+  events: StaffTimeAdminEnrollmentEvent[],
+  startDate: string,
+  endDate: string
+) {
+  if (!isIsoDate(startDate) || !isIsoDate(endDate) || endDate < startDate) {
+    return false;
+  }
+  if (isAdminTimeRegistrationRequired(events, startDate)) return true;
+  return events.some(
+    (event) =>
+      event.requires_time_registration &&
+      event.effective_from >= startDate &&
+      event.effective_from <= endDate
+  );
+}
+
+export function canAdminManageStaffTimeRecord(actorId: string, staffId: string) {
+  return Boolean(actorId && staffId && actorId !== staffId);
 }
 
 export function isIsoDate(value: string) {

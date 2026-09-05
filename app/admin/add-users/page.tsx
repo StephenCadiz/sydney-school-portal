@@ -563,6 +563,7 @@ export default function AddUsersPage() {
   const [adminForm, setAdminForm] = useState({
     ...getInitialAuthForm(),
     confirm_password: "",
+    requires_time_registration: false,
   });
   const [cambridgeClasses, setCambridgeClasses] = useState<
     CambridgeBulkClassOption[]
@@ -1395,12 +1396,14 @@ export default function AddUsersPage() {
           last_name: adminForm.last_name,
           email: adminForm.email,
           password: adminForm.password,
+          requires_time_registration: adminForm.requires_time_registration,
         }
       );
 
       setAdminForm({
         ...getInitialAuthForm(),
         confirm_password: "",
+        requires_time_registration: false,
       });
       setMessage(result.message || "Admin staff account created successfully.");
     } catch (error: any) {
@@ -2461,6 +2464,41 @@ export default function AddUsersPage() {
           </div>
 
           <AuthFields form={adminForm} setForm={setAdminForm} showPassword />
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "12px",
+              marginTop: "20px",
+              padding: "14px",
+              border: "1px solid var(--ss-border)",
+              borderRadius: "10px",
+              background: "#f8f9fc",
+              color: "#1f2937",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={adminForm.requires_time_registration}
+              onChange={(event) =>
+                setAdminForm((current) => ({
+                  ...current,
+                  requires_time_registration: event.target.checked,
+                }))
+              }
+              style={{ marginTop: "3px" }}
+            />
+            <span>
+              <strong style={{ display: "block" }}>
+                Requires sign-in and sign-out
+              </strong>
+              <small style={{ display: "block", marginTop: "4px", color: "#64748b" }}>
+                Enrol this Admin staff member in the shared Staff Time Register.
+                This is disabled by default.
+              </small>
+            </span>
+          </label>
 
           <div style={{ marginTop: "20px" }}>
             <label style={labelStyle}>Confirm Password</label>

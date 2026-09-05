@@ -43,13 +43,12 @@ export async function GET(request: NextRequest) {
       return json(await loadAdminToday(actor, getTrustedRequestIp(request)));
     }
     if (view === "teachers") {
-      return json(
-        await loadAdminTeacherArea({
+      const data = await loadAdminTeacherArea({
           teacherId: text(request.nextUrl.searchParams.get("teacher")) || undefined,
           startDate: text(request.nextUrl.searchParams.get("start")) || undefined,
           endDate: text(request.nextUrl.searchParams.get("end")) || undefined,
-        })
-      );
+        });
+      return json({ ...data, current_admin_id: actor.id });
     }
     if (view === "incidences") {
       return json(

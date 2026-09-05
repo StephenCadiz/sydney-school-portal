@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { supabase } from "../../../lib/supabase";
+import { getMadridDate } from "../../../lib/staffTime";
 
 export type AdminStaffAccountTarget = {
   id: string;
@@ -10,6 +11,7 @@ export type AdminStaffAccountTarget = {
   first_name: string | null;
   last_name: string | null;
   isCurrentAdmin: boolean;
+  requires_time_registration: boolean;
 };
 
 export type UpdatedAdminStaffAccount = {
@@ -19,6 +21,9 @@ export type UpdatedAdminStaffAccount = {
   last_name: string | null;
   role: string;
   auth_linked: boolean;
+  requires_time_registration: boolean;
+  time_registration_effective_from: string | null;
+  time_registration_changed_at: string | null;
 };
 
 export default function AdminStaffEditDialog({
@@ -34,6 +39,10 @@ export default function AdminStaffEditDialog({
   const [firstName, setFirstName] = useState(target.first_name || "");
   const [lastName, setLastName] = useState(target.last_name || "");
   const [email, setEmail] = useState(target.email);
+  const [requiresTimeRegistration, setRequiresTimeRegistration] = useState(
+    target.requires_time_registration
+  );
+  const trackingEffectiveFrom = getMadridDate();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -76,6 +85,9 @@ export default function AdminStaffEditDialog({
         return;
       }
 
+      const trackingChanged =
+        requiresTimeRegistration !== target.requires_time_registration;
+
       const response = await fetch(
         `/api/admin/admin-staff/${encodeURIComponent(target.id)}`,
         {
@@ -88,6 +100,12 @@ export default function AdminStaffEditDialog({
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             email: email.trim().toLowerCase(),
+            ...(trackingChanged
+              ? {
+                  requires_time_registration: requiresTimeRegistration,
+                  time_registration_effective_from: trackingEffectiveFrom,
+                }
+              : {}),
           }),
         }
       );
@@ -177,6 +195,35 @@ export default function AdminStaffEditDialog({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
+          </div>
+
+          <div className="admin-staff-time-setting">
+            <label>
+              <input
+                type="checkbox"
+                checked={requiresTimeRegistration}
+                disabled={
+                  target.isCurrentAdmin && target.requires_time_registration
+                }
+                onChange={(event) =>
+                  setRequiresTimeRegistration(event.target.checked)
+                }
+              />
+              <span>
+                <strong>Requires sign-in and sign-out</strong>
+                <small>
+                  Enrol this Admin staff member in the shared Staff Time Register.
+                </small>
+              </span>
+            </label>
+            {requiresTimeRegistration !== target.requires_time_registration && (
+              <p>The change takes effect today ({trackingEffectiveFrom}, Madrid time).</p>
+            )}
+            {target.isCurrentAdmin && target.requires_time_registration && (
+              <p>
+                Another Admin must disable your own time-registration requirement.
+              </p>
+            )}
           </div>
 
           {errorMessage && (

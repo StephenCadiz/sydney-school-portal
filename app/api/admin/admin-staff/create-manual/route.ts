@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { getMadridDate, isIsoDate } from "../../../../../lib/staffTime";
 
 function formatError(error: unknown) {
   if (!error) {
@@ -114,6 +115,32 @@ export async function POST(request: NextRequest) {
     const lastName = body.last_name?.trim();
     const email = body.email?.trim();
     const password = body.password;
+    const requiresTimeRegistration = body.requires_time_registration === true;
+    if (
+      body.requires_time_registration !== undefined &&
+      typeof body.requires_time_registration !== "boolean"
+    ) {
+      return jsonError("Choose a valid time-registration setting.", 400);
+    }
+    const hasTrackingEffectiveDate = Object.prototype.hasOwnProperty.call(
+      body,
+      "time_registration_effective_from"
+    );
+    if (hasTrackingEffectiveDate && !requiresTimeRegistration) {
+      return jsonError(
+        "A time-registration effective date only applies when enrollment is enabled.",
+        400
+      );
+    }
+    const trackingEffectiveFrom = hasTrackingEffectiveDate
+      ? String(body.time_registration_effective_from).trim()
+      : getMadridDate();
+    if (
+      requiresTimeRegistration &&
+      (!isIsoDate(trackingEffectiveFrom) || trackingEffectiveFrom !== getMadridDate())
+    ) {
+      return jsonError("Time registration must take effect today.", 400);
+    }
 
     if (!firstName || !lastName || !email || !password) {
       return jsonError(
@@ -200,9 +227,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (requiresTimeRegistration) {
+      const { error: enrollmentError } = await supabaseAdmin.rpc(
+        "set_staff_time_admin_enrollment",
+        {
+          p_actor_id: adminCheck.user.id,
+          p_admin_id: adminStaffId,
+          p_requires_time_registration: true,
+          p_effective_from: trackingEffectiveFrom,
+        }
+      );
+      if (enrollmentError) {
+        console.error(
+          "Manual admin staff time enrollment failed:",
+          formatError(enrollmentError)
+        );
+        const { error: cleanupError } =
+          await supabaseAdmin.auth.admin.deleteUser(adminStaffId);
+        if (cleanupError) {
+          console.error(
+            "Manual admin staff enrollment cleanup failed:",
+            formatError(cleanupError)
+          );
+          return jsonError(
+            "Admin staff setup failed and account cleanup could not be confirmed. Review the Admin account before retrying.",
+            502
+          );
+        }
+        return jsonError(
+          "Admin staff setup failed while enabling time registration. The account was not retained.",
+          500
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Admin staff account created successfully.",
+      message: requiresTimeRegistration
+        ? "Admin staff account created with sign-in and sign-out required."
+        : "Admin staff account created successfully. Time registration is disabled.",
     });
   } catch (error) {
     console.error("Manual admin staff create route failed:", formatError(error));

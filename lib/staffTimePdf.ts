@@ -149,7 +149,16 @@ function drawHeader(
     bold
   );
   const employeeTop = top - 42;
-  drawLabelValue(page, "Trabajador/a", teacher.name, 28, employeeTop, 190, regular, bold);
+  drawLabelValue(
+    page,
+    "Trabajador/a · Perfil",
+    `${teacher.name} · ${teacher.staff_role_label}`,
+    28,
+    employeeTop,
+    190,
+    regular,
+    bold
+  );
   drawLabelValue(page, "DNI/NIE", teacher.dni_nie, 230, employeeTop, 92, regular, bold);
   drawLabelValue(page, "Puesto / Categoría", teacher.job_title, 335, employeeTop, 180, regular, bold);
   drawLabelValue(

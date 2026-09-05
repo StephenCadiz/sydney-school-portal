@@ -6,9 +6,12 @@ import {
   isUuid,
   isValidEmail,
   loadAdminProfileAndAuthUser,
+  loadAdminTimeRegistrationStatus,
   logAdminStaffAccountFailure,
   normalizeEmail,
+  setAdminTimeRegistrationRequirement,
 } from "../../../../../lib/adminStaffAccountsServer";
+import { getMadridDate, isIsoDate } from "../../../../../lib/staffTime";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 
 function jsonError(message: string, status: number) {
@@ -43,7 +46,13 @@ export async function PATCH(
     const record = body as Record<string, unknown>;
     if (
       !Object.keys(record).every((key) =>
-        ["first_name", "last_name", "email"].includes(key)
+        [
+          "first_name",
+          "last_name",
+          "email",
+          "requires_time_registration",
+          "time_registration_effective_from",
+        ].includes(key)
       )
     ) {
       return jsonError("The request contains unsupported fields.", 400);
@@ -54,6 +63,39 @@ export async function PATCH(
     const lastName =
       typeof record.last_name === "string" ? record.last_name.trim() : "";
     const email = normalizeEmail(record.email);
+    const hasTrackingSetting = Object.prototype.hasOwnProperty.call(
+      record,
+      "requires_time_registration"
+    );
+    const hasTrackingEffectiveDate = Object.prototype.hasOwnProperty.call(
+      record,
+      "time_registration_effective_from"
+    );
+    if (hasTrackingEffectiveDate && !hasTrackingSetting) {
+      return jsonError(
+        "A time-registration effective date requires an enrollment setting.",
+        400
+      );
+    }
+    if (
+      hasTrackingSetting &&
+      typeof record.requires_time_registration !== "boolean"
+    ) {
+      return jsonError("Choose a valid time-registration setting.", 400);
+    }
+    const requiresTimeRegistration = hasTrackingSetting
+      ? record.requires_time_registration === true
+      : false;
+    const trackingEffectiveFrom =
+      typeof record.time_registration_effective_from === "string"
+        ? record.time_registration_effective_from.trim()
+        : getMadridDate();
+    if (
+      hasTrackingSetting &&
+      (!isIsoDate(trackingEffectiveFrom) || trackingEffectiveFrom !== getMadridDate())
+    ) {
+      return jsonError("Time-registration changes must take effect today.", 422);
+    }
 
     if (!firstName) return jsonError("First name is required.", 400);
     if (!lastName) return jsonError("Last name is required.", 400);
@@ -69,6 +111,17 @@ export async function PATCH(
     }
     if (authError || !authUser || authUser.id !== profile.id) {
       return jsonError("The Admin login account could not be found.", 409);
+    }
+
+    const previousTracking = await loadAdminTimeRegistrationStatus(targetId);
+    const trackingChanged =
+      hasTrackingSetting &&
+      previousTracking.requires_time_registration !== requiresTimeRegistration;
+    if (trackingChanged && auth.actorId === targetId && !requiresTimeRegistration) {
+      return jsonError(
+        "A tracked Admin cannot disable their own time-registration requirement. Ask another Admin to make this change.",
+        403
+      );
     }
 
     const previousAuthEmail = normalizeEmail(authUser.email);
@@ -149,15 +202,62 @@ export async function PATCH(
       return jsonError("Unable to update the Admin account.", 500);
     }
 
+    let tracking = previousTracking;
+    if (trackingChanged) {
+      try {
+        const enrollment = await setAdminTimeRegistrationRequirement({
+          actorId: auth.actorId,
+          adminId: targetId,
+          required: requiresTimeRegistration,
+          effectiveFrom: trackingEffectiveFrom,
+        });
+        tracking = {
+          requires_time_registration: enrollment.requires_time_registration,
+          time_registration_effective_from: enrollment.effective_from,
+          time_registration_changed_at: enrollment.changed_at,
+        };
+      } catch (trackingError) {
+        const { error: profileRollbackError } = await supabaseAdmin
+          .from("profiles")
+          .update({
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            email: previousAuthEmail,
+          })
+          .eq("id", targetId)
+          .eq("role", "admin");
+        const authRestored = authEmailChanged
+          ? await restoreAuthEmail(targetId, previousAuthEmail)
+          : true;
+        logAdminStaffAccountFailure("time-registration-update", {
+          targetId,
+          trackingError,
+          profileRollbackError,
+          authRestored,
+        });
+        const rollbackSucceeded = !profileRollbackError && authRestored;
+        return jsonError(
+          rollbackSucceeded
+            ? "Unable to update the time-registration requirement. No account changes were retained."
+            : "Unable to update the time-registration requirement and fully restore the account. Review the Admin account before retrying.",
+          rollbackSucceeded ? 500 : 502
+        );
+      }
+    }
+
     const currentAccountChanged = auth.actorId === targetId && authEmailChanged;
     return NextResponse.json({
       success: true,
-      message: currentAccountChanged
+      message: trackingChanged
+        ? requiresTimeRegistration
+          ? "Admin account updated. Sign-in and sign-out are now required."
+          : "Admin account updated. Time registration is now disabled; history was retained."
+        : currentAccountChanged
         ? "Admin account and login email updated. Use the new email the next time you sign in."
         : authEmailChanged
         ? "Admin account and login email updated."
         : "Admin account updated.",
-      account: { ...account, auth_linked: true },
+      account: { ...account, auth_linked: true, ...tracking },
     });
   } catch (error) {
     logAdminStaffAccountFailure("update", { targetId, error });

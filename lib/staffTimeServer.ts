@@ -11,6 +11,7 @@ import {
   getMadridDate,
   getMadridMinutes,
   getStaffTimeDayStatus,
+  isAdminTimeRegistrationRequired,
   isIsoDate,
   madridLocalToIso,
   minutesBetween,
@@ -19,7 +20,10 @@ import {
   plannedMinutes,
   reportPeriodLabel,
   spanishClosureLabel,
+  staffTimeRoleLabel,
   text,
+  wasAdminTimeRegistrationRequiredDuring,
+  type StaffTimeAdminEnrollmentEvent,
   type StaffTimeCompanySettings,
   type StaffTimeEmploymentRecord,
   type StaffTimeInterval,
@@ -30,6 +34,7 @@ import {
   type StaffTimeReportTeacher,
   type StaffTimeSchedule,
   type StaffTimeSessionView,
+  type StaffTimeStaffRole,
   type StaffTimeTeacherDay,
   type StaffTimeWorkingType,
 } from "./staffTime";
@@ -54,6 +59,7 @@ type ProfileRow = {
   last_name: string | null;
   email: string | null;
   active: boolean | null;
+  role: StaffTimeStaffRole;
 };
 
 type SessionRow = {
@@ -146,6 +152,13 @@ function databaseMessage(error: unknown) {
 
 function throwDatabase(error: unknown, fallback: string): never {
   const message = databaseMessage(error);
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code || "")
+      : "";
+  if (code === "42501") {
+    throw new StaffTimeError(message || "This Staff Time action is not permitted.", 403);
+  }
   if (/overlap/i.test(message)) {
     throw new StaffTimeError(message, 409);
   }
@@ -211,6 +224,21 @@ export async function requireStaffTimeAdmin(request: NextRequest) {
   } satisfies StaffTimeActor;
 }
 
+export async function requireTrackedStaffTimeAdmin(request: NextRequest) {
+  const actor = await requireStaffTimeAdmin(request);
+  if (!(await isAdminTrackedOnDate(actor.id, getMadridDate()))) {
+    throw new StaffTimeError(
+      "Time registration is not enabled for this Admin staff account.",
+      403
+    );
+  }
+  return actor;
+}
+
+export async function adminRequiresTimeRegistration(actor: StaffTimeActor) {
+  return actor.role === "admin" && (await isAdminTrackedOnDate(actor.id, getMadridDate()));
+}
+
 function normalizeIpCandidate(value: string | null) {
   let candidate = text(value).split(",")[0]?.trim() || "";
   if (candidate.startsWith("[") && candidate.includes("]")) {
@@ -259,21 +287,78 @@ function validateDateRange(startDate: string, endDate: string, maxDays = MAX_INS
   return dates;
 }
 
-function teacherName(profile: ProfileRow) {
+function staffName(profile: ProfileRow) {
   return [text(profile.first_name), text(profile.last_name)].filter(Boolean).join(" ") ||
     text(profile.email) ||
-    "Unnamed Teacher";
+    `Unnamed ${staffTimeRoleLabel(profile.role)}`;
 }
 
-async function loadTeacherProfiles() {
+async function loadAdminEnrollmentEvents(endDate: string, adminIds?: string[]) {
+  let query = supabaseAdmin
+    .from("staff_time_admin_enrollment_events")
+    .select("id, admin_id, requires_time_registration, effective_from, changed_by, changed_at")
+    .lte("effective_from", endDate)
+    .order("effective_from", { ascending: false })
+    .order("changed_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (adminIds?.length) query = query.in("admin_id", adminIds);
+  const { data, error } = await query;
+  if (error) throw new Error("Unable to load Admin Staff Time enrollment history.");
+  return (data || []) as StaffTimeAdminEnrollmentEvent[];
+}
+
+async function loadStaffTimeProfiles(startDate: string, endDate: string) {
   const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, first_name, last_name, email, active")
-    .eq("role", "teacher")
+    .select("id, first_name, last_name, email, active, role")
+    .in("role", ["teacher", "admin"])
     .order("last_name", { ascending: true })
     .order("first_name", { ascending: true });
-  if (error) throw new Error("Unable to load Teacher profiles.");
-  return (data || []) as ProfileRow[];
+  if (error) throw new Error("Unable to load Staff Time profiles.");
+  const profiles = (data || []) as ProfileRow[];
+  const adminIds = profiles
+    .filter((profile) => profile.role === "admin")
+    .map((profile) => profile.id);
+  const events = adminIds.length
+    ? await loadAdminEnrollmentEvents(endDate, adminIds)
+    : [];
+  return profiles.filter(
+    (profile) =>
+      profile.role === "teacher" ||
+      wasAdminTimeRegistrationRequiredDuring(
+        events.filter((event) => event.admin_id === profile.id),
+        startDate,
+        endDate
+      )
+  );
+}
+
+async function isAdminTrackedOnDate(adminId: string, date: string) {
+  const events = await loadAdminEnrollmentEvents(date, [adminId]);
+  return isAdminTimeRegistrationRequired(events, date);
+}
+
+async function ensureStaffTimeParticipantOnDates(
+  staffId: string,
+  dates: string[]
+) {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id, role")
+    .eq("id", staffId)
+    .maybeSingle();
+  if (error) throw new Error("Unable to verify the Staff Time participant.");
+  if (data?.role === "teacher") return;
+  if (data?.role !== "admin" || !dates.length) {
+    throw new StaffTimeError("Choose an eligible Staff Time participant.", 422);
+  }
+  const events = await loadAdminEnrollmentEvents(dates.at(-1)!, [staffId]);
+  if (!dates.every((date) => isAdminTimeRegistrationRequired(events, date))) {
+    throw new StaffTimeError(
+      "The selected Admin staff member is not enrolled in Staff Time for the full period.",
+      422
+    );
+  }
 }
 
 async function loadEmploymentRecords(startDate: string, endDate: string, teacherIds?: string[]) {
@@ -581,6 +666,8 @@ export async function loadTeacherWorkingDay(actor: StaffTimeActor, requestIp: st
   return {
     teacher_id: actor.id,
     teacher_name: [actor.first_name, actor.last_name].filter(Boolean).join(" "),
+    staff_role: actor.role,
+    staff_role_label: staffTimeRoleLabel(actor.role),
     date: today,
     employment: employmentRecord,
     schedule,
@@ -690,9 +777,11 @@ export async function submitTeacherCorrection(actor: StaffTimeActor, body: unkno
 export async function loadAdminToday(actor: StaffTimeActor, requestIp: string | null) {
   const today = getMadridDate();
   await refreshIncidences(actor.id, addCalendarDays(today, -7), today);
-  const profiles = await loadTeacherProfiles();
+  const profiles = await loadStaffTimeProfiles(today, today);
   const teacherIds = profiles.map((profile) => profile.id);
-  if (!teacherIds.length) return { date: today, rows: [] };
+  if (!teacherIds.length) {
+    return { date: today, rows: [], current_admin_id: actor.id };
+  }
   const [employment, schedules, remotes, closures, bundle, incidences, networkAuthorised] =
     await Promise.all([
       loadEmploymentRecords(today, today, teacherIds),
@@ -734,7 +823,9 @@ export async function loadAdminToday(actor: StaffTimeActor, requestIp: string | 
     });
     return {
       teacher_id: profile.id,
-      teacher_name: teacherName(profile),
+      teacher_name: staffName(profile),
+      staff_role: profile.role,
+      staff_role_label: staffTimeRoleLabel(profile.role),
       profile_active: profile.active !== false,
       planned: closure ? "School closed" : plannedIntervalLabel(intervals),
       sessions,
@@ -751,7 +842,12 @@ export async function loadAdminToday(actor: StaffTimeActor, requestIp: string | 
       configured: Boolean(record),
     };
   });
-  return { date: today, rows, current_admin_network_authorised: networkAuthorised };
+  return {
+    date: today,
+    rows,
+    current_admin_id: actor.id,
+    current_admin_network_authorised: networkAuthorised,
+  };
 }
 
 export async function loadAdminTeacherArea(options: {
@@ -760,7 +856,7 @@ export async function loadAdminTeacherArea(options: {
   endDate?: string;
 }) {
   const today = getMadridDate();
-  const profiles = await loadTeacherProfiles();
+  const profiles = await loadStaffTimeProfiles("1900-01-01", "9999-12-31");
   const allIds = profiles.map((profile) => profile.id);
   const selectedId = options.teacherId && allIds.includes(options.teacherId) ? options.teacherId : "";
   const startDate = options.startDate || addCalendarDays(today, -30);
@@ -774,14 +870,23 @@ export async function loadAdminTeacherArea(options: {
   ]);
   const teachers = profiles.map((profile) => ({
     id: profile.id,
-    name: teacherName(profile),
+    name: staffName(profile),
     email: profile.email,
     active: profile.active !== false,
+    staff_role: profile.role,
+    staff_role_label: staffTimeRoleLabel(profile.role),
     employment_records: employment.filter((record) => record.teacher_id === profile.id),
     schedules: schedules.filter((schedule) => schedule.teacher_id === profile.id),
     remote_authorisations: remotes.filter((remote) => remote.teacher_id === profile.id),
   }));
-  if (!selectedId) return { teachers, selected: null, start_date: startDate, end_date: endDate };
+  if (!selectedId) {
+    return {
+      teachers,
+      selected: null,
+      start_date: startDate,
+      end_date: endDate,
+    };
+  }
   const [bundle, incidences, attempts] = await Promise.all([
     loadSessionBundle(startDate, endDate, [selectedId]),
     loadIncidences(startDate, endDate, [selectedId]),
@@ -822,8 +927,8 @@ export async function refreshIncidences(actorId: string, startDate: string, endD
 export async function loadAdminIncidences(actor: StaffTimeActor, startDate: string, endDate: string) {
   validateDateRange(startDate, endDate, 367);
   await refreshIncidences(actor.id, startDate, endDate);
-  const profiles = await loadTeacherProfiles();
-  const names = new Map(profiles.map((profile) => [profile.id, teacherName(profile)]));
+  const profiles = await loadStaffTimeProfiles(startDate, endDate);
+  const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
   const [incidences, corrections] = await Promise.all([
     loadIncidences(startDate, endDate),
     loadCorrections(startDate, endDate),
@@ -831,8 +936,27 @@ export async function loadAdminIncidences(actor: StaffTimeActor, startDate: stri
   return {
     start_date: startDate,
     end_date: endDate,
-    incidences: incidences.map((row) => ({ ...row, teacher_name: names.get(row.teacher_id) || "Teacher" })),
-    corrections: corrections.map((row) => ({ ...row, teacher_name: names.get(row.teacher_id) || "Teacher" })),
+    current_admin_id: actor.id,
+    incidences: incidences.map((row) => {
+      const profile = profileMap.get(row.teacher_id);
+      return {
+        ...row,
+        teacher_name: profile ? staffName(profile) : "Staff member",
+        staff_role: profile?.role || "teacher",
+        staff_role_label: profile ? staffTimeRoleLabel(profile.role) : "Staff member",
+        self_action_forbidden: row.teacher_id === actor.id,
+      };
+    }),
+    corrections: corrections.map((row) => {
+      const profile = profileMap.get(row.teacher_id);
+      return {
+        ...row,
+        teacher_name: profile ? staffName(profile) : "Staff member",
+        staff_role: profile?.role || "teacher",
+        staff_role_label: profile ? staffTimeRoleLabel(profile.role) : "Staff member",
+        self_action_forbidden: row.teacher_id === actor.id,
+      };
+    }),
   };
 }
 
@@ -902,7 +1026,7 @@ export async function saveEmploymentRecord(actor: StaffTimeActor, body: unknown)
   const policy = text(value.clocking_location_policy) as StaffTimeLocationPolicy;
   const hours = Number(value.contracted_weekly_hours);
   if (!teacherId || !isIsoDate(effectiveFrom)) {
-    throw new StaffTimeError("Choose a Teacher and valid effective date.", 422);
+    throw new StaffTimeError("Choose a staff member and valid effective date.", 422);
   }
   if (!["full_time", "part_time"].includes(workingType)) {
     throw new StaffTimeError("Choose a valid working-time type.", 422);
@@ -933,7 +1057,7 @@ export async function saveWorkSchedule(actor: StaffTimeActor, body: unknown) {
   const teacherId = validUuid(value.teacher_id);
   const effectiveFrom = text(value.effective_from);
   if (!teacherId || !isIsoDate(effectiveFrom)) {
-    throw new StaffTimeError("Choose a Teacher and valid effective date.", 422);
+    throw new StaffTimeError("Choose a staff member and valid effective date.", 422);
   }
   if (!Array.isArray(value.intervals) || value.intervals.length > 35) {
     throw new StaffTimeError("Add no more than 35 weekly schedule intervals.", 422);
@@ -1010,8 +1134,9 @@ export async function authoriseRemoteWork(actor: StaffTimeActor, body: unknown) 
   const teacherId = validUuid(value.teacher_id);
   const startDate = text(value.start_date);
   const endDate = text(value.end_date);
-  if (!teacherId) throw new StaffTimeError("Choose a Teacher.", 422);
-  validateDateRange(startDate, endDate, 366);
+  if (!teacherId) throw new StaffTimeError("Choose a staff member.", 422);
+  const dates = validateDateRange(startDate, endDate, 366);
+  await ensureStaffTimeParticipantOnDates(teacherId, dates);
   const { data, error } = await supabaseAdmin
     .from("staff_remote_work_authorisations")
     .insert({
@@ -1066,7 +1191,13 @@ export async function reviewCorrection(actor: StaffTimeActor, body: unknown) {
 export async function createManualCorrection(actor: StaffTimeActor, body: unknown) {
   const value = objectBody(body);
   const teacherId = validUuid(value.teacher_id);
-  if (!teacherId) throw new StaffTimeError("Choose a Teacher.", 422);
+  if (!teacherId) throw new StaffTimeError("Choose a staff member.", 422);
+  if (teacherId === actor.id) {
+    throw new StaffTimeError(
+      "You cannot create a manual correction for your own Staff Time record.",
+      403
+    );
+  }
   const parsed = correctionInput(value);
   const { data, error } = await supabaseAdmin.rpc("staff_admin_create_time_correction", {
     p_actor_id: actor.id,
@@ -1088,18 +1219,12 @@ export async function resolveIncidence(actor: StaffTimeActor, body: unknown) {
   if (!id || !["resolved", "dismissed"].includes(status)) {
     throw new StaffTimeError("Choose a valid incidence resolution.", 422);
   }
-  const { data, error } = await supabaseAdmin
-    .from("staff_time_incidences")
-    .update({
-      status,
-      resolved_by: actor.id,
-      resolved_at: new Date().toISOString(),
-      resolution_note: requireText(value.resolution_note, "Resolution note", 2000),
-    })
-    .eq("id", id)
-    .eq("status", "open")
-    .select("*")
-    .single();
+  const { data, error } = await supabaseAdmin.rpc("staff_resolve_time_incidence", {
+    p_actor_id: actor.id,
+    p_incidence_id: id,
+    p_status: status,
+    p_resolution_note: requireText(value.resolution_note, "Resolution note", 2000),
+  });
   if (error) throwDatabase(error, "Unable to resolve the incidence.");
   return data;
 }
@@ -1129,37 +1254,53 @@ export async function buildStaffTimeReport(input: {
   teacherId?: string;
 }) {
   const dates = validateDateRange(input.startDate, input.endDate);
-  const profiles = await loadTeacherProfiles();
+  const profiles = await loadStaffTimeProfiles(input.startDate, input.endDate);
   const selectedProfiles = input.teacherId
     ? profiles.filter((profile) => profile.id === input.teacherId)
     : profiles;
   if (input.teacherId && !selectedProfiles.length) {
-    throw new StaffTimeError("The selected Teacher was not found.", 404);
+    throw new StaffTimeError(
+      "The selected staff member was not enrolled during this report period.",
+      404
+    );
   }
   const teacherIds = selectedProfiles.map((profile) => profile.id);
-  const [company, employment, schedules, remotes, closures, bundle, incidences] =
+  const adminIds = selectedProfiles
+    .filter((profile) => profile.role === "admin")
+    .map((profile) => profile.id);
+  const [company, employment, schedules, closures, bundle, incidences, enrollmentEvents] =
     await Promise.all([
       companySettingsForDate(input.startDate),
       loadEmploymentRecords(input.startDate, input.endDate, teacherIds),
       loadSchedules(input.startDate, input.endDate, teacherIds),
-      loadRemoteAuthorisations(input.startDate, input.endDate, teacherIds),
       loadSchoolClosures({ startDate: input.startDate, endDate: input.endDate }),
       loadSessionBundle(input.startDate, input.endDate, teacherIds),
       loadIncidences(input.startDate, input.endDate, teacherIds),
+      adminIds.length
+        ? loadAdminEnrollmentEvents(input.endDate, adminIds)
+        : Promise.resolve([] as StaffTimeAdminEnrollmentEvent[]),
     ]);
   const sessionViews = buildSessionViews(bundle);
   const reportTeachers: StaffTimeReportTeacher[] = [];
   for (const profile of selectedProfiles) {
+    const profileEnrollmentEvents = enrollmentEvents.filter(
+      (event) => event.admin_id === profile.id
+    );
     const employmentForPeriod = employment.filter((row) => row.teacher_id === profile.id);
     if (!employmentForPeriod.length) continue;
     const headerEmployment =
       effectiveEmployment(employmentForPeriod, profile.id, input.startDate) ||
       [...employmentForPeriod].sort((a, b) => a.effective_from.localeCompare(b.effective_from))[0];
     const days: StaffTimeReportDay[] = dates.map((date) => {
+      const enrolled =
+        profile.role === "teacher" ||
+        isAdminTimeRegistrationRequired(profileEnrollmentEvents, date);
       const schedule = effectiveSchedule(schedules, profile.id, date);
-      const intervals = (schedule?.intervals || []).filter(
-        (interval) => interval.weekday === getIsoWeekday(date)
-      );
+      const intervals = enrolled
+        ? (schedule?.intervals || []).filter(
+            (interval) => interval.weekday === getIsoWeekday(date)
+          )
+        : [];
       const closureRow = closures.find(
         (item) => item.start_date <= date && item.end_date >= date
       );
@@ -1192,7 +1333,9 @@ export async function buildStaffTimeReport(input: {
         (session) => session.clocking_mode === "authorised_remote"
       );
       let situation = "";
-      if (closure && !reportSessions.length) situation = spanishClosureLabel(closure);
+      if (!enrolled && !reportSessions.length) {
+        situation = "No incluido en el registro de jornada";
+      } else if (closure && !reportSessions.length) situation = spanishClosureLabel(closure);
       else if (!intervals.length && !reportSessions.length) situation = "No laborable según horario";
       else if (dayIncidences.length) {
         situation = dayIncidences
@@ -1212,6 +1355,7 @@ export async function buildStaffTimeReport(input: {
       else situation = "Sin registro";
       return {
         date,
+        included_in_time_register: enrolled,
         weekday: new Intl.DateTimeFormat("es-ES", {
           weekday: "long",
           timeZone: "UTC",
@@ -1232,6 +1376,8 @@ export async function buildStaffTimeReport(input: {
     reportTeachers.push({
       teacher_id: profile.id,
       name: `${headerEmployment.legal_first_name} ${headerEmployment.legal_last_name}`.trim(),
+      staff_role: profile.role,
+      staff_role_label: staffTimeRoleLabel(profile.role),
       dni_nie: headerEmployment.dni_nie,
       job_title: headerEmployment.job_title,
       working_time_type: headerEmployment.working_time_type,
@@ -1240,7 +1386,7 @@ export async function buildStaffTimeReport(input: {
       totals: {
         recorded_days: days.filter((day) => day.sessions.length > 0).length,
         planned_minutes: days.reduce((sum, day) => {
-          if (day.closure) return sum;
+          if (day.closure || !day.included_in_time_register) return sum;
           const schedule = effectiveSchedule(schedules, profile.id, day.date);
           return (
             sum +
@@ -1252,7 +1398,9 @@ export async function buildStaffTimeReport(input: {
           );
         }, 0),
         registered_minutes: days.reduce((sum, day) => sum + day.registered_minutes, 0),
-        closure_days: days.filter((day) => Boolean(day.closure)).length,
+        closure_days: days.filter(
+          (day) => day.included_in_time_register && Boolean(day.closure)
+        ).length,
         incidences: days.filter((day) => Boolean(day.incidence)).length,
         corrected_records: days.filter((day) => day.corrected).length,
       },
@@ -1275,7 +1423,7 @@ export function parseReportQuery(request: NextRequest) {
   validateDateRange(startDate, endDate);
   const teacherId = teacherValue && teacherValue !== "all" ? validUuid(teacherValue) : "";
   if (teacherValue && teacherValue !== "all" && !teacherId) {
-    throw new StaffTimeError("Choose a valid Teacher for the report.", 422);
+    throw new StaffTimeError("Choose a valid staff member for the report.", 422);
   }
   return { startDate, endDate, teacherId: teacherId || undefined };
 }

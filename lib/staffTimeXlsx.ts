@@ -38,23 +38,23 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
     },
   });
 
-  sheet.mergeCells("A1:N1");
+  sheet.mergeCells("A1:O1");
   const title = sheet.getCell("A1");
   title.value = "REGISTRO MENSUAL DE JORNADA DE TRABAJO";
   title.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 16 };
   title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_FILL } };
   title.alignment = { vertical: "middle", horizontal: "left" };
   sheet.getRow(1).height = 30;
-  sheet.mergeCells("A2:N2");
+  sheet.mergeCells("A2:O2");
   sheet.getCell("A2").value = `Periodo: ${report.period_label}`;
   sheet.getCell("A2").font = { bold: true, color: { argb: "FF13316B" } };
   sheet.mergeCells("A3:G3");
   sheet.getCell("A3").value = `Empresa / Razón social: ${report.company.legal_employer_name}`;
-  sheet.mergeCells("H3:N3");
+  sheet.mergeCells("H3:O3");
   sheet.getCell("H3").value = `CIF/NIF: ${report.company.tax_identifier}`;
   sheet.mergeCells("A4:G4");
   sheet.getCell("A4").value = `Centro de trabajo: ${report.company.workplace_name}`;
-  sheet.mergeCells("H4:N4");
+  sheet.mergeCells("H4:O4");
   sheet.getCell("H4").value = `Dirección: ${report.company.workplace_address}, ${report.company.postcode} ${report.company.city}, ${report.company.province}, ${report.company.country}`;
   for (const rowNumber of [2, 3, 4]) {
     sheet.getRow(rowNumber).font = { size: 10 };
@@ -63,6 +63,7 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
 
   const headers = [
     "Trabajador/a",
+    "Perfil",
     "DNI/NIE",
     "Puesto / Categoría",
     "Tipo de jornada",
@@ -91,6 +92,7 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
     for (const day of teacher.days) {
       const row = sheet.addRow([
         teacher.name,
+        teacher.staff_role_label,
         teacher.dni_nie,
         teacher.job_title,
         teacher.working_time_type === "full_time" ? "Tiempo completo" : "Tiempo parcial",
@@ -109,10 +111,10 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
       row.eachCell((cell, columnNumber) => {
         cell.alignment = { vertical: "top", wrapText: true };
         cell.border = { bottom: { style: "hair", color: { argb: BORDER } } };
-        if (columnNumber === 5 || columnNumber === 11) cell.numFmt = "0.00";
+        if (columnNumber === 6 || columnNumber === 12) cell.numFmt = "0.00";
       });
       if (day.corrected) {
-        row.getCell(14).note = day.sessions
+        row.getCell(15).note = day.sessions
           .filter((session) => session.corrected)
           .map(
             (session) =>
@@ -125,6 +127,7 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
 
   sheet.columns = [
     { width: 28 },
+    { width: 16 },
     { width: 15 },
     { width: 23 },
     { width: 18 },
@@ -140,7 +143,7 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
     { width: 14 },
   ];
   sheet.views = [{ state: "frozen", ySplit: 6 }];
-  sheet.autoFilter = { from: "A6", to: `N${Math.max(6, sheet.rowCount)}` };
+  sheet.autoFilter = { from: "A6", to: `O${Math.max(6, sheet.rowCount)}` };
   sheet.headerFooter.oddFooter =
     "&LRegistro de jornada - uso administrativo&C&P de &N&RGenerado por Sydney School Portal";
   sheet.pageSetup.printTitlesRow = "1:6";
@@ -148,7 +151,7 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
   const summary = workbook.addWorksheet("Resumen", {
     properties: { showGridLines: false },
   });
-  summary.mergeCells("A1:H1");
+  summary.mergeCells("A1:I1");
   summary.getCell("A1").value = `RESUMEN DEL REGISTRO DE JORNADA — ${report.period_label}`;
   summary.getCell("A1").font = {
     bold: true,
@@ -163,6 +166,7 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
   summary.getRow(1).height = 28;
   const summaryHeaders = [
     "Trabajador/a",
+    "Perfil",
     "Días con registro",
     "Horas previstas",
     "Horas registradas",
@@ -182,6 +186,7 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
     const totals = teacher.totals;
     const row = summary.addRow([
       teacher.name,
+      teacher.staff_role_label,
       totals.recorded_days,
       totals.planned_minutes / 60,
       totals.registered_minutes / 60,
@@ -197,11 +202,12 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
         fgColor: { argb: index % 2 ? SUBTLE_FILL : "FFFFFFFF" },
       };
       cell.border = { bottom: { style: "hair", color: { argb: BORDER } } };
-      if (column >= 3 && column <= 5) cell.numFmt = "0.00";
+      if (column >= 4 && column <= 6) cell.numFmt = "0.00";
     });
   });
   summary.columns = [
     { width: 30 },
+    { width: 16 },
     { width: 18 },
     { width: 18 },
     { width: 18 },

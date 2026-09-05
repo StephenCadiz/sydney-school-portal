@@ -42,8 +42,15 @@ function displayDate(value: string) {
   }).format(new Date(`${value}T12:00:00Z`));
 }
 
-export default function TeacherWorkingDayPanel() {
+export default function TeacherWorkingDayPanel({
+  endpoint = "/api/teacher/staff-time",
+  hideWhenUnavailable = false,
+}: {
+  endpoint?: string;
+  hideWhenUnavailable?: boolean;
+} = {}) {
   const [day, setDay] = useState<StaffTimeTeacherDay | null>(null);
+  const [hidden, setHidden] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -61,12 +68,18 @@ export default function TeacherWorkingDayPanel() {
     try {
       const token = await accessToken();
       if (!token) return;
-      const response = await fetch("/api/teacher/staff-time", {
+      const response = await fetch(endpoint, {
         cache: "no-store",
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (response.status === 204 && hideWhenUnavailable) {
+        setHidden(true);
+        setDay(null);
+        return;
+      }
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Unable to load your working day.");
+      setHidden(false);
       setDay(payload as StaffTimeTeacherDay);
     } catch (error) {
       if (!quiet) {
@@ -78,7 +91,7 @@ export default function TeacherWorkingDayPanel() {
     } finally {
       if (!quiet) setLoading(false);
     }
-  }, []);
+  }, [endpoint, hideWhenUnavailable]);
 
   useEffect(() => {
     void load();
@@ -127,7 +140,7 @@ export default function TeacherWorkingDayPanel() {
     setFeedback(null);
     try {
       const token = await accessToken();
-      const response = await fetch("/api/teacher/staff-time", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -162,7 +175,7 @@ export default function TeacherWorkingDayPanel() {
     setFeedback(null);
     try {
       const token = await accessToken();
-      const response = await fetch("/api/teacher/staff-time", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -197,7 +210,10 @@ export default function TeacherWorkingDayPanel() {
     }
   }
 
+  if (hidden) return null;
+
   if (loading && !day) {
+    if (hideWhenUnavailable) return null;
     return (
       <section className="staff-time-teacher-panel is-loading" aria-label="Working Day">
         <div className="staff-time-loading-line" />

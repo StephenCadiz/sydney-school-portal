@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const report = await buildStaffTimeReport(query);
     if (!report.teachers.length) {
       throw new StaffTimeError(
-        "No configured Teacher records were found for the selected period.",
+        "No configured staff records were found for the selected period.",
         422
       );
     }

@@ -19,6 +19,9 @@ type AdminStaffAccount = {
   last_name: string | null;
   role: string;
   auth_linked: boolean;
+  requires_time_registration: boolean;
+  time_registration_effective_from: string | null;
+  time_registration_changed_at: string | null;
 };
 
 function clean(value: string | null | undefined) {
@@ -186,6 +189,11 @@ export default function AdminStaffPage() {
                         {clean(account.email) || "Login account unavailable"}
                       </span>
                       {isCurrentAdmin && <small>Current Admin account</small>}
+                      <small>
+                        Staff Time: {account.requires_time_registration
+                          ? "sign-in and sign-out required"
+                          : "not required"}
+                      </small>
                     </div>
                     <div className="admin-staff-actions">
                       <button
@@ -204,6 +212,8 @@ export default function AdminStaffPage() {
                             first_name: account.first_name,
                             last_name: account.last_name,
                             isCurrentAdmin,
+                            requires_time_registration:
+                              account.requires_time_registration,
                           });
                         }}
                       >

@@ -2,6 +2,11 @@ import "server-only";
 
 import { NextRequest } from "next/server";
 
+import {
+  getMadridDate,
+  isAdminTimeRegistrationRequired,
+  type StaffTimeAdminEnrollmentEvent,
+} from "./staffTime";
 import { supabaseAdmin } from "./supabaseAdmin";
 
 const UUID =
@@ -17,6 +22,9 @@ export type AdminStaffProfile = {
 
 export type AdminStaffAccount = AdminStaffProfile & {
   auth_linked: boolean;
+  requires_time_registration: boolean;
+  time_registration_effective_from: string | null;
+  time_registration_changed_at: string | null;
 };
 
 export function normalizeEmail(value: unknown) {
@@ -156,22 +164,91 @@ export async function loadReconciledAdminStaffAccounts() {
     .eq("role", "admin");
   if (error) throw error;
 
+  const today = getMadridDate();
+  const { data: enrollmentRows, error: enrollmentError } = await supabaseAdmin
+    .from("staff_time_admin_enrollment_events")
+    .select("id, admin_id, requires_time_registration, effective_from, changed_by, changed_at")
+    .lte("effective_from", today)
+    .order("effective_from", { ascending: false })
+    .order("changed_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (enrollmentError) throw enrollmentError;
+  const enrollmentEvents = (enrollmentRows || []) as StaffTimeAdminEnrollmentEvent[];
+
   return Promise.all(
     ((profiles || []) as AdminStaffProfile[]).map(async (profile) => {
+      const accountEvents = enrollmentEvents.filter(
+        (event) => event.admin_id === profile.id
+      );
+      const currentEvent = accountEvents[0] || null;
+      const tracking = {
+        requires_time_registration: isAdminTimeRegistrationRequired(
+          accountEvents,
+          today
+        ),
+        time_registration_effective_from: currentEvent?.effective_from || null,
+        time_registration_changed_at: currentEvent?.changed_at || null,
+      };
       const {
         data: { user: authUser },
         error: authError,
       } = await supabaseAdmin.auth.admin.getUserById(profile.id);
 
       if (authError || !authUser) {
-        return { ...profile, auth_linked: false } satisfies AdminStaffAccount;
+        return {
+          ...profile,
+          auth_linked: false,
+          ...tracking,
+        } satisfies AdminStaffAccount;
       }
 
       const reconciledProfile = await reconcileAdminProfileEmail(
         profile,
         authUser
       );
-      return { ...reconciledProfile, auth_linked: true } satisfies AdminStaffAccount;
+      return {
+        ...reconciledProfile,
+        auth_linked: true,
+        ...tracking,
+      } satisfies AdminStaffAccount;
     })
   );
+}
+
+export async function loadAdminTimeRegistrationStatus(
+  adminId: string,
+  date = getMadridDate()
+) {
+  const { data, error } = await supabaseAdmin
+    .from("staff_time_admin_enrollment_events")
+    .select("id, admin_id, requires_time_registration, effective_from, changed_by, changed_at")
+    .eq("admin_id", adminId)
+    .lte("effective_from", date)
+    .order("effective_from", { ascending: false })
+    .order("changed_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (error) throw error;
+  const events = (data || []) as StaffTimeAdminEnrollmentEvent[];
+  const current = events[0] || null;
+  return {
+    requires_time_registration: isAdminTimeRegistrationRequired(events, date),
+    time_registration_effective_from: current?.effective_from || null,
+    time_registration_changed_at: current?.changed_at || null,
+  };
+}
+
+export async function setAdminTimeRegistrationRequirement(input: {
+  actorId: string;
+  adminId: string;
+  required: boolean;
+  effectiveFrom: string;
+}) {
+  const { data, error } = await supabaseAdmin.rpc("set_staff_time_admin_enrollment", {
+    p_actor_id: input.actorId,
+    p_admin_id: input.adminId,
+    p_requires_time_registration: input.required,
+    p_effective_from: input.effectiveFrom,
+  });
+  if (error) throw error;
+  return data as StaffTimeAdminEnrollmentEvent;
 }

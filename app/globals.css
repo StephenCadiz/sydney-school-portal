@@ -2793,6 +2793,39 @@
   color: #b42318;
 }
 
+.admin-staff-time-setting {
+  background: #f8fafc;
+  border: 1px solid #dce4ed;
+  border-radius: 10px;
+  display: grid;
+  gap: 12px;
+  padding: 13px 14px;
+}
+
+.admin-staff-time-setting > label:first-child {
+  align-items: flex-start;
+  color: #243044;
+  display: flex;
+  gap: 10px;
+}
+
+.admin-staff-time-setting input[type="checkbox"] {
+  margin-top: 3px;
+}
+
+.admin-staff-time-setting span {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-staff-time-setting small,
+.admin-staff-time-setting p {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
 .account-password-dialog footer {
   align-items: center;
   background: #fbfcfe;
@@ -5835,6 +5868,10 @@ img {
   margin: 0 auto;
   max-width: 1480px;
   width: 100%;
+}
+
+.admin-dashboard-page > .staff-time-teacher-panel {
+  margin-bottom: 24px;
 }
 
 .admin-dashboard-header,
