@@ -12,6 +12,214 @@
   --ss-border: #dbe7f3;
 }
 
+/* Teacher class syllabus */
+.teacher-syllabus {
+  display: grid;
+  gap: 22px;
+}
+
+.teacher-syllabus-header {
+  align-items: flex-start;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef6fc 100%);
+  border: 1px solid var(--ss-border);
+  border-left: 5px solid var(--ss-blue-dark);
+  border-radius: 16px;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding: 22px 24px;
+}
+
+.teacher-syllabus-eyebrow,
+.teacher-syllabus-unit header > span,
+.teacher-syllabus-unit-grid span,
+.teacher-syllabus-content > span {
+  color: #667085;
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.teacher-syllabus-header h2 {
+  color: var(--ss-blue-dark);
+  font-size: clamp(22px, 3vw, 30px);
+  margin: 5px 0 7px;
+}
+
+.teacher-syllabus-header p,
+.teacher-syllabus-meta,
+.teacher-syllabus-unit p {
+  color: #475467;
+  margin: 0;
+}
+
+.teacher-syllabus-meta {
+  display: grid;
+  font-size: 13px;
+  gap: 6px;
+  text-align: right;
+}
+
+.teacher-syllabus-unit-list {
+  display: grid;
+  gap: 18px;
+}
+
+.teacher-syllabus-unit {
+  background: #fff;
+  border: 1px solid var(--ss-border);
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(31, 60, 136, 0.06);
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.teacher-syllabus-unit header h3 {
+  color: var(--ss-blue-dark);
+  font-size: 21px;
+  margin: 5px 0 0;
+}
+
+.teacher-syllabus-unit-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+}
+
+.teacher-syllabus-unit-grid > div,
+.teacher-syllabus-content,
+.teacher-syllabus-exam {
+  background: #f8fafd;
+  border: 1px solid #e7edf5;
+  border-radius: 12px;
+  padding: 15px;
+}
+
+.teacher-syllabus-unit-grid p,
+.teacher-syllabus-content p,
+.teacher-syllabus-exam p {
+  line-height: 1.6;
+  margin-top: 7px;
+  white-space: pre-wrap;
+}
+
+.teacher-syllabus-exam {
+  background: #fff8e8;
+  border-color: #f2dca8;
+}
+
+.teacher-syllabus-exam strong {
+  color: #7a5414;
+}
+
+.teacher-syllabus-materials h4 {
+  color: var(--ss-blue-dark);
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+
+.teacher-syllabus-materials > div {
+  display: grid;
+  gap: 10px;
+}
+
+.teacher-syllabus-material {
+  align-items: center;
+  background: #f8fafd;
+  border: 1px solid #e7edf5;
+  border-radius: 12px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 13px 15px;
+}
+
+.teacher-syllabus-material strong {
+  color: #243b64;
+}
+
+.teacher-syllabus-material p,
+.teacher-syllabus-material small {
+  color: #667085;
+  display: block;
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
+.teacher-syllabus-material-action,
+.teacher-syllabus-state button {
+  align-items: center;
+  background: var(--ss-blue-dark);
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 13px;
+  text-decoration: none;
+}
+
+.teacher-syllabus-material-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.teacher-syllabus-material-error {
+  color: #b42318 !important;
+  grid-column: 1 / -1;
+}
+
+.teacher-syllabus-state {
+  background: #f8fafd;
+  border: 1px dashed #cbd8e7;
+  border-radius: 14px;
+  color: #475467;
+  padding: 28px;
+  text-align: center;
+}
+
+.teacher-syllabus-state p {
+  margin: 0 0 12px;
+}
+
+.teacher-syllabus-state-error {
+  background: #fff7f7;
+  border-color: #edb9b9;
+  color: #9f2424;
+}
+
+@media (max-width: 700px) {
+  .teacher-syllabus-header {
+    display: grid;
+    gap: 15px;
+    padding: 18px;
+  }
+
+  .teacher-syllabus-meta {
+    text-align: left;
+  }
+
+  .teacher-syllabus-unit {
+    padding: 17px;
+  }
+
+  .teacher-syllabus-unit-grid,
+  .teacher-syllabus-material {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-syllabus-material-action {
+    width: 100%;
+  }
+}
+
 /* Staff Time Register */
 .staff-time-eyebrow {
   color: #5d6b82;

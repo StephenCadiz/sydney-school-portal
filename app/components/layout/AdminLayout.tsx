@@ -422,6 +422,7 @@ export default function AdminLayout({
       label: "Resources",
       items: [
         { name: "Resources", href: "/admin/resources", icon: "folder" as AdminNavIconName },
+        { name: "Syllabuses", href: "/admin/syllabuses", icon: "book" as AdminNavIconName },
       ],
     },
   ];

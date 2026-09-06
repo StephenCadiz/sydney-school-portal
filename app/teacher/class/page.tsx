@@ -19,6 +19,7 @@ import ClassRegisterTab from "./ClassRegisterTab";
 import CoursePlanningTab from "./CoursePlanningTab";
 import SharedResourcesTab from "./SharedResourcesTab";
 import OfficialResourcesTab from "./OfficialResourcesTab";
+import SyllabusTab from "./SyllabusTab";
 import ClassResourcesTab, { type ClassResource } from "./ClassResourcesTab";
 import GoogleMeetTab, { type GoogleMeetState } from "./GoogleMeetTab";
 import ClassStudentsControlSheet, {
@@ -36,6 +37,7 @@ import { isUnitExamLevel } from "../../../lib/unitExamResults";
 import { deleteTeacherClassAnnouncement } from "../../../lib/announcements";
 import { isClassProgressEligible } from "../../../lib/classProgressEligibility";
 import { isCoursePlanningEligible } from "../../../lib/coursePlanningEligibility";
+import { classCanReceiveSyllabus } from "../../../lib/syllabusValidation";
 
 const tabs = [
   { id: "students", label: "Students" },
@@ -87,6 +89,7 @@ const googleMeetTab = { id: "google-meet", label: "Google Meet" };
 const classProgressTab = { id: "class-progress", label: "Class Progress" };
 const classRegisterTab = { id: "class-register", label: "Class Register" };
 const coursePlanningTab = { id: "course-planning", label: "Course Planning" };
+const syllabusTab = { id: "syllabus", label: "Syllabus" };
 
 type ShortcutRequest = {
   key: number;
@@ -528,6 +531,13 @@ if (classResult.data) {
     levelName,
     courseType: classData?.course_type,
   });
+  const showSyllabusTab =
+    actorRole === "teacher" &&
+    classCanReceiveSyllabus({
+      academicYearId: classData?.academic_year_id,
+      levelId: classData?.level_id,
+      courseType: classData?.course_type,
+    });
   const controlSheetStudents: ClassStudentControlStudent[] = isCambridgeClass
     ? students.map((student) => ({
         id: student.id,
@@ -669,6 +679,7 @@ if (classResult.data) {
     ...baseClassTabs,
     ...(showClassProgressTab ? [classProgressTab] : []),
     ...(showCoursePlanningTab ? [coursePlanningTab] : []),
+    ...(showSyllabusTab ? [syllabusTab] : []),
   ].flatMap((tab) => {
     if (tab.id !== "students") return [tab];
     return googleMeetIsVisible
@@ -835,6 +846,10 @@ if (classResult.data) {
           classId={String(classData.id)}
           adminMode={actorRole === "admin"}
         />
+      )}
+
+      {activeTab === "syllabus" && showSyllabusTab && classData && (
+        <SyllabusTab classId={String(classData.id)} />
       )}
 
       {activeTab === "class-exams" && !isYoungLearnerClass && showClassExamsTab && (
