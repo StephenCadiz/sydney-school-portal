@@ -3,6 +3,7 @@ import "server-only";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 
 import {
+  formatContractedWeeklyHours,
   formatMadridTime,
   formatMinutes,
   formatSpanishDate,
@@ -174,10 +175,10 @@ function drawHeader(
   drawLabelValue(
     page,
     "Horas semanales contratadas",
-    `${teacher.contracted_weekly_hours.toLocaleString("es-ES", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })} horas`,
+    `${formatContractedWeeklyHours(
+      teacher.contracted_weekly_hours,
+      "es-ES"
+    )} horas`,
     645,
     employeeTop,
     165,

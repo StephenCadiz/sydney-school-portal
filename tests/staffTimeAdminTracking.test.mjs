@@ -16,6 +16,13 @@ const migration = readFileSync(
   ),
   "utf8"
 );
+const baseMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260903180000_create_staff_time_register.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const adminSelfRoute = readFileSync(
   new URL("../app/api/admin/staff-time/self/route.ts", import.meta.url),
   "utf8"
@@ -58,6 +65,10 @@ const pdfSource = readFileSync(
 );
 const xlsxSource = readFileSync(
   new URL("../lib/staffTimeXlsx.ts", import.meta.url),
+  "utf8"
+);
+const staffTimePage = readFileSync(
+  new URL("../app/admin/staff-time/page.tsx", import.meta.url),
   "utf8"
 );
 
@@ -141,6 +152,28 @@ test("identical effective dates and timestamps use the database ID tie-break", (
 test("Teacher and Admin staff labels are explicit", () => {
   assert.equal(staffTimeRoleLabel("teacher"), "Teacher");
   assert.equal(staffTimeRoleLabel("admin"), "Admin staff");
+});
+
+test("Teacher and Admin employment share whole-number contracted-hours validation", () => {
+  assert.match(migration, /profile\.role in \('teacher', 'admin'\)/i);
+  assert.match(
+    serverSource,
+    /validateContractedWeeklyHours\(\s*value\.contracted_weekly_hours\s*\)/
+  );
+  assert.match(
+    staffTimePage,
+    /validateContractedWeeklyHours\(\s*employmentForm\.contracted_weekly_hours\s*\)/
+  );
+  assert.match(
+    staffTimePage,
+    /Contracted weekly hours<input type="number" min="0\.01" max="168" step="0\.01"/
+  );
+  assert.doesNotMatch(staffTimePage, /contracted_weekly_hours[\s\S]{0,300}step="0\.25"/);
+  assert.match(baseMigration, /contracted_weekly_hours numeric\(5, 2\) not null/i);
+  assert.match(
+    baseMigration,
+    /contracted_weekly_hours > 0 and contracted_weekly_hours <= 168/i
+  );
 });
 
 test("an Admin cannot manage their own protected Staff Time record", () => {
@@ -278,8 +311,10 @@ test("enrollment and resolution surfaces remain service-role-only", () => {
 
 test("PDF and XLSX reports both identify each staff member's role", () => {
   assert.match(pdfSource, /teacher\.staff_role_label/);
+  assert.match(pdfSource, /formatContractedWeeklyHours/);
   assert.match(xlsxSource, /"Perfil"/);
   assert.match(xlsxSource, /teacher\.staff_role_label/);
+  assert.match(xlsxSource, /columnNumber === 6\) cell\.numFmt = "0\.##"/);
 });
 
 test("PDF and XLSX routes build the same enrollment-aware report dataset", () => {

@@ -111,7 +111,8 @@ export async function generateStaffTimeXlsx(report: StaffTimeReportData) {
       row.eachCell((cell, columnNumber) => {
         cell.alignment = { vertical: "top", wrapText: true };
         cell.border = { bottom: { style: "hair", color: { argb: BORDER } } };
-        if (columnNumber === 6 || columnNumber === 12) cell.numFmt = "0.00";
+        if (columnNumber === 6) cell.numFmt = "0.##";
+        if (columnNumber === 12) cell.numFmt = "0.00";
       });
       if (day.corrected) {
         row.getCell(15).note = day.sessions

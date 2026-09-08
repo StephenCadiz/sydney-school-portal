@@ -1,4 +1,49 @@
 export const STAFF_TIME_ZONE = "Europe/Madrid";
+export const STAFF_TIME_MIN_CONTRACTED_WEEKLY_HOURS = 0.01;
+export const STAFF_TIME_MAX_CONTRACTED_WEEKLY_HOURS = 168;
+export const STAFF_TIME_CONTRACTED_HOURS_DECIMAL_PLACES = 2;
+
+export function validateContractedWeeklyHours(value: unknown) {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return { value: null, error: "Contracted weekly hours are required." };
+  }
+
+  const hours = Number(value);
+  if (!Number.isFinite(hours)) {
+    return { value: null, error: "Contracted weekly hours must be a number." };
+  }
+  const normalizedHours = Number(
+    hours.toFixed(STAFF_TIME_CONTRACTED_HOURS_DECIMAL_PLACES)
+  );
+  const precisionTolerance =
+    Number.EPSILON * Math.max(1, Math.abs(hours)) * 4;
+  if (Math.abs(normalizedHours - hours) > precisionTolerance) {
+    return {
+      value: null,
+      error: `Contracted weekly hours must use no more than ${STAFF_TIME_CONTRACTED_HOURS_DECIMAL_PLACES} decimal places.`,
+    };
+  }
+  if (
+    normalizedHours < STAFF_TIME_MIN_CONTRACTED_WEEKLY_HOURS ||
+    normalizedHours > STAFF_TIME_MAX_CONTRACTED_WEEKLY_HOURS
+  ) {
+    return {
+      value: null,
+      error: `Contracted weekly hours must be more than 0 and no more than ${STAFF_TIME_MAX_CONTRACTED_WEEKLY_HOURS}.`,
+    };
+  }
+  return { value: normalizedHours, error: "" };
+}
+
+export function formatContractedWeeklyHours(
+  value: number,
+  locale = "en-GB"
+) {
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: STAFF_TIME_CONTRACTED_HOURS_DECIMAL_PLACES,
+  }).format(value);
+}
 
 export const STAFF_TIME_WEEKDAYS = [
   { value: 1, short: "Mon", label: "Monday", spanish: "Lunes" },

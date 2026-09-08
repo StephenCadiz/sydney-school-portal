@@ -28,6 +28,7 @@ import {
   minutesBetween,
   normalizeTime,
   plannedIntervalLabel,
+  validateContractedWeeklyHours,
   type StaffTimeInterval,
 } from "../../../lib/staffTime";
 import { supabase } from "../../../lib/supabase";
@@ -373,9 +374,20 @@ export default function StaffTimeAdminPage() {
   async function saveEmployment(event: FormEvent) {
     event.preventDefault();
     if (!selectedTeacher) return;
+    const hoursValidation = validateContractedWeeklyHours(
+      employmentForm.contracted_weekly_hours
+    );
+    if (hoursValidation.error || hoursValidation.value === null) {
+      setFeedback({ type: "error", message: hoursValidation.error });
+      return;
+    }
     await perform(
       "save_employment",
-      { teacher_id: selectedTeacher.id, ...employmentForm },
+      {
+        teacher_id: selectedTeacher.id,
+        ...employmentForm,
+        contracted_weekly_hours: hoursValidation.value,
+      },
       "The effective-dated employment record was saved.",
       () => loadTeachers(selectedTeacher.id)
     );
@@ -579,7 +591,7 @@ export default function StaffTimeAdminPage() {
                         <label>DNI/NIE<input value={employmentForm.dni_nie} onChange={(event) => setEmploymentForm({ ...employmentForm, dni_nie: event.target.value })} maxLength={32} required /></label>
                         <label>Job title / category<input value={employmentForm.job_title} onChange={(event) => setEmploymentForm({ ...employmentForm, job_title: event.target.value })} maxLength={160} required /></label>
                         <label>Working-time type<select value={employmentForm.working_time_type} onChange={(event) => setEmploymentForm({ ...employmentForm, working_time_type: event.target.value })}><option value="full_time">Full time</option><option value="part_time">Part time</option></select></label>
-                        <label>Contracted weekly hours<input type="number" min="0.01" max="168" step="0.25" value={employmentForm.contracted_weekly_hours} onChange={(event) => setEmploymentForm({ ...employmentForm, contracted_weekly_hours: event.target.value })} required /></label>
+                        <label>Contracted weekly hours<input type="number" min="0.01" max="168" step="0.01" value={employmentForm.contracted_weekly_hours} onChange={(event) => setEmploymentForm({ ...employmentForm, contracted_weekly_hours: event.target.value })} required /></label>
                         <label>Clocking-location policy<select value={employmentForm.clocking_location_policy} onChange={(event) => setEmploymentForm({ ...employmentForm, clocking_location_policy: event.target.value })}><option value="school_network_only">School network only</option><option value="school_or_authorised_remote">School or authorised remote</option></select></label>
                       </div>
                       <label className="staff-time-checkbox"><input type="checkbox" checked={employmentForm.time_recording_enabled} disabled={employmentControlledByEnrollment} onChange={(event) => setEmploymentForm({ ...employmentForm, time_recording_enabled: event.target.checked })} />Time recording enabled</label>

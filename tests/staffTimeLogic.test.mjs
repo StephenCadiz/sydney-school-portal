@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  formatContractedWeeklyHours,
   formatMadridTime,
   getStaffTimeDayStatus,
   madridLocalToIso,
@@ -9,9 +10,53 @@ import {
   shouldShowFinishReminder,
   shouldShowStartReminder,
   spanishClosureLabel,
+  validateContractedWeeklyHours,
 } from "../lib/staffTime.ts";
 
 const interval = { weekday: 1, start_time: "16:00", end_time: "21:00" };
+
+function assertValidContractedHours(input, expected) {
+  const result = validateContractedWeeklyHours(input);
+  assert.equal(result.error, "");
+  assert.equal(result.value, expected);
+}
+
+test("contracted hours accept whole numbers and normal decimal values", () => {
+  assertValidContractedHours("0.01", 0.01);
+  assertValidContractedHours("1", 1);
+  assertValidContractedHours("20", 20);
+  assertValidContractedHours("23", 23);
+  assertValidContractedHours("23.0", 23);
+  assertValidContractedHours("23.25", 23.25);
+  assertValidContractedHours("40", 40);
+  assertValidContractedHours("167.99", 167.99);
+  assertValidContractedHours("168", 168);
+  assertValidContractedHours(0.1 + 0.2, 0.3);
+});
+
+test("contracted hours reject missing, invalid, out-of-range, and over-precise values", () => {
+  for (const value of [
+    "",
+    0,
+    -1,
+    "not-a-number",
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    168.01,
+    23.001,
+  ]) {
+    const result = validateContractedWeeklyHours(value);
+    assert.equal(result.value, null);
+    assert.notEqual(result.error, "");
+  }
+});
+
+test("contracted hours display without meaningless trailing zeroes", () => {
+  assert.equal(formatContractedWeeklyHours(23), "23");
+  assert.equal(formatContractedWeeklyHours(23.5), "23.5");
+  assert.equal(formatContractedWeeklyHours(23.01), "23.01");
+});
 
 test("the start reminder begins at 15:45, not 15:44", () => {
   assert.equal(shouldShowStartReminder(15 * 60 + 44, 16 * 60, false), false);

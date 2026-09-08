@@ -7,6 +7,7 @@ import { requireExamBankAdmin } from "./cambridgeExamBankServer";
 import {
   addCalendarDays,
   enumerateDates,
+  validateContractedWeeklyHours,
   getIsoWeekday,
   getMadridDate,
   getMadridMinutes,
@@ -1024,7 +1025,9 @@ export async function saveEmploymentRecord(actor: StaffTimeActor, body: unknown)
   const effectiveFrom = text(value.effective_from);
   const workingType = text(value.working_time_type) as StaffTimeWorkingType;
   const policy = text(value.clocking_location_policy) as StaffTimeLocationPolicy;
-  const hours = Number(value.contracted_weekly_hours);
+  const hoursValidation = validateContractedWeeklyHours(
+    value.contracted_weekly_hours
+  );
   if (!teacherId || !isIsoDate(effectiveFrom)) {
     throw new StaffTimeError("Choose a staff member and valid effective date.", 422);
   }
@@ -1034,9 +1037,10 @@ export async function saveEmploymentRecord(actor: StaffTimeActor, body: unknown)
   if (!["school_network_only", "school_or_authorised_remote"].includes(policy)) {
     throw new StaffTimeError("Choose a valid clocking-location policy.", 422);
   }
-  if (!Number.isFinite(hours) || hours <= 0 || hours > 168) {
-    throw new StaffTimeError("Contracted weekly hours must be between 0 and 168.", 422);
+  if (hoursValidation.error || hoursValidation.value === null) {
+    throw new StaffTimeError(hoursValidation.error, 422);
   }
+  const hours = hoursValidation.value;
   const { data, error } = await supabaseAdmin.rpc("save_staff_time_employment_record", {
     p_actor_id: actor.id,
     p_teacher_id: teacherId,
