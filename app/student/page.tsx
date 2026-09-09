@@ -217,7 +217,7 @@ export default function StudentDashboard() {
           <div className="student-dashboard-hero-inner">
             <Image
               className="student-dashboard-logo"
-              src="/Logo and Name.png"
+              src="/LOGO and NAME.png"
               alt="Sydney School"
               width={230}
               height={80}

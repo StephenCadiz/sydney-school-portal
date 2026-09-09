@@ -81,7 +81,7 @@ function LoginForm() {
       <section className="auth-card" aria-labelledby="login-title">
         <img
           className="auth-logo"
-          src="/Logo and Name.png"
+          src="/LOGO and NAME.png"
           alt="Sydney School"
         />
         <h1 id="login-title" className="auth-title">

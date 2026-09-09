@@ -34,7 +34,7 @@ export default function PortalHeader({ title }: Props) {
         }}
       >
         <Image
-          src="/Logo and Name.png"
+          src="/LOGO and NAME.png"
           alt="Sydney School"
           width={190}
           height={70}

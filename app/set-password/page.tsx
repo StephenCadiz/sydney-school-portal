@@ -138,7 +138,7 @@ export default function SetPasswordPage() {
         }}
       >
         <img
-          src="/Logo and Name.png"
+          src="/LOGO and NAME.png"
           alt="Sydney School"
           style={{
             width: "100%",
