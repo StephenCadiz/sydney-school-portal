@@ -139,7 +139,7 @@ export default function ForgotPasswordPage() {
       <section className="auth-card" aria-labelledby="forgot-password-title">
         <img
           className="auth-logo"
-          src="/LOGO and NAME.png"
+          src="/Logo and Name.png"
           alt="Sydney School"
         />
         <h1 id="forgot-password-title" className="auth-title">

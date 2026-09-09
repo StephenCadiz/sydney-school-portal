@@ -161,7 +161,7 @@ export default function ResetPasswordPage() {
       <section className="auth-card" aria-labelledby="reset-password-title">
         <img
           className="auth-logo"
-          src="/LOGO and NAME.png"
+          src="/Logo and Name.png"
           alt="Sydney School"
         />
         <h1 id="reset-password-title" className="auth-title">

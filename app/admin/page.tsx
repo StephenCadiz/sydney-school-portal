@@ -578,7 +578,7 @@ export default function AdminDashboard() {
           <div className="admin-dashboard-header-main">
             <Image
               className="admin-dashboard-logo"
-              src="/LOGO and NAME.png"
+              src="/Logo and Name.png"
               alt="Sydney School"
               width={230}
               height={80}
