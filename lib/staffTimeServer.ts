@@ -1087,7 +1087,17 @@ export async function saveWorkSchedule(actor: StaffTimeActor, body: unknown) {
     p_label: text(value.label),
     p_intervals: intervals,
   });
-  if (error) throwDatabase(error, "Unable to save the weekly work schedule.");
+  if (error) {
+    // SQL implementation failures must not be mistaken for input validation.
+    console.error("Staff Time schedule RPC failed:", error);
+    if (["22023", "23P01", "42501"].includes(error.code)) {
+      throwDatabase(error, "Unable to save the weekly work schedule.");
+    }
+    throw new StaffTimeError(
+      "Unable to save the weekly work schedule. Please try again or contact support.",
+      500
+    );
+  }
   return data;
 }
 
