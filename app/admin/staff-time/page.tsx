@@ -171,6 +171,18 @@ export default function StaffTimeAdminPage() {
     province: "",
     country: "España",
   });
+  const [historicalCompanyForm, setHistoricalCompanyForm] = useState({
+    effective_from: "",
+    legal_employer_name: "",
+    tax_identifier: "",
+    workplace_name: "",
+    workplace_address: "",
+    postcode: "",
+    city: "",
+    province: "",
+    country: "España",
+    correction_reason: "",
+  });
   const [networkForm, setNetworkForm] = useState({ label: "", network: "" });
 
   async function token() {
@@ -330,6 +342,17 @@ export default function StaffTimeAdminPage() {
       province: current?.province || "",
       country: current?.country || "España",
     });
+    setHistoricalCompanyForm((form) => ({
+      ...form,
+      legal_employer_name: current?.legal_employer_name || "",
+      tax_identifier: current?.tax_identifier || "",
+      workplace_name: current?.workplace_name || "",
+      workplace_address: current?.workplace_address || "",
+      postcode: current?.postcode || "",
+      city: current?.city || "",
+      province: current?.province || "",
+      country: current?.country || "España",
+    }));
   }, [settingsData?.current_company?.id]);
 
   async function perform(
@@ -438,6 +461,19 @@ export default function StaffTimeAdminPage() {
       sign_out_time: "",
       reason: "",
     }));
+  }
+
+  async function saveHistoricalCompanyCorrection(event: FormEvent) {
+    event.preventDefault();
+    await perform(
+      "correct_historical_company",
+      historicalCompanyForm,
+      "The historical company settings correction was saved.",
+      async () => {
+        await loadSettings();
+        setHistoricalCompanyForm((form) => ({ ...form, effective_from: "", correction_reason: "" }));
+      }
+    );
   }
 
   async function download(format: "pdf" | "xlsx") {
@@ -724,6 +760,23 @@ export default function StaffTimeAdminPage() {
                     </div>
                     <p className="staff-time-history-note">Records are retained for at least four years. Saving new legal details closes the current dated record and preserves historical report identity.</p>
                     <button className="staff-time-save-button" type="submit" disabled={busy}>Save company settings</button>
+                  </form>
+                  <form className="staff-time-form-panel" onSubmit={saveHistoricalCompanyCorrection}>
+                    <div className="staff-time-form-panel-heading"><Building2 aria-hidden="true" size={19} /><div><h3>Historical correction</h3><p>Add a missing legal-details period without changing existing records.</p></div></div>
+                    <div className="staff-time-form-grid two-columns">
+                      <label>Effective from<input type="date" value={historicalCompanyForm.effective_from} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, effective_from: event.target.value })} required /></label>
+                      <label>Legal company / employer name<input value={historicalCompanyForm.legal_employer_name} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, legal_employer_name: event.target.value })} required /></label>
+                      <label>CIF/NIF<input value={historicalCompanyForm.tax_identifier} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, tax_identifier: event.target.value })} required /></label>
+                      <label>Workplace / trading name<input value={historicalCompanyForm.workplace_name} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, workplace_name: event.target.value })} required /></label>
+                      <label className="span-two">Workplace address<input value={historicalCompanyForm.workplace_address} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, workplace_address: event.target.value })} required /></label>
+                      <label>Postcode<input value={historicalCompanyForm.postcode} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, postcode: event.target.value })} required /></label>
+                      <label>City<input value={historicalCompanyForm.city} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, city: event.target.value })} required /></label>
+                      <label>Province<input value={historicalCompanyForm.province} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, province: event.target.value })} required /></label>
+                      <label>Country<input value={historicalCompanyForm.country} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, country: event.target.value })} required /></label>
+                      <label className="span-two">Correction reason<textarea value={historicalCompanyForm.correction_reason} onChange={(event) => setHistoricalCompanyForm({ ...historicalCompanyForm, correction_reason: event.target.value })} required maxLength={2000} rows={3} /></label>
+                    </div>
+                    <p className="staff-time-history-note">Use only when contemporaneous evidence confirms the historical period. Existing effective-dated records remain unchanged.</p>
+                    <button className="staff-time-save-button" type="submit" disabled={busy}>Save historical correction</button>
                   </form>
                   <section className="staff-time-form-panel">
                     <div className="staff-time-form-panel-heading"><ShieldCheck aria-hidden="true" size={19} /><div><h3>Allowed School Networks</h3><p>Public IP or CIDR checked only when a staff member clocks in or out.</p></div></div>

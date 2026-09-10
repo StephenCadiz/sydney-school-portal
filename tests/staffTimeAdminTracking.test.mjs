@@ -24,8 +24,19 @@ const baseMigration = readFileSync(
   ),
   "utf8"
 );
+const historicalCompanyMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260910120000_add_historical_staff_time_company_correction.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const adminSelfRoute = readFileSync(
   new URL("../app/api/admin/staff-time/self/route.ts", import.meta.url),
+  "utf8"
+);
+const adminStaffTimeRoute = readFileSync(
+  new URL("../app/api/admin/staff-time/route.ts", import.meta.url),
   "utf8"
 );
 const teacherRoute = readFileSync(
@@ -377,4 +388,86 @@ test("reports include inclusive manual records, exclude outside dates, and dedup
   assert.equal(views.length, 4);
   assert.equal(views.filter((view) => view.work_date === "2026-09-10").length, 1);
   assert.equal(views.filter((view) => view.corrected).length, 4);
+});
+
+test("historical company corrections are Admin-only, append-only, and period-bounded", () => {
+  assert.match(
+    historicalCompanyMigration,
+    /create or replace function public\.correct_historical_staff_time_company_settings\(/i
+  );
+  assert.match(
+    historicalCompanyMigration,
+    /perform app_private\.staff_time_require_admin\(p_actor_id\)/i
+  );
+  assert.match(
+    historicalCompanyMigration,
+    /pg_advisory_xact_lock\(hashtextextended\('staff_time_company_history', 0\)\)/i
+  );
+  assert.match(
+    historicalCompanyMigration,
+    /p_correction_reason text[\s\S]*A correction reason is required/i
+  );
+  for (const field of [
+    "legal_employer_name",
+    "tax_identifier",
+    "workplace_name",
+    "workplace_address",
+    "postcode",
+    "city",
+    "province",
+    "country",
+  ]) {
+    assert.match(historicalCompanyMigration, new RegExp(`p_${field} text`, "i"));
+    assert.match(
+      historicalCompanyMigration,
+      new RegExp(`nullif\\(btrim\\(p_${field}\\), ''\\) is null`, "i")
+    );
+  }
+  assert.match(
+    historicalCompanyMigration,
+    /where effective_from > p_effective_from[\s\S]*order by effective_from asc[\s\S]*limit 1[\s\S]*for update/i
+  );
+  assert.match(
+    historicalCompanyMigration,
+    /effective_to,[\s\S]*v_next\.effective_from - 1/i
+  );
+  assert.match(historicalCompanyMigration, /returns public\.staff_time_company_settings/i);
+  assert.match(historicalCompanyMigration, /security definer/i);
+  assert.match(historicalCompanyMigration, /set search_path = pg_catalog, pg_temp/i);
+  assert.match(historicalCompanyMigration, /insert into public\.staff_time_company_settings/i);
+  assert.doesNotMatch(
+    historicalCompanyMigration,
+    /update public\.staff_time_company_settings/i
+  );
+  assert.match(
+    historicalCompanyMigration,
+    /revoke all on function public\.correct_historical_staff_time_company_settings\([\s\S]*from public, anon, authenticated/i
+  );
+  assert.match(
+    historicalCompanyMigration,
+    /grant execute on function public\.correct_historical_staff_time_company_settings\([\s\S]*to service_role/i
+  );
+  assert.match(serverSource, /correct_historical_staff_time_company_settings/);
+  assert.match(adminStaffTimeRoute, /case "correct_historical_company"/);
+  assert.match(staffTimePage, /Historical correction/);
+  assert.match(staffTimePage, /Correction reason<textarea/);
+});
+
+test("historical periods select the correction while future records remain unchanged", () => {
+  const records = [
+    { id: "current", effective_from: "2026-09-14", effective_to: null },
+    { id: "historical", effective_from: "2026-09-07", effective_to: "2026-09-13" },
+  ];
+  const forDate = (date) => records.find(
+    (record) => record.effective_from <= date && (!record.effective_to || record.effective_to >= date)
+  );
+  assert.equal(forDate("2026-09-07")?.id, "historical");
+  assert.equal(forDate("2026-09-13")?.id, "historical");
+  assert.equal(forDate("2026-09-14")?.id, "current");
+  assert.equal(records.find((record) => record.id === "current")?.effective_from, "2026-09-14");
+  assert.match(serverSource, /companySettingsForDate\(input\.startDate\)/);
+  assert.match(serverSource, /\.lte\("effective_from", date\)/);
+  assert.match(serverSource, /effective_to\.is\.null,effective_to\.gte\.\$\{date\}/);
+  assert.match(reportPdfRoute, /buildStaffTimeReport\(query\)/);
+  assert.match(reportXlsxRoute, /buildStaffTimeReport\(query\)/);
 });

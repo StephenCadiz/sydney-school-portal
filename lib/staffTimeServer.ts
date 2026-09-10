@@ -975,6 +975,31 @@ export async function saveCompanySettings(actor: StaffTimeActor, body: unknown) 
   return data;
 }
 
+export async function correctHistoricalCompanySettings(actor: StaffTimeActor, body: unknown) {
+  const value = objectBody(body);
+  const effectiveFrom = text(value.effective_from);
+  if (!isIsoDate(effectiveFrom)) throw new StaffTimeError("Choose a valid effective date.", 422);
+  const params = {
+    p_actor_id: actor.id,
+    p_effective_from: effectiveFrom,
+    p_legal_employer_name: requireText(value.legal_employer_name, "Legal employer name"),
+    p_tax_identifier: requireText(value.tax_identifier, "CIF/NIF", 32),
+    p_workplace_name: requireText(value.workplace_name, "Workplace name"),
+    p_workplace_address: requireText(value.workplace_address, "Workplace address", 300),
+    p_postcode: requireText(value.postcode, "Postcode", 20),
+    p_city: requireText(value.city, "City", 100),
+    p_province: requireText(value.province, "Province", 100),
+    p_country: requireText(value.country, "Country", 100),
+    p_correction_reason: requireText(value.correction_reason, "Correction reason", 2000),
+  };
+  const { data, error } = await supabaseAdmin.rpc(
+    "correct_historical_staff_time_company_settings",
+    params
+  );
+  if (error) throwDatabase(error, "Unable to save the historical company correction.");
+  return data;
+}
+
 export async function saveEmploymentRecord(actor: StaffTimeActor, body: unknown) {
   const value = objectBody(body);
   const teacherId = validUuid(value.teacher_id);

@@ -6,6 +6,7 @@ import {
   addAllowedNetwork,
   authoriseRemoteWork,
   createManualCorrection,
+  correctHistoricalCompanySettings,
   getTrustedRequestIp,
   loadAdminIncidences,
   loadAdminSettings,
@@ -80,6 +81,9 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case "save_company":
         result = await saveCompanySettings(actor, body);
+        break;
+      case "correct_historical_company":
+        result = await correctHistoricalCompanySettings(actor, body);
         break;
       case "save_employment":
         result = await saveEmploymentRecord(actor, body);
