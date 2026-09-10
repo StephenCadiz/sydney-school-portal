@@ -13,6 +13,15 @@ function jsonError(message: string, status: number) {
   );
 }
 
+function isMissingAuthUser(error: unknown) {
+  const candidate = error as { status?: number; code?: string; message?: string } | null;
+  return (
+    candidate?.status === 404 ||
+    candidate?.code === "user_not_found" ||
+    /user\s+(was\s+)?not\s+found/i.test(candidate?.message || "")
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authorization = request.headers.get("authorization");
@@ -96,6 +105,86 @@ export async function POST(request: NextRequest) {
         } in Classes before deleting the account.`,
         400
       );
+    }
+
+    const {
+      data: authUserResult,
+      error: authLookupError,
+    } = await supabaseAdmin.auth.admin.getUserById(teacherId);
+
+    if (authLookupError && !isMissingAuthUser(authLookupError)) {
+      console.error("Teacher auth lookup failed:", authLookupError);
+      return jsonError("Unable to verify teacher login account.", 500);
+    }
+
+    if (!authUserResult?.user) {
+      const [senderMessagesResult, receiverMessagesResult, fridayDutiesResult] =
+        await Promise.all([
+          supabaseAdmin
+            .from("messages")
+            .select("id")
+            .eq("sender_id", teacherId),
+          supabaseAdmin
+            .from("messages")
+            .select("id")
+            .eq("receiver_id", teacherId),
+          supabaseAdmin
+            .from("friday_at_6_duties")
+            .select("id, teacher_id, b1_teacher_id")
+            .eq("teacher_id", teacherId),
+        ]);
+
+      if (
+        senderMessagesResult.error ||
+        receiverMessagesResult.error ||
+        fridayDutiesResult.error
+      ) {
+        console.error("Orphan teacher dependency lookup failed:", {
+          senderMessagesError: senderMessagesResult.error,
+          receiverMessagesError: receiverMessagesResult.error,
+          fridayDutiesError: fridayDutiesResult.error,
+        });
+        return jsonError("Unable to check teacher dependencies.", 500);
+      }
+
+      const senderMessages = senderMessagesResult.data || [];
+      const receiverMessages = receiverMessagesResult.data || [];
+      const fridayDuties = fridayDutiesResult.data || [];
+
+      if (
+        senderMessages.length !== 1 ||
+        receiverMessages.length !== 0 ||
+        fridayDuties.length !== 1 ||
+        fridayDuties[0]?.b1_teacher_id === teacherId
+      ) {
+        return jsonError(
+          "This teacher has unexpected dependent records. Review them before deleting the account.",
+          409
+        );
+      }
+
+      const { error: orphanCleanupError } = await supabaseAdmin.rpc(
+        "delete_orphan_teacher_with_dependencies",
+        {
+          p_actor_id: user.id,
+          p_teacher_id: teacherId,
+          p_message_id: senderMessages[0].id,
+          p_friday_duty_id: fridayDuties[0].id,
+        }
+      );
+
+      if (orphanCleanupError) {
+        console.error("Orphan teacher cleanup failed:", orphanCleanupError);
+        return jsonError(
+          "Unable to safely remove the teacher profile and its confirmed dependencies.",
+          409
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Teacher deleted successfully.",
+      });
     }
 
     const { error: authDeleteError } =
