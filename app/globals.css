@@ -25847,3 +25847,188 @@ img {
   }
 
 }
+
+/* Teacher dashboard compact primary cards */
+.teacher-dashboard-primary-grid {
+  align-items: stretch;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 0.39fr) minmax(0, 0.61fr);
+  margin-bottom: 18px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-teacher-panel,
+.teacher-dashboard-primary-grid .teacher-dashboard-calendar {
+  min-width: 0;
+}
+
+.teacher-dashboard-primary-grid .staff-time-teacher-panel {
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-teacher-header {
+  gap: 12px;
+  margin: -1px 0 14px;
+  padding-bottom: 12px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-eyebrow {
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-teacher-header h2 {
+  font-size: 21px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-teacher-header p {
+  font-size: 13px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-status-mark {
+  font-size: 12px;
+  min-height: 34px;
+  padding: 7px 9px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-teacher-grid {
+  gap: 10px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-schedule-block,
+.teacher-dashboard-primary-grid .staff-time-current-block {
+  border-radius: 10px;
+  min-height: 88px;
+  padding: 12px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-schedule-block strong,
+.teacher-dashboard-primary-grid .staff-time-current-block strong {
+  font-size: 18px;
+  margin: 5px 0 3px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-schedule-block small,
+.teacher-dashboard-primary-grid .staff-time-current-block small {
+  font-size: 11px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-teacher-actions {
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-primary-action,
+.teacher-dashboard-primary-grid .staff-time-secondary-action {
+  flex: 0 1 auto;
+  font-size: 14px;
+  min-height: 42px;
+  padding: 9px 13px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-primary-action {
+  min-width: 150px;
+}
+
+.teacher-dashboard-primary-grid .staff-time-secondary-action {
+  white-space: nowrap;
+}
+
+.teacher-dashboard-primary-grid .staff-time-network-note,
+.teacher-dashboard-primary-grid .staff-time-setup-note {
+  font-size: 11px;
+  margin-top: 9px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-calendar {
+  padding: 18px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-section-title {
+  margin-bottom: 11px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-section-title p {
+  font-size: 12px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-calendar .teacher-dashboard-event {
+  gap: 11px;
+  padding: 10px 12px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-calendar .teacher-dashboard-event-date {
+  min-height: 50px;
+  min-width: 50px;
+  padding: 6px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-calendar .teacher-dashboard-event-date span {
+  font-size: 17px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-calendar .teacher-dashboard-event-date strong {
+  font-size: 10px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-calendar .teacher-dashboard-event-meta {
+  font-size: 12px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-calendar .teacher-dashboard-event h3 {
+  font-size: 14px;
+}
+
+.teacher-dashboard-primary-grid .teacher-dashboard-calendar .teacher-dashboard-event p {
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 3px;
+}
+
+@media (max-width: 840px) {
+  .teacher-dashboard-primary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .teacher-dashboard-primary-grid {
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .teacher-dashboard-primary-grid .staff-time-teacher-panel,
+  .teacher-dashboard-primary-grid .teacher-dashboard-calendar {
+    padding: 15px;
+  }
+
+  .teacher-dashboard-primary-grid .staff-time-teacher-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .teacher-dashboard-primary-grid .staff-time-teacher-actions {
+    align-items: stretch;
+  }
+
+  .teacher-dashboard-primary-grid .staff-time-primary-action,
+  .teacher-dashboard-primary-grid .staff-time-secondary-action {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 440px) {
+  .teacher-dashboard-primary-grid .staff-time-teacher-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-dashboard-primary-grid .staff-time-teacher-actions {
+    flex-direction: column;
+  }
+
+  .teacher-dashboard-primary-grid .staff-time-primary-action,
+  .teacher-dashboard-primary-grid .staff-time-secondary-action {
+    width: 100%;
+  }
+}

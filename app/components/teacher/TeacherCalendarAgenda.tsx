@@ -96,7 +96,7 @@ export default function TeacherCalendarAgenda() {
 
       {!loading && !error && events.length > 0 && (
         <div className="teacher-dashboard-event-list">
-          {events.map((item) => {
+          {events.slice(0, 3).map((item) => {
             const dateParts = getDateParts(item.event_date);
 
             return (

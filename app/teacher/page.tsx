@@ -237,15 +237,8 @@ export default function TeacherPage() {
           </div>
         </header>
 
-        <div className="teacher-dashboard-feed">
+        <div className="teacher-dashboard-primary-grid">
           <TeacherWorkingDayPanel />
-          <TeacherClassRegisterDashboardReminders />
-          <TeacherClassProgressDashboardReminders />
-          <TeacherAnnouncementBanner teacherId={teacherId} />
-          <TeacherMessageNotifications teacherId={teacherId} />
-          <FridayAt6DutyCard duty={fridayAt6Duty} />
-          <FridayTutorialAttendanceCard />
-          <FridayExamPracticeCard sessions={fridayExamPracticeSessions} />
           <TeacherCalendarAgenda />
         </div>
 
@@ -291,6 +284,16 @@ export default function TeacherPage() {
             )}
           </div>
         </section>
+
+        <div className="teacher-dashboard-feed">
+          <TeacherClassRegisterDashboardReminders />
+          <TeacherClassProgressDashboardReminders />
+          <TeacherAnnouncementBanner teacherId={teacherId} />
+          <TeacherMessageNotifications teacherId={teacherId} />
+          <FridayAt6DutyCard duty={fridayAt6Duty} />
+          <FridayTutorialAttendanceCard />
+          <FridayExamPracticeCard sessions={fridayExamPracticeSessions} />
+        </div>
       </main>
         );
       }}
