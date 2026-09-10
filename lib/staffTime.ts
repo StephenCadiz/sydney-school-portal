@@ -239,6 +239,113 @@ export type StaffTimeReportData = {
   teachers: StaffTimeReportTeacher[];
 };
 
+export type StaffTimeReportClockSession = {
+  id: string;
+  teacher_id: string;
+  work_date: string;
+  clocking_mode: "school_network" | "authorised_remote";
+  opened_at: string;
+};
+
+export type StaffTimeReportClockEvent = {
+  session_id: string;
+  event_type: "sign_in" | "sign_out";
+  occurred_at: string;
+  verification_result: string;
+};
+
+export type StaffTimeReportCorrection = {
+  id: string;
+  teacher_id: string;
+  work_date: string;
+  session_id: string | null;
+  requested_sign_in_at: string | null;
+  requested_sign_out_at: string | null;
+  reason: string;
+  submitted_at: string;
+  reviewed_at: string | null;
+  status: "pending" | "approved" | "rejected";
+};
+
+/**
+ * Merge clock sessions and approved corrections into the report's one
+ * authoritative record set. Date filtering is inclusive and defensive so a
+ * manually entered correction cannot disappear when no clock session exists.
+ */
+export function buildStaffTimeReportSessionViews(
+  sessions: StaffTimeReportClockSession[],
+  events: StaffTimeReportClockEvent[],
+  corrections: StaffTimeReportCorrection[],
+  startDate: string,
+  endDate: string
+) {
+  const inRange = (date: string) => date >= startDate && date <= endDate;
+  const eventsBySession = new Map<string, StaffTimeReportClockEvent[]>();
+  for (const event of events) {
+    const current = eventsBySession.get(event.session_id) || [];
+    eventsBySession.set(event.session_id, [...current, event]);
+  }
+  const approvedBySession = new Map<string, StaffTimeReportCorrection>();
+  for (const correction of corrections) {
+    if (correction.status !== "approved" || !correction.session_id || !inRange(correction.work_date)) {
+      continue;
+    }
+    const current = approvedBySession.get(correction.session_id);
+    const currentTime = current?.reviewed_at || current?.submitted_at || "";
+    const nextTime = correction.reviewed_at || correction.submitted_at;
+    if (!current || nextTime > currentTime) approvedBySession.set(correction.session_id, correction);
+  }
+  const views: Array<StaffTimeSessionView & { id: string; work_date: string }> = [];
+  const syntheticKeys = new Set<string>();
+  const includedSessionIds = new Set<string>();
+  for (const session of sessions) {
+    if (!inRange(session.work_date)) continue;
+    const sessionEvents = eventsBySession.get(session.id) || [];
+    const signIn = sessionEvents.find((event) => event.event_type === "sign_in") || null;
+    const signOut = sessionEvents.find((event) => event.event_type === "sign_out") || null;
+    const correction = approvedBySession.get(session.id) || null;
+    const view = {
+      id: session.id,
+      teacher_id: session.teacher_id,
+      work_date: session.work_date,
+      clocking_mode: session.clocking_mode,
+      original_sign_in_at: signIn?.occurred_at || session.opened_at,
+      original_sign_out_at: signOut?.occurred_at || null,
+      effective_sign_in_at: correction?.requested_sign_in_at || signIn?.occurred_at || session.opened_at,
+      effective_sign_out_at: correction?.requested_sign_out_at || signOut?.occurred_at || null,
+      corrected: Boolean(correction),
+      correction_reason: correction?.reason || null,
+      verification_result: signIn?.verification_result || "verified_school_network",
+    } satisfies StaffTimeSessionView & { id: string; work_date: string };
+    views.push(view);
+    includedSessionIds.add(session.id);
+    syntheticKeys.add(`${view.teacher_id}|${view.work_date}|${view.effective_sign_in_at || ""}|${view.effective_sign_out_at || ""}`);
+  }
+  for (const correction of corrections) {
+    if (correction.status !== "approved" || !inRange(correction.work_date)) continue;
+    if (correction.session_id && includedSessionIds.has(correction.session_id)) continue;
+    const key = `${correction.teacher_id}|${correction.work_date}|${correction.requested_sign_in_at || ""}|${correction.requested_sign_out_at || ""}`;
+    if (syntheticKeys.has(key)) continue;
+    syntheticKeys.add(key);
+    views.push({
+      id: `correction-${correction.id}`,
+      teacher_id: correction.teacher_id,
+      work_date: correction.work_date,
+      clocking_mode: "authorised_remote",
+      original_sign_in_at: "",
+      original_sign_out_at: null,
+      effective_sign_in_at: correction.requested_sign_in_at,
+      effective_sign_out_at: correction.requested_sign_out_at,
+      corrected: true,
+      correction_reason: correction.reason,
+      verification_result: "approved_correction",
+    });
+  }
+  return views.sort((left, right) =>
+    text(left.effective_sign_in_at).localeCompare(text(right.effective_sign_in_at))
+  );
+}
+
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/;
 

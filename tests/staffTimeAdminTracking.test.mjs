@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  buildStaffTimeReportSessionViews,
   canAdminManageStaffTimeRecord,
   isAdminTimeRegistrationRequired,
   staffTimeRoleLabel,
@@ -320,9 +321,60 @@ test("PDF and XLSX reports both identify each staff member's role", () => {
 test("PDF and XLSX routes build the same enrollment-aware report dataset", () => {
   assert.match(reportPdfRoute, /buildStaffTimeReport\(query\)/);
   assert.match(reportXlsxRoute, /buildStaffTimeReport\(query\)/);
+  assert.match(reportPdfRoute, /generateStaffTimePdf\(report\)/);
+  assert.match(reportXlsxRoute, /generateStaffTimeXlsx\(report\)/);
   assert.match(
     serverSource,
     /isAdminTimeRegistrationRequired\(profileEnrollmentEvents, date\)/
   );
   assert.match(serverSource, /No incluido en el registro de jornada/);
+});
+
+test("reports include inclusive manual records, exclude outside dates, and deduplicate linked corrections", () => {
+  const teacherId = "teacher-1";
+  const sessions = [{
+    id: "clock-10",
+    teacher_id: teacherId,
+    work_date: "2026-09-10",
+    clocking_mode: "school_network",
+    opened_at: "2026-09-10T16:00:00.000Z",
+  }];
+  const events = [
+    { session_id: "clock-10", event_type: "sign_in", occurred_at: "2026-09-10T16:00:00.000Z", verification_result: "verified_school_network" },
+    { session_id: "clock-10", event_type: "sign_out", occurred_at: "2026-09-10T17:30:00.000Z", verification_result: "verified_school_network" },
+  ];
+  const correction = (id, work_date, signIn, signOut, session_id = null) => ({
+    id,
+    teacher_id: teacherId,
+    work_date,
+    session_id,
+    requested_sign_in_at: signIn,
+    requested_sign_out_at: signOut,
+    reason: "Audited manual record",
+    submitted_at: `${work_date}T18:00:00.000Z`,
+    reviewed_at: `${work_date}T18:05:00.000Z`,
+    status: "approved",
+  });
+  const views = buildStaffTimeReportSessionViews(
+    sessions,
+    events,
+    [
+      correction("manual-07", "2026-09-07", "2026-09-07T16:00:00.000Z", "2026-09-07T17:30:00.000Z"),
+      correction("manual-08", "2026-09-08", "2026-09-08T16:00:00.000Z", "2026-09-08T17:30:00.000Z"),
+      correction("manual-09", "2026-09-09", "2026-09-09T16:00:00.000Z", "2026-09-09T17:30:00.000Z"),
+      correction("linked-10", "2026-09-10", "2026-09-10T16:00:00.000Z", "2026-09-10T17:30:00.000Z", "clock-10"),
+      correction("outside-06", "2026-09-06", "2026-09-06T16:00:00.000Z", "2026-09-06T17:30:00.000Z"),
+    ],
+    "2026-09-07",
+    "2026-09-10"
+  );
+  assert.deepEqual(views.map((view) => view.work_date), [
+    "2026-09-07",
+    "2026-09-08",
+    "2026-09-09",
+    "2026-09-10",
+  ]);
+  assert.equal(views.length, 4);
+  assert.equal(views.filter((view) => view.work_date === "2026-09-10").length, 1);
+  assert.equal(views.filter((view) => view.corrected).length, 4);
 });

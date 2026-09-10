@@ -6,6 +6,7 @@ import type { NextRequest } from "next/server";
 import { requireExamBankAdmin } from "./cambridgeExamBankServer";
 import {
   addCalendarDays,
+  buildStaffTimeReportSessionViews,
   enumerateDates,
   validateContractedWeeklyHours,
   getIsoWeekday,
@@ -516,69 +517,6 @@ function effectiveEmployment(
   );
 }
 
-function buildSessionViews(bundle: {
-  sessions: SessionRow[];
-  events: EventRow[];
-  corrections: CorrectionRow[];
-}) {
-  const eventsBySession = new Map<string, EventRow[]>();
-  for (const event of bundle.events) {
-    eventsBySession.set(event.session_id, [
-      ...(eventsBySession.get(event.session_id) || []),
-      event,
-    ]);
-  }
-  const approvedBySession = new Map<string, CorrectionRow>();
-  for (const correction of bundle.corrections) {
-    if (correction.status !== "approved" || !correction.session_id) continue;
-    const current = approvedBySession.get(correction.session_id);
-    const currentTime = current?.reviewed_at || current?.submitted_at || "";
-    const nextTime = correction.reviewed_at || correction.submitted_at;
-    if (!current || nextTime > currentTime) {
-      approvedBySession.set(correction.session_id, correction);
-    }
-  }
-  const views: StaffTimeSessionView[] = bundle.sessions.map((session) => {
-    const events = eventsBySession.get(session.id) || [];
-    const signIn = events.find((event) => event.event_type === "sign_in") || null;
-    const signOut = events.find((event) => event.event_type === "sign_out") || null;
-    const correction = approvedBySession.get(session.id) || null;
-    return {
-      id: session.id,
-      teacher_id: session.teacher_id,
-      work_date: session.work_date,
-      clocking_mode: session.clocking_mode,
-      original_sign_in_at: signIn?.occurred_at || session.opened_at,
-      original_sign_out_at: signOut?.occurred_at || null,
-      effective_sign_in_at:
-        correction?.requested_sign_in_at || signIn?.occurred_at || session.opened_at,
-      effective_sign_out_at: correction?.requested_sign_out_at || signOut?.occurred_at || null,
-      corrected: Boolean(correction),
-      correction_reason: correction?.reason || null,
-      verification_result: signIn?.verification_result || "verified_school_network",
-    };
-  });
-  for (const correction of bundle.corrections) {
-    if (correction.status !== "approved" || correction.session_id) continue;
-    views.push({
-      id: `correction-${correction.id}`,
-      teacher_id: correction.teacher_id,
-      work_date: correction.work_date,
-      clocking_mode: "authorised_remote",
-      original_sign_in_at: "",
-      original_sign_out_at: null,
-      effective_sign_in_at: correction.requested_sign_in_at,
-      effective_sign_out_at: correction.requested_sign_out_at,
-      corrected: true,
-      correction_reason: correction.reason,
-      verification_result: "approved_correction",
-    });
-  }
-  return views.sort((left, right) =>
-    text(left.effective_sign_in_at).localeCompare(text(right.effective_sign_in_at))
-  );
-}
-
 async function requestIpIsAuthorised(ip: string | null) {
   if (!ip) return false;
   const { data, error } = await supabaseAdmin.rpc("staff_match_allowed_network", {
@@ -640,7 +578,13 @@ export async function loadTeacherWorkingDay(actor: StaffTimeActor, requestIp: st
       }
     : null;
   const remoteAuthorised = remoteRows.length > 0;
-  const sessions = buildSessionViews(bundle);
+  const sessions = buildStaffTimeReportSessionViews(
+    bundle.sessions,
+    bundle.events,
+    bundle.corrections,
+    today,
+    today
+  );
   const pendingCorrectionCount = bundle.corrections.filter(
     (row) => row.status === "pending"
   ).length;
@@ -793,7 +737,13 @@ export async function loadAdminToday(actor: StaffTimeActor, requestIp: string | 
       loadIncidences(today, today, teacherIds),
       requestIpIsAuthorised(requestIp),
     ]);
-  const allSessionViews = buildSessionViews(bundle);
+  const allSessionViews = buildStaffTimeReportSessionViews(
+    bundle.sessions,
+    bundle.events,
+    bundle.corrections,
+    today,
+    today
+  );
   const closure = closures[0]
     ? { id: closures[0].id, name: closures[0].name, closure_type: closures[0].closure_type }
     : null;
@@ -904,7 +854,13 @@ export async function loadAdminTeacherArea(options: {
     teachers,
     selected: {
       teacher: teachers.find((teacher) => teacher.id === selectedId),
-      sessions: buildSessionViews(bundle),
+      sessions: buildStaffTimeReportSessionViews(
+        bundle.sessions,
+        bundle.events,
+        bundle.corrections,
+        startDate,
+        endDate
+      ),
       corrections: bundle.corrections,
       incidences,
       attempts: attempts.data || [],
@@ -1294,7 +1250,13 @@ export async function buildStaffTimeReport(input: {
         ? loadAdminEnrollmentEvents(input.endDate, adminIds)
         : Promise.resolve([] as StaffTimeAdminEnrollmentEvent[]),
     ]);
-  const sessionViews = buildSessionViews(bundle);
+  const sessionViews = buildStaffTimeReportSessionViews(
+    bundle.sessions,
+    bundle.events,
+    bundle.corrections,
+    input.startDate,
+    input.endDate
+  );
   const reportTeachers: StaffTimeReportTeacher[] = [];
   for (const profile of selectedProfiles) {
     const profileEnrollmentEvents = enrollmentEvents.filter(
