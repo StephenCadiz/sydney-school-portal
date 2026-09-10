@@ -389,6 +389,26 @@ export function wasAdminTimeRegistrationRequiredDuring(
   );
 }
 
+export function isStaffTimeTrackingEligible(
+  role: StaffTimeStaffRole,
+  employmentRecords: Pick<
+    StaffTimeEmploymentRecord,
+    "effective_from" | "effective_to" | "time_recording_enabled"
+  >[],
+  adminEnrollmentEvents: StaffTimeAdminEnrollmentEvent[],
+  date: string
+) {
+  if (role === "admin") {
+    return isAdminTimeRegistrationRequired(adminEnrollmentEvents, date);
+  }
+  return employmentRecords.some(
+    (record) =>
+      record.effective_from <= date &&
+      (!record.effective_to || record.effective_to >= date) &&
+      record.time_recording_enabled === true
+  );
+}
+
 export function canAdminManageStaffTimeRecord(actorId: string, staffId: string) {
   return Boolean(actorId && staffId && actorId !== staffId);
 }

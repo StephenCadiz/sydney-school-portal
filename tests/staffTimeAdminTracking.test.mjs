@@ -6,6 +6,7 @@ import {
   buildStaffTimeReportSessionViews,
   canAdminManageStaffTimeRecord,
   isAdminTimeRegistrationRequired,
+  isStaffTimeTrackingEligible,
   staffTimeRoleLabel,
   wasAdminTimeRegistrationRequiredDuring,
 } from "../lib/staffTime.ts";
@@ -164,6 +165,40 @@ test("identical effective dates and timestamps use the database ID tie-break", (
 test("Teacher and Admin staff labels are explicit", () => {
   assert.equal(staffTimeRoleLabel("teacher"), "Teacher");
   assert.equal(staffTimeRoleLabel("admin"), "Admin staff");
+});
+
+test("Staff tab eligibility includes only currently tracked staff", () => {
+  const today = "2026-09-10";
+  assert.equal(
+    isStaffTimeTrackingEligible(
+      "teacher",
+      [{ effective_from: "2026-01-01", effective_to: null, time_recording_enabled: true }],
+      [],
+      today
+    ),
+    true
+  );
+  assert.equal(
+    isStaffTimeTrackingEligible(
+      "teacher",
+      [{ effective_from: "2026-01-01", effective_to: null, time_recording_enabled: false }],
+      [],
+      today
+    ),
+    false
+  );
+  assert.equal(isStaffTimeTrackingEligible("admin", [], [enabled], today), true);
+  assert.equal(isStaffTimeTrackingEligible("admin", [], [disabled], today), false);
+});
+
+test("Staff dropdown is filtered independently from the historical Reports dropdown", () => {
+  assert.match(staffTimePage, /staffTabTeachers = teachers\.filter\(\(teacher\) => teacher\.staff_time_eligible\)/);
+  assert.match(staffTimePage, /staffTabTeachers\.map\(\(teacher\) => <option/);
+  assert.match(staffTimePage, /setSelectedTeacherId\(staffTabTeachers\[0\]\?\.id \|\| ""\)/);
+  assert.match(staffTimePage, /disabled=\{!staffTabTeachers\.length\}/);
+  assert.match(staffTimePage, /No staff members currently require time recording/);
+  assert.match(staffTimePage, /<option value="all">All enrolled staff<\/option>\{teachers\.map/);
+  assert.match(serverSource, /staff_time_eligible: isStaffTimeTrackingEligible/);
 });
 
 test("Teacher and Admin employment share whole-number contracted-hours validation", () => {

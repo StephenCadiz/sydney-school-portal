@@ -14,6 +14,7 @@ import {
   getMadridMinutes,
   getStaffTimeDayStatus,
   isAdminTimeRegistrationRequired,
+  isStaffTimeTrackingEligible,
   isIsoDate,
   madridLocalToIso,
   minutesBetween,
@@ -819,6 +820,12 @@ export async function loadAdminTeacherArea(options: {
     loadSchedules(configStart, "9999-12-31", allIds),
     loadRemoteAuthorisations(configStart, "9999-12-31", allIds, true),
   ]);
+  const currentAdminIds = profiles
+    .filter((profile) => profile.role === "admin")
+    .map((profile) => profile.id);
+  const currentAdminEnrollmentEvents = currentAdminIds.length
+    ? await loadAdminEnrollmentEvents(today, currentAdminIds)
+    : [];
   const teachers = profiles.map((profile) => ({
     id: profile.id,
     name: staffName(profile),
@@ -829,6 +836,12 @@ export async function loadAdminTeacherArea(options: {
     employment_records: employment.filter((record) => record.teacher_id === profile.id),
     schedules: schedules.filter((schedule) => schedule.teacher_id === profile.id),
     remote_authorisations: remotes.filter((remote) => remote.teacher_id === profile.id),
+    staff_time_eligible: isStaffTimeTrackingEligible(
+      profile.role,
+      employment.filter((record) => record.teacher_id === profile.id),
+      currentAdminEnrollmentEvents.filter((event) => event.admin_id === profile.id),
+      today
+    ),
   }));
   if (!selectedId) {
     return {

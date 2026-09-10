@@ -46,6 +46,7 @@ type TeacherSummary = {
   employment_records: any[];
   schedules: any[];
   remote_authorisations: any[];
+  staff_time_eligible: boolean;
 };
 
 const sections: Array<{ id: Section; label: string; icon: typeof Clock3 }> = [
@@ -234,11 +235,15 @@ export default function StaffTimeAdminPage() {
       const payload = await apiGet(params.toString());
       setTeacherData(payload);
       setCurrentAdminId(payload.current_admin_id || "");
-      if (!teacherId && payload.teachers?.length) {
-        setSelectedTeacherId(payload.teachers[0].id);
+      if (!teacherId) {
+        const initialTeacher =
+          section === "teachers"
+            ? payload.teachers?.find((teacher: TeacherSummary) => teacher.staff_time_eligible)
+            : payload.teachers?.[0];
+        setSelectedTeacherId(initialTeacher?.id || "");
       }
     },
-    [apiGet, historyEnd, historyStart, selectedTeacherId]
+    [apiGet, historyEnd, historyStart, section, selectedTeacherId]
   );
   const loadIncidences = useCallback(async () => {
     const params = new URLSearchParams({
@@ -286,6 +291,7 @@ export default function StaffTimeAdminPage() {
   }, [selectedTeacherId, section]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const teachers = (teacherData?.teachers || []) as TeacherSummary[];
+  const staffTabTeachers = teachers.filter((teacher) => teacher.staff_time_eligible);
   const selectedTeacher = teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
   const manualStaff = teachers.find(
     (teacher) => teacher.id === manualForm.teacher_id
@@ -296,6 +302,14 @@ export default function StaffTimeAdminPage() {
     selectedTeacher?.staff_role === "admin";
   const currentEmployment = selectedTeacher?.employment_records.find((row) => !row.effective_to) || null;
   const currentSchedule = selectedTeacher?.schedules.find((row) => !row.effective_to) || null;
+
+  useEffect(() => {
+    if (section !== "teachers" || !teacherData) return;
+    if (selectedTeacherId && staffTabTeachers.some((teacher) => teacher.id === selectedTeacherId)) {
+      return;
+    }
+    setSelectedTeacherId(staffTabTeachers[0]?.id || "");
+  }, [section, selectedTeacherId, staffTabTeachers, teacherData]);
 
   useEffect(() => {
     if (!selectedTeacher) return;
@@ -612,12 +626,14 @@ export default function StaffTimeAdminPage() {
               <section className="staff-time-section" aria-labelledby="staff-time-teachers-title">
                 <div className="staff-time-section-heading">
                   <div><h2 id="staff-time-teachers-title">Staff members</h2><p>Teacher and tracked Admin employment terms, schedules, remote work and record audit.</p></div>
-                  <label className="staff-time-inline-control">Staff member<select value={selectedTeacherId} onChange={(event) => { setSelectedTeacherId(event.target.value); setTeacherData((data: any) => ({ ...data, selected: null })); }}>
-                    {teachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name} · {teacher.staff_role_label}{teacher.active ? "" : " (inactive)"}</option>)}
+                  <label className="staff-time-inline-control">Staff member<select value={selectedTeacherId} onChange={(event) => { setSelectedTeacherId(event.target.value); setTeacherData((data: any) => ({ ...data, selected: null })); }} disabled={!staffTabTeachers.length}>
+                    {staffTabTeachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name} · {teacher.staff_role_label}{teacher.active ? "" : " (inactive)"}</option>)}
                   </select></label>
                 </div>
 
-                {selectedTeacher && (
+                {!staffTabTeachers.length && <p className="staff-time-history-note">No staff members currently require time recording.</p>}
+
+                {selectedTeacher && staffTabTeachers.some((teacher) => teacher.id === selectedTeacher.id) && (
                   <div className="staff-time-teacher-admin-grid">
                     <form className="staff-time-form-panel" onSubmit={saveEmployment}>
                       <div className="staff-time-form-panel-heading"><UserRoundCog aria-hidden="true" size={19} /><div><h3>Employment information</h3><p>Names are sourced from the legal profile and snapshotted in each effective record.</p></div></div>
