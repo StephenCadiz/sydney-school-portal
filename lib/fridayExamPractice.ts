@@ -422,10 +422,40 @@ export async function updateFridayAt6Duty(id: string, updates: any) {
 }
 
 export async function deleteFridayAt6Duty(id: string) {
+  const { data: duty, error: lookupError } = await supabase
+    .from("friday_at_6_duties")
+    .select("id, teacher_id, b1_teacher_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw new Error(formatSupabaseError("duty lookup", lookupError));
+  }
+
+  if (!duty) return;
+
+  if (duty.b1_teacher_id) {
+    const { data, error } = await supabase
+      .from("friday_at_6_duties")
+      .update({ teacher_id: null })
+      .eq("id", duty.id)
+      .eq("teacher_id", duty.teacher_id)
+      .select("id")
+      .single();
+
+    if (error || !data) {
+      throw new Error(
+        formatSupabaseError("general duty removal", error || new Error("No duty row was updated."))
+      );
+    }
+
+    return;
+  }
+
   const { error } = await supabase
     .from("friday_at_6_duties")
     .delete()
-    .eq("id", id);
+    .eq("id", duty.id);
 
   if (error) {
     throw new Error(formatSupabaseError("duty delete", error));

@@ -153,6 +153,7 @@ export default function FridayAt6Page() {
   const [loading, setLoading] = useState(true);
   const [savingExam, setSavingExam] = useState(false);
   const [savingDuty, setSavingDuty] = useState(false);
+  const [deletingDutyId, setDeletingDutyId] = useState("");
   const [message, setMessage] = useState("");
   const [examBankExams, setExamBankExams] = useState<CambridgeExamRecord[]>([]);
   const [selectedExamId, setSelectedExamId] = useState("");
@@ -463,18 +464,35 @@ export default function FridayAt6Page() {
     }
   }
 
-  async function removeDuty(id: string) {
-    if (!confirm("Delete the tutorial duty assignments for this Friday?")) return;
+  async function removeDuty(duty: any) {
+    if (deletingDutyId) return;
 
+    const assignedTeachers = [duty.teacher_name, duty.b1_teacher_name]
+      .filter((name) => name && name !== "Not required" && name !== "Not assigned")
+      .join(" and ");
+    const teacherSummary = assignedTeachers || "no named teachers";
+    if (
+      !confirm(
+        `Delete the tutorial duty for ${formatDate(
+          duty.effective_session_date || duty.session_date
+        )}? Assigned teachers: ${teacherSummary}.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingDutyId(duty.id);
     setMessage("");
 
     try {
-      await deleteFridayAt6Duty(id);
+      await deleteFridayAt6Duty(duty.id);
       setMessage("Friday @ 6 duties deleted.");
       await loadPageData();
     } catch (error: any) {
       console.error(error);
       setMessage(error?.message || "Unable to delete Friday @ 6 duties.");
+    } finally {
+      setDeletingDutyId("");
     }
   }
 
@@ -786,10 +804,11 @@ export default function FridayAt6Page() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => removeDuty(duty.id)}
+                              onClick={() => removeDuty(duty)}
+                              disabled={deletingDutyId === duty.id}
                               className="friday-six-general-delete"
                             >
-                              Delete
+                              {deletingDutyId === duty.id ? "Deleting..." : "Delete"}
                             </button>
                           </div>
                         </td>
