@@ -15,6 +15,7 @@ import {
 import { isValidClassId, validateAdminClassPayload } from "./adminClassServer";
 import { getCurrentAcademicYearServer } from "./academicYearsServer";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { madridEnrolmentDate } from "./classEnrolment";
 
 const ROLLOVER_SELECT =
   "id, source_academic_year_id, target_academic_year_id, status, created_by, updated_by, applied_by, applied_at, created_at, updated_at";
@@ -235,6 +236,7 @@ async function ensureRolloverStudents(
   if (!classes.length) return;
 
   const referenceData = references || (await loadReferenceData());
+  const sourceDate = await rolloverSourceDate(rollover.source_academic_year_id);
   const classIds = classes.map((classroom) => String(classroom.id));
   const classMap = new Map(classes.map((classroom) => [String(classroom.id), classroom]));
 
@@ -245,19 +247,25 @@ async function ensureRolloverStudents(
         .select("profile_student_id, young_learner_id")
         .eq("rollover_id", rollover.id),
       supabaseAdmin
-        .from("class_enrolments")
-        .select("student_id, class_id, enrolled_at")
+        .from("class_enrolment_periods")
+        .select("student_id, class_id, enrolled_at:starts_on")
+        .eq("student_type", "profile").is("cancelled_at", null)
+        .lte("starts_on", sourceDate).or(`ends_before.is.null,ends_before.gt.${sourceDate}`)
         .in("class_id", classIds)
-        .order("enrolled_at", { ascending: false }),
+        .order("starts_on", { ascending: false }),
       supabaseAdmin
-        .from("young_learner_enrolments")
-        .select("young_learner_id, class_id, enrolled_at, created_at")
+        .from("class_enrolment_periods")
+        .select("young_learner_id, class_id, enrolled_at:starts_on, created_at")
+        .eq("student_type", "young_learner").is("cancelled_at", null)
+        .lte("starts_on", sourceDate).or(`ends_before.is.null,ends_before.gt.${sourceDate}`)
         .in("class_id", classIds)
-        .order("enrolled_at", { ascending: false })
+        .order("starts_on", { ascending: false })
         .order("created_at", { ascending: false }),
       supabaseAdmin
-        .from("young_learners")
-        .select("id, class_id")
+        .from("class_enrolment_periods")
+        .select("id:young_learner_id, class_id")
+        .eq("student_type", "young_learner").is("cancelled_at", null)
+        .lte("starts_on", sourceDate).or(`ends_before.is.null,ends_before.gt.${sourceDate}`)
         .in("class_id", classIds),
     ]);
 
@@ -462,7 +470,7 @@ function buildSummary(
     different_level: count("different_level"),
     not_returning: count("not_returning"),
     decide_later: count("decide_later"),
-    applied: students.filter((student) => Boolean(student.applied_at)).length,
+    applied: students.filter((student) => Boolean(student.applied_at) && !student.period_preview.conflict).length,
     ready_not_applied: students.filter(
       (student) => student.decision !== "decide_later" && !student.applied_at
     ).length,
@@ -512,6 +520,14 @@ export async function getAcademicYearRolloverWorkspace(
   ]);
   if (mappingResult.error) throw mappingResult.error;
   if (decisionResult.error) throw decisionResult.error;
+
+  const { data: periodPreviews, error: periodPreviewError } = await supabaseAdmin.rpc("preview_academic_year_rollover_periods", {
+    p_rollover_id: rollover.id, p_actor_id: actorId,
+  });
+  if (periodPreviewError) throw periodPreviewError;
+  const previewByDecision = new Map<string, RolloverStudent["period_preview"]>(
+    (periodPreviews || []).map((row: RolloverStudent["period_preview"] & { decision_id: string }) => [row.decision_id, row])
+  );
 
   const mappingBySource = new Map(
     (mappingResult.data || []).map((mapping) => [
@@ -603,6 +619,9 @@ export async function getAcademicYearRolloverWorkspace(
         notes: text(decisionRow.notes),
         applied_at: decisionRow.applied_at || null,
         updated_at: String(decisionRow.updated_at || ""),
+        period_preview: previewByDecision.get(String(decisionRow.id)) || {
+          period_action: "unavailable", starts_on: null, conflict: "Reload to verify this assignment.", cancelled_periods: 0,
+        },
       } satisfies RolloverStudent;
     })
     .filter((student): student is RolloverStudent => Boolean(student))
@@ -806,18 +825,30 @@ export async function applyAcademicYearRollover(
   return Array.isArray(data) ? data[0] : data;
 }
 
+async function rolloverSourceDate(academicYearId: string) {
+  const [year] = await loadAcademicYears([academicYearId]);
+  if (!year) throw new AcademicYearRolloverError("Source academic year not found.", 404);
+  const today = madridEnrolmentDate();
+  return today < year.start_date ? year.start_date : today > year.end_date ? year.end_date : today;
+}
+
 async function countSourceYearStudents(academicYearId: string) {
   const classes = await loadAnnualClasses(academicYearId);
   const classIds = classes.map((classroom) => String(classroom.id));
   if (!classIds.length) return 0;
+  const sourceDate = await rolloverSourceDate(academicYearId);
   const [profileResult, youngResult] = await Promise.all([
     supabaseAdmin
-      .from("class_enrolments")
+      .from("class_enrolment_periods")
       .select("student_id")
+      .eq("student_type", "profile").is("cancelled_at", null)
+      .lte("starts_on", sourceDate).or(`ends_before.is.null,ends_before.gt.${sourceDate}`)
       .in("class_id", classIds),
     supabaseAdmin
-      .from("young_learner_enrolments")
+      .from("class_enrolment_periods")
       .select("young_learner_id")
+      .eq("student_type", "young_learner").is("cancelled_at", null)
+      .lte("starts_on", sourceDate).or(`ends_before.is.null,ends_before.gt.${sourceDate}`)
       .in("class_id", classIds),
   ]);
   if (profileResult.error) throw profileResult.error;
@@ -895,10 +926,15 @@ export async function getAcademicYearSwitchReadiness(
 
   const { data: decisions, error: decisionError } = await supabaseAdmin
     .from("academic_year_rollover_students")
-    .select("decision, target_class_id, applied_at")
+    .select("decision, target_class_id, applied_at, enrolment_period_id")
     .eq("rollover_id", rollover.id);
   if (decisionError) throw decisionError;
   const rows = decisions || [];
+  const periodIds = rows.map(row => text(row.enrolment_period_id)).filter(Boolean);
+  const periods = periodIds.length ? await supabaseAdmin.from("class_enrolment_periods")
+    .select("id").in("id", periodIds).is("cancelled_at", null) : { data: [], error: null };
+  if (periods.error) throw periods.error;
+  const validPeriods = new Set((periods.data || []).map(period => period.id));
 
   return {
     target_academic_year_id: targetYear.id,
@@ -909,7 +945,7 @@ export async function getAcademicYearSwitchReadiness(
     classes_prepared: targetClasses.length,
     total_students: rows.length,
     students_assigned: rows.filter(
-      (row) => row.target_class_id && row.applied_at
+      (row) => row.target_class_id && row.applied_at && validPeriods.has(row.enrolment_period_id)
     ).length,
     planned_assignments: rows.filter((row) => row.target_class_id).length,
     not_returning: rows.filter((row) => row.decision === "not_returning").length,

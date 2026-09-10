@@ -99,7 +99,7 @@ export async function loadTeacherAuthorisedStudentClassInfo(
 
   const eligibleStudentIds = students.map((student) => String(student.id));
   const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-    .from("class_enrolments")
+    .from("current_class_enrolments")
     .select("student_id, class_id")
     .in("student_id", eligibleStudentIds);
   if (enrolmentError) throw enrolmentError;

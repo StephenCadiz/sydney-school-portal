@@ -1,7 +1,6 @@
 import { supabase } from "./supabase";
 import { getCurrentAcademicYear } from "./academicYears";
 import {
-  classUsesAcademicYear,
   resolveCurrentStudentClass,
 } from "./academicYearRules";
 
@@ -83,20 +82,6 @@ function normalizeLevelName(levelName: string | null | undefined) {
 
 function normalizeLevelCategory(category: string | null | undefined) {
   return String(category || "").trim().toLowerCase();
-}
-
-function getMadridDateString(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Madrid",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const year = parts.find((part) => part.type === "year")?.value || "";
-  const month = parts.find((part) => part.type === "month")?.value || "";
-  const day = parts.find((part) => part.type === "day")?.value || "";
-
-  return `${year}-${month}-${day}`;
 }
 
 function isSupportLevel(
@@ -315,7 +300,7 @@ export async function getStudents() {
   }
 
   const { data: enrolments, error: enrolmentsError } = await supabase
-    .from("class_enrolments")
+    .from("current_class_enrolments")
     .select("student_id, class_id, enrolled_at")
     .in("student_id", studentIds)
     .order("enrolled_at", { ascending: false });
@@ -406,7 +391,7 @@ export async function getAdminCambridgeStudentDirectory(): Promise<
   }
 
   const { data: enrolments, error: enrolmentsError } = await supabase
-    .from("class_enrolments")
+    .from("current_class_enrolments")
     .select("student_id, class_id, enrolled_at")
     .in("student_id", studentIds)
     .order("enrolled_at", { ascending: false });
@@ -483,7 +468,7 @@ export async function getAdminYoungLearnerDirectory(): Promise<
   AdminYoungLearnerDirectoryRow[]
 > {
   const { data, error } = await supabase
-    .from("young_learners")
+    .from("current_young_learners")
     .select("id, first_name, last_name, class_id, active, created_at")
     .order("first_name");
 
@@ -548,110 +533,6 @@ export async function updateStudent(studentId: string, data: any) {
   }
 }
 
-export async function updateStudentClass(
-  studentId: string,
-  classId: string
-) {
-  const { data: targetClass, error: targetClassError } = await supabase
-    .from("classes")
-    .select("id, course_type, academic_year_id")
-    .eq("id", classId)
-    .maybeSingle();
-
-  if (targetClassError || !targetClass) {
-    console.error("updateStudentClass target class error:", targetClassError);
-    throw new Error("The selected class is not available.");
-  }
-
-  const targetUsesAcademicYear = classUsesAcademicYear(targetClass.course_type);
-  if (targetUsesAcademicYear && !targetClass.academic_year_id) {
-    throw new Error(
-      "Assign an academic year to this class before enrolling a student."
-    );
-  }
-
-  const { data: enrolments, error: enrolmentsError } = await supabase
-    .from("class_enrolments")
-    .select("student_id, class_id")
-    .eq("student_id", studentId);
-
-  if (enrolmentsError) {
-    console.error("updateStudentClass lookup error:", enrolmentsError);
-    throw enrolmentsError;
-  }
-
-  if (
-    (enrolments || []).some(
-      (enrolment) => String(enrolment.class_id || "") === String(classId)
-    )
-  ) {
-    return;
-  }
-
-  if (targetUsesAcademicYear && enrolments?.length) {
-    const existingClassIds = enrolments
-      .map((enrolment) => String(enrolment.class_id || ""))
-      .filter(Boolean);
-    const { data: enrolledClasses, error: enrolledClassesError } = await supabase
-      .from("classes")
-      .select("id, course_type, academic_year_id")
-      .in("id", existingClassIds);
-
-    if (enrolledClassesError) {
-      console.error(
-        "updateStudentClass existing class lookup error:",
-        enrolledClassesError
-      );
-      throw enrolledClassesError;
-    }
-
-    const sameYearClasses = (enrolledClasses || []).filter(
-      (classroom) =>
-        classUsesAcademicYear(classroom.course_type) &&
-        String(classroom.academic_year_id || "") ===
-          String(targetClass.academic_year_id)
-    );
-
-    if (sameYearClasses.length > 1) {
-      throw new Error(
-        "This student has more than one enrolment in the selected academic year."
-      );
-    }
-
-    if (sameYearClasses.length === 1) {
-      const { error } = await supabase
-        .from("class_enrolments")
-        .update({
-          class_id: classId,
-          enrolled_at: getMadridDateString(),
-        })
-        .eq("student_id", studentId)
-        .eq("class_id", sameYearClasses[0].id);
-
-      if (error) {
-        console.error("updateStudentClass same-year update error:", error);
-        throw error;
-      }
-
-      return;
-    }
-  }
-
-  const { error } = await supabase
-    .from("class_enrolments")
-    .insert([
-      {
-        student_id: studentId,
-        class_id: classId,
-        enrolled_at: getMadridDateString(),
-      },
-    ]);
-
-  if (error) {
-    console.error("updateStudentClass insert error:", error);
-    throw error;
-  }
-}
 
 export async function getCambridgeClassesForStudentInvite() {
   const { classes, levels, classrooms } = await getClassReferenceData();
@@ -725,7 +606,7 @@ export async function getCambridgeClassesForBulkCreate(): Promise<
   const { data: enrolments, error: enrolmentsError } =
     studentIds.length > 0
       ? await supabase
-          .from("class_enrolments")
+          .from("current_class_enrolments")
           .select("student_id, class_id")
           .in("student_id", studentIds)
       : { data: [], error: null };
@@ -855,7 +736,7 @@ export async function getYoungLearnerClassesForBulkCreate(): Promise<
 
   const { data: activeYoungLearners, error: youngLearnersError } =
     await supabase
-      .from("young_learners")
+      .from("current_young_learners")
       .select("id, class_id")
       .eq("active", true);
 
@@ -928,7 +809,7 @@ export async function getYoungLearnerClassesForBulkCreate(): Promise<
 
 export async function getYoungLearners() {
   const { data, error } = await supabase
-    .from("young_learners")
+    .from("current_young_learners")
     .select("id, first_name, last_name, class_id, active, created_at")
     .order("first_name");
 

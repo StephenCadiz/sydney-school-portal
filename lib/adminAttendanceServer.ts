@@ -246,7 +246,7 @@ async function loadEntries(registerIds: string[]) {
   const rows: RawEntry[] = [];
   for (const registerIdChunk of chunks(registerIds)) {
     const { data, error } = await supabaseAdmin
-      .from("class_register_entries")
+      .from("eligible_class_register_entries")
       .select(
         "id, register_id, student_type, profile_student_id, young_learner_id, attendance_status"
       )
@@ -290,7 +290,7 @@ async function loadYoungLearners(learnerIds: string[]) {
   const rows: PersonRecord[] = [];
   for (const learnerIdChunk of chunks(learnerIds)) {
     const { data, error } = await supabaseAdmin
-      .from("young_learners")
+      .from("current_young_learners")
       .select("id, first_name, last_name, class_id, active")
       .in("id", learnerIdChunk);
     if (error) throw error;
@@ -319,15 +319,15 @@ async function loadDataset(classRows: RawClass[]): Promise<AttendanceDataset> {
     await Promise.all([
       loadRegisters(classIds),
       supabaseAdmin
-        .from("class_enrolments")
-        .select("class_id, student_id")
+        .from("class_enrolment_periods")
+        .select("class_id, student_id").is("cancelled_at", null).eq("student_type", "profile")
         .in("class_id", classIds),
       supabaseAdmin
-        .from("young_learner_enrolments")
-        .select("class_id, young_learner_id")
+        .from("class_enrolment_periods")
+        .select("class_id, young_learner_id").is("cancelled_at", null).eq("student_type", "young_learner")
         .in("class_id", classIds),
       supabaseAdmin
-        .from("young_learners")
+        .from("current_young_learners")
         .select("id, class_id")
         .in("class_id", classIds),
     ]);
@@ -895,7 +895,7 @@ export async function searchAdminAttendanceStudents(
       .select("id, first_name, last_name, email, active")
       .eq("role", "student"),
     supabaseAdmin
-      .from("young_learners")
+      .from("current_young_learners")
       .select("id, first_name, last_name, class_id, active"),
     loadAcademicYearScope(),
   ]);
@@ -924,7 +924,7 @@ export async function searchAdminAttendanceStudents(
     .map((item) => text(item.student.id));
   const enrolmentsResult = matchedProfileIds.length
     ? await supabaseAdmin
-        .from("class_enrolments")
+        .from("current_class_enrolments")
         .select("student_id, class_id")
         .in("student_id", matchedProfileIds)
     : { data: [], error: null };
@@ -1025,7 +1025,7 @@ export async function getAdminAttendanceStudentDetails(
           .eq("role", "student")
           .maybeSingle()
       : supabaseAdmin
-          .from("young_learners")
+          .from("current_young_learners")
           .select("id, first_name, last_name, active, class_id")
           .eq("id", studentId)
           .maybeSingle(),

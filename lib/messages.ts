@@ -70,7 +70,7 @@ async function enrichTeacherMessages(messages: any[]) {
   const { data: enrolments, error: enrolmentsError } =
     studentIds.length > 0
       ? await supabase
-          .from("class_enrolments")
+          .from("current_class_enrolments")
           .select("student_id, class_id")
           .in("student_id", studentIds)
       : { data: [], error: null };

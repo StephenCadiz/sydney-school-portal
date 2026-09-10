@@ -50,7 +50,7 @@ export async function POST(
     const entry = parseClassPointsEntry(body);
 
     const { data: learner, error: learnerError } = await supabaseAdmin
-      .from("young_learners")
+      .from("current_young_learners")
       .select("id")
       .eq("id", entry.youngLearnerId)
       .eq("class_id", context.classId)

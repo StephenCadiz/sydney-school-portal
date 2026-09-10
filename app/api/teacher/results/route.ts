@@ -110,8 +110,9 @@ function buildLevels(classes: TeacherResultClassOption[]) {
 
 async function getCambridgeRosters(classIds: string[]) {
   const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-    .from("class_enrolments")
-    .select("class_id, student_id")
+    .from("class_enrolment_periods")
+    .select("class_id, student_id").is("cancelled_at", null)
+    .eq("student_type", "profile")
     .in("class_id", classIds);
 
   if (enrolmentError) throw enrolmentError;
@@ -139,7 +140,7 @@ async function getCambridgeRosters(classIds: string[]) {
 
 async function getYoungLearnerCounts(classIds: string[]) {
   const { data, error } = await supabaseAdmin
-    .from("young_learners")
+    .from("current_young_learners")
     .select("id, class_id")
     .eq("active", true)
     .in("class_id", classIds);
@@ -338,7 +339,7 @@ async function loadFridayRows(classIds: string[]): Promise<FridaySourceRow[]> {
   if (validSheets.length === 0) return [];
 
   const { data: results, error: resultError } = await supabaseAdmin
-    .from("friday_tutorial_results")
+    .from("eligible_friday_tutorial_results")
     .select("result_sheet_id, student_id, percentage, attended")
     .in("result_sheet_id", validSheets.map((sheet) => sheet.id));
 

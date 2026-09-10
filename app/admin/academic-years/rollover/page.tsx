@@ -313,6 +313,8 @@ export default function AcademicYearRolloverPage() {
       setIsError(false);
       return;
     }
+    if (workspace.students.some(student => student.applied_at && dirtyStudentIds.has(student.id)) &&
+      !window.confirm("Revising an applied future assignment will cancel its old enrolment period and retain its history. Save the revised decision, then apply it to create the new period. Already-started periods require the normal enrolment correction controls.")) return;
     setBusy(true);
     setMessage("");
     setIsError(false);
@@ -951,6 +953,13 @@ export default function AcademicYearRolloverPage() {
                               <div className={`${styles.decisionStatus} ${student.applied_at ? styles.applied : ""}`}>
                                 {student.applied_at ? "Applied" : dirtyStudentIds.has(student.id) ? "Unsaved" : "Saved"}
                               </div>
+                              <p>
+                                {dirtyStudentIds.has(student.id) ? "Save the decision to refresh its checked period preview." :
+                                  student.period_preview.conflict || (student.period_preview.period_action === "create_period"
+                                    ? `Will enrol from ${student.period_preview.starts_on} (included).`
+                                    : student.period_preview.period_action === "keep_applied" ? "Existing applied period retained; applying again makes no change." : "No target enrolment period will be created.")}
+                                {student.period_preview.cancelled_periods > 0 && ` ${student.period_preview.cancelled_periods} cancelled future period(s) retained in enrolment history.`}
+                              </p>
                             </article>
                           );
                         })}

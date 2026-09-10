@@ -122,10 +122,12 @@ export async function GET(request: NextRequest) {
         .eq("role", "student")
         .maybeSingle(),
       supabaseAdmin
-        .from("class_enrolments")
-        .select("class_id, student_id")
+        .from("class_enrolment_periods")
+        .select("class_id, student_id").is("cancelled_at", null)
         .eq("class_id", classId)
+        .eq("student_type", "profile")
         .eq("student_id", studentId)
+        .limit(1)
         .maybeSingle(),
     ]);
 
@@ -311,7 +313,7 @@ export async function GET(request: NextRequest) {
     const [fridayResultsResult, followUpEntriesResult] = await Promise.all([
       sheetIds.length
         ? supabaseAdmin
-            .from("friday_tutorial_results")
+            .from("eligible_friday_tutorial_results")
             .select("id, result_sheet_id, percentage, attended")
             .eq("student_id", studentId)
             .in("result_sheet_id", sheetIds)

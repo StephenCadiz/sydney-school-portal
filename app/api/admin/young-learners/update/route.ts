@@ -122,7 +122,9 @@ export async function POST(request: NextRequest) {
     const youngLearnerId = normalizeRequiredString(body.young_learner_id);
     const firstName = normalizeRequiredString(body.first_name);
     const lastName = normalizeRequiredString(body.last_name);
-    const classId = normalizeRequiredString(body.class_id);
+    if (body.class_id !== undefined) {
+      return jsonError("Use the effective-dated enrolment controls to change class.", 400);
+    }
 
     if (!youngLearnerId) {
       return jsonError("Young Learner is required.", 400);
@@ -140,9 +142,6 @@ export async function POST(request: NextRequest) {
       return jsonError(lastNameError, 400);
     }
 
-    if (!classId) {
-      return jsonError("Class is required.", 400);
-    }
 
     const { data: youngLearner, error: youngLearnerError } = await supabaseAdmin
       .from("young_learners")
@@ -158,30 +157,11 @@ export async function POST(request: NextRequest) {
       return jsonError("Young Learner not found.", 404);
     }
 
-    const { data: classroom, error: classError } = await supabaseAdmin
-      .from("classes")
-      .select("id, is_cambridge")
-      .eq("id", classId)
-      .single();
-
-    if (classError) {
-      console.error(
-        "Young Learner update class validation failed:",
-        formatError(classError)
-      );
-      return jsonError("The selected Young Learner class is not valid.", 400);
-    }
-
-    if (!classroom || classroom.is_cambridge === true) {
-      return jsonError("The selected Young Learner class is not valid.", 400);
-    }
-
     const { data: updatedLearner, error: updateError } = await supabaseAdmin
       .from("young_learners")
       .update({
         first_name: firstName,
         last_name: lastName,
-        class_id: classId,
       })
       .eq("id", youngLearnerId)
       .select("id, first_name, last_name, class_id, active, created_at")

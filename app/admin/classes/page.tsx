@@ -671,6 +671,8 @@ const blockerLabels: Record<string, string> = {
   attendance_alerts: "Attendance Alerts",
   class_progress_entries: "Class Progress Records",
   class_enrolments: "Cambridge Enrolment History",
+  class_enrolment_periods: "Effective-dated Enrolment Periods",
+  class_enrolment_period_events: "Enrolment Audit Events",
   young_learner_enrolments: "Young Learner Enrolment History",
   young_learner_notes: "Young Learner Notes",
   young_learner_class_point_entries: "Young Learner Class Points",

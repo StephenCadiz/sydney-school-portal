@@ -174,7 +174,7 @@ async function loadProgressRows(studentId: string, classId?: string) {
   const todayMadrid = getMadridDateString();
 
   const { data: resultRows, error: resultError } = await supabaseAdmin
-    .from("friday_tutorial_results")
+    .from("eligible_friday_tutorial_results")
     .select("id, result_sheet_id, percentage, attended")
     .eq("student_id", studentId);
 

@@ -511,12 +511,12 @@ export default function AdminDashboard() {
           await Promise.all([
           studentIds.length > 0
             ? supabase
-                .from("class_enrolments")
+                .from("current_class_enrolments")
                 .select("student_id, class_id")
                 .in("student_id", studentIds)
             : { data: [], error: null },
           supabase
-            .from("young_learners")
+            .from("current_young_learners")
             .select("id, class_id")
             .eq("active", true),
           supabase.from("levels").select("id, name"),

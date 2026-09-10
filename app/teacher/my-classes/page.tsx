@@ -405,13 +405,13 @@ export default function MyClassesPage() {
               : Promise.resolve({ data: [], error: null }),
             classIds.length
               ? supabase
-                  .from("class_enrolments")
+                  .from("current_class_enrolments")
                   .select("class_id, student_id")
                   .in("class_id", classIds)
               : Promise.resolve({ data: [], error: null }),
             classIds.length
               ? supabase
-                  .from("young_learners")
+                  .from("current_young_learners")
                   .select("id, class_id")
                   .in("class_id", classIds)
                   .eq("active", true)

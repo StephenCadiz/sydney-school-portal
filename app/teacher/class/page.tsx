@@ -280,7 +280,7 @@ if (classResult.data) {
 }
 
     const enrolments = await supabase
-      .from("class_enrolments")
+      .from("current_class_enrolments")
       .select("*")
       .eq("class_id", classId);
 
@@ -299,7 +299,7 @@ if (classResult.data) {
     }
 
     const youngLearnerResult = await supabase
-      .from("young_learners")
+      .from("current_young_learners")
       .select("id, first_name, last_name, active")
       .eq("class_id", classId)
       .eq("active", true)

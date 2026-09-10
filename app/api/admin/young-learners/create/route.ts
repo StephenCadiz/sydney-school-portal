@@ -1,3 +1,4 @@
+import { validateInitialEnrolment } from "../../../../../lib/classEnrolmentServer";
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
@@ -113,6 +114,10 @@ export async function POST(request: NextRequest) {
     const firstName = body.first_name?.trim();
     const lastName = body.last_name?.trim();
     const classId = body.class_id?.trim();
+    const startsOn = String(body.enrolment_starts_on || "");
+    if (!classId) return jsonError("Class is required.", 400);
+    const enrolmentValidation = await validateInitialEnrolment(classId, "young_learner", startsOn);
+    if (enrolmentValidation) return jsonError(enrolmentValidation, 422);
 
     if (!firstName || !lastName || !classId) {
       return jsonError("First name, last name, and class are required.", 400);
@@ -136,16 +141,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { error: insertError } = await supabaseAdmin
-      .from("young_learners")
-      .insert([
-        {
-          first_name: firstName,
-          last_name: lastName,
-          class_id: classId,
-          active: true,
-        },
-      ]);
+    const { error: insertError } = await supabaseAdmin.rpc("create_young_learner_enrolments", {
+      p_actor_id: adminCheck.user!.id,
+      p_class_id: classId,
+      p_starts_on: startsOn,
+      p_students: [{ first_name: firstName, last_name: lastName }],
+    });
 
     if (insertError) {
       console.error("Young Learner insert failed:", formatError(insertError));

@@ -347,10 +347,12 @@ async function getCurrentEligibleStudentRows(
   sessionDate: string
 ): Promise<FridayTutorialTeacherSheetStudentRow[]> {
   const { data: enrolments, error } = await supabaseAdmin
-    .from("class_enrolments")
-    .select("student_id, enrolled_at")
+    .from("class_enrolment_periods")
+    .select("student_id").is("cancelled_at", null)
     .eq("class_id", classId)
-    .lte("enrolled_at", sessionDate);
+    .eq("student_type", "profile")
+    .lte("starts_on", sessionDate)
+    .or(`ends_before.is.null,ends_before.gt.${sessionDate}`);
 
   if (error) {
     console.error("Friday tutorial enrolment load failed:", formatError(error));
@@ -379,7 +381,7 @@ async function getSavedResultStudentRows(
   resultSheetId: string
 ): Promise<FridayTutorialTeacherSheetStudentRow[]> {
   const { data: results, error } = await supabaseAdmin
-    .from("friday_tutorial_results")
+    .from("eligible_friday_tutorial_results")
     .select("id, student_id, percentage, attended, updated_at")
     .eq("result_sheet_id", resultSheetId)
     .order("created_at", { ascending: true });
@@ -426,9 +428,10 @@ async function verifyCurrentStudentEnrolment(
   const [{ data: enrolment, error: enrolmentError }, { data: profile, error: profileError }] =
     await Promise.all([
       supabaseAdmin
-        .from("class_enrolments")
-        .select("student_id, enrolled_at")
+        .from("class_enrolment_periods")
+        .select("student_id").is("cancelled_at", null)
         .eq("class_id", classId)
+        .eq("student_type", "profile")
         .eq("student_id", studentId)
         .limit(1)
         .maybeSingle(),
@@ -460,7 +463,7 @@ async function getStudentWorkspaceSessions(
   const { data: savedResults, error: savedResultsError } =
     sheetIds.length > 0
       ? await supabaseAdmin
-          .from("friday_tutorial_results")
+          .from("eligible_friday_tutorial_results")
           .select("id, result_sheet_id, percentage, attended, updated_at")
           .eq("student_id", studentId)
           .in("result_sheet_id", sheetIds)
@@ -498,11 +501,14 @@ async function getStudentWorkspaceSessions(
   });
 }
 
-async function getCurrentClassStudentIds(classId: string) {
+async function getCurrentClassStudentIds(classId: string, sessionDate: string) {
   const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-    .from("class_enrolments")
-    .select("student_id")
-    .eq("class_id", classId);
+    .from("class_enrolment_periods")
+    .select("student_id").is("cancelled_at", null)
+    .eq("class_id", classId)
+    .eq("student_type", "profile")
+    .lte("starts_on", sessionDate)
+    .or(`ends_before.is.null,ends_before.gt.${sessionDate}`);
   if (enrolmentError) {
     console.error(
       "Friday tutorial current class enrolment load failed:",
@@ -688,7 +694,7 @@ export async function GET(request: NextRequest) {
       ? await getSavedResultStudentRows(selectedSheet.id)
       : [];
     const students =
-      savedRows.length > 0
+      selectedSheet
         ? savedRows
         : await getCurrentEligibleStudentRows(
             classId,
@@ -773,6 +779,14 @@ export async function POST(request: NextRequest) {
         return jsonError("Future Friday @ 6 sessions cannot be graded.", 400);
       }
 
+      const currentStudentIds = await getCurrentClassStudentIds(
+        classId,
+        String(selectedSession.session_date || "")
+      );
+      if (!currentStudentIds.includes(studentId)) {
+        return jsonError("The student is not enrolled on this session date.", 422);
+      }
+
       let selectedSheet = await getResultSheetForSession(
         tutorialSessionId,
         classId
@@ -813,7 +827,6 @@ export async function POST(request: NextRequest) {
         return jsonError("Unable to save the Friday Tutorial result.", 500);
       }
 
-      const currentStudentIds = await getCurrentClassStudentIds(classId);
       const { error: snapshotError } = await supabaseAdmin
         .from("friday_tutorial_results")
         .upsert(

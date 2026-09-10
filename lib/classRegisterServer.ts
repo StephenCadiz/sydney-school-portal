@@ -451,7 +451,7 @@ function buildLesson(
 
 async function loadRegisterDetails(register: any): Promise<ClassRegisterDetails> {
   const { data: entries, error } = await supabaseAdmin
-    .from("class_register_entries")
+    .from("eligible_class_register_entries")
     .select(
       "id, student_type, profile_student_id, young_learner_id, attendance_status, marked_at"
     )
@@ -473,7 +473,7 @@ async function loadRegisterDetails(register: any): Promise<ClassRegisterDetails>
       : Promise.resolve({ data: [], error: null }),
     youngLearnerIds.length
       ? supabaseAdmin
-          .from("young_learners")
+          .from("current_young_learners")
           .select("id, first_name, last_name")
           .in("id", youngLearnerIds)
       : Promise.resolve({ data: [], error: null }),
@@ -579,7 +579,7 @@ export async function loadClassRegisterSnapshot(
   const registerIds = registers.map((register) => text(register.id));
   const entryResult = registerIds.length
     ? await supabaseAdmin
-        .from("class_register_entries")
+        .from("eligible_class_register_entries")
         .select("id, register_id, attendance_status")
         .in("register_id", registerIds)
     : { data: [], error: null };
@@ -665,64 +665,16 @@ async function loadCurrentRoster(
   context: ClassRegisterContext,
   lessonDate: string
 ) {
-  if (context.isCambridge) {
-    const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-      .from("class_enrolments")
-      .select("student_id, enrolled_at")
-      .eq("class_id", context.classId)
-      .lte("enrolled_at", lessonDate);
-    if (enrolmentError) throw enrolmentError;
-
-    const studentIds = Array.from(
-      new Set((enrolments || []).map((row) => text(row.student_id)).filter(Boolean))
-    );
-    if (!studentIds.length) return [];
-    const { data: profiles, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, role, active")
-      .in("id", studentIds);
-    if (profileError) throw profileError;
-
-    return (profiles || [])
-      .filter(
-        (profile) =>
-          text(profile.role).toLowerCase() === "student" &&
-          profile.active !== false
-      )
-      .map((profile) => ({
-        student_type: "profile",
-        profile_student_id: text(profile.id),
-        young_learner_id: null,
-      }));
-  }
-
-  const { data: learners, error: learnerError } = await supabaseAdmin
-    .from("young_learners")
-    .select("id")
+  const { data, error } = await supabaseAdmin
+    .from("class_enrolment_periods")
+    .select("student_type, profile_student_id, young_learner_id").is("cancelled_at", null)
     .eq("class_id", context.classId)
-    .eq("active", true);
-  if (learnerError) throw learnerError;
-  const learnerIds = (learners || []).map((learner) => text(learner.id));
-  if (!learnerIds.length) return [];
-
-  const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-    .from("young_learner_enrolments")
-    .select("young_learner_id, enrolled_at")
-    .eq("class_id", context.classId)
-    .in("young_learner_id", learnerIds)
-    .lte("enrolled_at", lessonDate);
-  if (enrolmentError) throw enrolmentError;
-  const enrolledIds = new Set(
-    (enrolments || []).map((enrolment) => text(enrolment.young_learner_id))
-  );
-
-  return learnerIds
-    .filter((id) => enrolledIds.has(id))
-    .map((id) => ({
-      student_type: "young_learner",
-      profile_student_id: null,
-      young_learner_id: id,
-    }));
+    .eq("student_type", context.isCambridge ? "profile" : "young_learner")
+    .lte("starts_on", lessonDate)
+    .or(`ends_before.is.null,ends_before.gt.${lessonDate}`);
+  if (error) throw error;
+  // Periods, not today's active flag or current class pointer, govern history.
+  return data || [];
 }
 
 export async function openClassRegister(
@@ -1080,7 +1032,7 @@ export async function getStudentClassAttendanceSummary(
   if (!registerIds.length) return getEmptyClassAttendanceSummary();
 
   let query = supabaseAdmin
-    .from("class_register_entries")
+    .from("eligible_class_register_entries")
     .select("attendance_status")
     .in("register_id", registerIds)
     .not("attendance_status", "is", null);
@@ -1100,20 +1052,13 @@ export async function getTeacherStudentAttendance(
   studentId: string
 ) {
   const context = await getTeacherClassRegisterContext(request, classId);
-  const rosterResult =
-    studentType === "profile"
-      ? await supabaseAdmin
-          .from("class_enrolments")
-          .select("student_id")
-          .eq("class_id", classId)
-          .eq("student_id", studentId)
-          .limit(1)
-      : await supabaseAdmin
-          .from("young_learners")
-          .select("id")
-          .eq("class_id", classId)
-          .eq("id", studentId)
-          .limit(1);
+  const rosterResult = await supabaseAdmin
+    .from("class_enrolment_periods")
+    .select("id").is("cancelled_at", null)
+    .eq("class_id", classId)
+    .eq("student_type", studentType)
+    .eq("student_id", studentId)
+    .limit(1);
   if (rosterResult.error) throw rosterResult.error;
   if (!(rosterResult.data || []).length) {
     throw new ClassRegisterError("Student attendance was not found.", 404);
@@ -1134,7 +1079,7 @@ async function loadAttendanceHistory(
   studentId: string
 ) {
   let entryQuery = supabaseAdmin
-    .from("class_register_entries")
+    .from("eligible_class_register_entries")
     .select("id, register_id, attendance_status")
     .not("attendance_status", "is", null);
   entryQuery =
@@ -1313,7 +1258,7 @@ async function resolveAdminCurrentClass(
 ) {
   if (studentType === "young_learner") {
     const { data: learner, error } = await supabaseAdmin
-      .from("young_learners")
+      .from("current_young_learners")
       .select("id, class_id")
       .eq("id", studentId)
       .maybeSingle();
@@ -1334,7 +1279,7 @@ async function resolveAdminCurrentClass(
   const [{ data: enrolments, error: enrolmentError }, currentAcademicYear] =
     await Promise.all([
       supabaseAdmin
-        .from("class_enrolments")
+        .from("current_class_enrolments")
         .select("class_id")
         .eq("student_id", studentId),
       getCurrentAcademicYearServer(),

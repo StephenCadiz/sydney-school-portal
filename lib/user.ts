@@ -21,7 +21,7 @@ export async function getCurrentStudentClass() {
   const user = await getCurrentUser();
 
   const { data: enrolments, error: enrolmentError } = await supabase
-    .from("class_enrolments")
+    .from("current_class_enrolments")
     .select("class_id")
     .eq("student_id", user.id);
 

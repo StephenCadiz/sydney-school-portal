@@ -1,3 +1,4 @@
+import { validateInitialEnrolment } from "../../../../../lib/classEnrolmentServer";
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
@@ -175,9 +176,14 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as {
       class_id?: unknown;
+      enrolment_starts_on?: unknown;
       students?: unknown;
     };
     const classId = normalizeRequiredString(body.class_id);
+    const startsOn = String(body.enrolment_starts_on || "");
+    if (!classId) return jsonError("Class is required.", 400);
+    const enrolmentValidation = await validateInitialEnrolment(classId, "young_learner", startsOn);
+    if (enrolmentValidation) return jsonError(enrolmentValidation, 422);
     const submittedStudents: SubmittedStudent[] = Array.isArray(body.students)
       ? body.students.map((student) =>
           typeof student === "object" && student !== null
@@ -330,11 +336,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: existingStudents, error: existingError } = await supabaseAdmin
-      .from("young_learners")
-      .select("first_name, last_name")
+    const { data: existingPeriods, error: periodError } = await supabaseAdmin
+      .from("class_enrolment_periods")
+      .select("young_learner_id").is("cancelled_at", null)
       .eq("class_id", classId)
-      .eq("active", true);
+      .eq("student_type", "young_learner")
+      .lte("starts_on", startsOn)
+      .or(`ends_before.is.null,ends_before.gt.${startsOn}`);
+    if (periodError) throw periodError;
+    const existingIds = [...new Set((existingPeriods || []).map(period => period.young_learner_id))];
+    const { data: existingStudents, error: existingError } = existingIds.length
+      ? await supabaseAdmin.from("young_learners").select("first_name, last_name")
+          .in("id", existingIds).eq("active", true)
+      : { data: [], error: null };
 
     if (existingError) {
       console.error(
@@ -372,9 +386,12 @@ export async function POST(request: NextRequest) {
       active: true,
     }));
 
-    const { error: insertError } = await supabaseAdmin
-      .from("young_learners")
-      .insert(insertRows);
+    const { error: insertError } = await supabaseAdmin.rpc("create_young_learner_enrolments", {
+      p_actor_id: adminCheck.user!.id,
+      p_class_id: classId,
+      p_starts_on: startsOn,
+      p_students: insertRows.map(row => ({ first_name: row.first_name, last_name: row.last_name })),
+    });
 
     if (insertError) {
       console.error("Young Learner bulk insert failed:", formatError(insertError));

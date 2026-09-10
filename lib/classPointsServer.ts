@@ -189,7 +189,7 @@ export function calculateClassPointsDelta(input: ClassPointsEntryInput) {
 
 export async function loadClassPointsSnapshot(context: ClassPointsContext) {
   const { data: learners, error: learnerError } = await supabaseAdmin
-    .from("young_learners")
+    .from("current_young_learners")
     .select("id, first_name, last_name, active")
     .eq("class_id", context.classId)
     .eq("active", true)

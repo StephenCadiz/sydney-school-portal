@@ -151,7 +151,7 @@ async function getContext(
   const [{ data: level, error: levelError }, { data: learner, error: learnerError }] =
     await Promise.all([
       supabaseAdmin.from("levels").select("id, name").eq("id", classRow.level_id).maybeSingle(),
-      supabaseAdmin.from("young_learners").select("*").eq("id", studentId).eq("class_id", classId).maybeSingle(),
+      supabaseAdmin.from("current_young_learners").select("*").eq("id", studentId).eq("class_id", classId).maybeSingle(),
     ]);
   if (levelError || learnerError) {
     logWorkspaceError("learner-context", levelError || learnerError);

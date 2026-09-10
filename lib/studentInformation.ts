@@ -438,7 +438,7 @@ export async function searchAllStudents(query: string) {
   const { data: enrolments, error: enrolmentsError } =
     cambridgeIds.length > 0
       ? await supabase
-          .from("class_enrolments")
+          .from("current_class_enrolments")
           .select("student_id, class_id")
           .in("student_id", cambridgeIds)
       : { data: [], error: null };
@@ -459,7 +459,7 @@ export async function searchAllStudents(query: string) {
   });
 
   const { data: youngLearners, error: youngLearnersError } = await supabase
-    .from("young_learners")
+    .from("current_young_learners")
     .select("id, first_name, last_name, class_id, active")
     .order("first_name");
 
@@ -758,7 +758,7 @@ export async function getStudentInformation(
 ) {
   if (studentType === "young_learner") {
     const { data: student, error } = await supabase
-      .from("young_learners")
+      .from("current_young_learners")
       .select("id, first_name, last_name, class_id, active")
       .eq("id", studentId)
       .single();
@@ -805,7 +805,7 @@ export async function getStudentInformation(
   }
 
   const { data: enrolments, error: enrolmentError } = await supabase
-    .from("class_enrolments")
+    .from("current_class_enrolments")
     .select("student_id, class_id, enrolled_at")
     .eq("student_id", student.id)
     .order("enrolled_at", { ascending: false });
@@ -868,7 +868,7 @@ export async function getClassInformation(classId: string) {
   const classDetails = buildClassDetails(classRow, reference);
 
   const { data: enrolments, error: enrolmentsError } = await supabase
-    .from("class_enrolments")
+    .from("current_class_enrolments")
     .select("student_id, class_id")
     .eq("class_id", classId);
 
@@ -893,7 +893,7 @@ export async function getClassInformation(classId: string) {
   }
 
   const { data: youngLearners, error: youngLearnersError } = await supabase
-    .from("young_learners")
+    .from("current_young_learners")
     .select("id, first_name, last_name, class_id, active")
     .eq("class_id", classId)
     .order("first_name");
@@ -1182,7 +1182,7 @@ export async function getLevelAnalysis(levelName: string) {
     const { data: enrolments, error: enrolmentsError } =
       classIds.length > 0
         ? await supabase
-            .from("class_enrolments")
+            .from("current_class_enrolments")
             .select("student_id, class_id")
             .in("class_id", classIds)
         : { data: [], error: null };
@@ -1278,7 +1278,7 @@ export async function getLevelAnalysis(levelName: string) {
   const { data: youngLearners, error: youngLearnersError } =
     classIds.length > 0
       ? await supabase
-          .from("young_learners")
+          .from("current_young_learners")
           .select("id, class_id, active")
           .eq("active", true)
           .in("class_id", classIds)

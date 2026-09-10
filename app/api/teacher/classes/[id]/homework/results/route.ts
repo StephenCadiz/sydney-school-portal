@@ -30,7 +30,7 @@ async function contextFor(
 
 async function enrolled(classId: string, studentId: string) {
   const { data, error } = await supabaseAdmin
-    .from("class_enrolments")
+    .from("current_class_enrolments")
     .select("student_id")
     .eq("class_id", classId)
     .eq("student_id", studentId)

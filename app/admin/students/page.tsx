@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
 import AdminStudentsTabs from "../../components/admin/AdminStudentsTabs";
+import AdminClassEnrolments from "../../components/admin/AdminClassEnrolments";
 import SetPasswordDialog, {
   PasswordAccountTarget,
 } from "../../components/admin/SetPasswordDialog";
@@ -14,7 +15,6 @@ import {
   getCambridgeClassesForBulkCreate,
   getYoungLearnerClassesForBulkCreate,
   updateStudent,
-  updateStudentClass,
   type AdminCambridgeStudentDirectoryRow,
   type AdminYoungLearnerDirectoryRow,
   type CambridgeBulkClassOption,
@@ -65,6 +65,8 @@ const purgeDependencyLabels: Record<string, string> = {
   class_register_entries: "Class Register entries",
   attendance_alerts: "Attendance alerts",
   class_enrolments: "Cambridge enrolments",
+  class_enrolment_periods: "Effective-dated enrolment periods",
+  class_enrolment_period_events: "Enrolment audit events",
   young_learner_enrolments: "Young Learner enrolments",
   academic_year_rollover_students: "Academic-year rollover decisions",
   follow_up_documents: "Follow-up documents",
@@ -722,7 +724,6 @@ export default function AdminStudentsPage() {
   function validateYoungLearnerForm() {
     const firstName = youngLearnerForm.first_name.trim();
     const lastName = youngLearnerForm.last_name.trim();
-    const classId = youngLearnerForm.class_id.trim();
 
     if (!firstName) {
       return "First name is required.";
@@ -740,10 +741,6 @@ export default function AdminStudentsPage() {
       return "Last name must be 80 characters or fewer.";
     }
 
-    if (!classId) {
-      return "Class is required.";
-    }
-
     return "";
   }
 
@@ -753,16 +750,15 @@ export default function AdminStudentsPage() {
 
     const firstName = form.first_name.trim();
     const lastName = form.last_name.trim();
-    const classId = form.class_id.trim();
 
     if (!editingStudentId) {
       return;
     }
 
-    if (!firstName || !lastName || !classId) {
+    if (!firstName || !lastName) {
       setMessage({
         type: "error",
-        text: "First name, last name and class are required.",
+        text: "First name and last name are required.",
       });
       return;
     }
@@ -774,7 +770,6 @@ export default function AdminStudentsPage() {
         first_name: firstName,
         last_name: lastName,
       });
-      await updateStudentClass(editingStudentId, classId);
 
       closeEditForms();
       await loadData();
@@ -813,8 +808,6 @@ export default function AdminStudentsPage() {
 
     const firstName = youngLearnerForm.first_name.trim();
     const lastName = youngLearnerForm.last_name.trim();
-    const classId = youngLearnerForm.class_id.trim();
-
     setSaving(true);
 
     try {
@@ -840,7 +833,6 @@ export default function AdminStudentsPage() {
           young_learner_id: editingYoungLearnerId,
           first_name: firstName,
           last_name: lastName,
-          class_id: classId,
         }),
       });
 
@@ -1597,24 +1589,15 @@ export default function AdminStudentsPage() {
                   <input readOnly disabled value={form.email || "-"} />
                 </label>
 
-                <label>
-                  <span>Class</span>
-                  <select
-                    required
-                    disabled={saving}
-                    value={form.class_id}
-                    onChange={(event) =>
-                      updateForm("class_id", event.target.value)
-                    }
-                  >
-                    <option value="">Select a class</option>
-                    {cambridgeClasses.map((classroom) => (
-                      <option key={classroom.id} value={classroom.id}>
-                        {formatClassSelectLabel(classroom, "cambridge")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <AdminClassEnrolments
+                    key={editingStudentId}
+                    studentId={editingStudentId}
+                    studentType="profile"
+                    classes={cambridgeClasses.map(classroom => ({ id: String(classroom.id), label: formatClassSelectLabel(classroom, "cambridge") }))}
+                    onChanged={loadData}
+                  />
+                </div>
               </div>
 
               <section className="admin-students-account-section">
@@ -1721,24 +1704,15 @@ export default function AdminStudentsPage() {
                   />
                 </label>
 
-                <label>
-                  <span>Class</span>
-                  <select
-                    required
-                    disabled={saving}
-                    value={youngLearnerForm.class_id}
-                    onChange={(event) =>
-                      updateYoungLearnerForm("class_id", event.target.value)
-                    }
-                  >
-                    <option value="">Select a class</option>
-                    {youngLearnerClasses.map((classroom) => (
-                      <option key={classroom.id} value={classroom.id}>
-                        {formatClassSelectLabel(classroom, "youngLearners")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <AdminClassEnrolments
+                    key={editingYoungLearnerId}
+                    studentId={editingYoungLearnerId}
+                    studentType="young_learner"
+                    classes={youngLearnerClasses.map(classroom => ({ id: String(classroom.id), label: formatClassSelectLabel(classroom, "youngLearners") }))}
+                    onChanged={loadData}
+                  />
+                </div>
 
                 <label>
                   <span>Status</span>

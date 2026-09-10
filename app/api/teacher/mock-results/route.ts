@@ -36,7 +36,7 @@ async function teacherContext(request: NextRequest, classId: string) {
 
 async function isEnrolled(classId: string, studentId: string) {
   const { data, error } = await supabaseAdmin
-    .from("class_enrolments")
+    .from("current_class_enrolments")
     .select("student_id")
     .eq("class_id", classId)
     .eq("student_id", studentId)

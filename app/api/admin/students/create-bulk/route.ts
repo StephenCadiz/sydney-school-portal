@@ -1,3 +1,4 @@
+import { validateInitialEnrolment, enrolProfileStudent } from "../../../../../lib/classEnrolmentServer";
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
@@ -404,36 +405,31 @@ async function findExistingProfileEmails(emails: string[]) {
 }
 
 async function cleanupCreatedStudent(studentId: string) {
-  const { error: enrolmentError } = await supabaseAdmin
-    .from("class_enrolments")
-    .delete()
-    .eq("student_id", studentId);
-
-  if (enrolmentError) {
-    console.error("Bulk student enrolment cleanup failed:", formatError(enrolmentError));
+  const { data: profile, error: lookupError } = await supabaseAdmin
+    .from("profiles").select("id, role").eq("id", studentId).maybeSingle();
+  if (lookupError || (profile && profile.role !== "student")) {
+    console.error("Bulk student cleanup requires manual review.");
+    return;
   }
-
-  const { error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .delete()
-    .eq("id", studentId)
-    .eq("role", "student");
-
-  if (profileError) {
-    console.error("Bulk student profile cleanup failed:", formatError(profileError));
+  if (profile) {
+    const { error } = await supabaseAdmin.rpc("purge_test_students", {
+      p_students: [{ student_type: "profile", student_id: studentId }],
+      p_confirmation: "DELETE",
+    });
+    if (error) console.error("Atomic bulk student cleanup failed:", formatError(error));
+    return;
   }
-
-  const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(studentId);
-
-  if (authError) {
-    console.error("Bulk student Auth cleanup failed:", formatError(authError));
-  }
+  // No application identity was created, so there cannot be FK-backed periods.
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(studentId);
+  if (error) console.error("Bulk student Auth cleanup failed:", formatError(error));
 }
 
 async function setupStudentRecords(
   student: PreparedStudent,
   studentId: string,
-  classId: string
+  classId: string,
+  actorId: string,
+  startsOn: string
 ) {
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
@@ -449,21 +445,14 @@ async function setupStudentRecords(
     throw new Error("profile");
   }
 
-  const { error: enrolmentError } = await supabaseAdmin
-    .from("class_enrolments")
-    .insert([
-      {
-        student_id: studentId,
-        class_id: classId,
-      },
-    ]);
+  const { error: enrolmentError } = await enrolProfileStudent(actorId, studentId, classId, startsOn);
 
   if (enrolmentError) {
     throw new Error("enrolment");
   }
 }
 
-async function createStudentAccount(student: PreparedStudent, classId: string) {
+async function createStudentAccount(student: PreparedStudent, classId: string, actorId: string, startsOn: string) {
   if (student.method === "invitation") {
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       student.email,
@@ -479,7 +468,7 @@ async function createStudentAccount(student: PreparedStudent, classId: string) {
     }
 
     try {
-      await setupStudentRecords(student, data.user.id, classId);
+      await setupStudentRecords(student, data.user.id, classId, actorId, startsOn);
     } catch (setupError) {
       console.error(
         "Bulk invited student setup failed:",
@@ -509,7 +498,7 @@ async function createStudentAccount(student: PreparedStudent, classId: string) {
   }
 
   try {
-    await setupStudentRecords(student, data.user.id, classId);
+    await setupStudentRecords(student, data.user.id, classId, actorId, startsOn);
   } catch (setupError) {
     console.error("Bulk manual student setup failed:", formatError(setupError));
     await cleanupCreatedStudent(data.user.id);
@@ -533,9 +522,14 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as {
       class_id?: unknown;
+      enrolment_starts_on?: unknown;
       students?: unknown;
     };
     const classId = normalizeRequiredString(body.class_id);
+    const startsOn = String(body.enrolment_starts_on || "");
+    if (!classId) return jsonError("Class is required.", 400);
+    const enrolmentValidation = await validateInitialEnrolment(classId, "profile", startsOn);
+    if (enrolmentValidation) return jsonError(enrolmentValidation, 422);
     const submittedStudents: SubmittedStudent[] = Array.isArray(body.students)
       ? body.students.map((student) =>
           typeof student === "object" && student !== null
@@ -604,7 +598,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const creationResult = await createStudentAccount(student, classId);
+      const creationResult = await createStudentAccount(student, classId, adminCheck.user!.id, startsOn);
 
       if (creationResult.setupFailed) {
         results.push({

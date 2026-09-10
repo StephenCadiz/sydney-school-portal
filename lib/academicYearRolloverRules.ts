@@ -69,6 +69,7 @@ export type RolloverStudent = {
   notes: string;
   applied_at: string | null;
   updated_at: string;
+  period_preview: { period_action: string; starts_on: string | null; conflict: string | null; cancelled_periods: number };
 };
 
 export type RolloverSummary = {

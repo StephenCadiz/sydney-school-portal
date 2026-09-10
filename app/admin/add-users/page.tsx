@@ -1,5 +1,7 @@
 "use client";
 
+import { madridEnrolmentDate } from "../../../lib/classEnrolment";
+
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -550,11 +552,13 @@ export default function AddUsersPage() {
   const [teacherMode, setTeacherMode] = useState<CreationMode>("manual");
   const [teacherForm, setTeacherForm] = useState(getInitialAuthForm);
   const [cambridgeClassId, setCambridgeClassId] = useState("");
+  const [cambridgeStartsOn, setCambridgeStartsOn] = useState(madridEnrolmentDate);
   const [cambridgeRows, setCambridgeRows] = useState(createInitialCambridgeRows);
   const [cambridgeDialog, setCambridgeDialog] = useState<CambridgeDialog | null>(
     null
   );
   const [youngLearnerClassId, setYoungLearnerClassId] = useState("");
+  const [youngLearnerStartsOn, setYoungLearnerStartsOn] = useState(madridEnrolmentDate);
   const [youngLearnerRows, setYoungLearnerRows] = useState(
     createInitialYoungLearnerRows
   );
@@ -816,6 +820,7 @@ export default function AddUsersPage() {
         },
         body: JSON.stringify({
           class_id: cambridgeClassId,
+          enrolment_starts_on: cambridgeStartsOn,
           students: validation.completeRows.map((row) => ({
             row: row.row,
             first_name: row.first_name,
@@ -1287,6 +1292,7 @@ export default function AddUsersPage() {
         },
         body: JSON.stringify({
           class_id: youngLearnerClassId,
+          enrolment_starts_on: youngLearnerStartsOn,
           students: validation.completeRows.map((row) => ({
             row: row.row,
             first_name: row.first_name,
@@ -1589,6 +1595,12 @@ export default function AddUsersPage() {
                   </option>
                 ))}
               </select>
+
+              <label className="add-users-young-label" htmlFor="cambridge-enrolment-start">Enrolment start date</label>
+              <input id="cambridge-enrolment-start" type="date" required className="add-users-young-select"
+                value={cambridgeStartsOn} disabled={saving}
+                onChange={event => setCambridgeStartsOn(event.target.value)} />
+              <p className="add-users-young-help">First eligible attendance day for every student in this batch. Uses Europe/Madrid; future starts are allowed within the class dates.</p>
 
               {loadingClasses ? (
                 <p className="add-users-young-help">Loading classes...</p>
@@ -2113,6 +2125,12 @@ export default function AddUsersPage() {
                   </option>
                 ))}
               </select>
+
+              <label className="add-users-young-label" htmlFor="young-enrolment-start">Enrolment start date</label>
+              <input id="young-enrolment-start" type="date" required className="add-users-young-select"
+                value={youngLearnerStartsOn} disabled={saving}
+                onChange={event => setYoungLearnerStartsOn(event.target.value)} />
+              <p className="add-users-young-help">First eligible attendance day for every student in this batch. Uses Europe/Madrid; future starts are allowed within the class dates.</p>
 
               {loadingClasses ? (
                 <p className="add-users-young-help">Loading classes...</p>

@@ -1,3 +1,4 @@
+import { validateInitialEnrolment, enrolProfileStudent } from "../../../../../lib/classEnrolmentServer";
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
@@ -195,6 +196,10 @@ export async function POST(request: NextRequest) {
     const lastName = body.last_name?.trim();
     const email = body.email?.trim();
     const classId = body.class_id?.trim();
+    const startsOn = String(body.enrolment_starts_on || "");
+    if (!classId) return jsonError("Class is required.", 400);
+    const enrolmentValidation = await validateInitialEnrolment(classId, "profile", startsOn);
+    if (enrolmentValidation) return jsonError(enrolmentValidation, 422);
 
     if (!firstName || !lastName || !email || !classId) {
       return jsonError(
@@ -314,14 +319,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { error: enrolmentInsertError } = await supabaseAdmin
-      .from("class_enrolments")
-      .insert([
-        {
-          student_id: studentId,
-          class_id: classId,
-        },
-      ]);
+    const { error: enrolmentInsertError } = await enrolProfileStudent(
+      user.id, studentId, classId, startsOn
+    );
 
     if (enrolmentInsertError) {
       const details = logStepError(

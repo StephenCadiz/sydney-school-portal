@@ -138,7 +138,7 @@ export async function getClassStudentCounts() {
 
     if (studentIds.length > 0) {
       const { data: enrolments, error: enrolmentsError } = await supabase
-        .from("class_enrolments")
+        .from("current_class_enrolments")
         .select("student_id, class_id")
         .in("student_id", studentIds);
 
@@ -176,7 +176,7 @@ export async function getClassStudentCounts() {
 
   try {
     const { data: youngLearners, error: youngLearnersError } = await supabase
-      .from("young_learners")
+      .from("current_young_learners")
       .select("id, class_id")
       .eq("active", true);
 

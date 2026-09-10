@@ -98,7 +98,7 @@ export async function getAcademicYearsWithClassCounts() {
 
 export async function resolveStudentCurrentClassServer(studentId: string) {
   const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-    .from("class_enrolments")
+    .from("current_class_enrolments")
     .select("class_id")
     .eq("student_id", studentId);
   if (enrolmentError) throw enrolmentError;
