@@ -310,7 +310,11 @@ async function loadAdminEnrollmentEvents(endDate: string, adminIds?: string[]) {
   return (data || []) as StaffTimeAdminEnrollmentEvent[];
 }
 
-async function loadStaffTimeProfiles(startDate: string, endDate: string) {
+async function loadStaffTimeProfiles(
+  startDate: string,
+  endDate: string,
+  includeApprovedCorrections = false
+) {
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("id, first_name, last_name, email, active, role")
@@ -325,6 +329,17 @@ async function loadStaffTimeProfiles(startDate: string, endDate: string) {
   const events = adminIds.length
     ? await loadAdminEnrollmentEvents(endDate, adminIds)
     : [];
+  let correctionStaffIds = new Set<string>();
+  if (includeApprovedCorrections) {
+    const { data, error } = await supabaseAdmin
+      .from("staff_time_corrections")
+      .select("teacher_id")
+      .eq("status", "approved")
+      .gte("work_date", startDate)
+      .lte("work_date", endDate);
+    if (error) throw new Error("Unable to load approved Staff Time corrections.");
+    correctionStaffIds = new Set((data || []).map((row) => String(row.teacher_id)));
+  }
   return profiles.filter(
     (profile) =>
       profile.role === "teacher" ||
@@ -332,7 +347,8 @@ async function loadStaffTimeProfiles(startDate: string, endDate: string) {
         events.filter((event) => event.admin_id === profile.id),
         startDate,
         endDate
-      )
+      ) ||
+      correctionStaffIds.has(profile.id)
   );
 }
 
@@ -1262,7 +1278,7 @@ export async function buildStaffTimeReport(input: {
   teacherId?: string;
 }) {
   const dates = validateDateRange(input.startDate, input.endDate);
-  const profiles = await loadStaffTimeProfiles(input.startDate, input.endDate);
+  const profiles = await loadStaffTimeProfiles(input.startDate, input.endDate, true);
   const selectedProfiles = input.teacherId
     ? profiles.filter((profile) => profile.id === input.teacherId)
     : profiles;
@@ -1295,12 +1311,34 @@ export async function buildStaffTimeReport(input: {
     input.startDate,
     input.endDate
   );
+  const reportSessionStaffIds = new Set(
+    sessionViews.map((session) => session.teacher_id)
+  );
+  const employmentStaffIdsMissingFromPeriod = selectedProfiles
+    .filter(
+      (profile) =>
+        reportSessionStaffIds.has(profile.id) &&
+        !employment.some((row) => row.teacher_id === profile.id)
+    )
+    .map((profile) => profile.id);
+  const reportEmployment = employmentStaffIdsMissingFromPeriod.length
+    ? [
+        ...employment,
+        ...(await loadEmploymentRecords(
+          "1900-01-01",
+          "9999-12-31",
+          employmentStaffIdsMissingFromPeriod
+        )),
+      ]
+    : employment;
   const reportTeachers: StaffTimeReportTeacher[] = [];
   for (const profile of selectedProfiles) {
     const profileEnrollmentEvents = enrollmentEvents.filter(
       (event) => event.admin_id === profile.id
     );
-    const employmentForPeriod = employment.filter((row) => row.teacher_id === profile.id);
+    const employmentForPeriod = reportEmployment.filter(
+      (row) => row.teacher_id === profile.id
+    );
     if (!employmentForPeriod.length) continue;
     const headerEmployment =
       effectiveEmployment(employmentForPeriod, profile.id, input.startDate) ||

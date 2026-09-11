@@ -34,6 +34,13 @@ const historicalCompanyMigration = readFileSync(
   ),
   "utf8"
 );
+const historicalCorrectionMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260911130000_allow_historical_staff_time_corrections.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const adminSelfRoute = readFileSync(
   new URL("../app/api/admin/staff-time/self/route.ts", import.meta.url),
   "utf8"
@@ -328,6 +335,33 @@ test("self-review, manual correction, incident resolution, and self-disable are 
   assert.match(migration, /p_actor_id = p_teacher_id[\s\S]*manual correction/i);
   assert.match(migration, /v_pending\.teacher_id = p_actor_id/i);
   assert.match(migration, /v_incidence\.teacher_id = p_actor_id/i);
+});
+
+test("Admin manual corrections can cover pre-enrollment dates without opening live clocking", () => {
+  assert.match(
+    historicalCorrectionMigration,
+    /create or replace function public\.staff_admin_create_time_correction\(/i
+  );
+  assert.match(
+    historicalCorrectionMigration,
+    /perform app_private\.staff_time_require_admin\(p_actor_id\)/i
+  );
+  assert.match(
+    historicalCorrectionMigration,
+    /role in \('teacher', 'admin'\)/i
+  );
+  assert.doesNotMatch(
+    historicalCorrectionMigration,
+    /The selected staff member was not enrolled in Staff Time on this date/i
+  );
+  assert.match(historicalCorrectionMigration, /admin_manual_resolution/);
+  assert.match(serverSource, /workDate > getMadridDate\(\)/);
+  assert.match(serverSource, /includeApprovedCorrections/);
+  assert.match(serverSource, /eq\("status", "approved"\)/);
+  assert.match(serverSource, /loadStaffTimeProfiles\(input\.startDate, input\.endDate, true\)/);
+  assert.match(serverSource, /reportEmployment/);
+  assert.match(serverSource, /loadEmploymentRecords\(\s*"1900-01-01"/);
+  assert.match(serverSource, /staff_clock_in|staff_clock_out/);
 });
 
 test("another authenticated Admin remains allowed to perform protected management actions", () => {
