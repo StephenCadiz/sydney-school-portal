@@ -34,7 +34,7 @@ function logWorkQueueError(stage: string, error: unknown) {
 }
 
 function inboxScope(userId: string) {
-  return `receiver_id.eq.${userId},recipient_group.eq.admin`;
+  return `receiver_id.eq.${userId},and(recipient_group.eq.admin,receiver_id.is.null)`;
 }
 
 function getProfileName(profile: any, fallback: string) {

@@ -77,7 +77,20 @@ test("Rosa Admin-identity messages with a teacher receiver remain in shared Sent
 
 test("shared Admin messages remain visible through the shared inbox scope", () => {
   const workQueue = read("app/api/admin/messages/work-queue/route.ts");
-  assert.match(workQueue, /receiver_id\.eq\.\$\{userId\},recipient_group\.eq\.admin/);
+  assert.match(
+    workQueue,
+    /receiver_id\.eq\.\$\{userId\},and\(recipient_group\.eq\.admin,receiver_id\.is\.null\)/
+  );
+  assert.doesNotMatch(
+    workQueue,
+    /receiver_id\.eq\.\$\{userId\},recipient_group\.eq\.admin`/
+  );
+});
+
+test("teacher-directed Rosa Admin-identity messages stay out of the Admin inbox", () => {
+  const workQueue = read("app/api/admin/messages/work-queue/route.ts");
+  assert.match(workQueue, /recipient_group\.eq\.admin,receiver_id\.is\.null/);
+  assert.match(workQueue, /function inboxScope\(userId: string\)/);
 });
 
 test("Rosa is identified by name in teacher message rows and details", () => {
