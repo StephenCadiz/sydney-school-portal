@@ -7640,6 +7640,56 @@ img {
   color: #991b1b;
 }
 
+.admin-teachers-delete-warning p {
+  margin: 0 0 8px;
+}
+
+.admin-teachers-delete-warning p:last-child {
+  margin-bottom: 0;
+}
+
+.admin-teachers-delete-warning code {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  padding: 2px 4px;
+}
+
+.admin-teachers-delete-confirmation-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.admin-teachers-delete-confirmation-field input {
+  background: #ffffff;
+  border: 1px solid #d9a6a6;
+  border-radius: 7px;
+  box-sizing: border-box;
+  color: #243044;
+  font: inherit;
+  font-size: 13px;
+  min-height: 40px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.admin-teachers-delete-confirmation-check {
+  align-items: flex-start;
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+  line-height: 1.45;
+  margin-top: 12px;
+}
+
+.admin-teachers-delete-confirmation-check input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
 .admin-teachers-dialog-footer {
   align-items: center;
   background: #fbfcfe;

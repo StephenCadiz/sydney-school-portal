@@ -26,6 +26,19 @@ type Feedback = {
   text: string;
 };
 
+type DeleteReview = {
+  loading: boolean;
+  authUserExists: boolean | null;
+  messageIds: string[];
+  fridayDutyIds: string[];
+  fridayDuties: Array<{
+    id: string;
+    session_date: string | null;
+    teacher_id: string | null;
+    b1_teacher_id: string | null;
+  }>;
+};
+
 function clean(value: string | null | undefined) {
   return String(value || "").trim();
 }
@@ -152,6 +165,10 @@ export default function AdminTeachersPage() {
   const [menuTeacherId, setMenuTeacherId] = useState("");
   const [editTeacher, setEditTeacher] = useState<AdminTeacher | null>(null);
   const [deleteTeacher, setDeleteTeacher] = useState<AdminTeacher | null>(null);
+  const [deleteReview, setDeleteReview] = useState<DeleteReview | null>(null);
+  const [confirmedMessageId, setConfirmedMessageId] = useState("");
+  const [confirmedFridayDutyId, setConfirmedFridayDutyId] = useState("");
+  const [confirmDependencies, setConfirmDependencies] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -381,14 +398,70 @@ export default function AdminTeachersPage() {
     deleteTriggerRef.current = trigger;
     setMenuTeacherId("");
     setDeleteTeacher(teacher);
+    setDeleteReview({
+      loading: true,
+      authUserExists: null,
+      messageIds: [],
+      fridayDutyIds: [],
+      fridayDuties: [],
+    });
+    setConfirmedMessageId("");
+    setConfirmedFridayDutyId("");
+    setConfirmDependencies(false);
     setModalError("");
+    void loadDeleteReview(teacher.id);
   }
 
   function closeDeleteDialog() {
     if (deleting) return;
     setDeleteTeacher(null);
+    setDeleteReview(null);
+    setConfirmedMessageId("");
+    setConfirmedFridayDutyId("");
+    setConfirmDependencies(false);
     setModalError("");
     window.setTimeout(() => deleteTriggerRef.current?.focus());
+  }
+
+  async function loadDeleteReview(teacherId: string) {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("You must be logged in as an admin.");
+
+      const response = await fetch("/api/admin/teachers/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ teacher_id: teacherId, review: true }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to review dependencies.");
+
+      const messageIds = Array.isArray(result.message_ids)
+        ? result.message_ids.map((id: unknown) => String(id))
+        : [];
+      setConfirmedMessageId(messageIds.length === 1 ? messageIds[0] : "");
+      setDeleteReview({
+        loading: false,
+        authUserExists: result.auth_user_exists === true,
+        messageIds,
+        fridayDutyIds: Array.isArray(result.friday_duty_ids)
+          ? result.friday_duty_ids.map((id: unknown) => String(id))
+          : [],
+        fridayDuties: Array.isArray(result.friday_duties)
+          ? result.friday_duties
+          : [],
+      });
+    } catch (error) {
+      setDeleteReview(null);
+      setModalError(
+        error instanceof Error ? error.message : "Unable to review dependencies."
+      );
+    }
   }
 
   function getValidatedEditValues() {
@@ -512,6 +585,21 @@ export default function AdminTeachersPage() {
     const teacherClassCount = classesByTeacher.get(deleteTeacher.id)?.length || 0;
     if (teacherClassCount > 0) return;
 
+    const orphanCleanup = deleteReview?.authUserExists === false;
+    if (orphanCleanup) {
+      if (
+        deleteReview.messageIds.length !== 1 ||
+        !confirmedMessageId ||
+        !confirmedFridayDutyId ||
+        !confirmDependencies
+      ) {
+        setModalError(
+          "Review and confirm the exact message and Friday duty IDs before deleting this orphan profile."
+        );
+        return;
+      }
+    }
+
     setDeleting(true);
     setModalError("");
     try {
@@ -526,7 +614,16 @@ export default function AdminTeachersPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ teacher_id: deleteTeacher.id }),
+        body: JSON.stringify({
+          teacher_id: deleteTeacher.id,
+          ...(orphanCleanup
+            ? {
+                message_id: confirmedMessageId,
+                friday_duty_id: confirmedFridayDutyId,
+                confirm_dependencies: true,
+              }
+            : {}),
+        }),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -1094,6 +1191,66 @@ export default function AdminTeachersPage() {
                   loading the page before deleting this account.
                 </div>
               )}
+              {deleteReview?.loading && (
+                <p className="admin-teachers-delete-warning">
+                  Reviewing this teacher&apos;s login and dependent records…
+                </p>
+              )}
+              {deleteReview &&
+                !deleteReview.loading &&
+                deleteReview.authUserExists === false && (
+                  <div className="admin-teachers-delete-warning">
+                    <p>
+                      No Auth login exists for this profile. Review the exact
+                      dependency IDs before confirming cleanup.
+                    </p>
+                    <p>
+                      Profile ID: <code>{deleteTeacher.id}</code>
+                    </p>
+                    {deleteReview.messageIds.length === 1 ? (
+                      <p>
+                        Message ID: <code>{deleteReview.messageIds[0]}</code>
+                      </p>
+                    ) : (
+                      <p>
+                        Expected exactly one sent message; found{" "}
+                        {deleteReview.messageIds.length}.
+                      </p>
+                    )}
+                    {deleteReview.fridayDutyIds.length > 0 && (
+                      <p>
+                        Directly assigned Friday duty IDs:{" "}
+                        {deleteReview.fridayDutyIds.map((id) => (
+                          <code key={id}>{id} </code>
+                        ))}
+                      </p>
+                    )}
+                    <label className="admin-teachers-delete-confirmation-field">
+                      Confirmed Friday duty ID
+                      <input
+                        value={confirmedFridayDutyId}
+                        onChange={(event) =>
+                          setConfirmedFridayDutyId(event.target.value.trim())
+                        }
+                        placeholder="Paste the reviewed duty ID"
+                        spellCheck={false}
+                        autoComplete="off"
+                      />
+                    </label>
+                    <label className="admin-teachers-delete-confirmation-check">
+                      <input
+                        type="checkbox"
+                        checked={confirmDependencies}
+                        onChange={(event) =>
+                          setConfirmDependencies(event.target.checked)
+                        }
+                      />
+                      I confirm these exact IDs and authorize deleting only this
+                      message, clearing this General duty, and deleting this
+                      profile. Any separate B1 assignment will be preserved.
+                    </label>
+                  </div>
+                )}
               {modalError && (
                 <p className="admin-teachers-dialog-error" role="alert">
                   {modalError}
@@ -1116,7 +1273,13 @@ export default function AdminTeachersPage() {
                 disabled={
                   deleting ||
                   !classRecordsAvailable ||
-                  (classesByTeacher.get(deleteTeacher.id) || []).length > 0
+                  (classesByTeacher.get(deleteTeacher.id) || []).length > 0 ||
+                  deleteReview?.loading === true ||
+                  (deleteReview?.authUserExists === false &&
+                    (deleteReview.messageIds.length !== 1 ||
+                      !confirmedMessageId ||
+                      !confirmedFridayDutyId ||
+                      !confirmDependencies))
                 }
               >
                 {deleting ? "Deleting..." : "Delete Teacher"}

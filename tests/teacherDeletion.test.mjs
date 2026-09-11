@@ -19,6 +19,10 @@ const routeSource = readFileSync(
   new URL("../app/api/admin/teachers/delete/route.ts", import.meta.url),
   "utf8"
 );
+const pageSource = readFileSync(
+  new URL("../app/admin/teachers/page.tsx", import.meta.url),
+  "utf8"
+);
 const migrationSource = readFileSync(
   new URL(
     "../supabase/migrations/20260910130000_delete_orphan_teacher_account.sql",
@@ -26,8 +30,15 @@ const migrationSource = readFileSync(
   ),
   "utf8"
 );
+const correctedMigrationSource = readFileSync(
+  new URL(
+    "../supabase/migrations/20260911120000_fix_orphan_teacher_duty_cleanup.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 
-function fixture() {
+function fixture({ dutyTeacherId = targetId } = {}) {
   const rows = {
     profiles: [
       { id: id(1), role: "admin" },
@@ -36,7 +47,7 @@ function fixture() {
     classes: [],
     messages: [{ id: messageId, sender_id: targetId, receiver_id: null }],
     friday_at_6_duties: [
-      { id: dutyId, teacher_id: targetId, b1_teacher_id: otherTeacherId },
+      { id: dutyId, teacher_id: dutyTeacherId, b1_teacher_id: otherTeacherId },
     ],
   };
   const calls = [];
@@ -53,6 +64,10 @@ function fixture() {
         return q;
       },
       single() {
+        single = true;
+        return q;
+      },
+      maybeSingle() {
         single = true;
         return q;
       },
@@ -139,7 +154,14 @@ function fixture() {
 test("missing Auth users use the exact transactional orphan-cleanup RPC", async () => {
   const f = fixture();
   const route = f.load("app/api/admin/teachers/delete/route.ts");
-  const response = await route.POST(f.request("admin", { teacher_id: targetId }));
+  const response = await route.POST(
+    f.request("admin", {
+      teacher_id: targetId,
+      message_id: messageId,
+      friday_duty_id: dutyId,
+      confirm_dependencies: true,
+    })
+  );
 
   assert.equal(response.status, 200);
   assert.deepEqual(f.calls.filter(call => call.name), [
@@ -159,7 +181,8 @@ test("missing Auth users use the exact transactional orphan-cleanup RPC", async 
 test("orphan cleanup preserves the other Friday-duty teacher and is tightly scoped", () => {
   assert.match(routeSource, /getUserById\(teacherId\)/);
   assert.match(routeSource, /delete_orphan_teacher_with_dependencies/);
-  assert.match(routeSource, /fridayDuties\[0\]\?\.b1_teacher_id === teacherId/);
+  assert.match(routeSource, /confirmedFridayDutyId/);
+  assert.match(routeSource, /confirm_dependencies/);
   assert.match(migrationSource, /delete from public\.messages[\s\S]*id = v_message_id/i);
   assert.match(
     migrationSource,
@@ -173,6 +196,45 @@ test("orphan cleanup preserves the other Friday-duty teacher and is tightly scop
   assert.match(migrationSource, /set search_path = pg_catalog, public, pg_temp/i);
   assert.match(migrationSource, /revoke all on function/i);
   assert.match(migrationSource, /grant execute on function[\s\S]*to service_role/i);
+  assert.match(
+    correctedMigrationSource,
+    /teacher_id = p_teacher_id or teacher_id is null/i
+  );
+});
+
+test("orphan cleanup requires explicit dependency confirmation", async () => {
+  const f = fixture();
+  const route = f.load("app/api/admin/teachers/delete/route.ts");
+  const response = await route.POST(f.request("admin", { teacher_id: targetId }));
+
+  assert.equal(response.status, 409);
+  assert.equal(f.calls.some(call => call.name), false);
+});
+
+test("orphan cleanup accepts an already-cleared General duty and preserves B1", async () => {
+  const f = fixture({ dutyTeacherId: null });
+  const route = f.load("app/api/admin/teachers/delete/route.ts");
+  const response = await route.POST(
+    f.request("admin", {
+      teacher_id: targetId,
+      message_id: messageId,
+      friday_duty_id: dutyId,
+      confirm_dependencies: true,
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(f.calls.filter(call => call.name), [
+    {
+      name: "delete_orphan_teacher_with_dependencies",
+      args: {
+        p_actor_id: id(1),
+        p_teacher_id: targetId,
+        p_message_id: messageId,
+        p_friday_duty_id: dutyId,
+      },
+    },
+  ]);
 });
 
 test("only an Admin can reach the orphan-cleanup path", async () => {
@@ -181,4 +243,13 @@ test("only an Admin can reach the orphan-cleanup path", async () => {
   const response = await route.POST(f.request("teacher", { teacher_id: id(1) }));
   assert.equal(response.status, 403);
   assert.equal(f.calls.some(call => call.name), false);
+});
+
+test("Admin deletion UI reviews and confirms exact orphan dependencies", () => {
+  assert.match(pageSource, /review: true/);
+  assert.match(pageSource, /Profile ID:/);
+  assert.match(pageSource, /Message ID:/);
+  assert.match(pageSource, /Confirmed Friday duty ID/);
+  assert.match(pageSource, /confirmDependencies/);
+  assert.match(pageSource, /preserved/);
 });

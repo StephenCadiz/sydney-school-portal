@@ -22,6 +22,15 @@ function isMissingAuthUser(error: unknown) {
   );
 }
 
+function isUuid(value: unknown) {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value
+    )
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authorization = request.headers.get("authorization");
@@ -60,6 +69,11 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const teacherId = body.teacher_id;
+    const reviewDependencies = body.review === true;
+    const confirmedMessageId =
+      typeof body.message_id === "string" ? body.message_id.trim() : "";
+    const confirmedFridayDutyId =
+      typeof body.friday_duty_id === "string" ? body.friday_duty_id.trim() : "";
 
     if (!teacherId) {
       return jsonError("teacher_id is required.", 400);
@@ -122,7 +136,7 @@ export async function POST(request: NextRequest) {
         await Promise.all([
           supabaseAdmin
             .from("messages")
-            .select("id")
+            .select("id, sender_id, receiver_id")
             .eq("sender_id", teacherId),
           supabaseAdmin
             .from("messages")
@@ -130,7 +144,7 @@ export async function POST(request: NextRequest) {
             .eq("receiver_id", teacherId),
           supabaseAdmin
             .from("friday_at_6_duties")
-            .select("id, teacher_id, b1_teacher_id")
+            .select("id, session_date, teacher_id, b1_teacher_id")
             .eq("teacher_id", teacherId),
         ]);
 
@@ -151,14 +165,78 @@ export async function POST(request: NextRequest) {
       const receiverMessages = receiverMessagesResult.data || [];
       const fridayDuties = fridayDutiesResult.data || [];
 
+      if (reviewDependencies) {
+        return NextResponse.json({
+          review: true,
+          auth_user_exists: false,
+          message_ids: senderMessages.map((message) => message.id),
+          friday_duty_ids: fridayDuties.map((duty) => duty.id),
+          friday_duties: fridayDuties,
+        });
+      }
+
       if (
-        senderMessages.length !== 1 ||
-        receiverMessages.length !== 0 ||
-        fridayDuties.length !== 1 ||
-        fridayDuties[0]?.b1_teacher_id === teacherId
+        !body.confirm_dependencies ||
+        !isUuid(confirmedMessageId) ||
+        !isUuid(confirmedFridayDutyId)
       ) {
         return jsonError(
-          "This teacher has unexpected dependent records. Review them before deleting the account.",
+          "Review and confirm the exact message and Friday duty IDs before deleting this orphan profile.",
+          409
+        );
+      }
+
+      const [confirmedMessageResult, confirmedDutyResult, allTeacherDutiesResult] =
+        await Promise.all([
+          supabaseAdmin
+            .from("messages")
+            .select("id, sender_id, receiver_id")
+            .eq("id", confirmedMessageId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from("friday_at_6_duties")
+            .select("id, session_date, teacher_id, b1_teacher_id")
+            .eq("id", confirmedFridayDutyId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from("friday_at_6_duties")
+            .select("id")
+            .eq("teacher_id", teacherId),
+        ]);
+
+      if (
+        confirmedMessageResult.error ||
+        confirmedDutyResult.error ||
+        allTeacherDutiesResult.error
+      ) {
+        console.error("Confirmed orphan dependency lookup failed:", {
+          messageError: confirmedMessageResult.error,
+          dutyError: confirmedDutyResult.error,
+          dutiesError: allTeacherDutiesResult.error,
+        });
+        return jsonError("Unable to verify the confirmed dependencies.", 500);
+      }
+
+      const confirmedMessage = confirmedMessageResult.data;
+      const confirmedDuty = confirmedDutyResult.data;
+      const allTeacherDuties = allTeacherDutiesResult.data || [];
+
+      if (
+        !confirmedMessage ||
+        confirmedMessage.sender_id !== teacherId ||
+        confirmedMessage.receiver_id !== null ||
+        senderMessages.length !== 1 ||
+        receiverMessages.length !== 0 ||
+        !confirmedDuty ||
+        (confirmedDuty.teacher_id !== teacherId && confirmedDuty.teacher_id !== null) ||
+        allTeacherDuties.length > 1 ||
+        confirmedDuty.b1_teacher_id === teacherId ||
+        !confirmedDuty.b1_teacher_id ||
+        (confirmedDuty.teacher_id === teacherId &&
+          allTeacherDuties.length !== 1)
+      ) {
+        return jsonError(
+          "The confirmed dependency IDs no longer match the reviewed orphan account. No changes were made.",
           409
         );
       }
@@ -168,8 +246,8 @@ export async function POST(request: NextRequest) {
         {
           p_actor_id: user.id,
           p_teacher_id: teacherId,
-          p_message_id: senderMessages[0].id,
-          p_friday_duty_id: fridayDuties[0].id,
+          p_message_id: confirmedMessageId,
+          p_friday_duty_id: confirmedFridayDutyId,
         }
       );
 
@@ -185,6 +263,10 @@ export async function POST(request: NextRequest) {
         success: true,
         message: "Teacher deleted successfully.",
       });
+    }
+
+    if (reviewDependencies) {
+      return NextResponse.json({ review: true, auth_user_exists: true });
     }
 
     const { error: authDeleteError } =
