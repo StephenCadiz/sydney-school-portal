@@ -160,7 +160,7 @@ function SidebarItem({
       href={href}
       aria-current={active ? "page" : undefined}
       aria-label={ariaLabel}
-      className="ss-sidebar-link"
+      className="ss-sidebar-link teacher-sidebar-link"
       onClick={onClick}
       style={{
         display: "flex",
