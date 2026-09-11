@@ -101,26 +101,34 @@ test("Rosa is identified by name in teacher message rows and details", () => {
   assert.match(messages, /canonicalName[\s\S]*Rosa Vara/);
 });
 
-test("Teacher Messages uses the shared Teacher container and scoped glass styling", () => {
+test("Teacher Messages uses the shared Teacher container without experimental styling", () => {
   assert.match(
     teacherMessageStyles,
     /\.teacher-messages-shell[\s\S]*max-width: var\(--teacher-content-max-width, 1480px\)/
   );
+  assert.match(teacherMessageStyles, /\.teacher-messages-header \{[\s\S]*width: 100%/);
+  assert.match(teacherMessageStyles, /\.teacher-messages-area-tabs \{[\s\S]*width: 100%/);
+  assert.match(teacherMessageStyles, /\.teacher-messages-toolbar \{[\s\S]*width: 100%/);
+  assert.match(teacherMessageStyles, /\.teacher-messages-content-panel \{[\s\S]*width: 100%/);
   assert.match(
     teacherMessageStyles,
-    /\.teacher-messages-header,[\s\S]*\.teacher-messages-content-panel,[\s\S]*backdrop-filter: blur\(18px\)/
+    /\.teacher-messages-header \{/
   );
   assert.match(
     teacherMessageStyles,
-    /\.teacher-messages-content-panel[\s\S]*box-shadow:[\s\S]*inset 0 1px 0/
+    /\.teacher-messages-area-tabs \{/
   );
+  assert.match(teacherMessageStyles, /\.teacher-messages-content-panel \{/);
+  assert.doesNotMatch(teacherMessageStyles, /\.teacher-messages-header \{[^}]*backdrop-filter/);
+  assert.doesNotMatch(teacherMessageStyles, /\.teacher-messages-header \{[^}]*linear-gradient/);
+  assert.doesNotMatch(teacherMessageStyles, /\.teacher-messages-content-panel \{[^}]*backdrop-filter/);
+  assert.doesNotMatch(teacherMessageStyles, /\.teacher-messages-content-panel \{[^}]*linear-gradient/);
   assert.match(
     teacherMessageStyles,
-    /\.teacher-messages-page :is\(button, a, input, textarea, select\):focus-visible/
+    /\.teacher-messages-sound-toggle:focus-visible,[\s\S]*\.teacher-messages-content-panel select:focus-visible/
   );
-  assert.match(teacherMessageStyles, /prefers-reduced-motion: reduce/);
-  assert.match(teacherMessageStyles, /@media \(max-width: 760px\)[\s\S]*\.teacher-messages-shell/);
-  assert.doesNotMatch(teacherMessageStyles, /\.admin-messages-page \.teacher-messages/);
+  assert.match(teacherMessageStyles, /@media \(max-width: 760px\)[\s\S]*\.teacher-messages-header/);
+  assert.match(teacherMessageStyles, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
 test("Teacher Messages labels and actions remain intact", () => {
