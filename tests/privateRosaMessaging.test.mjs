@@ -13,19 +13,22 @@ const migration = read(
 const hardeningMigration = read(
   "supabase/migrations/20260911160000_harden_private_rosa_message_visibility.sql"
 );
+const identityMigration = read(
+  "supabase/migrations/20260911170000_resolve_current_rosa_admin.sql"
+);
 
-test("teacher recipients expose Rosa by profile ID and direct sends target her", () => {
-  assert.match(messages, /ROSA_PROFILE_ID\s*=\s*"7f4d3e64-94a7-47f0-b069-ed0e77b29369"/);
-  assert.match(messages, /profile\.id === ROSA_PROFILE_ID && profile\.role === "admin"/);
+test("teacher recipients resolve the current Rosa Admin profile and direct sends target her", () => {
+  assert.match(messages, /ROSA_RECIPIENT_NAME\s*=\s*"Rosa Vara"/);
+  assert.match(messages, /isRosaProfile\(profile\)/);
+  assert.match(messages, /is_rosa: true/);
   assert.match(messages, /type: "direct_staff"/);
-  assert.match(messages, /recipient\.staffId !== ROSA_PROFILE_ID/);
+  assert.match(messages, /!isRosaProfile\(receiverProfile\)/);
   assert.match(messages, /payload\.receiver_id = recipient\.staffId/);
   assert.match(messages, /payload\.recipient_group = null/);
 });
 
 test("Rosa replies remain direct while shared Admin replies remain shared", () => {
   assert.match(teacherPage, /selectedMessage\.recipient_group === "admin"/);
-  assert.match(teacherPage, /selectedMessage\.sender_id === ROSA_PROFILE_ID/);
   assert.match(teacherPage, /type: "direct_staff", staffId: selectedMessage\.sender_id/);
   assert.match(teacherPage, /type: "admin_group"/);
 });
@@ -46,6 +49,11 @@ test("teacher-to-Rosa and Rosa-to-teacher inserts are RLS-scoped", () => {
   assert.match(migration, /receiver_id = '7f4d3e64-94a7-47f0-b069-ed0e77b29369'::uuid/);
   assert.match(migration, /Rosa can send private staff replies/);
   assert.match(migration, /sender_id = '7f4d3e64-94a7-47f0-b069-ed0e77b29369'::uuid/);
+  assert.match(identityMigration, /role = 'admin'/i);
+  assert.match(identityMigration, /lower\(trim\(receiver_profile\.first_name\)\) like 'rosa%'/i);
+  assert.match(identityMigration, /lower\(trim\(receiver_profile\.last_name\)\) = 'vara'/i);
+  assert.match(identityMigration, /lower\(trim\(sender_profile\.first_name\)\) like 'rosa%'/i);
+  assert.match(identityMigration, /lower\(trim\(sender_profile\.last_name\)\) = 'vara'/i);
 });
 
 test("Rosa private messages are hidden from other Admin sent views", () => {

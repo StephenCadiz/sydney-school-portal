@@ -190,8 +190,7 @@ async function enrichMessagesWithProfile(
     const name = `${profile?.first_name || ""} ${
       profile?.last_name || ""
     }`.trim();
-    const canonicalName =
-      message[profileIdField] === ROSA_PROFILE_ID ? "Rosa Vara" : name;
+    const canonicalName = isRosaProfile(profile) ? "Rosa Vara" : name;
 
     return {
       ...message,
@@ -208,8 +207,14 @@ function isStaffRole(role?: string | null) {
 }
 
 export const TEACHER_ADMIN_RECIPIENT_VALUE = "admin-group";
-// Rosa's profile is the canonical identity for the private teacher conversation.
-export const ROSA_PROFILE_ID = "7f4d3e64-94a7-47f0-b069-ed0e77b29369";
+export const ROSA_RECIPIENT_NAME = "Rosa Vara";
+
+function isRosaProfile(profile: any) {
+  const firstName = String(profile?.first_name || "").trim().toLocaleLowerCase();
+  const lastName = String(profile?.last_name || "").trim().toLocaleLowerCase();
+
+  return profile?.role === "admin" && firstName.startsWith("rosa") && lastName === "vara";
+}
 
 type TeacherStaffMessageRecipient =
   | {
@@ -268,6 +273,8 @@ export async function getTeacherStaffRecipients(teacherId: string) {
   try {
     const profiles = await getStaffProfiles(teacherId);
 
+    const rosaProfile = profiles.find((profile) => isRosaProfile(profile));
+
     return {
       admins: [
         {
@@ -277,10 +284,7 @@ export async function getTeacherStaffRecipients(teacherId: string) {
           email: "",
           role: "admin",
         },
-        ...profiles.filter(
-          (profile) =>
-            profile.id === ROSA_PROFILE_ID && profile.role === "admin"
-        ),
+        ...(rosaProfile ? [{ ...rosaProfile, is_rosa: true }] : []),
       ],
       teachers: profiles.filter((profile) => profile.role === "teacher"),
     };
@@ -470,7 +474,7 @@ export async function sendTeacherStaffMessage({
     payload.receiver_id = recipient.teacherId;
     payload.recipient_group = null;
   } else {
-    if (recipient.staffId !== ROSA_PROFILE_ID) {
+    if (!recipient.staffId) {
       throw new Error("Please select Rosa Vara as the direct recipient.");
     }
 
@@ -482,7 +486,7 @@ export async function sendTeacherStaffMessage({
       (profile) => profile.id === recipient.staffId
     );
 
-    if (!isStaffRole(receiverProfile?.role)) {
+    if (!isRosaProfile(receiverProfile)) {
       throw new Error("Please select Rosa Vara as the direct recipient.");
     }
 

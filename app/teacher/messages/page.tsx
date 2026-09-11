@@ -17,7 +17,6 @@ import {
   markTeacherStaffMessageAsRead,
   sendTeacherStaffMessage,
   TEACHER_ADMIN_RECIPIENT_VALUE,
-  ROSA_PROFILE_ID,
 } from "../../../lib/messages";
 import TeacherStudentMessagesInbox from "./TeacherStudentMessagesInbox";
 import { getTeacherStudentMessages } from "../../../lib/teacherStudentMessages";
@@ -381,12 +380,16 @@ export default function TeacherMessagesPage() {
     setSending(true);
 
     try {
+      const selectedRecipient = recipients.admins.find(
+        (admin) => admin.id === receiverId
+      );
+
       await sendTeacherStaffMessage({
         senderId: teacherId,
         recipient:
           receiverId === TEACHER_ADMIN_RECIPIENT_VALUE
             ? { type: "admin_group" }
-            : receiverId === ROSA_PROFILE_ID
+            : selectedRecipient?.is_rosa
               ? { type: "direct_staff", staffId: receiverId }
               : { type: "teacher", teacherId: receiverId },
         subject: subject.trim(),
@@ -430,9 +433,9 @@ export default function TeacherMessagesPage() {
           selectedMessage.recipient_group === "admin" &&
           !selectedMessage.receiver_id
             ? { type: "admin_group" }
-            : selectedMessage.sender_id === ROSA_PROFILE_ID
-              ? { type: "direct_staff", staffId: selectedMessage.sender_id }
-              : { type: "teacher", teacherId: selectedMessage.sender_id },
+            : selectedMessage.sender_role === "teacher"
+              ? { type: "teacher", teacherId: selectedMessage.sender_id }
+              : { type: "direct_staff", staffId: selectedMessage.sender_id },
         subject: getReplySubject(selectedMessage.subject),
         message: replyMessage.trim(),
       });
@@ -703,7 +706,7 @@ export default function TeacherMessagesPage() {
                           <span>Recipient</span>
                           <select value={receiverId} onChange={(event) => setReceiverId(event.target.value)}>
                             <option value="">Select staff member</option>
-                            {recipients.admins.length > 0 && <optgroup label="Admin">{recipients.admins.map((admin) => <option key={admin.id} value={admin.id}>{getProfileName(admin)}</option>)}</optgroup>}
+                            {recipients.admins.length > 0 && <optgroup label="Admin">{recipients.admins.map((admin) => <option key={admin.id} value={admin.id}>{admin.is_rosa ? "Rosa Vara" : getProfileName(admin)}</option>)}</optgroup>}
                             {recipients.teachers.length > 0 && <optgroup label="Teachers">{recipients.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{getProfileName(teacher)}</option>)}</optgroup>}
                           </select>
                         </label>
