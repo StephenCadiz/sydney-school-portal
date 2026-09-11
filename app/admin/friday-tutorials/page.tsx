@@ -176,6 +176,10 @@ function StatusSelect({
 }
 
 export default function AdminFridayTutorialsPage() {
+  useEffect(() => {
+    window.location.replace("/admin/friday-exam-practice");
+  }, []);
+
   const [activeTab, setActiveTab] = useState("weekly");
   const [settings, setSettings] = useState<any>(null);
   const [rotationClosures, setRotationClosures] = useState<any[]>([]);

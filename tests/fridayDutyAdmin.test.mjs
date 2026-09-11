@@ -6,6 +6,10 @@ const page = readFileSync(
   new URL("../app/admin/friday-exam-practice/page.tsx", import.meta.url),
   "utf8"
 );
+const legacyPage = readFileSync(
+  new URL("../app/admin/friday-tutorials/page.tsx", import.meta.url),
+  "utf8"
+);
 const helper = readFileSync(
   new URL("../lib/fridayExamPractice.ts", import.meta.url),
   "utf8"
@@ -55,4 +59,8 @@ test("Rosa Vara's confirmed duty ID is passed through the controlled delete help
   assert.equal(dutyId.length, 36);
   assert.match(helper, /export async function deleteFridayAt6Duty\(id: string\)/);
   assert.match(page, /onClick=\{\(\) => removeDuty\(duty\)\}/);
+});
+
+test("legacy Friday Tutorials route redirects to the canonical duty workflow", () => {
+  assert.match(legacyPage, /window\.location\.replace\("\/admin\/friday-exam-practice"\)/);
 });
