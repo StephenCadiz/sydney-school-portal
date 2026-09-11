@@ -70,7 +70,13 @@ export async function GET(request: NextRequest) {
     const receiverById = new Map(
       (receivers || []).map((receiver) => [receiver.id, receiver])
     );
-    const sentMessages = (messages || []).map((message) => {
+    const visibleMessages = (messages || []).filter(
+      (message) =>
+        (message.recipient_group === "admin" && !message.receiver_id) ||
+        message.sender_id === admin.userId
+    );
+
+    const sentMessages = visibleMessages.map((message) => {
       const receiver = receiverById.get(message.receiver_id);
       const isSharedAdminRecipient =
         message.recipient_group === "admin" && !message.receiver_id;

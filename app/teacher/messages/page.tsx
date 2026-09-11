@@ -17,6 +17,7 @@ import {
   markTeacherStaffMessageAsRead,
   sendTeacherStaffMessage,
   TEACHER_ADMIN_RECIPIENT_VALUE,
+  ROSA_PROFILE_ID,
 } from "../../../lib/messages";
 import TeacherStudentMessagesInbox from "./TeacherStudentMessagesInbox";
 import { getTeacherStudentMessages } from "../../../lib/teacherStudentMessages";
@@ -61,6 +62,10 @@ function getMessageRole(message: any, type: "inbox" | "sent") {
   return type === "inbox" ? message.sender_role : message.receiver_role;
 }
 
+function messageDirectionLabel(message: any, type: "inbox" | "sent") {
+  return `${type === "inbox" ? "From" : "To"} ${getMessageName(message, type)}`;
+}
+
 function MessageRow({
   item,
   type,
@@ -84,7 +89,7 @@ function MessageRow({
               <span className="teacher-messages-unread-dot" aria-label="Unread" />
             )}
             <strong>
-              {type === "inbox" ? "From" : "To"}: {getMessageName(item, type)}
+              {messageDirectionLabel(item, type)}
             </strong>
             <span>
               {roleLabel(getMessageRole(item, type))}
@@ -381,7 +386,9 @@ export default function TeacherMessagesPage() {
         recipient:
           receiverId === TEACHER_ADMIN_RECIPIENT_VALUE
             ? { type: "admin_group" }
-            : { type: "teacher", teacherId: receiverId },
+            : receiverId === ROSA_PROFILE_ID
+              ? { type: "direct_staff", staffId: receiverId }
+              : { type: "teacher", teacherId: receiverId },
         subject: subject.trim(),
         message: message.trim(),
         attachment_link: attachmentLink.trim() || null,
@@ -420,9 +427,12 @@ export default function TeacherMessagesPage() {
       await sendTeacherStaffMessage({
         senderId: teacherId,
         recipient:
-          selectedMessage.sender_role === "admin"
+          selectedMessage.recipient_group === "admin" &&
+          !selectedMessage.receiver_id
             ? { type: "admin_group" }
-            : { type: "teacher", teacherId: selectedMessage.sender_id },
+            : selectedMessage.sender_id === ROSA_PROFILE_ID
+              ? { type: "direct_staff", staffId: selectedMessage.sender_id }
+              : { type: "teacher", teacherId: selectedMessage.sender_id },
         subject: getReplySubject(selectedMessage.subject),
         message: replyMessage.trim(),
       });
@@ -620,7 +630,7 @@ export default function TeacherMessagesPage() {
                     }}>
                       ← Back to inbox
                     </button>
-                    <p className="teacher-messages-detail-eyebrow">From · {roleLabel(selectedMessage.sender_role)}</p>
+                    <p className="teacher-messages-detail-eyebrow">{messageDirectionLabel(selectedMessage, "inbox")}</p>
                     <h2>{selectedMessage.subject || "No subject"}</h2>
                     <div className="teacher-messages-detail-meta">
                       <span>{selectedMessage.sender_name || "Staff member"}</span>
@@ -653,7 +663,7 @@ export default function TeacherMessagesPage() {
                     }}>
                       ← Back to sent
                     </button>
-                    <p className="teacher-messages-detail-eyebrow">To · {roleLabel(selectedMessage.receiver_role)}</p>
+                    <p className="teacher-messages-detail-eyebrow">{messageDirectionLabel(selectedMessage, "sent")}</p>
                     <h2>{selectedMessage.subject || "No subject"}</h2>
                     <div className="teacher-messages-detail-meta">
                       <span>{selectedMessage.receiver_name || "Staff member"}</span>

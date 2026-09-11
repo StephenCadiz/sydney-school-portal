@@ -190,11 +190,14 @@ async function enrichMessagesWithProfile(
     const name = `${profile?.first_name || ""} ${
       profile?.last_name || ""
     }`.trim();
+    const canonicalName =
+      message[profileIdField] === ROSA_PROFILE_ID ? "Rosa Vara" : name;
 
     return {
       ...message,
       [`${prefix}_name`]:
-        name || (profile?.role === "admin" ? "Admin" : "Unknown user"),
+        canonicalName ||
+        (profile?.role === "admin" ? "Admin" : "Unknown user"),
       [`${prefix}_role`]: profile?.role || "",
     };
   });
@@ -205,6 +208,8 @@ function isStaffRole(role?: string | null) {
 }
 
 export const TEACHER_ADMIN_RECIPIENT_VALUE = "admin-group";
+// Rosa's profile is the canonical identity for the private teacher conversation.
+export const ROSA_PROFILE_ID = "7f4d3e64-94a7-47f0-b069-ed0e77b29369";
 
 type TeacherStaffMessageRecipient =
   | {
@@ -213,6 +218,10 @@ type TeacherStaffMessageRecipient =
   | {
       type: "teacher";
       teacherId: string;
+    }
+  | {
+      type: "direct_staff";
+      staffId: string;
     };
 
 async function getStaffProfiles(excludeUserId?: string) {
@@ -268,6 +277,10 @@ export async function getTeacherStaffRecipients(teacherId: string) {
           email: "",
           role: "admin",
         },
+        ...profiles.filter(
+          (profile) =>
+            profile.id === ROSA_PROFILE_ID && profile.role === "admin"
+        ),
       ],
       teachers: profiles.filter((profile) => profile.role === "teacher"),
     };
@@ -409,7 +422,11 @@ export async function sendTeacherStaffMessage({
   }
 
   const profileIds =
-    recipient.type === "teacher" ? [senderId, recipient.teacherId] : [senderId];
+    recipient.type === "teacher"
+      ? [senderId, recipient.teacherId]
+      : recipient.type === "direct_staff"
+        ? [senderId, recipient.staffId]
+        : [senderId];
 
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
@@ -433,7 +450,7 @@ export async function sendTeacherStaffMessage({
   if (recipient.type === "admin_group") {
     payload.receiver_id = null;
     payload.recipient_group = "admin";
-  } else {
+  } else if (recipient.type === "teacher") {
     if (!recipient.teacherId) {
       throw new Error("Please select a teacher recipient.");
     }
@@ -451,6 +468,25 @@ export async function sendTeacherStaffMessage({
     }
 
     payload.receiver_id = recipient.teacherId;
+    payload.recipient_group = null;
+  } else {
+    if (recipient.staffId !== ROSA_PROFILE_ID) {
+      throw new Error("Please select Rosa Vara as the direct recipient.");
+    }
+
+    if (senderId === recipient.staffId) {
+      throw new Error("You cannot send a message to yourself.");
+    }
+
+    const receiverProfile = profiles?.find(
+      (profile) => profile.id === recipient.staffId
+    );
+
+    if (!isStaffRole(receiverProfile?.role)) {
+      throw new Error("Please select Rosa Vara as the direct recipient.");
+    }
+
+    payload.receiver_id = recipient.staffId;
     payload.recipient_group = null;
   }
 
@@ -492,7 +528,12 @@ export async function markTeacherStaffMessageAsRead(
     throw new Error("This is not a staff message.");
   }
 
-  await markMessageAsRead(messageId, teacherId);
+  const { error: markError } = await supabase.rpc(
+    "mark_direct_staff_message_as_read",
+    { p_message_id: messageId }
+  );
+
+  if (markError) throw markError;
 }
 
 export async function hideTeacherReceivedStaffMessage(messageId: string) {
