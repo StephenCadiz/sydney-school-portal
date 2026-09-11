@@ -14,9 +14,11 @@ const adminLayout = read("app/components/layout/AdminLayout.tsx");
 const studentMenu = read("app/student/StudentMenu.tsx");
 
 test("Teacher header and Dashboard use the same centered content width", () => {
-  assert.match(styles, /\.teacher-portal-header[\s\S]*max-width: 1480px/);
-  assert.match(styles, /\.teacher-dashboard-page,[\s\S]*--teacher-content-max-width: 1480px/);
+  assert.match(styles, /\.teacher-main-content[\s\S]*--teacher-content-max-width: 1480px/);
+  assert.match(styles, /\.teacher-portal-header[\s\S]*max-width: var\(--teacher-content-max-width, 1480px\)/);
   assert.match(styles, /\.teacher-dashboard-page,[\s\S]*max-width: var\(--teacher-content-max-width\)/);
+  assert.match(styles, /\.teacher-portal-header[\s\S]*margin: 0 auto 24px !important/);
+  assert.match(styles, /\.teacher-portal-header[\s\S]*width: 100%/);
   assert.match(portalHeader, /className="teacher-portal-header"/);
   assert.match(dashboard, /className="teacher-dashboard-page"/);
 });
