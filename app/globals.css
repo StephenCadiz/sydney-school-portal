@@ -21460,6 +21460,32 @@ img {
   width: 100%;
 }
 
+@media (min-width: 721px) {
+  .friday-six-general-register {
+    min-width: 0;
+  }
+
+  .friday-six-general-register col.is-date,
+  .friday-six-general-register col.is-rotation,
+  .friday-six-general-register col.is-teacher,
+  .friday-six-general-register col.is-b1-teacher,
+  .friday-six-general-register col.is-note {
+    width: auto;
+  }
+
+  .friday-six-general-register col.is-time {
+    width: 96px;
+  }
+
+  .friday-six-general-register col.is-status {
+    width: 84px;
+  }
+
+  .friday-six-general-register col.is-actions {
+    width: 124px;
+  }
+}
+
 .friday-six-general-register col.is-date {
   width: 190px;
 }
