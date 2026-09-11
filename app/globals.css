@@ -21470,19 +21470,19 @@ img {
   .friday-six-general-register col.is-teacher,
   .friday-six-general-register col.is-b1-teacher,
   .friday-six-general-register col.is-note {
-    width: auto !important;
+    width: 13% !important;
   }
 
   .friday-six-general-register col.is-time {
-    width: 96px !important;
+    width: 9% !important;
   }
 
   .friday-six-general-register col.is-status {
-    width: 84px !important;
+    width: 8% !important;
   }
 
   .friday-six-general-register col.is-actions {
-    width: 124px !important;
+    width: 18% !important;
   }
 }
 
