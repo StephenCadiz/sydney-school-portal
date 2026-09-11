@@ -7,6 +7,8 @@ const read = (path) => readFileSync(new URL(path, root), "utf8");
 const portalHeader = read("app/components/layout/PortalHeader.tsx");
 const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
 const dashboard = read("app/teacher/page.tsx");
+const workingDay = read("app/components/teacher/TeacherWorkingDayPanel.tsx");
+const calendar = read("app/components/teacher/TeacherCalendarAgenda.tsx");
 const styles = read("app/globals.css");
 const adminLayout = read("app/components/layout/AdminLayout.tsx");
 const studentMenu = read("app/student/StudentMenu.tsx");
@@ -29,13 +31,14 @@ test("Teacher header retains logo, title, subtitle, clock, and message control",
   assert.match(teacherLayout, /<PortalHeader title="Teacher Portal" \/>/);
 });
 
-test("Teacher header receives the liquid-glass treatment without overflow", () => {
+test("Teacher header is a solid card while dashboard surfaces use the sidebar language", () => {
   assert.match(styles, /\.teacher-portal-header \{/);
-  assert.match(styles, /rgba\(255, 255, 255, 0\.86\)/);
-  assert.match(styles, /backdrop-filter: blur\(18px\)/);
-  assert.match(styles, /inset 0 1px 0 rgba\(255, 255, 255, 0\.9\)/);
-  assert.match(styles, /box-sizing: border-box/);
-  assert.match(styles, /overflow: hidden/);
+  assert.match(styles, /\.teacher-portal-header \{[\s\S]*background: #ffffff !important/);
+  assert.match(styles, /\.teacher-portal-header::before \{[\s\S]*display: none !important/);
+  assert.match(styles, /\.teacher-dashboard-page \.teacher-dashboard-section,[\s\S]*linear-gradient\(/);
+  assert.match(styles, /\.teacher-dashboard-page \.staff-time-primary-action/);
+  assert.match(styles, /\.teacher-dashboard-page \.teacher-dashboard-tool-row:hover/);
+  assert.match(styles, /\.teacher-dashboard-page \.teacher-dashboard-section-link:focus-visible/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
 
@@ -51,4 +54,14 @@ test("Teacher mobile layout keeps the existing responsive header and dashboard f
   assert.match(styles, /\.teacher-layout-shell > \.mobile-topbar/);
   assert.match(styles, /\.teacher-dashboard-page \{[\s\S]*width: 100%/);
   assert.match(styles, /\.teacher-main-content > \.teacher-portal-header/);
+  assert.match(styles, /\.teacher-dashboard-page,[\s\S]*max-width: 100%/);
+});
+
+test("dashboard controls and content labels remain intact", () => {
+  assert.match(dashboard, /Working Day|Teacher Calendar|Tools/);
+  assert.match(workingDay, /Sign In|Sign Out/);
+  assert.match(workingDay, /Request a correction/);
+  assert.match(calendar, /View Calendar/);
+  assert.match(dashboard, /teacher-dashboard-tool-row/);
+  assert.match(dashboard, /teacher-dashboard-primary-grid/);
 });

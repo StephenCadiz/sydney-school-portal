@@ -20308,51 +20308,6 @@ img {
 }
 
 /* Teacher Dashboard hierarchy and identity refinement */
-.teacher-portal-header {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.86),
-    rgba(239, 247, 253, 0.74)
-  ) !important;
-  border: 1px solid rgba(181, 207, 226, 0.72) !important;
-  border-radius: 16px !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 12px 30px rgba(31, 60, 136, 0.08);
-  box-sizing: border-box;
-  margin: 0 auto 24px !important;
-  max-width: 1480px;
-  overflow: hidden;
-  position: relative;
-  width: 100%;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .teacher-portal-header {
-    -webkit-backdrop-filter: blur(18px) saturate(120%);
-    backdrop-filter: blur(18px) saturate(120%);
-  }
-}
-
-.teacher-portal-header::before {
-  background: linear-gradient(
-    115deg,
-    rgba(255, 255, 255, 0.38),
-    transparent 46%
-  );
-  content: "";
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-}
-
-.teacher-portal-header:focus-within {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 14px 32px rgba(31, 60, 136, 0.12);
-}
-
 .teacher-dashboard-header {
   align-items: center;
   background: #f3f8fc;
@@ -26314,5 +26269,214 @@ img {
   .teacher-dashboard-primary-grid .staff-time-primary-action,
   .teacher-dashboard-primary-grid .staff-time-secondary-action {
     width: 100%;
+  }
+}
+
+/* Teacher dashboard — align surfaces with the sidebar visual system. */
+.teacher-portal-header {
+  background: #ffffff !important;
+  border: 1px solid #d9e7f2 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 22px rgba(31, 60, 136, 0.06);
+  max-width: 1480px;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.teacher-portal-header::before {
+  display: none !important;
+}
+
+.teacher-dashboard-page .teacher-dashboard-section,
+.teacher-dashboard-page .teacher-dashboard-tools,
+.teacher-dashboard-page .staff-time-teacher-panel {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(239, 247, 253, 0.9)
+  );
+  border-color: rgba(181, 207, 226, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 8px 20px rgba(31, 60, 136, 0.07);
+}
+
+.teacher-dashboard-page .teacher-dashboard-section-title h2,
+.teacher-dashboard-page .staff-time-teacher-header h2 {
+  color: #173f70;
+}
+
+.teacher-dashboard-page .teacher-dashboard-section-title p,
+.teacher-dashboard-page .staff-time-teacher-header p,
+.teacher-dashboard-page .staff-time-schedule-block small,
+.teacher-dashboard-page .staff-time-current-block small {
+  color: #526d87;
+}
+
+.teacher-dashboard-page .staff-time-schedule-block,
+.teacher-dashboard-page .staff-time-current-block {
+  background: rgba(239, 247, 253, 0.76);
+  border-color: rgba(181, 207, 226, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.teacher-dashboard-page .staff-time-status-mark,
+.teacher-dashboard-page .teacher-dashboard-attendance-group,
+.teacher-dashboard-page .teacher-dashboard-attendance-level {
+  border-color: rgba(47, 125, 184, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56);
+}
+
+.teacher-dashboard-page .staff-time-status-mark {
+  background: rgba(235, 245, 252, 0.88);
+  color: #1f527c;
+}
+
+.teacher-dashboard-page .staff-time-status-mark.is-working,
+.teacher-dashboard-page .staff-time-status-mark.is-authorised_remote,
+.teacher-dashboard-page .staff-time-status-mark.is-completed {
+  background: #e9f7ef;
+  border-color: #b9dfc7;
+  color: #17613e;
+}
+
+.teacher-dashboard-page .staff-time-status-mark.is-missing_sign_in,
+.teacher-dashboard-page .staff-time-status-mark.is-missing_sign_out,
+.teacher-dashboard-page .staff-time-status-mark.is-correction_pending {
+  background: #fff6e4;
+  border-color: #ead19a;
+  color: #755000;
+}
+
+.teacher-dashboard-page .teacher-dashboard-section-link,
+.teacher-dashboard-page .teacher-dashboard-secondary-link,
+.teacher-dashboard-page .teacher-dashboard-resource-link,
+.teacher-dashboard-page .staff-time-secondary-action,
+.teacher-dashboard-page .staff-time-form-actions button:first-child,
+.teacher-dashboard-page .staff-time-modal-actions button:first-child,
+.teacher-dashboard-page .teacher-dashboard-announcement-action button,
+.teacher-dashboard-page .admin-dashboard-message-control {
+  background: rgba(235, 245, 252, 0.86);
+  border: 1px solid rgba(47, 125, 184, 0.28);
+  border-radius: 9px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  color: #173f70;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.teacher-dashboard-page .teacher-dashboard-section-link,
+.teacher-dashboard-page .teacher-dashboard-secondary-link,
+.teacher-dashboard-page .teacher-dashboard-resource-link {
+  text-decoration: none;
+}
+
+.teacher-dashboard-page .teacher-dashboard-section-link:hover,
+.teacher-dashboard-page .teacher-dashboard-secondary-link:hover,
+.teacher-dashboard-page .teacher-dashboard-resource-link:hover,
+.teacher-dashboard-page .staff-time-secondary-action:hover:not(:disabled),
+.teacher-dashboard-page .staff-time-form-actions button:first-child:hover:not(:disabled),
+.teacher-dashboard-page .staff-time-modal-actions button:first-child:hover:not(:disabled),
+.teacher-dashboard-page .teacher-dashboard-announcement-action button:hover:not(:disabled),
+.teacher-dashboard-page .admin-dashboard-message-control:hover {
+  background: rgba(214, 235, 249, 0.98);
+  border-color: rgba(47, 125, 184, 0.46);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 6px 14px rgba(31, 60, 136, 0.1);
+  transform: translateY(-1px);
+}
+
+.teacher-dashboard-page .staff-time-primary-action,
+.teacher-dashboard-page .staff-time-form-actions button:last-child,
+.teacher-dashboard-page .staff-time-modal-actions button:last-child,
+.teacher-dashboard-page .teacher-dashboard-attendance-actions button {
+  background: linear-gradient(135deg, #2f7db8, #1f5f99);
+  border: 1px solid #2f7db8;
+  border-radius: 9px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 6px 14px rgba(31, 60, 136, 0.16);
+  color: #ffffff;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.teacher-dashboard-page .staff-time-primary-action:hover:not(:disabled),
+.teacher-dashboard-page .staff-time-form-actions button:last-child:hover:not(:disabled),
+.teacher-dashboard-page .staff-time-modal-actions button:last-child:hover:not(:disabled),
+.teacher-dashboard-page .teacher-dashboard-attendance-actions button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3d8ac2, #245f98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 8px 18px rgba(31, 60, 136, 0.22);
+  transform: translateY(-1px);
+}
+
+.teacher-dashboard-page .teacher-dashboard-message-row,
+.teacher-dashboard-page .teacher-dashboard-tool-row,
+.teacher-dashboard-page .teacher-dashboard-calendar .teacher-dashboard-event {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(181, 207, 226, 0.58);
+}
+
+.teacher-dashboard-page .teacher-dashboard-message-row:hover,
+.teacher-dashboard-page .teacher-dashboard-tool-row:hover,
+.teacher-dashboard-page .teacher-dashboard-calendar .teacher-dashboard-event:hover {
+  background: rgba(235, 245, 252, 0.92);
+}
+
+.teacher-dashboard-page .teacher-dashboard-tool-icon {
+  background: rgba(214, 235, 249, 0.9);
+  border: 1px solid rgba(47, 125, 184, 0.2);
+  color: #1f5f99;
+}
+
+.teacher-dashboard-page .teacher-dashboard-section-link:focus-visible,
+.teacher-dashboard-page .teacher-dashboard-message-row:focus-visible,
+.teacher-dashboard-page .teacher-dashboard-tool-row:focus-visible,
+.teacher-dashboard-page .teacher-dashboard-resource-link:focus-visible,
+.teacher-dashboard-page .teacher-dashboard-announcement-action button:focus-visible,
+.teacher-dashboard-page .staff-time-primary-action:focus-visible,
+.teacher-dashboard-page .staff-time-secondary-action:focus-visible,
+.teacher-dashboard-page .staff-time-form-actions button:focus-visible,
+.teacher-dashboard-page .staff-time-modal-actions button:focus-visible,
+.teacher-dashboard-page .teacher-dashboard-attendance-choice button:focus-visible,
+.teacher-dashboard-page .teacher-dashboard-attendance-actions button:focus-visible,
+.teacher-dashboard-page .admin-dashboard-message-control:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.38);
+  outline-offset: 3px;
+}
+
+.teacher-dashboard-page,
+.teacher-dashboard-page .teacher-dashboard-primary-grid,
+.teacher-dashboard-page .teacher-dashboard-feed {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teacher-dashboard-page .teacher-dashboard-section-link,
+  .teacher-dashboard-page .teacher-dashboard-secondary-link,
+  .teacher-dashboard-page .teacher-dashboard-resource-link,
+  .teacher-dashboard-page .staff-time-secondary-action,
+  .teacher-dashboard-page .staff-time-form-actions button,
+  .teacher-dashboard-page .staff-time-modal-actions button,
+  .teacher-dashboard-page .teacher-dashboard-announcement-action button,
+  .teacher-dashboard-page .admin-dashboard-message-control,
+  .teacher-dashboard-page .staff-time-primary-action,
+  .teacher-dashboard-page .teacher-dashboard-attendance-actions button {
+    transition: none;
+  }
+
+  .teacher-dashboard-page .teacher-dashboard-section-link:hover,
+  .teacher-dashboard-page .teacher-dashboard-secondary-link:hover,
+  .teacher-dashboard-page .teacher-dashboard-resource-link:hover,
+  .teacher-dashboard-page .staff-time-secondary-action:hover:not(:disabled),
+  .teacher-dashboard-page .teacher-dashboard-announcement-action button:hover:not(:disabled),
+  .teacher-dashboard-page .admin-dashboard-message-control:hover,
+  .teacher-dashboard-page .staff-time-primary-action:hover:not(:disabled),
+  .teacher-dashboard-page .teacher-dashboard-attendance-actions button:hover:not(:disabled) {
+    transform: none;
   }
 }
