@@ -6,6 +6,7 @@ const root = new URL("../", import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), "utf8");
 const messages = read("lib/messages.ts");
 const teacherPage = read("app/teacher/messages/page.tsx");
+const teacherMessageStyles = read("app/globals.css");
 const adminPage = read("app/admin/messages/page.tsx");
 const adminSentRoute = read("app/api/admin/messages/sent/route.ts");
 const migration = read(
@@ -98,6 +99,50 @@ test("Rosa is identified by name in teacher message rows and details", () => {
   assert.match(teacherPage, /\$\{type === "inbox" \? "From" : "To"\} \$\{getMessageName/);
   assert.match(teacherPage, /<p className="teacher-messages-detail-eyebrow">\{messageDirectionLabel/);
   assert.match(messages, /canonicalName[\s\S]*Rosa Vara/);
+});
+
+test("Teacher Messages uses the shared Teacher container and scoped glass styling", () => {
+  assert.match(
+    teacherMessageStyles,
+    /\.teacher-messages-shell[\s\S]*max-width: var\(--teacher-content-max-width, 1480px\)/
+  );
+  assert.match(
+    teacherMessageStyles,
+    /\.teacher-messages-header,[\s\S]*\.teacher-messages-content-panel,[\s\S]*backdrop-filter: blur\(18px\)/
+  );
+  assert.match(
+    teacherMessageStyles,
+    /\.teacher-messages-content-panel[\s\S]*box-shadow:[\s\S]*inset 0 1px 0/
+  );
+  assert.match(
+    teacherMessageStyles,
+    /\.teacher-messages-page :is\(button, a, input, textarea, select\):focus-visible/
+  );
+  assert.match(teacherMessageStyles, /prefers-reduced-motion: reduce/);
+  assert.match(teacherMessageStyles, /@media \(max-width: 760px\)[\s\S]*\.teacher-messages-shell/);
+  assert.doesNotMatch(teacherMessageStyles, /\.admin-messages-page \.teacher-messages/);
+});
+
+test("Teacher Messages labels and actions remain intact", () => {
+  for (const label of [
+    "Staff Messages",
+    "Student Messages",
+    "Inbox",
+    "Sent",
+    "New Message",
+    "Send Message",
+    "Send Reply",
+    "Recipient",
+    "Attachment or resource link",
+  ]) {
+    assert.match(teacherPage, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.match(teacherPage, /teacher-messages-row/);
+  assert.match(teacherPage, /teacher-messages-detail/);
+  assert.match(teacherPage, /teacher-messages-compose/);
+  assert.match(teacherPage, /teacher-messages-sound-toggle/);
+  assert.match(teacherPage, /teacher-messages-content-panel/);
+  assert.doesNotMatch(adminPage, /teacher-messages-page/);
 });
 
 test("Rosa can switch between Admin and Rosa Vara sender identities", () => {
