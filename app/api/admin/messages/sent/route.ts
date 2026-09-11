@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     );
     const visibleMessages = (messages || []).filter(
       (message) =>
-        (message.recipient_group === "admin" && !message.receiver_id) ||
+        message.recipient_group === "admin" ||
         message.sender_id === admin.userId
     );
 

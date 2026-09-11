@@ -65,6 +65,14 @@ test("Rosa private messages are hidden from other Admin sent views", () => {
   assert.match(adminSentRoute, /message\.recipient_group === "admin"/);
   assert.match(adminSentRoute, /message\.sender_id === admin\.userId/);
   assert.match(adminSentRoute, /const visibleMessages = \(messages \|\| \[\]\)\.filter/);
+  assert.match(
+    adminSentRoute,
+    /message\.recipient_group === "admin" \|\|\s*message\.sender_id === admin\.userId/
+  );
+});
+
+test("Rosa Admin-identity messages with a teacher receiver remain in shared Sent", () => {
+  assert.match(adminSentRoute, /message\.recipient_group === "admin" \|\|/);
 });
 
 test("shared Admin messages remain visible through the shared inbox scope", () => {
