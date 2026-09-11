@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -190,6 +191,15 @@ function EnvelopeIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+function getDisplayDate(date = new Date()) {
+  return date.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 function UnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null;
 
@@ -229,6 +239,7 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [adminId, setAdminId] = useState("");
+  const [adminName, setAdminName] = useState({ firstName: "", fullName: "" });
   const [unreadTeacherMessages, setUnreadTeacherMessages] = useState(0);
   const [attendanceAlertCount, setAttendanceAlertCount] = useState(0);
   const mountedRef = useRef(false);
@@ -248,12 +259,18 @@ export default function AdminLayout({
 
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, first_name, last_name")
           .eq("id", session.user.id)
           .single();
 
         if (!error && profile?.role === "admin" && mountedRef.current) {
           setAdminId(session.user.id);
+          const firstName = String(profile.first_name || "").trim();
+          const fullName = `${firstName} ${String(profile.last_name || "").trim()}`.trim();
+          setAdminName({
+            firstName,
+            fullName: fullName || firstName,
+          });
         }
       } catch {
         // The layout remains usable if notification initialization fails.
@@ -454,6 +471,11 @@ export default function AdminLayout({
     : "Attendance";
   const showDashboardMessageAlert =
     pathname === "/admin" && hasUnreadTeacherMessages;
+  const identityLabel = adminName.fullName
+    ? pathname === "/admin"
+      ? `Welcome, ${adminName.firstName || adminName.fullName}`
+      : `Logged in as ${adminName.fullName}`
+    : "Admin";
 
   return (
     <div
@@ -652,6 +674,36 @@ export default function AdminLayout({
           background: "var(--ss-page-bg)",
         }}
       >
+        <header className="admin-portal-header">
+          <div className="admin-portal-header-brand">
+            <Image
+              className="admin-portal-header-logo"
+              src="/LOGO and NAME.png"
+              alt="Sydney School"
+              width={210}
+              height={74}
+              priority
+            />
+            <span className="admin-portal-header-identity" aria-live="polite">
+              {identityLabel}
+            </span>
+          </div>
+          <div className="admin-portal-header-status">
+            <Link
+              href="/admin/messages"
+              className={`admin-dashboard-message-control ${
+                hasUnreadTeacherMessages ? "has-unread" : ""
+              }`}
+              aria-label={unreadAccessibleLabel}
+            >
+              <EnvelopeIcon size={20} />
+              <span className="admin-dashboard-message-count" aria-hidden="true">
+                {unreadTeacherMessages > 99 ? "99+" : unreadTeacherMessages}
+              </span>
+            </Link>
+            <div className="admin-dashboard-date">{getDisplayDate()}</div>
+          </div>
+        </header>
         {showDashboardMessageAlert && (
           <section
             className="admin-dashboard-message-alert"

@@ -6082,6 +6082,49 @@ img {
   margin-bottom: 24px;
 }
 
+.admin-portal-header {
+  align-items: center;
+  background: var(--ss-card-bg);
+  border: 1px solid var(--ss-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(31, 60, 136, 0.07);
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin: 0 auto 24px;
+  max-width: 1480px;
+  padding: 18px 24px;
+  width: 100%;
+}
+
+.admin-portal-header-brand {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  min-width: 0;
+}
+
+.admin-portal-header-logo {
+  flex: 0 0 auto;
+  height: auto;
+  object-fit: contain;
+  width: 210px;
+}
+
+.admin-portal-header-identity {
+  color: var(--ss-blue-dark);
+  font-size: 1rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-portal-header-status {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 16px;
+}
+
 .admin-dashboard-header,
 .admin-dashboard-section,
 .admin-dashboard-card,
@@ -6875,6 +6918,16 @@ img {
 }
 
 @media (max-width: 920px) {
+  .admin-portal-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-portal-header-status {
+    justify-content: space-between;
+    width: 100%;
+  }
+
   .admin-dashboard-school-calendar {
     grid-template-columns: 46px minmax(0, 1fr);
   }
@@ -6935,6 +6988,34 @@ img {
   .admin-dashboard-header {
     gap: 16px;
     padding: 20px 18px;
+  }
+
+  .admin-portal-header {
+    border-radius: 14px;
+    gap: 16px;
+    padding: 16px 18px;
+  }
+
+  .admin-portal-header-brand {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .admin-portal-header-logo {
+    max-width: 210px;
+    width: 100%;
+  }
+
+  .admin-portal-header-identity {
+    font-size: 0.92rem;
+  }
+
+  .admin-portal-header-status {
+    flex-wrap: wrap;
+    gap: 12px;
+    width: 100%;
   }
 
   .admin-dashboard-header-main {

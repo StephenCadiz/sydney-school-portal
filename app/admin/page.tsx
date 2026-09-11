@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 
 import AdminLayout from "../components/layout/AdminLayout";
@@ -200,15 +199,6 @@ function getPreview(value?: string | null) {
   if (!value) return "";
 
   return value.length > 110 ? `${value.slice(0, 110).trim()}...` : value;
-}
-
-function getDisplayDate(date = new Date()) {
-  return date.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 }
 
 function StatItem({
@@ -561,50 +551,15 @@ export default function AdminDashboard() {
   return (
     <AdminLayout>
       {(unreadMessageCount, attendanceAlertCount) => {
-        const unreadMessageLabel =
-          unreadMessageCount === 0
-            ? "Messages, no unread messages"
-            : `Messages, ${unreadMessageCount} unread message${
-                unreadMessageCount === 1 ? "" : "s"
-              }`;
-        const visibleUnreadCount =
-          unreadMessageCount > 99 ? "99+" : String(unreadMessageCount);
         const visibleAttendanceCount =
           attendanceAlertCount > 99 ? "99+" : String(attendanceAlertCount);
 
         return (
           <div className="admin-dashboard-page">
         <header className="admin-dashboard-header">
-          <div className="admin-dashboard-header-main">
-            <Image
-              className="admin-dashboard-logo"
-              src="/LOGO and NAME.png"
-              alt="Sydney School"
-              width={230}
-              height={80}
-              priority
-            />
-
-            <div className="admin-dashboard-header-copy">
-              <h1>Admin Dashboard</h1>
-              <p>Academy management and daily operations.</p>
-            </div>
-          </div>
-
-          <div className="admin-dashboard-header-status">
-            <Link
-              href="/admin/messages"
-              className={`admin-dashboard-message-control ${
-                unreadMessageCount > 0 ? "has-unread" : ""
-              }`}
-              aria-label={unreadMessageLabel}
-            >
-              <DashboardIcon name="envelope" size={20} />
-              <span className="admin-dashboard-message-count" aria-hidden="true">
-                {visibleUnreadCount}
-              </span>
-            </Link>
-            <div className="admin-dashboard-date">{getDisplayDate()}</div>
+          <div className="admin-dashboard-header-copy">
+            <h1>Admin Dashboard</h1>
+            <p>Academy management and daily operations.</p>
           </div>
         </header>
 
