@@ -434,7 +434,7 @@ export async function sendTeacherStaffMessage({
 
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, role")
+    .select("id, role, first_name, last_name")
     .in("id", profileIds);
 
   if (profilesError) throw profilesError;

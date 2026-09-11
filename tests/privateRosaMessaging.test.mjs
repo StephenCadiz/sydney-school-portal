@@ -23,6 +23,7 @@ test("teacher recipients resolve the current Rosa Admin profile and direct sends
   assert.match(messages, /is_rosa: true/);
   assert.match(messages, /type: "direct_staff"/);
   assert.match(messages, /!isRosaProfile\(receiverProfile\)/);
+  assert.match(messages, /select\("id, role, first_name, last_name"\)/);
   assert.match(messages, /payload\.receiver_id = recipient\.staffId/);
   assert.match(messages, /payload\.recipient_group = null/);
 });
