@@ -119,7 +119,8 @@ async function enrichTeacherMessages(messages: any[]) {
     if (senderRole === "admin") {
       return {
         ...message,
-        sender_name: senderName || "Admin",
+        sender_name:
+          message.recipient_group === "admin" ? "Admin" : senderName || "Admin",
         sender_role: "admin",
         student_name: "",
         class_label: "",
@@ -209,7 +210,7 @@ function isStaffRole(role?: string | null) {
 export const TEACHER_ADMIN_RECIPIENT_VALUE = "admin-group";
 export const ROSA_RECIPIENT_NAME = "Rosa Vara";
 
-function isRosaProfile(profile: any) {
+export function isRosaProfile(profile: any) {
   const firstName = String(profile?.first_name || "").trim().toLocaleLowerCase();
   const lastName = String(profile?.last_name || "").trim().toLocaleLowerCase();
 
@@ -685,18 +686,52 @@ export async function sendAdminMessageToTeacher({
   subject,
   message,
   attachment_link,
+  senderIdentity = "admin",
 }: {
   adminId: string;
   teacherId: string;
   subject: string;
   message: string;
   attachment_link?: string;
+  senderIdentity?: "admin" | "rosa";
 }) {
+  const { data: senderProfile, error: senderError } = await supabase
+    .from("profiles")
+    .select("id, first_name, last_name, role")
+    .eq("id", adminId)
+    .single();
+
+  if (senderError) throw senderError;
+
+  if (senderProfile?.role !== "admin") {
+    throw new Error("Only Admin users can send staff messages.");
+  }
+
+  if (senderIdentity === "rosa" && !isRosaProfile(senderProfile)) {
+    throw new Error("Only Rosa Vara can send messages as Rosa Vara.");
+  }
+
+  const { data: receiverProfile, error: receiverError } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", teacherId)
+    .single();
+
+  if (receiverError) throw receiverError;
+
+  if (receiverProfile?.role !== "teacher") {
+    throw new Error("Please select a teacher recipient.");
+  }
+
   const payload: any = {
     sender_id: adminId,
     receiver_id: teacherId,
     subject,
     message,
+    recipient_group:
+      isRosaProfile(senderProfile) && senderIdentity === "admin"
+        ? "admin"
+        : null,
   };
 
   if (attachment_link) {
@@ -714,13 +749,34 @@ export async function sendAdminMessageToAllTeachers({
   subject,
   message,
   attachment_link,
+  senderIdentity = "admin",
 }: {
   adminId: string;
   teachers: any[];
   subject: string;
   message: string;
   attachment_link?: string;
+  senderIdentity?: "admin" | "rosa";
 }) {
+  const { data: senderProfile, error: senderError } = await supabase
+    .from("profiles")
+    .select("id, first_name, last_name, role")
+    .eq("id", adminId)
+    .single();
+
+  if (senderError) throw senderError;
+
+  if (senderProfile?.role !== "admin") {
+    throw new Error("Only Admin users can send staff messages.");
+  }
+
+  if (senderIdentity === "rosa" && !isRosaProfile(senderProfile)) {
+    throw new Error("Only Rosa Vara can send messages as Rosa Vara.");
+  }
+
+  const sharedAdminIdentity =
+    isRosaProfile(senderProfile) && senderIdentity === "admin";
+
   const rows = (teachers || [])
     .filter((teacher) => teacher?.id)
     .map((teacher) => {
@@ -729,6 +785,7 @@ export async function sendAdminMessageToAllTeachers({
         receiver_id: teacher.id,
         subject,
         message,
+        recipient_group: sharedAdminIdentity ? "admin" : null,
       };
 
       if (attachment_link) {

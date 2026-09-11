@@ -14,6 +14,7 @@ import {
   sendAdminMessageToAllTeachers,
   sendAdminMessageToTeacher,
   sendMessage,
+  isRosaProfile,
 } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
 
@@ -77,6 +78,9 @@ export default function AdminMessagesPage() {
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [recipientMode, setRecipientMode] = useState("all");
   const [teacherId, setTeacherId] = useState("");
+  const [isRosaAdmin, setIsRosaAdmin] = useState(false);
+  const [senderIdentity, setSenderIdentity] = useState<"admin" | "rosa">("admin");
+  const [replySenderIdentity, setReplySenderIdentity] = useState<"admin" | "rosa">("admin");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attachmentLink, setAttachmentLink] = useState("");
@@ -173,7 +177,7 @@ export default function AdminMessagesPage() {
 
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, first_name, last_name")
           .eq("id", session.user.id)
           .single();
 
@@ -187,6 +191,7 @@ export default function AdminMessagesPage() {
         if (!mountedRef.current) return;
 
         setAdminId(session.user.id);
+        setIsRosaAdmin(isRosaProfile(profile));
 
         const teacherData = await getTeachers();
         if (!mountedRef.current) return;
@@ -298,6 +303,7 @@ export default function AdminMessagesPage() {
           subject: subject.trim(),
           message: message.trim(),
           attachment_link: attachment,
+          senderIdentity: isRosaAdmin ? senderIdentity : "admin",
         });
 
         setStatusMessage("Message sent successfully.");
@@ -308,6 +314,7 @@ export default function AdminMessagesPage() {
           subject: subject.trim(),
           message: message.trim(),
           attachment_link: attachment,
+          senderIdentity: isRosaAdmin ? senderIdentity : "admin",
         });
 
         setStatusMessage(`Message sent to ${count} teachers.`);
@@ -344,12 +351,22 @@ export default function AdminMessagesPage() {
     setSending(true);
 
     try {
-      await sendMessage({
-        sender_id: adminId,
-        receiver_id: selectedMessage.sender_id,
-        subject: getReplySubject(selectedMessage.subject),
-        message: replyMessage.trim(),
-      });
+      if (isRosaAdmin) {
+        await sendAdminMessageToTeacher({
+          adminId,
+          teacherId: selectedMessage.sender_id,
+          subject: getReplySubject(selectedMessage.subject),
+          message: replyMessage.trim(),
+          senderIdentity: replySenderIdentity,
+        });
+      } else {
+        await sendMessage({
+          sender_id: adminId,
+          receiver_id: selectedMessage.sender_id,
+          subject: getReplySubject(selectedMessage.subject),
+          message: replyMessage.trim(),
+        });
+      }
 
       setReplyMessage("");
       setStatusMessage("Reply sent successfully.");
@@ -743,6 +760,32 @@ export default function AdminMessagesPage() {
                 </p>
               )}
 
+              {isRosaAdmin && (
+                <label
+                  style={{
+                    display: "grid",
+                    gap: "6px",
+                    color: "#334155",
+                    fontWeight: 700,
+                    marginBottom: "10px",
+                  }}
+                >
+                  Sender identity
+                  <select
+                    value={replySenderIdentity}
+                    onChange={(event) =>
+                      setReplySenderIdentity(
+                        event.target.value === "rosa" ? "rosa" : "admin"
+                      )
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="rosa">Rosa Vara</option>
+                  </select>
+                </label>
+              )}
+
               <textarea
                 value={replyMessage}
                 onChange={(event) => setReplyMessage(event.target.value)}
@@ -963,6 +1006,26 @@ export default function AdminMessagesPage() {
                         {teacher.first_name} {teacher.last_name}
                       </option>
                     ))}
+                  </select>
+                </div>
+              )}
+
+              {isRosaAdmin && (
+                <div>
+                  <label style={{ color: "#334155", fontWeight: 700 }}>
+                    Sender identity
+                  </label>
+                  <select
+                    value={senderIdentity}
+                    onChange={(event) =>
+                      setSenderIdentity(
+                        event.target.value === "rosa" ? "rosa" : "admin"
+                      )
+                    }
+                    style={{ ...inputStyle, marginTop: "6px" }}
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="rosa">Rosa Vara</option>
                   </select>
                 </div>
               )}
