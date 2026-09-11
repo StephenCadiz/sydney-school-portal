@@ -25,6 +25,7 @@ import {
   formatMadridTime,
   formatMinutes,
   getMadridDate,
+  isStaffTimeStaffTabEligible,
   minutesBetween,
   normalizeTime,
   plannedIntervalLabel,
@@ -238,7 +239,13 @@ export default function StaffTimeAdminPage() {
       if (!teacherId) {
         const initialTeacher =
           section === "teachers"
-            ? payload.teachers?.find((teacher: TeacherSummary) => teacher.staff_time_eligible)
+            ? payload.teachers?.find((teacher: TeacherSummary) =>
+                isStaffTimeStaffTabEligible(
+                  teacher.staff_role,
+                  teacher.active,
+                  teacher.staff_time_eligible
+                )
+              )
             : payload.teachers?.[0];
         setSelectedTeacherId(initialTeacher?.id || "");
       }
@@ -291,7 +298,13 @@ export default function StaffTimeAdminPage() {
   }, [selectedTeacherId, section]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const teachers = (teacherData?.teachers || []) as TeacherSummary[];
-  const staffTabTeachers = teachers.filter((teacher) => teacher.staff_time_eligible);
+  const staffTabTeachers = teachers.filter((teacher) =>
+    isStaffTimeStaffTabEligible(
+      teacher.staff_role,
+      teacher.active,
+      teacher.staff_time_eligible
+    )
+  );
   const selectedTeacher = teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
   const manualStaff = teachers.find(
     (teacher) => teacher.id === manualForm.teacher_id

@@ -409,6 +409,15 @@ export function isStaffTimeTrackingEligible(
   );
 }
 
+export function isStaffTimeStaffTabEligible(
+  role: StaffTimeStaffRole,
+  active: boolean,
+  staffTimeEligible: boolean
+) {
+  if (role === "teacher") return active === true;
+  return staffTimeEligible === true;
+}
+
 export function canAdminManageStaffTimeRecord(actorId: string, staffId: string) {
   return Boolean(actorId && staffId && actorId !== staffId);
 }
