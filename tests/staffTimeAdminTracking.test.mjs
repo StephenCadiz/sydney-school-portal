@@ -6,6 +6,7 @@ import {
   buildStaffTimeReportSessionViews,
   canAdminManageStaffTimeRecord,
   isAdminTimeRegistrationRequired,
+  isStaffTimeReportStaffEligible,
   isStaffTimeStaffTabEligible,
   isStaffTimeTrackingEligible,
   staffTimeRoleLabel,
@@ -183,6 +184,13 @@ test("Admin Staff tab eligibility still follows Staff Time enrollment", () => {
   assert.equal(isStaffTimeTrackingEligible("admin", [], [disabled], today), false);
 });
 
+test("Reports include Teachers and enrolled Admin staff only", () => {
+  assert.equal(isStaffTimeReportStaffEligible("teacher", false), true);
+  assert.equal(isStaffTimeReportStaffEligible("teacher", true), true);
+  assert.equal(isStaffTimeReportStaffEligible("admin", true), true);
+  assert.equal(isStaffTimeReportStaffEligible("admin", false), false);
+});
+
 test("Staff dropdown is filtered independently from the historical Reports dropdown", () => {
   assert.match(staffTimePage, /staffTabTeachers = teachers\.filter\(\(teacher\) =>/);
   assert.match(staffTimePage, /isStaffTimeStaffTabEligible\(/);
@@ -191,7 +199,8 @@ test("Staff dropdown is filtered independently from the historical Reports dropd
   assert.match(staffTimePage, /disabled=\{!staffTabTeachers\.length\}/);
   assert.match(staffTimePage, /No staff members currently require time recording/);
   assert.match(staffTimePage, /\{\(todayData\?\.rows \|\| \[\]\)\.map/);
-  assert.match(staffTimePage, /<option value="all">All enrolled staff<\/option>\{teachers\.map/);
+  assert.match(staffTimePage, /reportTeachers = teachers\.filter\(\(teacher\) =>/);
+  assert.match(staffTimePage, /<option value="all">All enrolled staff<\/option>\{reportTeachers\.map/);
   assert.match(serverSource, /staff_time_eligible: isStaffTimeTrackingEligible/);
 });
 

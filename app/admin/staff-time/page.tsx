@@ -25,6 +25,7 @@ import {
   formatMadridTime,
   formatMinutes,
   getMadridDate,
+  isStaffTimeReportStaffEligible,
   isStaffTimeStaffTabEligible,
   minutesBetween,
   normalizeTime,
@@ -304,6 +305,9 @@ export default function StaffTimeAdminPage() {
       teacher.active,
       teacher.staff_time_eligible
     )
+  );
+  const reportTeachers = teachers.filter((teacher) =>
+    isStaffTimeReportStaffEligible(teacher.staff_role, teacher.staff_time_eligible)
   );
   const selectedTeacher = teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
   const manualStaff = teachers.find(
@@ -759,7 +763,7 @@ export default function StaffTimeAdminPage() {
                     <label>Quick month<input type="month" value={reportMonth} onChange={(event) => { const month = event.target.value; const range = monthDates(month); setReportMonth(month); setReportStart(range.start); setReportEnd(range.end); }} /></label>
                     <label>From<input type="date" value={reportStart} onChange={(event) => setReportStart(event.target.value)} /></label>
                     <label>To<input type="date" value={reportEnd} onChange={(event) => setReportEnd(event.target.value)} /></label>
-                    <label>Staff member<select value={reportTeacher} onChange={(event) => setReportTeacher(event.target.value)}><option value="all">All enrolled staff</option>{teachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name} · {teacher.staff_role_label}{teacher.active ? "" : " (inactive)"}</option>)}</select></label>
+                    <label>Staff member<select value={reportTeacher} onChange={(event) => setReportTeacher(event.target.value)}><option value="all">All enrolled staff</option>{reportTeachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name} · {teacher.staff_role_label}{teacher.active ? "" : " (inactive)"}</option>)}</select></label>
                   </div>
                   <div className="staff-time-report-actions">
                     <button type="button" onClick={() => void download("pdf")} disabled={Boolean(downloading)}><FileText aria-hidden="true" size={20} /><span><strong>{downloading === "pdf" ? "Generating…" : "Official PDF"}</strong><small>Spanish · A4 · inspection-ready</small></span><Download aria-hidden="true" size={17} /></button>

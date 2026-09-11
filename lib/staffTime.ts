@@ -418,6 +418,13 @@ export function isStaffTimeStaffTabEligible(
   return staffTimeEligible === true;
 }
 
+export function isStaffTimeReportStaffEligible(
+  role: StaffTimeStaffRole,
+  staffTimeEligible: boolean
+) {
+  return role === "teacher" || staffTimeEligible === true;
+}
+
 export function canAdminManageStaffTimeRecord(actorId: string, staffId: string) {
   return Boolean(actorId && staffId && actorId !== staffId);
 }
