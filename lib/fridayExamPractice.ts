@@ -421,7 +421,13 @@ export async function updateFridayAt6Duty(id: string, updates: any) {
   }
 }
 
-export async function deleteFridayAt6Duty(id: string) {
+export type FridayAt6DutyDeleteResult =
+  | { action: "deleted" }
+  | { action: "general_removed" };
+
+export async function deleteFridayAt6Duty(
+  id: string
+): Promise<FridayAt6DutyDeleteResult> {
   const { data: duty, error: lookupError } = await supabase
     .from("friday_at_6_duties")
     .select("id, teacher_id, b1_teacher_id")
@@ -432,16 +438,19 @@ export async function deleteFridayAt6Duty(id: string) {
     throw new Error(formatSupabaseError("duty lookup", lookupError));
   }
 
-  if (!duty) return;
+  if (!duty) {
+    throw new Error("The selected tutorial duty no longer exists.");
+  }
 
   if (duty.b1_teacher_id) {
-    const { data, error } = await supabase
+    let updateQuery = supabase
       .from("friday_at_6_duties")
       .update({ teacher_id: null })
-      .eq("id", duty.id)
-      .eq("teacher_id", duty.teacher_id)
-      .select("id")
-      .single();
+      .eq("id", duty.id);
+    if (duty.teacher_id) {
+      updateQuery = updateQuery.eq("teacher_id", duty.teacher_id);
+    }
+    const { data, error } = await updateQuery.select("id").single();
 
     if (error || !data) {
       throw new Error(
@@ -449,15 +458,35 @@ export async function deleteFridayAt6Duty(id: string) {
       );
     }
 
-    return;
+    return { action: "general_removed" };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("friday_at_6_duties")
     .delete()
-    .eq("id", duty.id);
+    .eq("id", duty.id)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw new Error(formatSupabaseError("duty delete", error));
   }
+
+  if (!data || data.id !== duty.id) {
+    throw new Error("The tutorial duty could not be deleted because no row was affected.");
+  }
+
+  const { data: remainingDuty, error: verifyError } = await supabase
+    .from("friday_at_6_duties")
+    .select("id")
+    .eq("id", duty.id)
+    .maybeSingle();
+  if (verifyError) {
+    throw new Error(formatSupabaseError("duty delete verification", verifyError));
+  }
+  if (remainingDuty) {
+    throw new Error("The tutorial duty is still present after deletion.");
+  }
+
+  return { action: "deleted" };
 }

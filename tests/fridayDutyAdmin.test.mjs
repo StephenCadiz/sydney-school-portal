@@ -43,8 +43,31 @@ test("deleting a General duty preserves a separate B1 assignment", () => {
   assert.match(helper, /if \(duty\.b1_teacher_id\)/);
   assert.match(helper, /\.update\(\{ teacher_id: null \}\)/);
   assert.match(helper, /\.eq\("teacher_id", duty\.teacher_id\)/);
+  assert.match(helper, /if \(duty\.teacher_id\) \{[\s\S]*\.eq\("teacher_id", duty\.teacher_id\)/);
+  assert.doesNotMatch(helper, /\.eq\("teacher_id", String\(duty\.teacher_id\)\)/);
   assert.match(helper, /\.from\("friday_at_6_duties"\)[\s\S]*\.delete\(\)/);
   assert.match(nullableDutyMigration, /alter column teacher_id drop not null/i);
+});
+
+test("unassigned General duty never sends a null UUID filter", () => {
+  assert.match(helper, /if \(duty\.teacher_id\)/);
+  assert.doesNotMatch(helper, /\.eq\("teacher_id", null\)/);
+  assert.doesNotMatch(helper, /String\(duty\.teacher_id \|\| \"null\"\)/);
+});
+
+test("successful duty deletion refreshes first and then shows confirmation", () => {
+  assert.match(page, /const result = await deleteFridayAt6Duty\(duty\.id\);[\s\S]*const refreshed = await loadPageData\(\);/);
+  assert.match(page, /result\.action === "deleted" && rowStillExists/);
+  assert.match(page, /Tutorial duty deleted successfully\./);
+  assert.match(helper, /no row was affected/);
+  assert.match(helper, /still present after deletion/);
+  assert.match(page, /finally \{[\s\S]*setDeletingDutyId\(""\)/);
+});
+
+test("B1-preserving removal has a distinct confirmation", () => {
+  assert.match(helper, /action: "general_removed"/);
+  assert.match(page, /General duty removed; B1 duty preserved\./);
+  assert.match(page, /result\.action === "general_removed" && !rowStillExists/);
 });
 
 test("existing validation and Admin-only surface remain in use", () => {
@@ -57,7 +80,7 @@ test("existing validation and Admin-only surface remain in use", () => {
 test("Rosa Vara's confirmed duty ID is passed through the controlled delete helper", () => {
   const dutyId = "81710154-a60b-4942-b981-17d273064576";
   assert.equal(dutyId.length, 36);
-  assert.match(helper, /export async function deleteFridayAt6Duty\(id: string\)/);
+  assert.match(helper, /export async function deleteFridayAt6Duty\(\s*id: string\s*\)/);
   assert.match(page, /onClick=\{\(\) => removeDuty\(duty\)\}/);
 });
 

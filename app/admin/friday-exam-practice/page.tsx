@@ -194,9 +194,11 @@ export default function FridayAt6Page() {
       setTeachers(teacherData);
       setTutorialSettings(rotationData.settings);
       setRotationClosures(rotationData.closures);
+      return { ok: true, duties: dutyData };
     } catch (error: any) {
       console.error(error);
       setMessage(error?.message || "Unable to load Friday @ 6 planning data.");
+      return { ok: false, duties: [] };
     } finally {
       setLoading(false);
     }
@@ -485,9 +487,23 @@ export default function FridayAt6Page() {
     setMessage("");
 
     try {
-      await deleteFridayAt6Duty(duty.id);
-      setMessage("Friday @ 6 duties deleted.");
-      await loadPageData();
+      const result = await deleteFridayAt6Duty(duty.id);
+      const refreshed = await loadPageData();
+      if (!refreshed.ok) return;
+
+      const rowStillExists = refreshed.duties.some((item) => item.id === duty.id);
+      if (result.action === "deleted" && rowStillExists) {
+        throw new Error("The tutorial duty is still present after deletion.");
+      }
+      if (result.action === "general_removed" && !rowStillExists) {
+        throw new Error("The B1 tutorial duty row could not be preserved.");
+      }
+
+      if (result.action === "general_removed") {
+        setMessage("General duty removed; B1 duty preserved.");
+      } else {
+        setMessage("Tutorial duty deleted successfully.");
+      }
     } catch (error: any) {
       console.error(error);
       setMessage(error?.message || "Unable to delete Friday @ 6 duties.");
