@@ -25,10 +25,16 @@ test("future enrolments are visible in roster views but not attendance eligibili
 });
 
 test("Admin and Teacher roster consumers use the future-inclusive views", () => {
-  for (const path of ["lib/adminClasses.ts", "lib/adminStudents.ts", "app/teacher/class/page.tsx"]) {
+  for (const path of ["app/admin/page.tsx", "lib/adminClasses.ts", "lib/adminStudents.ts", "app/teacher/class/page.tsx"]) {
     const source = read(path);
     assert.match(source, /class_roster_profiles|class_roster_young_learners/, path);
   }
+
+  const dashboard = read("app/admin/page.tsx");
+  assert.match(dashboard, /const countedStudentIds = new Set/);
+  assert.match(dashboard, /countedStudentIds\.add\(studentId\)/);
+  assert.doesNotMatch(dashboard, /from\("current_class_enrolments"\)/);
+  assert.doesNotMatch(dashboard, /from\("current_young_learners"\)/);
 
   const attendance = read("lib/classRegisterServer.ts");
   assert.match(attendance, /current_class_enrolments/);
