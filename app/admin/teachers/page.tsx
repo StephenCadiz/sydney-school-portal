@@ -17,6 +17,8 @@ import SetPasswordDialog, {
 import {
   AdminTeacher,
   AdminTeacherClass,
+  AdminLevel,
+  TeacherCoordinator,
   getTeacherManagementData,
 } from "../../../lib/adminTeachers";
 import { supabase } from "../../../lib/supabase";
@@ -155,6 +157,9 @@ function compareTeachers(first: AdminTeacher, second: AdminTeacher) {
 export default function AdminTeachersPage() {
   const [teachers, setTeachers] = useState<AdminTeacher[]>([]);
   const [classes, setClasses] = useState<AdminTeacherClass[]>([]);
+  const [levels, setLevels] = useState<AdminLevel[]>([]);
+  const [coordinators, setCoordinators] = useState<TeacherCoordinator[]>([]);
+  const [coordinatorRecordsAvailable, setCoordinatorRecordsAvailable] = useState(false);
   const [currentUserId, setCurrentUserId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -172,6 +177,8 @@ export default function AdminTeachersPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [coordinatorLevelIds, setCoordinatorLevelIds] = useState<number[]>([]);
+  const [replaceCoordinators, setReplaceCoordinators] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     firstName?: string;
     lastName?: string;
@@ -209,6 +216,9 @@ export default function AdminTeachersPage() {
 
       setTeachers(managementData.teachers);
       setClasses(managementData.classes);
+      setLevels(managementData.levels);
+      setCoordinators(managementData.coordinators);
+      setCoordinatorRecordsAvailable(managementData.coordinatorRecordsAvailable);
       setClassRecordsAvailable(managementData.classRecordsAvailable);
       setClassLabelsAvailable(managementData.classLabelsAvailable);
       setCurrentUserId(sessionResult.data.session?.user.id || "");
@@ -264,6 +274,20 @@ export default function AdminTeachersPage() {
         .some((value) => value.includes(search))
     );
   }, [searchTerm, sortedTeachers]);
+
+  const eligibleCoordinatorLevels = useMemo(
+    () =>
+      levels.filter((level) =>
+        classes.some(
+          (classroom) =>
+            Number(classroom.level_id) === level.id &&
+            ["regular", "online"].includes(
+              clean(classroom.course_type).toLocaleLowerCase()
+            )
+        )
+      ),
+    [classes, levels]
+  );
 
   const assignedClassCount = classes.filter((item) =>
     teachers.some((teacher) => teacher.id === item.teacher_id)
@@ -374,6 +398,14 @@ export default function AdminTeachersPage() {
     setFirstName(clean(teacher.first_name));
     setLastName(clean(teacher.last_name));
     setEmail(clean(teacher.email));
+    setCoordinatorLevelIds(
+      coordinatorRecordsAvailable
+        ? coordinators
+            .filter((assignment) => assignment.teacher_id === teacher.id)
+            .map((assignment) => assignment.level_id)
+        : []
+    );
+    setReplaceCoordinators(false);
     setFieldErrors({});
     setModalError("");
     setReconciliationError(false);
@@ -516,6 +548,12 @@ export default function AdminTeachersPage() {
           first_name: values.nextFirstName,
           last_name: values.nextLastName,
           email: values.nextEmail,
+          ...(coordinatorRecordsAvailable
+            ? {
+                coordinator_level_ids: coordinatorLevelIds,
+                replace_coordinators: replaceCoordinators,
+              }
+            : {}),
         }),
       });
       const result = await response.json();
@@ -532,6 +570,12 @@ export default function AdminTeachersPage() {
           teacher.id === editTeacher.id ? result.teacher : teacher
         )
       );
+      if (Array.isArray(result.coordinators)) {
+        setCoordinators((current) => [
+          ...current.filter((assignment) => assignment.teacher_id !== editTeacher.id),
+          ...result.coordinators,
+        ]);
+      }
       setEditTeacher(null);
       setFeedback({
         type: "success",
@@ -908,7 +952,7 @@ export default function AdminTeachersPage() {
               </header>
 
               <div className="admin-teachers-dialog-body">
-                <section>
+                {coordinatorRecordsAvailable && <section>
                   <h3>Teacher Information</h3>
                   <div className="admin-teachers-form-grid">
                     <label>
@@ -948,6 +992,61 @@ export default function AdminTeachersPage() {
                       )}
                     </label>
                   </div>
+                </section>}
+
+                <section>
+                  <h3>Syllabus coordinator levels</h3>
+                  <p className="admin-teachers-help">
+                    Assign one or more eligible levels. A teacher does not need to teach a level to coordinate it.
+                  </p>
+                  <label className="admin-teachers-coordinator-field">
+                    <span>Coordinator levels</span>
+                    <select
+                      multiple
+                      size={Math.min(6, Math.max(3, eligibleCoordinatorLevels.length))}
+                      value={coordinatorLevelIds.map(String)}
+                      onChange={(event) =>
+                        setCoordinatorLevelIds(
+                          Array.from(event.target.selectedOptions)
+                            .map((option) => Number(option.value))
+                            .filter((id) => Number.isInteger(id))
+                        )
+                      }
+                    >
+                      {eligibleCoordinatorLevels.map((level) => {
+                        const current = coordinators.find(
+                          (assignment) => assignment.level_id === level.id
+                        );
+                        const currentTeacher = current
+                          ? teachers.find((teacher) => teacher.id === current.teacher_id)
+                          : null;
+                        return (
+                          <option key={level.id} value={level.id}>
+                            {String(level.name).trim()}
+                            {current && current.teacher_id !== editTeacher.id
+                              ? ` — current: ${currentTeacher ? getTeacherName(currentTeacher) : "another teacher"}`
+                              : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                  {coordinatorLevelIds.some((levelId) =>
+                    coordinators.some(
+                      (assignment) =>
+                        assignment.level_id === levelId &&
+                        assignment.teacher_id !== editTeacher.id
+                    )
+                  ) && (
+                    <label className="admin-teachers-coordinator-replace">
+                      <input
+                        type="checkbox"
+                        checked={replaceCoordinators}
+                        onChange={(event) => setReplaceCoordinators(event.target.checked)}
+                      />
+                      <span>Replace existing coordinators for selected levels</span>
+                    </label>
+                  )}
                 </section>
 
                 <section>

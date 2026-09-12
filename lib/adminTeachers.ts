@@ -21,6 +21,17 @@ export type AdminTeacherClass = {
   level_name: string | null;
 };
 
+export type AdminLevel = {
+  id: number;
+  name: string;
+};
+
+export type TeacherCoordinator = {
+  teacher_id: string;
+  level_id: number;
+  level_name: string;
+};
+
 export async function getTeachers() {
   const { data, error } = await supabase
     .from("profiles")
@@ -36,6 +47,9 @@ export async function getTeachers() {
 export async function getTeacherManagementData(): Promise<{
   teachers: AdminTeacher[];
   classes: AdminTeacherClass[];
+  levels: AdminLevel[];
+  coordinators: TeacherCoordinator[];
+  coordinatorRecordsAvailable: boolean;
   classRecordsAvailable: boolean;
   classLabelsAvailable: boolean;
 }> {
@@ -46,11 +60,18 @@ export async function getTeacherManagementData(): Promise<{
 
   if (teachersResult.error) throw teachersResult.error;
 
-  const classesResult = await supabase
+  const [classesResult, levelsResult, coordinatorsResult] = await Promise.all([
+    supabase
     .from("classes")
     .select(
       "id, teacher_id, level_id, class_name, course_type, is_cambridge, days, start_time, end_time"
-    );
+    ),
+    supabase.from("levels").select("id, name").order("name"),
+    supabase
+      .from("syllabus_coordinators")
+      .select("teacher_id, level_id, level:levels(name)")
+      .is("revoked_at", null),
+  ]);
 
   if (classesResult.error) {
     console.error(
@@ -60,6 +81,9 @@ export async function getTeacherManagementData(): Promise<{
     return {
       teachers: (teachersResult.data || []) as AdminTeacher[],
       classes: [],
+      levels: (levelsResult.data || []) as AdminLevel[],
+      coordinators: [],
+      coordinatorRecordsAvailable: false,
       classRecordsAvailable: false,
       classLabelsAvailable: false,
     };
@@ -77,20 +101,20 @@ export async function getTeacherManagementData(): Promise<{
   let classLabelsAvailable = true;
 
   if (levelIds.length > 0) {
-    const levelsResult = await supabase
+    const labelsResult = await supabase
       .from("levels")
       .select("id, name")
       .in("id", levelIds);
 
-    if (levelsResult.error) {
+    if (labelsResult.error) {
       classLabelsAvailable = false;
       console.error(
         "Unable to enrich Admin Teachers classes with level names:",
-        levelsResult.error
+        labelsResult.error
       );
     } else {
       levelNames = new Map(
-        (levelsResult.data || []).map((level) => [
+        (labelsResult.data || []).map((level) => [
           String(level.id),
           String(level.name || "").trim(),
         ])
@@ -106,6 +130,17 @@ export async function getTeacherManagementData(): Promise<{
         ? levelNames.get(String(classroom.level_id)) || null
         : null,
     })) as AdminTeacherClass[],
+    levels: (levelsResult.data || []) as AdminLevel[],
+    coordinators: (coordinatorsResult.data || []).map((row) => ({
+      teacher_id: String(row.teacher_id || ""),
+      level_id: Number(row.level_id),
+      level_name: String(
+        Array.isArray((row as any).level)
+          ? (row as any).level[0]?.name || ""
+          : (row as any).level?.name || ""
+      ).trim(),
+    })),
+    coordinatorRecordsAvailable: !coordinatorsResult.error,
     classRecordsAvailable: true,
     classLabelsAvailable,
   };

@@ -17,12 +17,14 @@ interface TeacherSidebarProps {
   isMobileOpen?: boolean;
   onClose?: () => void;
   unreadMessageCount?: number;
+  showSyllabuses?: boolean;
 }
 
 export default function TeacherSidebar({
   isMobileOpen = false,
   onClose,
   unreadMessageCount = 0,
+  showSyllabuses = false,
 }: TeacherSidebarProps) {
   const pathname = usePathname();
 
@@ -73,6 +75,16 @@ export default function TeacherSidebar({
         active={isActive("/teacher/resources")}
         onClick={onClose}
       />
+
+      {showSyllabuses && (
+        <SidebarItem
+          href="/teacher/syllabuses"
+          icon={<BookOpen size={20} />}
+          title="Syllabuses"
+          active={isActive("/teacher/syllabuses")}
+          onClick={onClose}
+        />
+      )}
 
       <SidebarItem
         href="/teacher/results"

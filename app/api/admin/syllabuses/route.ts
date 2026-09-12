@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   loadSyllabusById,
   logSyllabusFailure,
-  requireSyllabusAdmin,
+  canManageSyllabusLevel,
+  requireSyllabusManager,
   serializeSyllabus,
   syllabusJsonError,
   SYLLABUS_SELECT,
@@ -15,8 +16,8 @@ import {
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 export async function GET(request: NextRequest) {
-  const admin = await requireSyllabusAdmin(request);
-  if (admin.response) return admin.response;
+  const manager = await requireSyllabusManager(request);
+  if (manager.response || !manager.access) return manager.response!;
 
   try {
     const [syllabusResult, yearResult, levelResult] = await Promise.all([
@@ -35,13 +36,24 @@ export async function GET(request: NextRequest) {
     if (yearResult.error) throw yearResult.error;
     if (levelResult.error) throw levelResult.error;
 
+    const visibleRows = manager.access.role === "admin"
+      ? syllabusResult.data || []
+      : (syllabusResult.data || []).filter((row) =>
+          canManageSyllabusLevel(manager.access!, row.level_id)
+        );
+    const visibleLevels = manager.access.role === "admin"
+      ? levelResult.data || []
+      : (levelResult.data || []).filter((level) =>
+          canManageSyllabusLevel(manager.access!, level.id)
+        );
+
     return NextResponse.json({
-      syllabuses: (syllabusResult.data || []).map((row) =>
-        serializeSyllabus(row)
+      syllabuses: visibleRows.map((row) =>
+        serializeSyllabus(row, manager.access!.role === "teacher")
       ),
       reference_data: {
         academic_years: yearResult.data || [],
-        levels: levelResult.data || [],
+        levels: visibleLevels,
       },
     });
   } catch (error) {
@@ -51,8 +63,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireSyllabusAdmin(request);
-  if (admin.response) return admin.response;
+  const manager = await requireSyllabusManager(request);
+  if (manager.response || !manager.access) return manager.response!;
 
   try {
     const body = await request.json().catch(() => null);
@@ -81,6 +93,12 @@ export async function POST(request: NextRequest) {
     if (!levelResult.data) {
       return syllabusJsonError("Selected level was not found.", 404);
     }
+    if (!canManageSyllabusLevel(manager.access, validation.value.levelId)) {
+      return syllabusJsonError(
+        "You can only create syllabuses for your coordinator levels.",
+        403
+      );
+    }
 
     const generatedTitle = `${String(levelResult.data.name || "").trim()} Syllabus — ${String(yearResult.data.label || "").trim()}`;
     const titleValidation = validateSyllabusTitle(
@@ -97,8 +115,8 @@ export async function POST(request: NextRequest) {
         level_id: validation.value.levelId,
         title: titleValidation.value,
         status: "draft",
-        created_by: admin.userId,
-        updated_by: admin.userId,
+        created_by: manager.access.userId,
+        updated_by: manager.access.userId,
       })
       .select("id")
       .single();
@@ -113,7 +131,10 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    const syllabus = await loadSyllabusById(String(data.id));
+    const syllabus = await loadSyllabusById(
+      String(data.id),
+      manager.access.role === "teacher"
+    );
     return NextResponse.json({ syllabus }, { status: 201 });
   } catch (error) {
     logSyllabusFailure("admin-create", error);

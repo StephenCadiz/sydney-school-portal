@@ -100,6 +100,49 @@ export async function PATCH(
     const lastName =
       typeof body.last_name === "string" ? body.last_name.trim() : "";
     const email = normalizeEmail(body.email);
+    const coordinatorLevelIds = body.coordinator_level_ids === undefined
+      ? null
+      : Array.isArray(body.coordinator_level_ids)
+        ? body.coordinator_level_ids.map(Number)
+        : null;
+    const replaceCoordinators = body.replace_coordinators === true;
+
+    if (
+      coordinatorLevelIds === null &&
+      body.coordinator_level_ids !== undefined
+    ) {
+      return jsonError("Coordinator levels must be a list.", 422);
+    }
+    if (
+      coordinatorLevelIds &&
+      (coordinatorLevelIds.some(
+        (levelId: number) => !Number.isInteger(levelId) || levelId <= 0
+      ) || new Set(coordinatorLevelIds).size !== coordinatorLevelIds.length)
+    ) {
+      return jsonError("Choose valid, unique coordinator levels.", 422);
+    }
+    if (coordinatorLevelIds?.length) {
+      const { data: eligibleClasses, error: eligibleError } = await supabaseAdmin
+        .from("classes")
+        .select("level_id, course_type")
+        .in("level_id", coordinatorLevelIds);
+      if (eligibleError) return jsonError("Unable to verify coordinator levels.", 500);
+      const eligibleIds = new Set(
+        (eligibleClasses || [])
+          .filter((classroom) =>
+            ["regular", "online"].includes(
+              String(classroom.course_type || "").trim().toLowerCase()
+            )
+          )
+          .map((classroom) => Number(classroom.level_id))
+      );
+      if (coordinatorLevelIds.some((levelId: number) => !eligibleIds.has(levelId))) {
+        return jsonError(
+          "Only levels with eligible Regular or Online classes can be coordinated.",
+          422
+        );
+      }
+    }
 
     if (!firstName) {
       return jsonError("First name is required.", 400);
@@ -263,12 +306,37 @@ export async function PATCH(
       return jsonError("Unable to update teacher information.", 500);
     }
 
+    let coordinators: unknown[] | undefined;
+    if (coordinatorLevelIds) {
+      const { data: coordinatorRows, error: coordinatorError } =
+        await supabaseAdmin.rpc("set_teacher_syllabus_coordinators", {
+          p_actor_id: user.id,
+          p_teacher_id: teacherId,
+          p_level_ids: coordinatorLevelIds,
+          p_replace_existing: replaceCoordinators,
+        });
+      if (coordinatorError) {
+        return jsonError(
+          coordinatorError.code === "23505"
+            ? coordinatorError.message
+            : "Unable to update syllabus coordinator levels.",
+          coordinatorError.code === "23505" ? 409 : 500
+        );
+      }
+      coordinators = (coordinatorRows || []).map((row: any) => ({
+        teacher_id: String(row.teacher_id || ""),
+        level_id: Number(row.level_id),
+        level_name: String(row.level_name || "").trim(),
+      }));
+    }
+
     return NextResponse.json({
       success: true,
       message: emailChanged
         ? "Teacher information and login email updated."
         : "Teacher information updated.",
       teacher: updatedTeacher,
+      ...(coordinators ? { coordinators } : {}),
     });
   } catch {
     return jsonError("Unable to update teacher information.", 500);

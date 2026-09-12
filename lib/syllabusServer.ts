@@ -149,6 +149,112 @@ export async function requireSyllabusAdmin(request: NextRequest) {
   return { userId: profile.userId, response: null };
 }
 
+export type SyllabusManagerAccess = {
+  userId: string;
+  role: "admin" | "teacher";
+  coordinatorLevelIds: number[];
+};
+
+export async function getTeacherCoordinatorLevelIds(teacherId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("syllabus_coordinators")
+    .select("level_id")
+    .eq("teacher_id", teacherId)
+    .is("revoked_at", null)
+    .order("level_id");
+  if (error) throw error;
+  return Array.from(
+    new Set((data || []).map((row) => Number(row.level_id)).filter((id) => Number.isInteger(id)))
+  );
+}
+
+export async function requireSyllabusManager(request: NextRequest) {
+  const profile = await authenticatedProfile(request);
+  if (profile.error) {
+    return {
+      access: null as SyllabusManagerAccess | null,
+      response: syllabusJsonError(profile.error, profile.userId ? 500 : 401),
+    };
+  }
+
+  if (profile.role === "admin") {
+    return {
+      access: {
+        userId: profile.userId,
+        role: "admin" as const,
+        coordinatorLevelIds: [],
+      },
+      response: null,
+    };
+  }
+
+  if (profile.role !== "teacher") {
+    return {
+      access: null as SyllabusManagerAccess | null,
+      response: syllabusJsonError("Teacher or Admin access required.", 403),
+    };
+  }
+
+  try {
+    return {
+      access: {
+        userId: profile.userId,
+        role: "teacher" as const,
+        coordinatorLevelIds: await getTeacherCoordinatorLevelIds(profile.userId),
+      },
+      response: null,
+    };
+  } catch (error) {
+    logSyllabusFailure("coordinator-levels", error);
+    return {
+      access: null as SyllabusManagerAccess | null,
+      response: syllabusJsonError("Unable to verify syllabus coordinator access.", 500),
+    };
+  }
+}
+
+export function canManageSyllabusLevel(
+  access: SyllabusManagerAccess,
+  levelId: unknown
+) {
+  return access.role === "admin" || access.coordinatorLevelIds.includes(Number(levelId));
+}
+
+export async function requireSyllabusManagerForSyllabus(
+  request: NextRequest,
+  syllabusId: string
+) {
+  const manager = await requireSyllabusManager(request);
+  if (manager.response || !manager.access) return manager;
+  if (manager.access.role === "admin") return manager;
+
+  const { data, error } = await supabaseAdmin
+    .from("syllabuses")
+    .select("level_id")
+    .eq("id", syllabusId)
+    .maybeSingle();
+  if (error) {
+    logSyllabusFailure("coordinator-syllabus-lookup", error);
+    return {
+      access: null as SyllabusManagerAccess | null,
+      response: syllabusJsonError("Unable to verify syllabus access.", 500),
+    };
+  }
+  if (!data) {
+    return {
+      access: null as SyllabusManagerAccess | null,
+      response: syllabusJsonError("Syllabus was not found.", 404),
+    };
+  }
+  if (!canManageSyllabusLevel(manager.access, data.level_id)) {
+    return {
+      access: null as SyllabusManagerAccess | null,
+      response: syllabusJsonError("You can only manage syllabuses for your coordinator levels.", 403),
+    };
+  }
+  return manager;
+}
+
 export type TeacherSyllabusClassContext = {
   userId: string;
   classId: string;

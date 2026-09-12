@@ -872,7 +872,7 @@ function SyllabusEditor({
   );
 }
 
-export default function AdminSyllabusesPage() {
+export function SyllabusesWorkspace() {
   const [syllabuses, setSyllabuses] = useState<Syllabus[]>([]);
   const [references, setReferences] = useState(emptyReferences);
   const [selectedId, setSelectedId] = useState("");
@@ -984,8 +984,7 @@ export default function AdminSyllabusesPage() {
   }
 
   return (
-    <AdminLayout>
-      <main className={styles.page}>
+    <main className={styles.page}>
         <header className={styles.heading}>
           <div>
             <h1>Syllabuses</h1>
@@ -1167,7 +1166,14 @@ export default function AdminSyllabusesPage() {
             )}
           </div>
         )}
-      </main>
+    </main>
+  );
+}
+
+export default function AdminSyllabusesPage() {
+  return (
+    <AdminLayout>
+      <SyllabusesWorkspace />
     </AdminLayout>
   );
 }

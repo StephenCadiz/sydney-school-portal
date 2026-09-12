@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   loadSyllabusById,
   logSyllabusFailure,
-  requireSyllabusAdmin,
+  requireSyllabusManagerForSyllabus,
   syllabusJsonError,
   SYLLABUS_STORAGE_BUCKET,
 } from "../../../../../../../lib/syllabusServer";
@@ -28,11 +28,10 @@ function validIds(value: { syllabusId: string; unitId: string }) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const admin = await requireSyllabusAdmin(request);
-  if (admin.response) return admin.response;
-
   const routeIds = await ids(context);
   if (!validIds(routeIds)) return syllabusJsonError("Choose a valid syllabus unit.", 400);
+  const manager = await requireSyllabusManagerForSyllabus(request, routeIds.syllabusId);
+  if (manager.response || !manager.access) return manager.response!;
 
   try {
     const validation = validateSyllabusUnitInput(
@@ -54,10 +53,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     await supabaseAdmin
       .from("syllabuses")
-      .update({ updated_by: admin.userId })
+      .update({ updated_by: manager.access.userId })
       .eq("id", routeIds.syllabusId);
     return NextResponse.json({
-      syllabus: await loadSyllabusById(routeIds.syllabusId),
+      syllabus: await loadSyllabusById(routeIds.syllabusId, manager.access.role === "teacher"),
     });
   } catch (error) {
     logSyllabusFailure("admin-unit-update", error);
@@ -66,11 +65,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const admin = await requireSyllabusAdmin(request);
-  if (admin.response) return admin.response;
-
   const routeIds = await ids(context);
   if (!validIds(routeIds)) return syllabusJsonError("Choose a valid syllabus unit.", 400);
+  const manager = await requireSyllabusManagerForSyllabus(request, routeIds.syllabusId);
+  if (manager.response || !manager.access) return manager.response!;
 
   try {
     const { data: materials, error: materialError } = await supabaseAdmin
@@ -92,7 +90,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     await supabaseAdmin
       .from("syllabuses")
-      .update({ updated_by: admin.userId })
+      .update({ updated_by: manager.access.userId })
       .eq("id", routeIds.syllabusId);
 
     let storageCleanupFailed = false;
@@ -110,7 +108,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     return NextResponse.json({
-      syllabus: await loadSyllabusById(routeIds.syllabusId),
+      syllabus: await loadSyllabusById(routeIds.syllabusId, manager.access.role === "teacher"),
       storageCleanupFailed,
       ...(storageCleanupFailed
         ? {

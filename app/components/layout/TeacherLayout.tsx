@@ -72,6 +72,7 @@ export default function TeacherLayout({
 }: TeacherLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [teacherId, setTeacherId] = useState("");
+  const [isSyllabusCoordinator, setIsSyllabusCoordinator] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const mountedRef = useRef(false);
   const unreadCountErrorLoggedRef = useRef(false);
@@ -109,6 +110,18 @@ export default function TeacherLayout({
 
         if (mountedRef.current) {
           setTeacherId(session.user.id);
+        }
+        const coordinatorResponse = await fetch("/api/teacher/coordinator-levels", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        });
+        const coordinatorPayload = await coordinatorResponse.json().catch(() => ({}));
+        if (mountedRef.current) {
+          setIsSyllabusCoordinator(
+            coordinatorResponse.ok &&
+              Array.isArray(coordinatorPayload.levels) &&
+              coordinatorPayload.levels.length > 0
+          );
         }
       } catch (error) {
         if (!unreadCountErrorLoggedRef.current) {
@@ -224,6 +237,7 @@ export default function TeacherLayout({
         isMobileOpen={menuOpen}
         onClose={() => setMenuOpen(false)}
         unreadMessageCount={unreadMessageCount}
+        showSyllabuses={isSyllabusCoordinator}
       />
 
       <main

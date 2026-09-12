@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   loadSyllabusById,
   logSyllabusFailure,
-  requireSyllabusAdmin,
+  requireSyllabusManagerForSyllabus,
   syllabusJsonError,
   SYLLABUS_STORAGE_BUCKET,
 } from "../../../../../lib/syllabusServer";
@@ -25,11 +25,10 @@ async function routeId(context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const admin = await requireSyllabusAdmin(request);
-  if (admin.response) return admin.response;
-
   const id = await routeId(context);
   if (!isSyllabusUuid(id)) return syllabusJsonError("Choose a valid syllabus.", 400);
+  const manager = await requireSyllabusManagerForSyllabus(request, id);
+  if (manager.response || !manager.access) return manager.response!;
 
   try {
     const body = await request.json().catch(() => null);
@@ -45,7 +44,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       const { data, error } = await supabaseAdmin
         .from("syllabuses")
-        .update({ title: title.value, updated_by: admin.userId })
+        .update({ title: title.value, updated_by: manager.access.userId })
         .eq("id", id)
         .select("id")
         .maybeSingle();
@@ -79,9 +78,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         .from("syllabuses")
         .update({
           status: "published",
-          published_by: admin.userId,
+          published_by: manager.access.userId,
           published_at: new Date().toISOString(),
-          updated_by: admin.userId,
+          updated_by: manager.access.userId,
         })
         .eq("id", id)
         .select("id")
@@ -98,7 +97,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           status: "draft",
           published_by: null,
           published_at: null,
-          updated_by: admin.userId,
+          updated_by: manager.access.userId,
         })
         .eq("id", id)
         .select("id")
@@ -109,7 +108,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return syllabusJsonError("Unsupported syllabus action.", 400);
     }
 
-    return NextResponse.json({ syllabus: await loadSyllabusById(id) });
+    return NextResponse.json({
+      syllabus: await loadSyllabusById(id, manager.access.role === "teacher"),
+    });
   } catch (error) {
     logSyllabusFailure("admin-update", error);
     return syllabusJsonError("Unable to update the syllabus.", 500);
@@ -117,11 +118,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const admin = await requireSyllabusAdmin(request);
-  if (admin.response) return admin.response;
-
   const id = await routeId(context);
   if (!isSyllabusUuid(id)) return syllabusJsonError("Choose a valid syllabus.", 400);
+  const manager = await requireSyllabusManagerForSyllabus(request, id);
+  if (manager.response || !manager.access) return manager.response!;
 
   try {
     const { data: paths, error: pathError } = await supabaseAdmin

@@ -189,8 +189,8 @@ test("unit and material order is complete, unique, stable, and database constrai
     (migration.match(/where id = p_actor_id\s+and role = 'admin'/gi) || []).length,
     2
   );
-  assert.match(adminRoutes[2], /p_actor_id: admin\.userId/);
-  assert.match(adminRoutes[4], /p_actor_id: admin\.userId/);
+  assert.match(adminRoutes[2], /p_actor_id: manager\.access\.userId/);
+  assert.match(adminRoutes[4], /p_actor_id: manager\.access\.userId/);
   assert.match(adminRoutes[4], /p_syllabus_id: routeIds\.syllabusId/);
 });
 
@@ -222,7 +222,7 @@ test("publishing records the Admin and timestamp while unpublishing clears publi
     /\.from\("syllabuses"\)[\s\S]*\.maybeSingle\(\)[\s\S]*if \(!syllabusResult\.data\)[\s\S]*404/
   );
   assert.match(detailRoute, /status: "published"/);
-  assert.match(detailRoute, /published_by: admin\.userId/);
+  assert.match(detailRoute, /published_by: manager\.access\.userId/);
   assert.match(detailRoute, /published_at: new Date\(\)\.toISOString\(\)/);
   assert.match(detailRoute, /action === "unpublish"/);
   assert.match(detailRoute, /status: "draft"/);
@@ -243,11 +243,11 @@ test("secure material opening revalidates class, published syllabus, unit relati
 
 test("Admin mutations require Admin auth and reject client ownership fields", () => {
   for (const route of adminRoutes) {
-    assert.match(route, /requireSyllabusAdmin\(request\)/);
+    assert.match(route, /requireSyllabusManager(?:ForSyllabus)?\(request/);
   }
   const createRoute = adminRoutes[0];
-  assert.match(createRoute, /created_by: admin\.userId/);
-  assert.match(createRoute, /updated_by: admin\.userId/);
+  assert.match(createRoute, /created_by: manager\.access\.userId/);
+  assert.match(createRoute, /updated_by: manager\.access\.userId/);
   assert.doesNotMatch(createRoute, /created_by:\s*(body|validation\.value)\./);
   assert.match(
     readFileSync(join(repositoryRoot, "lib/syllabusValidation.ts"), "utf8"),

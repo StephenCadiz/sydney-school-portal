@@ -10,6 +10,7 @@ import {
   getCambridgeClassesForBulkCreate,
   getYoungLearnerClassesForBulkCreate,
 } from "../../../lib/adminStudents";
+import { getTeacherManagementData, type AdminLevel } from "../../../lib/adminTeachers";
 import type {
   CambridgeBulkClassOption,
   YoungLearnerBulkClassOption,
@@ -575,6 +576,8 @@ export default function AddUsersPage() {
   const [youngLearnerClasses, setYoungLearnerClasses] = useState<
     YoungLearnerBulkClassOption[]
   >([]);
+  const [coordinatorLevels, setCoordinatorLevels] = useState<AdminLevel[]>([]);
+  const [coordinatorLevelIds, setCoordinatorLevelIds] = useState<number[]>([]);
   const [classMessage, setClassMessage] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -663,13 +666,25 @@ export default function AddUsersPage() {
       setClassMessage("");
 
       try {
-        const [cambridgeData, youngLearnerData] = await Promise.all([
+        const [cambridgeData, youngLearnerData, teacherData] = await Promise.all([
           getCambridgeClassesForBulkCreate(),
           getYoungLearnerClassesForBulkCreate(),
+          getTeacherManagementData(),
         ]);
 
         setCambridgeClasses(cambridgeData);
         setYoungLearnerClasses(youngLearnerData);
+        setCoordinatorLevels(
+          teacherData.levels.filter((level) =>
+            teacherData.classes.some(
+              (classroom) =>
+                Number(classroom.level_id) === level.id &&
+                ["regular", "online"].includes(
+                  String(classroom.course_type || "").trim().toLowerCase()
+                )
+            )
+          )
+        );
 
         if (cambridgeData.length === 0 && youngLearnerData.length === 0) {
           setClassMessage("No classes found.");
@@ -754,15 +769,17 @@ export default function AddUsersPage() {
           ? "/api/admin/teachers/create-manual"
           : "/api/admin/teachers/invite",
         teacherMode === "manual"
-          ? teacherForm
+          ? { ...teacherForm, coordinator_level_ids: coordinatorLevelIds }
           : {
               first_name: teacherForm.first_name,
               last_name: teacherForm.last_name,
               email: teacherForm.email,
+              coordinator_level_ids: coordinatorLevelIds,
             }
       );
 
       setTeacherForm(getInitialAuthForm());
+      setCoordinatorLevelIds([]);
       setMessage(result.message || "Teacher saved successfully.");
     } catch (error: any) {
       console.error("Unable to save teacher:", error);
@@ -1507,6 +1524,32 @@ export default function AddUsersPage() {
             setForm={setTeacherForm}
             showPassword={teacherMode === "manual"}
           />
+
+          <label style={{ ...labelStyle, marginTop: "16px" }}>
+            <span>Syllabus coordinator levels (optional)</span>
+            <select
+              multiple
+              size={Math.min(6, Math.max(3, coordinatorLevels.length))}
+              value={coordinatorLevelIds.map(String)}
+              onChange={(event) =>
+                setCoordinatorLevelIds(
+                  Array.from(event.target.selectedOptions)
+                    .map((option) => Number(option.value))
+                    .filter((id) => Number.isInteger(id))
+                )
+              }
+              style={{ ...inputStyle, minHeight: "96px" }}
+            >
+              {coordinatorLevels.map((level) => (
+                <option key={level.id} value={level.id}>
+                  {String(level.name).trim()}
+                </option>
+              ))}
+            </select>
+            <small style={{ display: "block", marginTop: "6px", color: "#53627a" }}>
+              Only levels with Regular or Online classes can be coordinated. An Admin can replace an existing coordinator later from Teachers.
+            </small>
+          </label>
 
           <SubmitButton saving={saving}>
             {teacherMode === "manual" ? "Create Teacher Account" : "Invite Teacher"}

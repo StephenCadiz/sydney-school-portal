@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   loadSyllabusById,
   logSyllabusFailure,
-  requireSyllabusAdmin,
+  requireSyllabusManagerForSyllabus,
   syllabusJsonError,
 } from "../../../../../../lib/syllabusServer";
 import {
@@ -31,11 +31,10 @@ async function syllabusExists(id: string) {
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const admin = await requireSyllabusAdmin(request);
-  if (admin.response) return admin.response;
-
   const id = await syllabusId(context);
   if (!isSyllabusUuid(id)) return syllabusJsonError("Choose a valid syllabus.", 400);
+  const manager = await requireSyllabusManagerForSyllabus(request, id);
+  if (manager.response || !manager.access) return manager.response!;
 
   try {
     const validation = validateSyllabusUnitInput(
@@ -66,9 +65,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     await supabaseAdmin
       .from("syllabuses")
-      .update({ updated_by: admin.userId })
+      .update({ updated_by: manager.access.userId })
       .eq("id", id);
-    return NextResponse.json({ syllabus: await loadSyllabusById(id) }, { status: 201 });
+    return NextResponse.json({ syllabus: await loadSyllabusById(id, manager.access.role === "teacher") }, { status: 201 });
   } catch (error) {
     logSyllabusFailure("admin-unit-create", error);
     return syllabusJsonError("Unable to add the syllabus unit.", 500);
@@ -76,11 +75,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const admin = await requireSyllabusAdmin(request);
-  if (admin.response) return admin.response;
-
   const id = await syllabusId(context);
   if (!isSyllabusUuid(id)) return syllabusJsonError("Choose a valid syllabus.", 400);
+  const manager = await requireSyllabusManagerForSyllabus(request, id);
+  if (manager.response || !manager.access) return manager.response!;
 
   try {
     const body = await request.json().catch(() => null);
@@ -103,13 +101,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const { error } = await supabaseAdmin.rpc("reorder_syllabus_units", {
-      p_actor_id: admin.userId,
+      p_actor_id: manager.access.userId,
       p_syllabus_id: id,
       p_unit_ids: orderedIds.value,
     });
     if (error) {
       if (error.code === "42501") {
-        return syllabusJsonError("Admin access required.", 403);
+        return syllabusJsonError("Syllabus coordinator access required.", 403);
       }
       if (error.code === "P0002") {
         return syllabusJsonError("Syllabus was not found.", 404);
@@ -117,7 +115,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (error.code === "22023") return syllabusJsonError(error.message, 422);
       throw error;
     }
-    return NextResponse.json({ syllabus: await loadSyllabusById(id) });
+    return NextResponse.json({ syllabus: await loadSyllabusById(id, manager.access.role === "teacher") });
   } catch (error) {
     logSyllabusFailure("admin-unit-reorder", error);
     return syllabusJsonError("Unable to reorder syllabus units.", 500);

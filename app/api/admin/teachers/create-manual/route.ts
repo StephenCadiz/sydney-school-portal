@@ -114,6 +114,9 @@ export async function POST(request: NextRequest) {
     const lastName = body.last_name?.trim();
     const email = body.email?.trim();
     const password = body.password;
+    const coordinatorLevelIds = Array.isArray(body.coordinator_level_ids)
+      ? body.coordinator_level_ids.map(Number)
+      : [];
 
     if (!firstName || !lastName || !email || !password) {
       return jsonError(
@@ -124,6 +127,35 @@ export async function POST(request: NextRequest) {
 
     if (String(password).length < 6) {
       return jsonError("Password must be at least 6 characters.", 400);
+    }
+    if (
+      coordinatorLevelIds.some(
+        (levelId: number) => !Number.isInteger(levelId) || levelId <= 0
+      ) || new Set(coordinatorLevelIds).size !== coordinatorLevelIds.length
+    ) {
+      return jsonError("Choose valid, unique coordinator levels.", 422);
+    }
+    if (coordinatorLevelIds.length) {
+      const { data: eligibleClasses, error: eligibleError } = await supabaseAdmin
+        .from("classes")
+        .select("level_id, course_type")
+        .in("level_id", coordinatorLevelIds);
+      if (eligibleError) return jsonError("Unable to verify coordinator levels.", 500);
+      const eligibleIds = new Set(
+        (eligibleClasses || [])
+          .filter((classroom) =>
+            ["regular", "online"].includes(
+              String(classroom.course_type || "").trim().toLowerCase()
+            )
+          )
+          .map((classroom) => Number(classroom.level_id))
+      );
+      if (coordinatorLevelIds.some((levelId: number) => !eligibleIds.has(levelId))) {
+        return jsonError(
+          "Only levels with eligible Regular or Online classes can be coordinated.",
+          422
+        );
+      }
     }
 
     const { data: existingProfiles, error: existingProfileError } =
@@ -187,6 +219,24 @@ export async function POST(request: NextRequest) {
         500,
         formatError(profileUpsertError)
       );
+    }
+
+    if (coordinatorLevelIds.length) {
+      const { error: coordinatorError } = await supabaseAdmin.rpc(
+        "set_teacher_syllabus_coordinators",
+        {
+          p_actor_id: adminCheck.user.id,
+          p_teacher_id: teacherId,
+          p_level_ids: coordinatorLevelIds,
+          p_replace_existing: body.replace_coordinators === true,
+        }
+      );
+      if (coordinatorError) {
+        return jsonError(
+          "Teacher account created, but coordinator levels could not be assigned.",
+          coordinatorError.code === "23505" ? 409 : 500
+        );
+      }
     }
 
     return NextResponse.json({
