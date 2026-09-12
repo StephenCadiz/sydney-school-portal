@@ -300,7 +300,7 @@ export async function getStudents() {
   }
 
   const { data: enrolments, error: enrolmentsError } = await supabase
-    .from("current_class_enrolments")
+    .from("class_roster_profiles")
     .select("student_id, class_id, enrolled_at")
     .in("student_id", studentIds)
     .order("enrolled_at", { ascending: false });
@@ -391,7 +391,7 @@ export async function getAdminCambridgeStudentDirectory(): Promise<
   }
 
   const { data: enrolments, error: enrolmentsError } = await supabase
-    .from("current_class_enrolments")
+    .from("class_roster_profiles")
     .select("student_id, class_id, enrolled_at")
     .in("student_id", studentIds)
     .order("enrolled_at", { ascending: false });
@@ -468,7 +468,7 @@ export async function getAdminYoungLearnerDirectory(): Promise<
   AdminYoungLearnerDirectoryRow[]
 > {
   const { data, error } = await supabase
-    .from("current_young_learners")
+    .from("class_roster_young_learners")
     .select("id, first_name, last_name, class_id, active, created_at")
     .order("first_name");
 
@@ -606,7 +606,7 @@ export async function getCambridgeClassesForBulkCreate(): Promise<
   const { data: enrolments, error: enrolmentsError } =
     studentIds.length > 0
       ? await supabase
-          .from("current_class_enrolments")
+          .from("class_roster_profiles")
           .select("student_id, class_id")
           .in("student_id", studentIds)
       : { data: [], error: null };
@@ -736,7 +736,7 @@ export async function getYoungLearnerClassesForBulkCreate(): Promise<
 
   const { data: activeYoungLearners, error: youngLearnersError } =
     await supabase
-      .from("current_young_learners")
+      .from("class_roster_young_learners")
       .select("id, class_id")
       .eq("active", true);
 
@@ -809,7 +809,7 @@ export async function getYoungLearnerClassesForBulkCreate(): Promise<
 
 export async function getYoungLearners() {
   const { data, error } = await supabase
-    .from("current_young_learners")
+    .from("class_roster_young_learners")
     .select("id, first_name, last_name, class_id, active, created_at")
     .order("first_name");
 

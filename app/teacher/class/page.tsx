@@ -280,26 +280,22 @@ if (classResult.data) {
 }
 
     const enrolments = await supabase
-      .from("current_class_enrolments")
-      .select("*")
+      .from("class_roster_profiles")
+      .select("student_id, first_name, last_name, email, active")
       .eq("class_id", classId);
 
-    const studentIds =
-      enrolments.data?.map((e) => e.student_id) || [];
-
-    if (studentIds.length > 0) {
-      const studentResult = await supabase
-        .from("profiles")
-        .select("*")
-        .in("id", studentIds);
-
-      setStudents(studentResult.data || []);
-    } else {
-      setStudents([]);
-    }
+    setStudents(
+      (enrolments.data || []).map((student) => ({
+        id: student.student_id,
+        first_name: student.first_name,
+        last_name: student.last_name,
+        email: student.email,
+        active: student.active,
+      }))
+    );
 
     const youngLearnerResult = await supabase
-      .from("current_young_learners")
+      .from("class_roster_young_learners")
       .select("id, first_name, last_name, active")
       .eq("class_id", classId)
       .eq("active", true)
