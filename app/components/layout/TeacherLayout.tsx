@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import TeacherSidebar from "./TeacherSidebar";
 import PortalHeader from "./PortalHeader";
@@ -76,9 +77,11 @@ export default function TeacherLayout({
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const mountedRef = useRef(false);
   const unreadCountErrorLoggedRef = useRef(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     mountedRef.current = true;
+    let active = true;
 
     async function loadTeacher() {
       try {
@@ -87,41 +90,64 @@ export default function TeacherLayout({
         } = await supabase.auth.getSession();
 
         if (!session?.user?.id) {
-          if (mountedRef.current) {
+          if (active && mountedRef.current) {
             setTeacherId("");
             setUnreadMessageCount(0);
+            setIsSyllabusCoordinator(false);
           }
           return;
         }
 
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", session.user.id)
-          .single();
-
-        if (error || profile?.role !== "teacher") {
-          if (mountedRef.current) {
-            setTeacherId("");
-            setUnreadMessageCount(0);
-          }
-          return;
-        }
-
-        if (mountedRef.current) {
-          setTeacherId(session.user.id);
+        if (active && mountedRef.current) {
+          setIsSyllabusCoordinator(false);
         }
         const coordinatorResponse = await fetch("/api/teacher/coordinator-levels", {
           headers: { Authorization: `Bearer ${session.access_token}` },
           cache: "no-store",
         });
         const coordinatorPayload = await coordinatorResponse.json().catch(() => ({}));
-        if (mountedRef.current) {
+        if (active && mountedRef.current) {
           setIsSyllabusCoordinator(
             coordinatorResponse.ok &&
               Array.isArray(coordinatorPayload.levels) &&
               coordinatorPayload.levels.length > 0
           );
+        }
+
+        const { data: profileById, error } = await supabase
+          .from("profiles")
+          .select("id, role")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        let profile = profileById;
+        if (!profile && session.user.email) {
+          const { data: profilesByEmail, error: emailError } = await supabase
+            .from("profiles")
+            .select("id, role")
+            .eq("email", session.user.email)
+            .limit(2);
+          if (emailError || (profilesByEmail || []).length > 1) {
+            if (active && mountedRef.current) {
+              setTeacherId("");
+              setUnreadMessageCount(0);
+            }
+            return;
+          }
+          profile = profilesByEmail?.[0] || null;
+        }
+
+        if (error || profile?.role !== "teacher") {
+          if (active && mountedRef.current) {
+            setTeacherId("");
+            setUnreadMessageCount(0);
+            setIsSyllabusCoordinator(false);
+          }
+          return;
+        }
+
+        if (active && mountedRef.current) {
+          setTeacherId(String(profile.id || session.user.id));
         }
       } catch (error) {
         if (!unreadCountErrorLoggedRef.current) {
@@ -134,9 +160,10 @@ export default function TeacherLayout({
     loadTeacher();
 
     return () => {
+      active = false;
       mountedRef.current = false;
     };
-  }, []);
+  }, [pathname]);
 
   const loadUnreadCount = useCallback(async () => {
     if (!teacherId) return;

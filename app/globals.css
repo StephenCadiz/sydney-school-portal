@@ -7670,6 +7670,109 @@ img {
   border-color: #dc2626;
 }
 
+.admin-teachers-coordinator-field,
+.admin-add-users-coordinator-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.admin-teachers-coordinator-field > span,
+.admin-add-users-coordinator-field > span {
+  color: #344054;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-teachers-coordinator-list,
+.admin-add-users-coordinator-list {
+  background: #fff;
+  border: 1px solid #b9c8d9;
+  border-radius: 10px;
+  box-sizing: border-box;
+  display: grid;
+  gap: 2px;
+  max-height: 220px;
+  min-height: 88px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  scrollbar-gutter: stable;
+  width: 100%;
+}
+
+.admin-teachers-coordinator-option,
+.admin-add-users-coordinator-option {
+  align-items: flex-start;
+  border-radius: 7px;
+  color: #172b55;
+  cursor: pointer;
+  display: flex;
+  gap: 9px;
+  line-height: 1.35;
+  min-height: 38px;
+  padding: 8px 9px;
+}
+
+.admin-teachers-coordinator-option:hover,
+.admin-add-users-coordinator-option:hover {
+  background: #f3f7fb;
+}
+
+.admin-teachers-coordinator-option.is-selected,
+.admin-add-users-coordinator-option.is-selected {
+  background: var(--ss-blue);
+  color: #fff;
+}
+
+.admin-teachers-coordinator-option.is-selected:hover,
+.admin-add-users-coordinator-option.is-selected:hover {
+  background: var(--ss-blue-hover);
+}
+
+.admin-teachers-coordinator-option.is-unavailable,
+.admin-add-users-coordinator-option.is-unavailable {
+  color: #8a97a8;
+  cursor: not-allowed;
+}
+
+.admin-teachers-coordinator-option input,
+.admin-add-users-coordinator-option input {
+  flex: 0 0 auto;
+  height: 17px;
+  margin: 1px 0 0;
+  width: 17px;
+}
+
+.admin-teachers-coordinator-option input:focus-visible,
+.admin-add-users-coordinator-option input:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.28);
+  outline-offset: 2px;
+}
+
+.admin-teachers-coordinator-help,
+.admin-add-users-coordinator-help {
+  color: #53627a;
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-teachers-coordinator-selection,
+.admin-add-users-coordinator-selection {
+  background: #f5f8fc;
+  border: 1px solid #d8e2ed;
+  border-radius: 8px;
+  color: #344054;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 8px 10px;
+}
+
+.admin-add-users-coordinator-section {
+  margin-top: 16px;
+}
+
 .admin-teachers-form-grid small {
   color: #b42318;
   display: block;

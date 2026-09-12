@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { validateSyllabusCoordinatorLevelIds } from "../../../../../lib/syllabusServer";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -122,26 +123,8 @@ export async function PATCH(
       return jsonError("Choose valid, unique coordinator levels.", 422);
     }
     if (coordinatorLevelIds?.length) {
-      const { data: eligibleClasses, error: eligibleError } = await supabaseAdmin
-        .from("classes")
-        .select("level_id, course_type")
-        .in("level_id", coordinatorLevelIds);
-      if (eligibleError) return jsonError("Unable to verify coordinator levels.", 500);
-      const eligibleIds = new Set(
-        (eligibleClasses || [])
-          .filter((classroom) =>
-            ["regular", "online"].includes(
-              String(classroom.course_type || "").trim().toLowerCase()
-            )
-          )
-          .map((classroom) => Number(classroom.level_id))
-      );
-      if (coordinatorLevelIds.some((levelId: number) => !eligibleIds.has(levelId))) {
-        return jsonError(
-          "Only levels with eligible Regular or Online classes can be coordinated.",
-          422
-        );
-      }
+      const eligibility = await validateSyllabusCoordinatorLevelIds(coordinatorLevelIds);
+      if (!eligibility.valid) return jsonError(eligibility.error, 422);
     }
 
     if (!firstName) {

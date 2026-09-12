@@ -2,38 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   getTeacherCoordinatorLevelIds,
+  resolveAuthenticatedProfile,
   syllabusJsonError,
 } from "../../../../lib/syllabusServer";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 export async function GET(request: NextRequest) {
-  const authorization = request.headers.get("authorization") || "";
-  const token = authorization.startsWith("Bearer ")
-    ? authorization.slice("Bearer ".length)
-    : "";
-  if (!token) return syllabusJsonError("Authentication required.", 401);
-
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !authData.user) return syllabusJsonError("Authentication required.", 401);
-
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", authData.user.id)
-    .maybeSingle();
-  if (profileError) return syllabusJsonError("Unable to verify account access.", 500);
-  if (profile?.role !== "teacher") return syllabusJsonError("Teacher access required.", 403);
+  const profile = await resolveAuthenticatedProfile(request);
+  if (profile.error) {
+    return syllabusJsonError(profile.error, profile.userId ? 500 : 401);
+  }
+  if (profile.role !== "teacher") return syllabusJsonError("Teacher access required.", 403);
 
   try {
-    const levelIds = await getTeacherCoordinatorLevelIds(authData.user.id);
-    if (!levelIds.length) return NextResponse.json({ levels: [] });
+    const levelIds = await getTeacherCoordinatorLevelIds(profile.userId);
+    if (!levelIds.length) {
+      return NextResponse.json(
+        { levels: [] },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
     const { data, error } = await supabaseAdmin
       .from("levels")
       .select("id, name")
       .in("id", levelIds)
       .order("name");
     if (error) throw error;
-    return NextResponse.json({ levels: data || [] });
+    return NextResponse.json(
+      { levels: data || [] },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch {
     return syllabusJsonError("Unable to load coordinator levels.", 500);
   }

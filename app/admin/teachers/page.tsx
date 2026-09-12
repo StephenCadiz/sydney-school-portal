@@ -154,6 +154,12 @@ function compareTeachers(first: AdminTeacher, second: AdminTeacher) {
   return 0;
 }
 
+function sameNumberSet(first: number[], second: number[]) {
+  if (first.length !== second.length) return false;
+  const secondSet = new Set(second);
+  return first.every((value) => secondSet.has(value));
+}
+
 export default function AdminTeachersPage() {
   const [teachers, setTeachers] = useState<AdminTeacher[]>([]);
   const [classes, setClasses] = useState<AdminTeacherClass[]>([]);
@@ -178,6 +184,7 @@ export default function AdminTeachersPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [coordinatorLevelIds, setCoordinatorLevelIds] = useState<number[]>([]);
+  const [initialCoordinatorLevelIds, setInitialCoordinatorLevelIds] = useState<number[]>([]);
   const [replaceCoordinators, setReplaceCoordinators] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     firstName?: string;
@@ -277,16 +284,21 @@ export default function AdminTeachersPage() {
 
   const eligibleCoordinatorLevels = useMemo(
     () =>
-      levels.filter((level) =>
-        classes.some(
-          (classroom) =>
-            Number(classroom.level_id) === level.id &&
-            ["regular", "online"].includes(
-              clean(classroom.course_type).toLocaleLowerCase()
-            )
+      levels.filter(
+        (level) => !/\b(?:intensive|express)\b/i.test(clean(level.name))
+      ),
+    [levels]
+  );
+  const hasCoordinatorConflicts = useMemo(
+    () =>
+      eligibleCoordinatorLevels.some((level) =>
+        coordinators.some(
+          (assignment) =>
+            assignment.level_id === level.id &&
+            assignment.teacher_id !== editTeacher?.id
         )
       ),
-    [classes, levels]
+    [coordinators, editTeacher?.id, eligibleCoordinatorLevels]
   );
 
   const assignedClassCount = classes.filter((item) =>
@@ -398,13 +410,14 @@ export default function AdminTeachersPage() {
     setFirstName(clean(teacher.first_name));
     setLastName(clean(teacher.last_name));
     setEmail(clean(teacher.email));
-    setCoordinatorLevelIds(
+    const assignedCoordinatorLevelIds =
       coordinatorRecordsAvailable
         ? coordinators
             .filter((assignment) => assignment.teacher_id === teacher.id)
             .map((assignment) => assignment.level_id)
-        : []
-    );
+        : [];
+    setCoordinatorLevelIds(assignedCoordinatorLevelIds);
+    setInitialCoordinatorLevelIds(assignedCoordinatorLevelIds);
     setReplaceCoordinators(false);
     setFieldErrors({});
     setModalError("");
@@ -527,9 +540,13 @@ export default function AdminTeachersPage() {
   }) {
     if (!editTeacher || saving) return;
 
+    const coordinatorChangeRequested =
+      coordinatorSelectionChanged || coordinatorReplacementChanged;
+
     setEmailConfirmationOpen(false);
     setModalError("");
     setReconciliationError(false);
+    setFeedback(null);
 
     setSaving(true);
     try {
@@ -579,7 +596,9 @@ export default function AdminTeachersPage() {
       setEditTeacher(null);
       setFeedback({
         type: "success",
-        text: result.message || "Teacher information updated.",
+        text: coordinatorChangeRequested
+          ? "Coordinator levels saved successfully."
+          : result.message || "Teacher information updated.",
       });
       window.setTimeout(() => editTriggerRef.current?.focus());
     } catch (error) {
@@ -706,11 +725,25 @@ export default function AdminTeachersPage() {
     items[nextIndex]?.focus();
   }
 
+  const coordinatorSelectionChanged = !sameNumberSet(
+    coordinatorLevelIds,
+    initialCoordinatorLevelIds
+  );
+  const coordinatorReplacementChanged =
+    replaceCoordinators &&
+    coordinatorLevelIds.some((levelId) =>
+      coordinators.some(
+        (assignment) =>
+          assignment.level_id === levelId && assignment.teacher_id !== editTeacher?.id
+      )
+    );
   const editHasChanges =
     editTeacher !== null &&
     (firstName.trim() !== clean(editTeacher.first_name) ||
       lastName.trim() !== clean(editTeacher.last_name) ||
-      normalizeEmail(email) !== normalizeEmail(editTeacher.email));
+      normalizeEmail(email) !== normalizeEmail(editTeacher.email) ||
+      coordinatorSelectionChanged ||
+      coordinatorReplacementChanged);
 
   return (
     <AdminLayout>
@@ -999,19 +1032,33 @@ export default function AdminTeachersPage() {
                   <p className="admin-teachers-help">
                     Assign one or more eligible levels. A teacher does not need to teach a level to coordinate it.
                   </p>
-                  <label className="admin-teachers-coordinator-field">
-                    <span>Coordinator levels</span>
-                    <select
-                      multiple
-                      size={Math.min(6, Math.max(3, eligibleCoordinatorLevels.length))}
-                      value={coordinatorLevelIds.map(String)}
-                      onChange={(event) =>
-                        setCoordinatorLevelIds(
-                          Array.from(event.target.selectedOptions)
-                            .map((option) => Number(option.value))
-                            .filter((id) => Number.isInteger(id))
-                        )
-                      }
+                  {hasCoordinatorConflicts && (
+                    <label className="admin-teachers-coordinator-replace">
+                      <input
+                        type="checkbox"
+                        checked={replaceCoordinators}
+                        onChange={(event) => setReplaceCoordinators(event.target.checked)}
+                      />
+                      <span>
+                        Enable replacement of existing coordinators for marked levels
+                      </span>
+                    </label>
+                  )}
+                  <fieldset className="admin-teachers-coordinator-field">
+                    <legend>Coordinator levels</legend>
+                    <div className="admin-teachers-coordinator-selection" aria-live="polite">
+                      {coordinatorLevelIds.length
+                        ? `${coordinatorLevelIds.length} selected: ${eligibleCoordinatorLevels
+                            .filter((level) => coordinatorLevelIds.includes(level.id))
+                            .map((level) => String(level.name).trim())
+                            .join(", ")}`
+                        : "No levels selected"}
+                    </div>
+                    <div
+                      className="admin-teachers-coordinator-list"
+                      role="group"
+                      aria-label="Available coordinator levels"
+                      aria-describedby="admin-teachers-coordinator-help"
                     >
                       {eligibleCoordinatorLevels.map((level) => {
                         const current = coordinators.find(
@@ -1020,33 +1067,47 @@ export default function AdminTeachersPage() {
                         const currentTeacher = current
                           ? teachers.find((teacher) => teacher.id === current.teacher_id)
                           : null;
+                        const unavailable = Boolean(
+                          current &&
+                            current.teacher_id !== editTeacher.id &&
+                            !replaceCoordinators
+                        );
                         return (
-                          <option key={level.id} value={level.id}>
-                            {String(level.name).trim()}
-                            {current && current.teacher_id !== editTeacher.id
-                              ? ` — current: ${currentTeacher ? getTeacherName(currentTeacher) : "another teacher"}`
-                              : ""}
-                          </option>
+                          <label
+                            className={`admin-teachers-coordinator-option${
+                              coordinatorLevelIds.includes(level.id)
+                                ? " is-selected"
+                                : ""
+                            }${unavailable ? " is-unavailable" : ""}`}
+                            key={level.id}
+                          >
+                            <input
+                              type="checkbox"
+                              value={level.id}
+                              checked={coordinatorLevelIds.includes(level.id)}
+                              disabled={unavailable}
+                              onChange={(event) =>
+                                setCoordinatorLevelIds((currentIds) =>
+                                  event.target.checked
+                                    ? Array.from(new Set([...currentIds, level.id]))
+                                    : currentIds.filter((id) => id !== level.id)
+                                )
+                              }
+                            />
+                            <span>
+                              {String(level.name).trim()}
+                              {unavailable
+                                ? ` — unavailable (current: ${currentTeacher ? getTeacherName(currentTeacher) : "another teacher"})`
+                                : ""}
+                            </span>
+                          </label>
                         );
                       })}
-                    </select>
-                  </label>
-                  {coordinatorLevelIds.some((levelId) =>
-                    coordinators.some(
-                      (assignment) =>
-                        assignment.level_id === levelId &&
-                        assignment.teacher_id !== editTeacher.id
-                    )
-                  ) && (
-                    <label className="admin-teachers-coordinator-replace">
-                      <input
-                        type="checkbox"
-                        checked={replaceCoordinators}
-                        onChange={(event) => setReplaceCoordinators(event.target.checked)}
-                      />
-                      <span>Replace existing coordinators for selected levels</span>
-                    </label>
-                  )}
+                    </div>
+                  </fieldset>
+                  <small className="admin-teachers-coordinator-help" id="admin-teachers-coordinator-help">
+                    Select as many levels as needed. Marked unavailable levels require explicit replacement.
+                  </small>
                 </section>
 
                 <section>

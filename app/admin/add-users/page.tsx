@@ -10,7 +10,11 @@ import {
   getCambridgeClassesForBulkCreate,
   getYoungLearnerClassesForBulkCreate,
 } from "../../../lib/adminStudents";
-import { getTeacherManagementData, type AdminLevel } from "../../../lib/adminTeachers";
+import {
+  getTeacherManagementData,
+  type AdminLevel,
+  type TeacherCoordinator,
+} from "../../../lib/adminTeachers";
 import type {
   CambridgeBulkClassOption,
   YoungLearnerBulkClassOption,
@@ -577,7 +581,9 @@ export default function AddUsersPage() {
     YoungLearnerBulkClassOption[]
   >([]);
   const [coordinatorLevels, setCoordinatorLevels] = useState<AdminLevel[]>([]);
+  const [coordinators, setCoordinators] = useState<TeacherCoordinator[]>([]);
   const [coordinatorLevelIds, setCoordinatorLevelIds] = useState<number[]>([]);
+  const [replaceCoordinators, setReplaceCoordinators] = useState(false);
   const [classMessage, setClassMessage] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -675,16 +681,11 @@ export default function AddUsersPage() {
         setCambridgeClasses(cambridgeData);
         setYoungLearnerClasses(youngLearnerData);
         setCoordinatorLevels(
-          teacherData.levels.filter((level) =>
-            teacherData.classes.some(
-              (classroom) =>
-                Number(classroom.level_id) === level.id &&
-                ["regular", "online"].includes(
-                  String(classroom.course_type || "").trim().toLowerCase()
-                )
-            )
+          teacherData.levels.filter(
+            (level) => !/\b(?:intensive|express)\b/i.test(String(level.name || ""))
           )
         );
+        setCoordinators(teacherData.coordinators);
 
         if (cambridgeData.length === 0 && youngLearnerData.length === 0) {
           setClassMessage("No classes found.");
@@ -769,17 +770,23 @@ export default function AddUsersPage() {
           ? "/api/admin/teachers/create-manual"
           : "/api/admin/teachers/invite",
         teacherMode === "manual"
-          ? { ...teacherForm, coordinator_level_ids: coordinatorLevelIds }
+          ? {
+              ...teacherForm,
+              coordinator_level_ids: coordinatorLevelIds,
+              replace_coordinators: replaceCoordinators,
+            }
           : {
               first_name: teacherForm.first_name,
               last_name: teacherForm.last_name,
               email: teacherForm.email,
               coordinator_level_ids: coordinatorLevelIds,
+              replace_coordinators: replaceCoordinators,
             }
       );
 
       setTeacherForm(getInitialAuthForm());
       setCoordinatorLevelIds([]);
+      setReplaceCoordinators(false);
       setMessage(result.message || "Teacher saved successfully.");
     } catch (error: any) {
       console.error("Unable to save teacher:", error);
@@ -1525,31 +1532,80 @@ export default function AddUsersPage() {
             showPassword={teacherMode === "manual"}
           />
 
-          <label style={{ ...labelStyle, marginTop: "16px" }}>
-            <span>Syllabus coordinator levels (optional)</span>
-            <select
-              multiple
-              size={Math.min(6, Math.max(3, coordinatorLevels.length))}
-              value={coordinatorLevelIds.map(String)}
-              onChange={(event) =>
-                setCoordinatorLevelIds(
-                  Array.from(event.target.selectedOptions)
-                    .map((option) => Number(option.value))
-                    .filter((id) => Number.isInteger(id))
-                )
-              }
-              style={{ ...inputStyle, minHeight: "96px" }}
-            >
-              {coordinatorLevels.map((level) => (
-                <option key={level.id} value={level.id}>
-                  {String(level.name).trim()}
-                </option>
-              ))}
-            </select>
-            <small style={{ display: "block", marginTop: "6px", color: "#53627a" }}>
-              Only levels with Regular or Online classes can be coordinated. An Admin can replace an existing coordinator later from Teachers.
-            </small>
-          </label>
+          <div className="admin-add-users-coordinator-section">
+            <div className="admin-add-users-coordinator-field">
+              <span>Coordinator levels (optional)</span>
+              <small className="admin-add-users-coordinator-help">
+                Assign one or more eligible levels. A teacher does not need to teach a level to coordinate it.
+              </small>
+              {coordinatorLevels.some((level) =>
+                coordinators.some((assignment) => assignment.level_id === level.id)
+              ) && (
+                <label className="admin-teachers-coordinator-replace">
+                  <input
+                    type="checkbox"
+                    checked={replaceCoordinators}
+                    onChange={(event) => setReplaceCoordinators(event.target.checked)}
+                  />
+                  <span>Enable replacement of existing coordinators for marked levels</span>
+                </label>
+              )}
+              <div
+                className="admin-add-users-coordinator-selection"
+                aria-live="polite"
+              >
+                {coordinatorLevelIds.length
+                  ? `${coordinatorLevelIds.length} selected: ${coordinatorLevels
+                      .filter((level) => coordinatorLevelIds.includes(level.id))
+                      .map((level) => String(level.name).trim())
+                      .join(", ")}`
+                  : "No levels selected"}
+              </div>
+              <div
+                className="admin-add-users-coordinator-list"
+                role="group"
+                aria-label="Available coordinator levels"
+              >
+                {coordinatorLevels.map((level) => {
+                  const assigned = coordinators.some(
+                    (assignment) => assignment.level_id === level.id
+                  );
+                  const unavailable = assigned && !replaceCoordinators;
+                  return (
+                    <label
+                      className={`admin-add-users-coordinator-option${
+                        coordinatorLevelIds.includes(level.id)
+                          ? " is-selected"
+                          : ""
+                      }${unavailable ? " is-unavailable" : ""}`}
+                      key={level.id}
+                    >
+                      <input
+                        type="checkbox"
+                        value={level.id}
+                        checked={coordinatorLevelIds.includes(level.id)}
+                        disabled={unavailable}
+                        onChange={(event) =>
+                          setCoordinatorLevelIds((currentIds) =>
+                            event.target.checked
+                              ? Array.from(new Set([...currentIds, level.id]))
+                              : currentIds.filter((id) => id !== level.id)
+                          )
+                        }
+                      />
+                      <span>
+                        {String(level.name).trim()}
+                        {unavailable ? " — unavailable (already assigned)" : ""}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <small className="admin-add-users-coordinator-help">
+                Only syllabus-supported levels are shown. Intensive and Express courses are not eligible. Select as many levels as needed.
+              </small>
+            </div>
+          </div>
 
           <SubmitButton saving={saving}>
             {teacherMode === "manual" ? "Create Teacher Account" : "Invite Teacher"}

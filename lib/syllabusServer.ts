@@ -98,7 +98,7 @@ function bearerToken(request: NextRequest) {
   return authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
 }
 
-async function authenticatedProfile(request: NextRequest) {
+export async function resolveAuthenticatedProfile(request: NextRequest) {
   const token = bearerToken(request);
   if (!token) return { userId: "", role: "", error: "Authentication required." };
 
@@ -108,9 +108,9 @@ async function authenticatedProfile(request: NextRequest) {
     return { userId: "", role: "", error: "Authentication required." };
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const { data: profileById, error: profileError } = await supabaseAdmin
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .eq("id", authData.user.id)
     .maybeSingle();
   if (profileError) {
@@ -122,15 +122,40 @@ async function authenticatedProfile(request: NextRequest) {
     };
   }
 
+  let profile = profileById;
+  if (!profile && authData.user.email) {
+    const { data: emailProfiles, error: emailProfileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, role")
+      .eq("email", authData.user.email)
+      .limit(2);
+    if (emailProfileError) {
+      console.error("Syllabus email profile lookup failed:", formatError(emailProfileError));
+      return {
+        userId: authData.user.id,
+        role: "",
+        error: "Unable to verify account access.",
+      };
+    }
+    if ((emailProfiles || []).length > 1) {
+      return {
+        userId: authData.user.id,
+        role: "",
+        error: "Unable to verify account access.",
+      };
+    }
+    profile = emailProfiles?.[0] || null;
+  }
+
   return {
-    userId: authData.user.id,
+    userId: String(profile?.id || authData.user.id),
     role: String(profile?.role || "").trim().toLowerCase(),
     error: "",
   };
 }
 
 export async function requireSyllabusAdmin(request: NextRequest) {
-  const profile = await authenticatedProfile(request);
+  const profile = await resolveAuthenticatedProfile(request);
   if (profile.error) {
     return {
       userId: "",
@@ -168,8 +193,34 @@ export async function getTeacherCoordinatorLevelIds(teacherId: string) {
   );
 }
 
+export async function validateSyllabusCoordinatorLevelIds(levelIds: number[]) {
+  if (!levelIds.length) return { valid: true, error: "" };
+
+  const { data, error } = await supabaseAdmin
+    .from("levels")
+    .select("id, name")
+    .in("id", levelIds);
+  if (error) {
+    return { valid: false, error: "Unable to verify coordinator levels." };
+  }
+
+  const eligibleIds = new Set(
+    (data || [])
+      .filter((level) => !/\b(?:intensive|express)\b/i.test(String(level.name || "")))
+      .map((level) => Number(level.id))
+  );
+  if (eligibleIds.size !== levelIds.length || levelIds.some((id) => !eligibleIds.has(id))) {
+    return {
+      valid: false,
+      error: "Only syllabus-supported levels can be coordinated. Intensive and Express levels are not eligible.",
+    };
+  }
+
+  return { valid: true, error: "" };
+}
+
 export async function requireSyllabusManager(request: NextRequest) {
-  const profile = await authenticatedProfile(request);
+  const profile = await resolveAuthenticatedProfile(request);
   if (profile.error) {
     return {
       access: null as SyllabusManagerAccess | null,
@@ -277,7 +328,7 @@ export async function requireTeacherSyllabusClass(
     };
   }
 
-  const profile = await authenticatedProfile(request);
+  const profile = await resolveAuthenticatedProfile(request);
   if (profile.error) {
     return {
       context: null,
