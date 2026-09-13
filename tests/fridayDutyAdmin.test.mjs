@@ -14,6 +14,13 @@ const helper = readFileSync(
   new URL("../lib/fridayExamPractice.ts", import.meta.url),
   "utf8"
 );
+const sessionsRoute = readFileSync(
+  new URL(
+    "../app/api/admin/friday-exam-practice/sessions/route.ts",
+    import.meta.url
+  ),
+  "utf8"
+);
 const nullableDutyMigration = readFileSync(
   new URL(
     "../supabase/migrations/20260910140000_allow_unassigned_friday_general_duty.sql",
@@ -86,4 +93,18 @@ test("Rosa Vara's confirmed duty ID is passed through the controlled delete help
 
 test("legacy Friday Tutorials route redirects to the canonical duty workflow", () => {
   assert.match(legacyPage, /window\.location\.replace\("\/admin\/friday-exam-practice"\)/);
+});
+
+test("exam practice is independent of tutorial rotation and requires a Friday", () => {
+  assert.match(page, /B1 exam practice is scheduled independently/);
+  assert.match(helper, /Choose a valid Friday session date/);
+  assert.doesNotMatch(sessionsRoute, /loadFridayTutorialRotationContext/);
+  assert.doesNotMatch(sessionsRoute, /isB1FridayTutorialSession/);
+  assert.doesNotMatch(sessionsRoute, /B1 Tutorial practice is available only on Friday B dates/);
+  assert.match(sessionsRoute, /getUTCDay\(\)/);
+});
+
+test("exam practice listings do not hide B1 activities by tutorial rotation", () => {
+  assert.match(sessionsRoute, /return NextResponse\.json\(\{ sessions: rows\.map\(serializeSession\) \}\)/);
+  assert.doesNotMatch(sessionsRoute, /visibleRows/);
 });

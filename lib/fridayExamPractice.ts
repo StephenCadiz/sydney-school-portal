@@ -41,6 +41,13 @@ function normalizeActivityType(activityType: string | null | undefined) {
   return String(activityType || "").trim();
 }
 
+function isFridayDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.valueOf()) && date.getUTCDay() === 5;
+}
+
 async function getAdminAccessToken() {
   const {
     data: { session },
@@ -72,6 +79,10 @@ function validateFridayExamPracticePayload(payload: any) {
 
   if (!sessionDate) {
     throw new Error("Please choose a session date.");
+  }
+
+  if (!isFridayDate(sessionDate)) {
+    throw new Error("Choose a valid Friday session date.");
   }
 
   if (!allowedLevels.includes(levelName as any)) {

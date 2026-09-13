@@ -11,13 +11,6 @@ import {
   isValidExternalUrl,
 } from "../../../../../lib/cambridgeExamBank";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
-import { getSchoolClosureForDate } from "../../../../../lib/schoolClosuresServer";
-import {
-  getFridayTutorialSessionTypeForDate,
-  isB1FridayTutorialSession,
-} from "../../../../../lib/fridayTutorialRotation";
-import { loadFridayTutorialRotationContext } from "../../../../../lib/fridayTutorialRotationServer";
-import { getMadridSchoolDate } from "../../../../../lib/schoolClosures";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -120,35 +113,12 @@ async function validatePayload(input: unknown) {
   if (!isDateOnly(sessionDate)) {
     return { value: null, error: "Choose a valid session date." };
   }
-  const closure = await getSchoolClosureForDate(sessionDate);
-  if (closure) {
-    return {
-      value: null,
-      error: `School is closed on this date for ${closure.name}. No Friday Tutorial session is required.`,
-    };
-  }
-  const rotation = await loadFridayTutorialRotationContext({
-    endDate: sessionDate,
-  });
-  const tutorialGroup = getFridayTutorialSessionTypeForDate(
-    rotation.settings || {},
-    sessionDate,
-    rotation.closures
-  );
-  if (!tutorialGroup) {
-    return {
-      value: null,
-      error: "Choose an eligible open Friday from the current Tutorial rotation.",
-    };
+  const sessionDay = new Date(`${sessionDate}T00:00:00Z`).getUTCDay();
+  if (sessionDay !== 5) {
+    return { value: null, error: "Choose a valid Friday session date." };
   }
   if (!isEligibleCambridgeExamLevel(levelName)) {
     return { value: null, error: "Level must be B1, B2, C1 or C2." };
-  }
-  if (levelName === "B1" && !isB1FridayTutorialSession(tutorialGroup)) {
-    return {
-      value: null,
-      error: "B1 Tutorial practice is available only on Friday B dates.",
-    };
   }
   if (!activityType) {
     return { value: null, error: "Choose an activity type." };
@@ -272,30 +242,7 @@ export async function GET(request: NextRequest) {
   }
 
   const rows = data || [];
-  const futureDates = rows
-    .map((row) => String(row.session_date || ""))
-    .filter((date) => date >= getMadridSchoolDate())
-    .sort();
-  const rotation = await loadFridayTutorialRotationContext({
-    endDate: futureDates.at(-1),
-  });
-  const todayMadrid = getMadridSchoolDate();
-  const visibleRows = rows.filter((row) => {
-    const sessionDate = String(row.session_date || "");
-    if (sessionDate < todayMadrid) return true;
-    const tutorialGroup = getFridayTutorialSessionTypeForDate(
-      rotation.settings || {},
-      sessionDate,
-      rotation.closures
-    );
-    return Boolean(
-      tutorialGroup &&
-        (String(row.level_name || "").toUpperCase() !== "B1" ||
-          isB1FridayTutorialSession(tutorialGroup))
-    );
-  });
-
-  return NextResponse.json({ sessions: visibleRows.map(serializeSession) });
+  return NextResponse.json({ sessions: rows.map(serializeSession) });
 }
 
 export async function POST(request: NextRequest) {

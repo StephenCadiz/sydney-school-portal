@@ -843,6 +843,8 @@ export default function FridayAt6Page() {
           </h2>
           <p style={{ color: "#6b7280", margin: "0 0 20px" }}>
             Add one planned exam-practice activity per level and Friday date.
+            B1 exam practice is scheduled independently and may be planned for
+            any Friday.
           </p>
 
           <form
