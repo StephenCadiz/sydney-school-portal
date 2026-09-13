@@ -556,13 +556,6 @@ export default function AdminDashboard() {
 
         return (
           <div className="admin-dashboard-page">
-        <header className="admin-dashboard-header">
-          <div className="admin-dashboard-header-copy">
-            <h1>Admin Dashboard</h1>
-            <p>Academy management and daily operations.</p>
-          </div>
-        </header>
-
         <TeacherWorkingDayPanel
           endpoint="/api/admin/staff-time/self"
           hideWhenUnavailable

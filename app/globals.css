@@ -6238,45 +6238,85 @@ img {
 
 .admin-portal-header {
   align-items: center;
-  background: var(--ss-card-bg);
-  border: 1px solid var(--ss-border);
-  border-radius: 16px;
-  box-shadow: 0 12px 30px rgba(31, 60, 136, 0.07);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.96), transparent 42%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(231, 243, 252, 0.76));
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 12px;
+  box-shadow:
+    0 22px 48px rgba(31, 60, 136, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(47, 125, 184, 0.1);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  backdrop-filter: blur(18px) saturate(125%);
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 20px;
   justify-content: space-between;
+  isolation: isolate;
   margin: 0 auto 24px;
   max-width: 1480px;
-  padding: 18px 24px;
+  padding: calc(18px + 1cm) 24px;
   width: 100%;
 }
 
 .admin-portal-header-brand {
   align-items: center;
   display: flex;
-  gap: 18px;
+  flex: 1 1 420px;
+  gap: 16px;
   min-width: 0;
+}
+
+.admin-portal-header-title {
+  min-width: 0;
+}
+
+.admin-portal-header-title h1 {
+  color: var(--ss-blue-dark);
+  font-size: 2.2rem;
+  line-height: 1.1;
+  margin: 0;
 }
 
 .admin-portal-header-logo {
   flex: 0 0 auto;
   height: auto;
   object-fit: contain;
-  width: 210px;
+  width: auto;
 }
 
 .admin-portal-header-identity {
+  display: grid;
+  flex: 1 1 260px;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-portal-header-identity strong {
   color: var(--ss-blue-dark);
-  font-size: 1rem;
-  font-weight: 800;
-  white-space: nowrap;
+  font-size: 1.2rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.admin-portal-header-identity time {
+  color: #526174;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.admin-portal-header-identity > span {
+  color: #667085;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .admin-portal-header-status {
   align-items: center;
   display: flex;
   flex: 0 0 auto;
-  gap: 16px;
+  gap: 12px;
 }
 
 .admin-dashboard-header,
@@ -6348,46 +6388,73 @@ img {
 
 .admin-dashboard-message-control {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #cbd6e3;
+  background: #f3f8fc;
+  border: 1px solid #d5e4ef;
   border-radius: 10px;
   color: var(--ss-blue-dark);
   display: inline-flex;
   gap: 7px;
   justify-content: center;
-  min-height: 44px;
-  min-width: 54px;
-  padding: 8px 10px;
+  min-height: 42px;
+  min-width: 56px;
+  padding: 9px 11px;
   text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .admin-dashboard-message-control:hover {
-  background: #eef6fd;
+  background: #e7f2fa;
+  border-color: #b9d4e7;
+  box-shadow: 0 5px 12px rgba(31, 60, 136, 0.1);
+  transform: translateY(-1px);
 }
 
 .admin-dashboard-message-control:focus-visible {
-  outline: 3px solid rgba(47, 125, 184, 0.28);
-  outline-offset: 2px;
+  outline: 3px solid rgba(47, 125, 184, 0.38);
+  outline-offset: 3px;
+}
+
+.admin-portal-header .admin-dashboard-message-control:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.38);
+  outline-offset: 3px;
 }
 
 .admin-dashboard-message-count {
-  align-items: center;
-  background: var(--ss-blue);
-  border-radius: 999px;
-  color: #ffffff;
-  display: inline-flex;
-  font-size: 11px;
+  color: var(--ss-blue-dark);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
   font-weight: 900;
-  justify-content: center;
   line-height: 1;
-  min-height: 22px;
-  min-width: 22px;
-  padding: 4px 6px;
+}
+
+.admin-dashboard-message-control.has-unread {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #b42318;
 }
 
 .admin-dashboard-message-control.has-unread
   .admin-dashboard-message-count {
-  background: #dc2626;
+  color: #b42318;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .admin-portal-header,
+  .admin-portal-header .admin-dashboard-message-control {
+    -webkit-backdrop-filter: blur(18px) saturate(125%);
+    backdrop-filter: blur(18px) saturate(125%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-portal-header .admin-dashboard-message-control {
+    transition: none;
+  }
+
+  .admin-portal-header .admin-dashboard-message-control:hover {
+    transform: none;
+  }
 }
 
 .admin-message-tabs {
@@ -7145,30 +7212,34 @@ img {
   }
 
   .admin-portal-header {
-    border-radius: 14px;
+    border-radius: 12px;
     gap: 16px;
-    padding: 16px 18px;
+    padding: 14px 16px;
   }
 
   .admin-portal-header-brand {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
-    width: 100%;
+    align-items: center;
+    flex-direction: row;
+    gap: 16px;
   }
 
   .admin-portal-header-logo {
-    max-width: 210px;
-    width: 100%;
+    max-width: 150px;
+    width: auto;
+  }
+
+  .admin-portal-header-title h1 {
+    font-size: 20px;
   }
 
   .admin-portal-header-identity {
-    font-size: 0.92rem;
+    flex-basis: 100%;
   }
 
   .admin-portal-header-status {
     flex-wrap: wrap;
     gap: 12px;
+    justify-content: space-between;
     width: 100%;
   }
 

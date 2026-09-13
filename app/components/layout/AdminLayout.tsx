@@ -10,6 +10,7 @@ import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotific
 import { getAdminUnreadTeacherMessageCount } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
 import LogoutButton from "../auth/LogoutButton";
+import TeacherLiveClock from "./TeacherLiveClock";
 
 type AdminNavIconName =
   | "home"
@@ -469,8 +470,6 @@ export default function AdminLayout({
   const attendanceAccessibleLabel = hasAttendanceAlerts
     ? `Attendance, ${attendanceAlertCount} alert${attendanceAlertCount === 1 ? "" : "s"} requiring attention`
     : "Attendance";
-  const showDashboardMessageAlert =
-    pathname === "/admin" && hasUnreadTeacherMessages;
   const identityLabel = adminName.fullName
     ? pathname === "/admin"
       ? `Welcome, ${adminName.firstName || adminName.fullName}`
@@ -516,7 +515,7 @@ export default function AdminLayout({
               textDecoration: "none",
             }}
           >
-            <EnvelopeIcon size={18} />
+            <EnvelopeIcon size={20} />
             <UnreadBadge count={unreadTeacherMessages} />
           </Link>
 
@@ -680,13 +679,22 @@ export default function AdminLayout({
               className="admin-portal-header-logo"
               src="/LOGO and NAME.png"
               alt="Sydney School"
-              width={210}
-              height={74}
+              width={220}
+              height={81}
+              style={{
+                height: "auto",
+                width: "auto",
+              }}
               priority
             />
-            <span className="admin-portal-header-identity" aria-live="polite">
-              {identityLabel}
-            </span>
+            <div className="admin-portal-header-title">
+              <h1>Admin Portal</h1>
+            </div>
+          </div>
+          <div className="admin-portal-header-identity" aria-live="polite">
+            <strong>{identityLabel}</strong>
+            <time>{getDisplayDate()}</time>
+            <span>Your admin workspace</span>
           </div>
           <div className="admin-portal-header-status">
             <Link
@@ -696,82 +704,14 @@ export default function AdminLayout({
               }`}
               aria-label={unreadAccessibleLabel}
             >
-              <EnvelopeIcon size={20} />
+              <EnvelopeIcon size={24} />
               <span className="admin-dashboard-message-count" aria-hidden="true">
                 {unreadTeacherMessages > 99 ? "99+" : unreadTeacherMessages}
               </span>
             </Link>
-            <div className="admin-dashboard-date">{getDisplayDate()}</div>
+            <TeacherLiveClock showLabel={false} />
           </div>
         </header>
-        {showDashboardMessageAlert && (
-          <section
-            className="admin-dashboard-message-alert"
-            style={{
-              alignItems: "center",
-              background: "#ffffff",
-              border: "1px solid #fecdd3",
-              borderLeft: "5px solid #dc2626",
-              borderRadius: "14px",
-              boxShadow: "0 8px 22px rgba(31, 60, 136, 0.06)",
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "16px",
-              justifyContent: "space-between",
-              marginBottom: "22px",
-              padding: "16px 18px",
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  alignItems: "center",
-                  color: "var(--ss-blue-dark)",
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "9px",
-                  fontSize: "18px",
-                  fontWeight: 900,
-                  marginBottom: "4px",
-                }}
-              >
-                <EnvelopeIcon size={20} />
-                {unreadTeacherMessages} unread staff message
-                {unreadTeacherMessages === 1 ? "" : "s"}
-              </div>
-              <p
-                style={{
-                  color: "#5f6b7a",
-                  fontSize: "14px",
-                  lineHeight: 1.45,
-                  margin: 0,
-                }}
-              >
-                {unreadTeacherMessages === 1
-                  ? "You have a new message from a teacher."
-                  : "You have new messages from teachers."}
-              </p>
-            </div>
-
-            <Link
-              href="/admin/messages"
-              className="admin-dashboard-message-alert-link"
-              style={{
-                background: "var(--ss-blue)",
-                borderRadius: "9px",
-                color: "#ffffff",
-                flexShrink: 0,
-                fontSize: "14px",
-                fontWeight: 800,
-                padding: "10px 14px",
-                textDecoration: "none",
-                whiteSpace: "nowrap",
-              }}
-            >
-              View Messages
-            </Link>
-          </section>
-        )}
         {typeof children === "function"
           ? children(unreadTeacherMessages, attendanceAlertCount)
           : children}
