@@ -119,13 +119,24 @@ test("Admin and Student header/navigation styling remains separate", () => {
   assert.doesNotMatch(studentMenu, /teacher-portal-header/);
 });
 
-test("Teacher mobile layout keeps the existing responsive header and dashboard flow", () => {
+test("Teacher mobile layout uses one compact responsive header and preserves navigation", () => {
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*\.teacher-portal-header/);
-  assert.match(styles, /\.teacher-portal-header-actions[\s\S]*width: 100%/);
-  assert.match(styles, /\.teacher-layout-shell > \.mobile-topbar/);
+  assert.match(styles, /\.teacher-portal-header[\s\S]*display: grid !important/);
+  assert.match(styles, /\.teacher-main-content > \.teacher-portal-header > \.teacher-portal-header-brand[\s\S]*flex-direction: row !important/);
+  assert.match(styles, /\.teacher-main-content > \.teacher-portal-header \.teacher-live-clock\.is-header[\s\S]*display: grid/);
+  assert.match(portalHeader, /className="mobile-menu-button teacher-header-menu-button"/);
+  assert.doesNotMatch(teacherLayout, /className="mobile-topbar"/);
   assert.match(styles, /\.teacher-dashboard-page \{[\s\S]*width: 100%/);
   assert.match(styles, /\.teacher-main-content > \.teacher-portal-header/);
   assert.match(styles, /\.teacher-dashboard-page,[\s\S]*max-width: 100%/);
+});
+
+test("Teacher mobile header stays compact at narrow widths without overflow", () => {
+  assert.match(portalHeader, /className="mobile-menu-button teacher-header-menu-button"/);
+  assert.match(styles, /grid-template-columns: minmax\(0, 1fr\) auto !important/);
+  assert.match(styles, /max-width: 112px !important/);
+  assert.match(styles, /overflow-wrap: anywhere/);
+  assert.doesNotMatch(styles, /teacher-layout-shell > \.mobile-topbar/);
 });
 
 test("dashboard controls and content labels remain intact", () => {

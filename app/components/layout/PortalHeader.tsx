@@ -10,6 +10,7 @@ type Props = {
   firstName?: string;
   showWelcome?: boolean;
   unreadMessageCount?: number;
+  onMenuOpen?: () => void;
 };
 
 function getMadridHeader(date = new Date()) {
@@ -58,6 +59,7 @@ export default function PortalHeader({
   firstName = "",
   showWelcome = false,
   unreadMessageCount = 0,
+  onMenuOpen,
 }: Props) {
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const header = getMadridHeader(currentTime);
@@ -147,6 +149,14 @@ export default function PortalHeader({
           <span aria-hidden="true">{visibleUnreadCount}</span>
         </Link>
         <TeacherLiveClock showLabel={false} />
+        <button
+          type="button"
+          className="mobile-menu-button teacher-header-menu-button"
+          aria-label="Open teacher menu"
+          onClick={onMenuOpen}
+        >
+          Menu
+        </button>
       </div>
     </div>
   );

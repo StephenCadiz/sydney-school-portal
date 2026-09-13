@@ -20757,29 +20757,55 @@ img {
 
 @media (max-width: 640px) {
   .teacher-portal-header {
-    align-items: flex-start;
+    align-items: center !important;
+    display: grid !important;
+    gap: 10px !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
     padding: 14px 16px !important;
   }
 
-  .teacher-portal-header img {
-    max-width: 150px;
+  .teacher-main-content > .teacher-portal-header > .teacher-portal-header-brand {
+    align-items: center !important;
+    flex-direction: row !important;
+    gap: 10px !important;
+    width: auto !important;
   }
 
-  .teacher-portal-header h1 {
-    font-size: 20px;
+  .teacher-main-content > .teacher-portal-header > .teacher-portal-header-brand img {
+    max-width: 112px !important;
+    width: auto !important;
   }
 
-  .teacher-portal-header p {
-    font-size: 13px;
+  .teacher-main-content > .teacher-portal-header h1 {
+    font-size: 20px !important;
   }
 
-  .teacher-portal-header-identity {
-    flex-basis: 100%;
+  .teacher-main-content > .teacher-portal-header .teacher-portal-header-identity {
+    flex-basis: auto !important;
+    grid-column: 1 / -1;
   }
 
-  .teacher-portal-header-actions {
-    justify-content: space-between;
+  .teacher-main-content > .teacher-portal-header .teacher-portal-header-actions {
+    align-items: center;
+    gap: 8px;
+    grid-column: 1 / -1;
+    justify-content: flex-end;
     width: 100%;
+  }
+
+  .teacher-main-content > .teacher-portal-header .teacher-live-clock.is-header {
+    display: grid;
+    min-width: 0;
+    padding: 6px 8px;
+  }
+
+  .teacher-main-content > .teacher-portal-header .teacher-live-clock.is-header > span {
+    display: none;
+  }
+
+  .teacher-main-content > .teacher-portal-header .teacher-live-clock.is-header > time {
+    font-size: 15px;
+    min-width: 7.5ch;
   }
 
   .teacher-dashboard-header {
@@ -20795,45 +20821,8 @@ img {
 }
 
 @media (max-width: 768px) {
-  .teacher-layout-shell > .mobile-topbar {
-    display: grid !important;
-    gap: 12px;
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .teacher-mobile-topbar-context .mobile-topbar-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .teacher-live-clock.is-header {
-    display: none;
-  }
-
   .teacher-dashboard-page .admin-dashboard-message-control {
     display: none;
-  }
-}
-
-@media (max-width: 420px) {
-  .teacher-layout-shell > .mobile-topbar {
-    gap: 8px;
-    padding: 10px 12px;
-  }
-
-  .teacher-mobile-topbar-actions {
-    gap: 6px;
-  }
-
-  .teacher-mobile-topbar-actions > a {
-    min-height: 38px !important;
-    padding: 7px 8px !important;
-  }
-
-  .teacher-mobile-topbar-actions .mobile-menu-button {
-    min-height: 38px;
-    padding: 8px 10px;
   }
 }
 
