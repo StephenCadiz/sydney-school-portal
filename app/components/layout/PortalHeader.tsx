@@ -128,15 +128,6 @@ export default function PortalHeader({
           >
             {title}
           </h1>
-
-          <p
-            style={{
-              margin: "6px 0 0 0",
-              color: "#666",
-            }}
-          >
-            Sydney School Portal
-          </p>
         </div>
       </div>
       <div className="teacher-portal-header-identity" aria-live="polite">

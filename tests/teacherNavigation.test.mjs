@@ -40,6 +40,24 @@ test("Teacher navigation uses a restrained glass treatment and reduced-motion fa
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });
 
+test("Teacher Logout matches the navigation tab treatment without changing its action", () => {
+  assert.match(sidebar, /<LogoutButton className="teacher-logout" onSuccess=\{onClose\} \/>/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button \{/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button:hover:not\(:disabled\)/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button:active:not\(:disabled\)/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button:focus-visible/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button[\s\S]*background: linear-gradient\(/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button[\s\S]*border-radius: 8px/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button[\s\S]*gap: 12px/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button[\s\S]*font-size: 16px/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button[\s\S]*line-height: 24px/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button[\s\S]*padding: 12px/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button[\s\S]*backdrop-filter: blur\(14px\)/);
+  assert.match(styles, /\.teacher-logout \.portal-logout-button[\s\S]*prefers-reduced-motion: reduce/);
+  assert.doesNotMatch(styles, /\.admin-logout \.portal-logout-button/);
+  assert.doesNotMatch(styles, /\.student-logout \.portal-logout-button/);
+});
+
 test("Admin and Student navigation remain on their existing selectors", () => {
   assert.match(adminLayout, /admin-sidebar-link/);
   assert.match(studentLayout, /student-sidebar-nav/);

@@ -26,15 +26,28 @@ test("Teacher header and Dashboard use the same centered content width", () => {
   assert.match(dashboard, /className="teacher-dashboard-page"/);
 });
 
-test("Teacher header retains logo, title, subtitle, clock, and message control", () => {
+test("Teacher header retains the logo, title, clock, and message control", () => {
   assert.match(portalHeader, /src="\/LOGO and NAME\.png"/);
   assert.match(portalHeader, /alt="Sydney School"/);
+  assert.match(portalHeader, /width=\{220\}/);
+  assert.match(portalHeader, /height=\{81\}/);
+  assert.doesNotMatch(portalHeader, /Sydney School Portal/);
   assert.match(portalHeader, /<TeacherLiveClock showLabel=\{false\} \/>/);
   assert.match(portalHeader, /title: string/);
-  assert.match(portalHeader, /Sydney School Portal/);
   assert.match(portalHeader, /teacher-portal-message-control/);
   assert.match(portalHeader, /unreadMessageCount/);
   assert.match(teacherLayout, /<PortalHeader/);
+});
+
+test("Teacher header glass styling is scoped to the card, never the logo", () => {
+  assert.match(styles, /\.teacher-portal-header \{[\s\S]*radial-gradient/);
+  assert.match(styles, /\.teacher-portal-header \{[\s\S]*backdrop-filter: blur\(18px\)/);
+  assert.match(styles, /\.teacher-portal-header \{[\s\S]*inset 0 1px 0/);
+  assert.doesNotMatch(styles, /\.teacher-portal-header img \{[^}]*\bfilter\s*:/);
+  assert.doesNotMatch(styles, /\.teacher-portal-header img \{[^}]*\btransform\s*:/);
+  const logoContainerRule = styles.match(/\.teacher-portal-header-brand \{[^}]*\}/)?.[0] || "";
+  assert.doesNotMatch(logoContainerRule, /\b(filter|backdrop-filter|box-shadow|transform)\s*:/);
+  assert.doesNotMatch(portalHeader, /style=\{\{[\s\S]*filter:/);
 });
 
 test("Teacher header is exactly one centimetre taller without changing width", () => {
@@ -84,10 +97,14 @@ test("Teacher identity persists by route and clears on logout", () => {
   assert.match(teacherLayout, /setShowWelcome\(false\)/);
 });
 
-test("Teacher header is a solid card while dashboard surfaces use the sidebar language", () => {
+test("Teacher header uses a scoped liquid-glass card treatment", () => {
   assert.match(styles, /\.teacher-portal-header \{/);
-  assert.match(styles, /\.teacher-portal-header \{[\s\S]*background: #ffffff !important/);
+  assert.match(styles, /\.teacher-portal-header \{[\s\S]*radial-gradient/);
+  assert.match(styles, /\.teacher-portal-header \{[\s\S]*backdrop-filter: blur\(18px\)/);
+  assert.match(styles, /\.teacher-portal-header \{[\s\S]*inset 0 1px 0/);
   assert.match(styles, /\.teacher-portal-header::before \{[\s\S]*display: none !important/);
+  assert.doesNotMatch(styles, /\.teacher-portal-header img \{[^}]*\bfilter\s*:/);
+  assert.doesNotMatch(styles, /\.teacher-portal-header img \{[^}]*\btransform\s*:/);
   assert.match(styles, /\.teacher-dashboard-page \.teacher-dashboard-section,[\s\S]*linear-gradient\(/);
   assert.match(styles, /\.teacher-dashboard-page \.staff-time-primary-action/);
   assert.match(styles, /\.teacher-dashboard-page \.teacher-dashboard-tool-row:hover/);
