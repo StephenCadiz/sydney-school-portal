@@ -73,6 +73,8 @@ export default function TeacherLayout({
 }: TeacherLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [teacherId, setTeacherId] = useState("");
+  const [teacherFirstName, setTeacherFirstName] = useState("");
+  const [showWelcome, setShowWelcome] = useState(false);
   const [isSyllabusCoordinator, setIsSyllabusCoordinator] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const mountedRef = useRef(false);
@@ -82,6 +84,23 @@ export default function TeacherLayout({
   useEffect(() => {
     mountedRef.current = true;
     let active = true;
+    let welcomeStorageKey = "";
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_OUT" || !active) return;
+
+      if (welcomeStorageKey) {
+        try {
+          window.sessionStorage.removeItem(welcomeStorageKey);
+        } catch {
+          // Session storage can be unavailable in privacy-restricted browsers.
+        }
+      }
+      setTeacherId("");
+      setTeacherFirstName("");
+      setUnreadMessageCount(0);
+      setShowWelcome(false);
+    });
 
     async function loadTeacher() {
       try {
@@ -92,6 +111,7 @@ export default function TeacherLayout({
         if (!session?.user?.id) {
           if (active && mountedRef.current) {
             setTeacherId("");
+            setTeacherFirstName("");
             setUnreadMessageCount(0);
             setIsSyllabusCoordinator(false);
           }
@@ -116,7 +136,7 @@ export default function TeacherLayout({
 
         const { data: profileById, error } = await supabase
           .from("profiles")
-          .select("id, role")
+          .select("id, first_name, role")
           .eq("id", session.user.id)
           .maybeSingle();
 
@@ -124,12 +144,13 @@ export default function TeacherLayout({
         if (!profile && session.user.email) {
           const { data: profilesByEmail, error: emailError } = await supabase
             .from("profiles")
-            .select("id, role")
+            .select("id, first_name, role")
             .eq("email", session.user.email)
             .limit(2);
           if (emailError || (profilesByEmail || []).length > 1) {
             if (active && mountedRef.current) {
               setTeacherId("");
+              setTeacherFirstName("");
               setUnreadMessageCount(0);
             }
             return;
@@ -140,6 +161,7 @@ export default function TeacherLayout({
         if (error || profile?.role !== "teacher") {
           if (active && mountedRef.current) {
             setTeacherId("");
+            setTeacherFirstName("");
             setUnreadMessageCount(0);
             setIsSyllabusCoordinator(false);
           }
@@ -147,7 +169,21 @@ export default function TeacherLayout({
         }
 
         if (active && mountedRef.current) {
-          setTeacherId(String(profile.id || session.user.id));
+          const resolvedTeacherId = String(profile.id || session.user.id);
+          setTeacherId(resolvedTeacherId);
+          setTeacherFirstName(String(profile.first_name || "").trim());
+
+          welcomeStorageKey = `teacher-welcome-seen:${resolvedTeacherId}`;
+          let hasSeenWelcome = false;
+          try {
+            hasSeenWelcome = window.sessionStorage.getItem(welcomeStorageKey) === "1";
+            if (pathname !== "/teacher") {
+              window.sessionStorage.setItem(welcomeStorageKey, "1");
+            }
+          } catch {
+            // Fall back to the route signal when session storage is unavailable.
+          }
+          setShowWelcome(pathname === "/teacher" && !hasSeenWelcome);
         }
       } catch (error) {
         if (!unreadCountErrorLoggedRef.current) {
@@ -162,6 +198,7 @@ export default function TeacherLayout({
     return () => {
       active = false;
       mountedRef.current = false;
+      authListener.subscription.unsubscribe();
     };
   }, [pathname]);
 
@@ -276,7 +313,12 @@ export default function TeacherLayout({
           background: "var(--ss-page-bg)",
         }}
       >
-        <PortalHeader title="Teacher Portal" />
+        <PortalHeader
+          title="Teacher Portal"
+          firstName={teacherFirstName}
+          showWelcome={showWelcome}
+          unreadMessageCount={unreadMessageCount}
+        />
 
         {typeof children === "function"
           ? children(unreadMessageCount)

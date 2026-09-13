@@ -93,42 +93,12 @@ function ToolIcon({ name, size = 18 }: { name: string; size?: number }) {
   );
 }
 
-function getMadridHeader(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Madrid",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  const hour = Number(values.hour || 12);
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-
-  return {
-    greeting,
-    date: `${values.weekday || ""}, ${values.day || ""} ${values.month || ""} ${
-      values.year || ""
-    }`.trim(),
-  };
-}
-
 export default function TeacherPage() {
   const router = useRouter();
-  const [teacherName, setTeacherName] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [fridayExamPracticeSessions, setFridayExamPracticeSessions] =
     useState<any[]>([]);
   const [fridayAt6Duty, setFridayAt6Duty] = useState<any | null>(null);
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-  const header = getMadridHeader(currentTime);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -152,9 +122,6 @@ export default function TeacherPage() {
         return;
       }
 
-      setTeacherName(
-        `${profile.data.first_name || ""} ${profile.data.last_name || ""}`.trim()
-      );
       setTeacherId(session.user.id);
 
       try {
@@ -199,44 +166,8 @@ export default function TeacherPage() {
 
   return (
     <TeacherLayout>
-      {(unreadMessageCount) => {
-        const unreadMessageLabel =
-          unreadMessageCount === 0
-            ? "Messages, no unread messages"
-            : `Messages, ${unreadMessageCount} unread message${
-                unreadMessageCount === 1 ? "" : "s"
-              }`;
-        const visibleUnreadCount =
-          unreadMessageCount > 99 ? "99+" : String(unreadMessageCount);
-
-        return (
+      {() => (
       <main className="teacher-dashboard-page">
-        <header className="teacher-dashboard-header">
-          <div className="teacher-dashboard-header-copy">
-            <h1>
-              {header.greeting}
-              {teacherName ? `, ${teacherName.split(" ")[0]}` : ""}
-            </h1>
-            <p>{header.date}</p>
-            <span>Your teaching workspace</span>
-          </div>
-
-          <div className="teacher-dashboard-header-actions">
-            <Link
-              href="/teacher/messages"
-              className={`admin-dashboard-message-control ${
-                unreadMessageCount > 0 ? "has-unread" : ""
-              }`}
-              aria-label={unreadMessageLabel}
-            >
-              <ToolIcon name="envelope" size={20} />
-              <span className="admin-dashboard-message-count" aria-hidden="true">
-                {visibleUnreadCount}
-              </span>
-            </Link>
-          </div>
-        </header>
-
         <div className="teacher-dashboard-primary-grid">
           <TeacherWorkingDayPanel />
           <TeacherCalendarAgenda />
@@ -295,8 +226,7 @@ export default function TeacherPage() {
           <FridayExamPracticeCard sessions={fridayExamPracticeSessions} />
         </div>
       </main>
-        );
-      }}
+      )}
     </TeacherLayout>
   );
 }

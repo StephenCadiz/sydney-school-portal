@@ -20,7 +20,13 @@ function formatMadridTime(date: Date) {
   return `${values.hour}:${values.minute}:${values.second}`;
 }
 
-export default function TeacherLiveClock({ compact = false }: { compact?: boolean }) {
+export default function TeacherLiveClock({
+  compact = false,
+  showLabel,
+}: {
+  compact?: boolean;
+  showLabel?: boolean;
+}) {
   const [time, setTime] = useState("");
 
   useEffect(() => {
@@ -33,6 +39,7 @@ export default function TeacherLiveClock({ compact = false }: { compact?: boolea
   }, []);
 
   const label = compact ? "Madrid" : "Madrid time";
+  const shouldShowLabel = showLabel ?? compact;
 
   return (
     <div
@@ -40,7 +47,7 @@ export default function TeacherLiveClock({ compact = false }: { compact?: boolea
       role="timer"
       aria-label={time ? `Madrid time ${time}` : "Madrid time loading"}
     >
-      <span>{label}</span>
+      {shouldShowLabel && <span>{label}</span>}
       <time dateTime={time || undefined}>{time || "--:--:--"}</time>
     </div>
   );

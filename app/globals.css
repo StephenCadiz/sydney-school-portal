@@ -18653,11 +18653,22 @@ img {
 }
 /* Teacher Results & Performance */
 .teacher-results-page {
+  box-sizing: border-box;
   color: #1f2937;
   display: grid;
   gap: 20px;
-  max-width: 1480px;
+  margin: 0 auto;
+  max-width: var(--teacher-content-max-width, 1480px);
   min-width: 0;
+  width: 100%;
+}
+
+.teacher-admin-tasks-page {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: var(--teacher-content-max-width, 1480px);
+  min-width: 0;
+  width: 100%;
 }
 
 .teacher-results-heading h1,
@@ -20597,6 +20608,7 @@ img {
 
 @media (max-width: 640px) {
   .teacher-portal-header {
+    align-items: flex-start;
     padding: 14px 16px !important;
   }
 
@@ -20610,6 +20622,15 @@ img {
 
   .teacher-portal-header p {
     font-size: 13px;
+  }
+
+  .teacher-portal-header-identity {
+    flex-basis: 100%;
+  }
+
+  .teacher-portal-header-actions {
+    justify-content: space-between;
+    width: 100%;
   }
 
   .teacher-dashboard-header {
@@ -26212,6 +26233,10 @@ img {
 
 .teacher-dashboard-primary-grid .staff-time-teacher-panel,
 .teacher-dashboard-primary-grid .teacher-dashboard-calendar {
+  align-self: stretch;
+  box-sizing: border-box;
+  height: 100%;
+  margin-bottom: 0;
   min-width: 0;
 }
 
@@ -26398,6 +26423,89 @@ img {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   width: 100%;
+}
+
+.teacher-portal-header-identity {
+  display: grid;
+  flex: 1 1 260px;
+  gap: 3px;
+  min-width: 0;
+}
+
+.teacher-portal-header-identity strong {
+  color: var(--ss-blue-dark);
+  font-size: 1.2rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.teacher-portal-header-identity time {
+  color: #526174;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.teacher-portal-header-identity > span {
+  color: #667085;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.teacher-portal-header-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 12px;
+}
+
+.teacher-portal-message-control {
+  align-items: center;
+  background: #f3f8fc;
+  border: 1px solid #d5e4ef;
+  border-radius: 10px;
+  color: var(--ss-blue-dark);
+  display: inline-flex;
+  gap: 7px;
+  justify-content: center;
+  min-height: 42px;
+  min-width: 56px;
+  padding: 9px 11px;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.teacher-portal-message-control.has-unread {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #991b1b;
+}
+
+.teacher-portal-message-control:hover {
+  background: #e7f2fa;
+  border-color: #b9d4e7;
+  box-shadow: 0 5px 12px rgba(31, 60, 136, 0.1);
+  transform: translateY(-1px);
+}
+
+.teacher-portal-message-control.has-unread:hover {
+  background: #ffe4e8;
+  border-color: #fda4af;
+}
+
+.teacher-portal-message-control:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.38);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teacher-portal-message-control {
+    transition: none;
+  }
+
+  .teacher-portal-message-control:hover {
+    transform: none;
+  }
 }
 
 .teacher-portal-header::before {

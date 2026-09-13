@@ -1,17 +1,21 @@
 .page {
   display: grid;
-  gap: 22px;
+  gap: 16px;
+  margin: 0 auto;
+  max-width: var(--teacher-content-max-width, 1480px);
+  min-width: 0;
+  width: 100%;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 20px;
+  gap: 16px;
   background: #ffffff;
   border: 1px solid #dbe7f3;
   border-radius: 14px;
-  padding: 24px;
+  padding: 18px;
   box-shadow: 0 8px 22px rgba(31, 60, 136, 0.07);
 }
 
@@ -85,7 +89,7 @@
   background: #ffffff;
   border: 1px solid #dbe7f3;
   border-radius: 12px;
-  padding: 16px 18px;
+  padding: 12px 14px;
   box-shadow: 0 4px 16px rgba(31, 60, 136, 0.05);
 }
 
@@ -108,17 +112,19 @@
 
 .desktopWeek {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   align-items: stretch;
 }
 
 .dayColumn,
 .mobileDayPanel {
+  align-self: stretch;
+  box-sizing: border-box;
   min-width: 0;
   background: #ffffff;
   border: 1px solid #dbe7f3;
   border-radius: 14px;
-  padding: 14px;
+  padding: 12px;
   box-shadow: 0 6px 18px rgba(31, 60, 136, 0.06);
 }
 
@@ -128,8 +134,8 @@
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid #edf2f7;
-  padding-bottom: 11px;
-  margin-bottom: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 9px;
 }
 
 .weekday {
@@ -146,12 +152,12 @@
 
 .itemList {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .card {
   border-radius: 12px;
-  padding: 12px;
+  padding: 10px;
   background: #ffffff;
   min-width: 0;
 }
@@ -198,7 +204,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 9px;
+  margin-bottom: 7px;
 }
 
 .badge {
@@ -252,7 +258,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
-  margin-top: 8px;
+  margin-top: 6px;
   color: #667085;
   font-size: 13px;
   font-weight: 700;
@@ -262,14 +268,14 @@
   color: #5f6b7a;
   font-size: 13px;
   line-height: 1.45;
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   overflow-wrap: anywhere;
 }
 
 .meetLink {
   display: inline-flex;
   width: fit-content;
-  margin-top: 10px;
+  margin-top: 8px;
   border-radius: 8px;
   background: #2f7db8;
   color: #ffffff;
@@ -299,7 +305,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 9px;
 }
 
 .textAction {
@@ -339,7 +345,7 @@
   color: #667085;
   font-size: 13px;
   line-height: 1.45;
-  padding: 12px;
+  padding: 10px;
 }
 
 .mobilePlanner {
@@ -522,13 +528,13 @@
 
 @media (max-width: 768px) {
   .page {
-    gap: 16px;
+    gap: 14px;
   }
 
   .header {
     display: grid;
-    gap: 16px;
-    padding: 18px;
+    gap: 14px;
+    padding: 16px;
   }
 
   .title {
@@ -558,11 +564,11 @@
 
   .dayColumn,
   .mobileDayPanel {
-    padding: 13px;
+    padding: 12px;
   }
 
   .card {
-    padding: 13px;
+    padding: 12px;
   }
 
   .meetLink {

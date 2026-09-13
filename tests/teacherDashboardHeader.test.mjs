@@ -9,6 +9,7 @@ const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
 const dashboard = read("app/teacher/page.tsx");
 const workingDay = read("app/components/teacher/TeacherWorkingDayPanel.tsx");
 const calendar = read("app/components/teacher/TeacherCalendarAgenda.tsx");
+const liveClock = read("app/components/layout/TeacherLiveClock.tsx");
 const styles = read("app/globals.css");
 const adminLayout = read("app/components/layout/AdminLayout.tsx");
 const studentMenu = read("app/student/StudentMenu.tsx");
@@ -28,11 +29,59 @@ test("Teacher header and Dashboard use the same centered content width", () => {
 test("Teacher header retains logo, title, subtitle, clock, and message control", () => {
   assert.match(portalHeader, /src="\/LOGO and NAME\.png"/);
   assert.match(portalHeader, /alt="Sydney School"/);
-  assert.match(portalHeader, /<TeacherLiveClock \/>/);
+  assert.match(portalHeader, /<TeacherLiveClock showLabel=\{false\} \/>/);
   assert.match(portalHeader, /title: string/);
   assert.match(portalHeader, /Sydney School Portal/);
-  assert.match(dashboard, /admin-dashboard-message-control/);
-  assert.match(teacherLayout, /<PortalHeader title="Teacher Portal" \/>/);
+  assert.match(portalHeader, /teacher-portal-message-control/);
+  assert.match(portalHeader, /unreadMessageCount/);
+  assert.match(teacherLayout, /<PortalHeader/);
+});
+
+test("Teacher header is exactly one centimetre taller without changing width", () => {
+  assert.match(portalHeader, /padding: "calc\(18px \+ 1cm\) 24px"/);
+  assert.match(styles, /\.teacher-portal-header[\s\S]*max-width: var\(--teacher-content-max-width, 1480px\)/);
+  assert.match(styles, /\.teacher-portal-header[\s\S]*width: 100%/);
+  assert.match(styles, /\.teacher-portal-header-identity/);
+});
+
+test("Desktop Working Day and Calendar cards stretch to equal height", () => {
+  assert.match(styles, /\.teacher-dashboard-primary-grid \.staff-time-teacher-panel,[\s\S]*\.teacher-dashboard-primary-grid \.teacher-dashboard-calendar \{[\s\S]*align-self: stretch[\s\S]*height: 100%/);
+  assert.match(styles, /\.teacher-dashboard-primary-grid \.teacher-dashboard-calendar \{[\s\S]*margin-bottom: 0/);
+  assert.match(styles, /@media \(max-width: 840px\)[\s\S]*grid-template-columns: 1fr/);
+});
+
+test("Logo and header identity scale proportionally without overflow", () => {
+  assert.match(portalHeader, /width=\{220\}/);
+  assert.match(portalHeader, /height=\{81\}/);
+  assert.match(portalHeader, /fontSize: "2\.2rem"/);
+  assert.match(styles, /\.teacher-portal-header-identity strong[\s\S]*font-size: 1\.2rem/);
+  assert.match(styles, /overflow-wrap: anywhere/);
+});
+
+test("Teacher header clock renders only live time on desktop", () => {
+  assert.match(liveClock, /showLabel\?: boolean/);
+  assert.match(liveClock, /showLabel \?\? compact/);
+  assert.match(portalHeader, /<TeacherLiveClock showLabel=\{false\} \/>/);
+  assert.doesNotMatch(portalHeader, /Madrid Time/);
+});
+
+test("Dashboard greeting is owned by the shared Teacher header", () => {
+  assert.doesNotMatch(dashboard, /teacher-dashboard-header/);
+  assert.match(portalHeader, /Good morning/);
+  assert.match(portalHeader, /Good afternoon/);
+  assert.match(portalHeader, /Good evening/);
+  assert.match(portalHeader, /Logged in as \$\{visibleFirstName\}/);
+  assert.match(portalHeader, /Your teaching workspace/);
+  assert.match(teacherLayout, /showWelcome/);
+});
+
+test("Teacher identity persists by route and clears on logout", () => {
+  assert.match(teacherLayout, /teacher-welcome-seen:/);
+  assert.match(teacherLayout, /pathname === "\/teacher"/);
+  assert.match(teacherLayout, /window\.sessionStorage\.setItem/);
+  assert.match(teacherLayout, /event !== "SIGNED_OUT"/);
+  assert.match(teacherLayout, /setTeacherFirstName\(""\)/);
+  assert.match(teacherLayout, /setShowWelcome\(false\)/);
 });
 
 test("Teacher header is a solid card while dashboard surfaces use the sidebar language", () => {
@@ -55,6 +104,7 @@ test("Admin and Student header/navigation styling remains separate", () => {
 
 test("Teacher mobile layout keeps the existing responsive header and dashboard flow", () => {
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*\.teacher-portal-header/);
+  assert.match(styles, /\.teacher-portal-header-actions[\s\S]*width: 100%/);
   assert.match(styles, /\.teacher-layout-shell > \.mobile-topbar/);
   assert.match(styles, /\.teacher-dashboard-page \{[\s\S]*width: 100%/);
   assert.match(styles, /\.teacher-main-content > \.teacher-portal-header/);
