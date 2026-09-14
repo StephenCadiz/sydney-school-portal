@@ -223,9 +223,11 @@ export default function TeacherLayout({
           onMenuOpen={() => setMenuOpen(true)}
         />
 
-        {typeof children === "function"
-          ? children(unreadMessageCount)
-          : children}
+        <div className="teacher-main-content-body">
+          {typeof children === "function"
+            ? children(unreadMessageCount)
+            : children}
+        </div>
       </main>
       <TeacherClassProgressReminder />
     </div>

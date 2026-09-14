@@ -10021,6 +10021,15 @@ img {
   --teacher-content-max-width: 1480px;
 }
 
+/* Every Teacher route shares the same centered content width as the header. */
+.teacher-main-content-body {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: var(--teacher-content-max-width);
+  min-width: 0;
+  width: 100%;
+}
+
 .teacher-dashboard-page,
 .teacher-my-classes-page {
   max-width: var(--teacher-content-max-width);
@@ -10032,7 +10041,7 @@ img {
   display: grid;
   gap: 20px;
   margin: 0 auto;
-  max-width: 1120px;
+  max-width: var(--teacher-content-max-width, 1480px);
   width: 100%;
 }
 
@@ -16619,7 +16628,7 @@ img {
 .young-learner-workspace-page {
   color: #1d2939;
   margin: 0 auto;
-  max-width: 1120px;
+  max-width: var(--teacher-content-max-width, 1480px);
   min-width: 0;
 }
 
@@ -21237,7 +21246,7 @@ img {
   display: grid;
   gap: 22px;
   margin: 0 auto;
-  max-width: 1480px;
+  max-width: var(--teacher-content-max-width, 1480px);
   width: 100%;
 }
 
