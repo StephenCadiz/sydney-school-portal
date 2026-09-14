@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import AdminStudentsTabs from "../../components/admin/AdminStudentsTabs";
 import AdminStudentAttendance from "../../components/admin/AdminStudentAttendance";
+import AdminStudentClassWork from "../../components/admin/AdminStudentClassWork";
 import { getStudentAcademicYearDisplayValue } from "../../../lib/academicYearRules";
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import {
@@ -1576,6 +1577,7 @@ function FollowUpsSection({ followUps }: { followUps: any[] }) {
 type StudentDetailSection =
   | "overview"
   | "attendance"
+  | "class-work"
   | "homework"
   | "friday"
   | "mocks"
@@ -1685,6 +1687,7 @@ function StudentDetailModal({
     ? [
         { id: "overview", label: "Overview" },
         { id: "attendance", label: "Attendance" },
+        { id: "class-work", label: "Class Work" },
         { id: "homework", label: "Homework" },
         { id: "friday", label: "Friday Tutorials" },
         { id: "mocks", label: "Mock Exams" },
@@ -1693,6 +1696,7 @@ function StudentDetailModal({
     : [
         { id: "overview", label: "Overview" },
         { id: "attendance", label: "Attendance" },
+        { id: "class-work", label: "Class Work" },
         { id: "unit-exams", label: "Unit Exams" },
         { id: "follow-up", label: "Follow-up" },
       ];
@@ -1773,6 +1777,12 @@ function StudentDetailModal({
           )}
           {!loading && student && activeSection === "attendance" && (
             <AdminStudentAttendance
+              studentId={student.id}
+              studentType={student.student_type}
+            />
+          )}
+          {!loading && student && activeSection === "class-work" && (
+            <AdminStudentClassWork
               studentId={student.id}
               studentType={student.student_type}
             />

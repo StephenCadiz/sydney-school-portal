@@ -19643,6 +19643,151 @@ img {
   margin: 0;
 }
 
+.admin-student-class-work {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-student-class-work h2,
+.admin-student-class-work h3,
+.admin-student-class-work h4,
+.admin-student-class-work p {
+  overflow-wrap: anywhere;
+}
+
+.admin-student-class-work h2 {
+  color: var(--ss-blue-dark);
+  font-size: 21px;
+  margin: 0;
+}
+
+.admin-student-class-work-latest,
+.admin-student-class-work-entry {
+  background: #ffffff;
+  border: 1px solid var(--ss-border);
+  border-radius: 14px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.admin-student-class-work-latest {
+  border-left: 5px solid var(--ss-blue);
+}
+
+.admin-student-class-work-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.admin-student-class-work-heading > div {
+  min-width: 0;
+}
+
+.admin-student-class-work-eyebrow {
+  color: var(--ss-blue);
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.admin-student-class-work h3,
+.admin-student-class-work h4 {
+  color: var(--ss-blue-dark);
+  margin: 0;
+}
+
+.admin-student-class-work h3 {
+  font-size: 19px;
+}
+
+.admin-student-class-work h4 {
+  font-size: 16px;
+}
+
+.admin-student-class-work-heading p,
+.admin-student-class-work-teacher,
+.admin-student-class-work small {
+  color: #667085;
+  font-size: 13px;
+}
+
+.admin-student-class-work-heading p {
+  margin: 5px 0 0;
+}
+
+.admin-student-class-work-teacher {
+  flex: 0 1 auto;
+  font-weight: 700;
+  max-width: 40%;
+  text-align: right;
+}
+
+.admin-student-class-work-details {
+  border-top: 1px solid #e6eaf2;
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.admin-student-class-work-details p {
+  color: #344054;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.admin-student-class-work-details strong {
+  color: #475467;
+}
+
+.admin-student-class-work-latest small,
+.admin-student-class-work-entry small {
+  display: block;
+  margin-top: 14px;
+}
+
+.admin-student-class-work-history {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-student-class-work-history > h3 {
+  font-size: 17px;
+}
+
+.admin-student-class-work-state {
+  color: #667085;
+  margin: 0;
+}
+
+.admin-student-class-work-state.is-error {
+  color: #b42318;
+}
+
+@media (max-width: 600px) {
+  .admin-student-class-work-heading {
+    flex-direction: column;
+  }
+
+  .admin-student-class-work-teacher {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .admin-student-class-work-latest,
+  .admin-student-class-work-entry {
+    padding: 15px;
+  }
+}
+
 @media (max-width: 600px) {
   .admin-student-detail-modal-layer {
     align-items: stretch;
