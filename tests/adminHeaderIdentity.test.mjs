@@ -36,7 +36,8 @@ test("Admin identity is rendered beside the shared logo with mail and date contr
 
 test("Admin header uses the centered glass card treatment without changing its width", () => {
   assert.match(styles, /\.admin-portal-header \{[\s\S]*radial-gradient/);
-  assert.match(styles, /\.admin-portal-header \{[\s\S]*max-width: 1480px/);
+  assert.match(styles, /\.admin-main-content \{[\s\S]*--admin-content-max-width: 1480px/);
+  assert.match(styles, /\.admin-portal-header \{[\s\S]*max-width: var\(--admin-content-max-width\)/);
   assert.match(styles, /\.admin-portal-header \{[\s\S]*backdrop-filter: blur\(18px\)/);
   assert.match(styles, /\.admin-portal-header \{[\s\S]*inset 0 1px 0/);
   assert.match(styles, /\.admin-portal-header-title h1/);
@@ -48,6 +49,15 @@ test("Admin header uses the centered glass card treatment without changing its w
   assert.match(styles, /\.admin-portal-header \.admin-dashboard-message-control:focus-visible/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*admin-portal-header \.admin-dashboard-message-control/);
   assert.doesNotMatch(styles, /\.admin-portal-header-logo[^}]*\b(filter|backdrop-filter|box-shadow|transform)\s*:/);
+});
+
+test("Admin page roots share the header container without stretching nested controls", () => {
+  assert.match(adminLayout, /className="admin-main-content-inner"/);
+  assert.match(styles, /\.admin-main-content-inner \{[\s\S]*max-width: var\(--admin-content-max-width\)/);
+  assert.match(styles, /\.admin-main-content-inner > \* \{[\s\S]*max-width: 100% !important/);
+  assert.match(styles, /\.admin-main-content-inner > \* \{[\s\S]*min-width: 0/);
+  assert.match(styles, /\.admin-main-content-inner > \.admin-staff-page \{[\s\S]*padding-left: 0/);
+  assert.match(styles, /@media \(max-width: 768px\)[\s\S]*\.admin-main-content,\s*\.teacher-main-content[\s\S]*padding: 22px 16px/);
 });
 
 test("Unread messages stay in the Admin header with clear alert and zero states", () => {

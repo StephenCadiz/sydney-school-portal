@@ -6226,9 +6226,39 @@ img {
   width: 22px;
 }
 
+.admin-main-content {
+  --admin-content-max-width: 1480px;
+  min-width: 0;
+}
+
+.admin-main-content-inner {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: var(--admin-content-max-width);
+  min-width: 0;
+  width: 100%;
+}
+
+/* Normalize page roots to the same grid as the shared Admin header. */
+.admin-main-content-inner > * {
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 100% !important;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Page roots may use padding for vertical rhythm; horizontal gutters belong to
+   the shared Admin main container so cards align with the header. */
+.admin-main-content-inner > .admin-staff-page {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .admin-dashboard-page {
   margin: 0 auto;
-  max-width: 1480px;
+  max-width: var(--admin-content-max-width);
   width: 100%;
 }
 
@@ -6255,7 +6285,7 @@ img {
   justify-content: space-between;
   isolation: isolate;
   margin: 0 auto 24px;
-  max-width: 1480px;
+  max-width: var(--admin-content-max-width);
   padding: calc(18px + 1cm) 24px;
   width: 100%;
 }

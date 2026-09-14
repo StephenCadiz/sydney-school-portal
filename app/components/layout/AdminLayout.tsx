@@ -712,9 +712,11 @@ export default function AdminLayout({
             <TeacherLiveClock showLabel={false} />
           </div>
         </header>
-        {typeof children === "function"
-          ? children(unreadTeacherMessages, attendanceAlertCount)
-          : children}
+        <div className="admin-main-content-inner">
+          {typeof children === "function"
+            ? children(unreadTeacherMessages, attendanceAlertCount)
+            : children}
+        </div>
       </main>
     </div>
   );
