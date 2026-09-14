@@ -213,7 +213,7 @@ export default function StudentDashboard() {
           padding: "40px",
         }}
       >
-        <section className="student-dashboard-hero">
+        <section className="student-dashboard-hero student-portal-header">
           <div className="student-dashboard-hero-inner">
             <Image
               className="student-dashboard-logo"

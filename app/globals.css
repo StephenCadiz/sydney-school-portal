@@ -27268,3 +27268,170 @@ img {
     transform: none;
   }
 }
+
+/* Student platform visual alignment with the approved portal system. */
+.student-main-content {
+  --student-content-max-width: 1480px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.student-dashboard-page,
+.student-homework-page,
+.student-progress-page,
+.student-messages-page,
+.student-resources-page,
+.student-announcements-page,
+.student-course-plan-page {
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: var(--student-content-max-width, 1480px);
+  min-width: 0;
+  width: 100%;
+}
+
+.student-portal-header {
+  align-items: center;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.96), transparent 42%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(231, 243, 252, 0.78));
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 12px;
+  box-shadow:
+    0 22px 48px rgba(31, 60, 136, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(47, 125, 184, 0.1);
+  gap: 20px;
+  isolation: isolate;
+  padding: calc(18px + 1cm) 24px;
+  width: 100%;
+}
+
+.student-portal-header .student-dashboard-logo {
+  margin-bottom: 0;
+}
+
+.student-portal-header h1 {
+  font-size: 2.2rem;
+  line-height: 1.1;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .student-portal-header,
+  .student-sidebar-link {
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    backdrop-filter: blur(14px) saturate(120%);
+  }
+}
+
+.student-sidebar-link {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.06)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 5px 14px rgba(8, 29, 72, 0.1);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.student-sidebar-link:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.09)
+  );
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 18px rgba(8, 29, 72, 0.16);
+  transform: translateY(-1px);
+}
+
+.student-sidebar-link:active {
+  box-shadow:
+    inset 0 2px 5px rgba(8, 29, 72, 0.18),
+    0 3px 8px rgba(8, 29, 72, 0.1);
+  transform: translateY(0);
+}
+
+.student-sidebar-link.is-active {
+  background: linear-gradient(
+    135deg,
+    rgba(76, 145, 214, 0.92),
+    rgba(31, 92, 164, 0.88)
+  );
+  border-color: rgba(194, 226, 255, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 8px 18px rgba(8, 29, 72, 0.22);
+}
+
+.student-sidebar-link:focus-visible {
+  border-color: rgba(255, 255, 255, 0.78);
+  outline: 3px solid rgba(191, 226, 255, 0.95);
+  outline-offset: 2px;
+}
+
+.student-mobile-topbar {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  box-shadow:
+    0 12px 28px rgba(31, 60, 136, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  justify-content: flex-end;
+}
+
+/* The mobile bar is navigation chrome; the dashboard hero is the single
+   Student header surface and owns the branding/content. */
+.student-mobile-topbar-title {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-sidebar-link {
+    transition: none;
+  }
+
+  .student-sidebar-link:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .student-dashboard-page,
+  .student-homework-page,
+  .student-progress-page,
+  .student-messages-page,
+  .student-resources-page,
+  .student-announcements-page,
+  .student-course-plan-page {
+    max-width: none;
+    width: 100%;
+  }
+
+  .student-portal-header {
+    border-radius: 16px;
+    padding: 22px 18px;
+  }
+
+  .student-mobile-topbar {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+    justify-content: flex-end;
+    min-height: 58px;
+    padding: 10px 16px;
+  }
+
+  .student-mobile-topbar-title {
+    display: none;
+  }
+}

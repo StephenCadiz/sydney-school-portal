@@ -134,7 +134,7 @@ export default function StudentMenu({
 
       <div className="student-sidebar-spacer" />
 
-      <LogoutButton className="student-logout" onSuccess={onClose} />
+      <LogoutButton className="student-logout teacher-logout" onSuccess={onClose} />
 
       <div className="student-sidebar-footer">
         <span>Student Portal</span>
