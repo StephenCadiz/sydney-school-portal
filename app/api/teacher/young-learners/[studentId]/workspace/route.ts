@@ -151,7 +151,10 @@ async function getContext(
   const [{ data: level, error: levelError }, { data: learner, error: learnerError }] =
     await Promise.all([
       supabaseAdmin.from("levels").select("id, name").eq("id", classRow.level_id).maybeSingle(),
-      supabaseAdmin.from("current_young_learners").select("*").eq("id", studentId).eq("class_id", classId).maybeSingle(),
+      // Workspace access follows the class roster, which includes future-dated
+      // enrolments for planning. Attendance and register eligibility continue
+      // to use the date-effective current_* views in their own paths.
+      supabaseAdmin.from("class_roster_young_learners").select("*").eq("id", studentId).eq("class_id", classId).maybeSingle(),
     ]);
   if (levelError || learnerError) {
     logWorkspaceError("learner-context", levelError || learnerError);
