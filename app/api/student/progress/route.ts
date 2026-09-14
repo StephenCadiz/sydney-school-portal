@@ -4,7 +4,10 @@ import {
   authenticateStudentHomework,
   resolveStudentHomeworkContext,
 } from "../../../../lib/studentHomeworkServer";
-import { adjustHomeworkDatesForClassDays } from "../../../../lib/homework";
+import {
+  adjustHomeworkDatesForClassDays,
+  isSuppressedLegacyHomework,
+} from "../../../../lib/homework";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import {
   getStudentClassAttendanceSummary,
@@ -57,7 +60,9 @@ async function loadLegacyHomeworkMetadata(
 
   if (error) throw error;
 
-  return adjustHomeworkDatesForClassDays(data || [], classDays);
+  return adjustHomeworkDatesForClassDays(data || [], classDays).filter(
+    (row) => !isSuppressedLegacyHomework(row)
+  );
 }
 
 export async function GET(request: NextRequest) {

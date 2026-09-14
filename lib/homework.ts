@@ -1,5 +1,21 @@
 import { supabase } from "./supabase";
 
+/**
+ * Legacy homework rows that have been retired from Teacher and Student views.
+ * These IDs are authoritative database identifiers, not display-title matches.
+ */
+export const SUPPRESSED_LEGACY_HOMEWORK_IDS = [
+  "38ce8640-edb0-4c53-8d4e-9ce13b87bfd0",
+] as const;
+
+const suppressedLegacyHomeworkIds = new Set<string>(
+  SUPPRESSED_LEGACY_HOMEWORK_IDS
+);
+
+export function isSuppressedLegacyHomework(item: { id?: unknown } | null | undefined) {
+  return suppressedLegacyHomeworkIds.has(String(item?.id || ""));
+}
+
 function formatSupabaseHomeworkError(action: string, error: any) {
   return [
     `Homework ${action} failed: ${error?.message || "Unknown Supabase error"}`,
@@ -306,7 +322,9 @@ export async function getReleasedStudentHomework(
   const adjustedHomework = adjustHomeworkDatesForClassDays(
     data || [],
     classDays
-  ).filter((item) => item.release_date && item.release_date <= todayMadrid);
+  )
+    .filter((item) => !isSuppressedLegacyHomework(item))
+    .filter((item) => item.release_date && item.release_date <= todayMadrid);
 
   return sortReleasedHomework(adjustedHomework, todayMadrid);
 }

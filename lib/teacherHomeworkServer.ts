@@ -9,6 +9,7 @@ import {
   getMadridDateString,
   normalizeCambridgeLevel,
   normalizeHomeworkSkill,
+  isSuppressedLegacyHomework,
 } from "./homework";
 import { supabaseAdmin } from "./supabaseAdmin";
 
@@ -287,6 +288,7 @@ export async function loadTeacherClassHomework(
     legacyResult.data || [],
     context.classDays
   )
+    .filter((row) => !isSuppressedLegacyHomework(row))
     .filter(
       (row) =>
         row.release_date &&

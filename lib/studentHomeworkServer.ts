@@ -8,6 +8,7 @@ import {
   getHomeworkSkillLabel,
   getHomeworkTimingStatus,
   getMadridDateString,
+  isSuppressedLegacyHomework,
   normalizeCambridgeLevel,
   normalizeHomeworkSkill,
 } from "./homework";
@@ -382,21 +383,24 @@ export async function loadStudentHomework(
   const adjustedLegacy = adjustHomeworkDatesForClassDays(
     legacyResult.data || [],
     context.classDays
-  ).filter(
-    (row) =>
-      row.release_date &&
-      row.release_date < CAMBRIDGE_ASSIGNMENT_HOMEWORK_CUTOVER_DATE &&
-      row.release_date <= today
-  ).filter(
-    (row) =>
-      !assignmentOverlapKeys.has(
-        overlapKey(
-          normalizedExamNumber(row.exam_number, row.week_number),
-          normalizeHomeworkSkill(row.homework_skill),
-          row.release_date || null
+  )
+    .filter((row) => !isSuppressedLegacyHomework(row))
+    .filter(
+      (row) =>
+        row.release_date &&
+        row.release_date < CAMBRIDGE_ASSIGNMENT_HOMEWORK_CUTOVER_DATE &&
+        row.release_date <= today
+    )
+    .filter(
+      (row) =>
+        !assignmentOverlapKeys.has(
+          overlapKey(
+            normalizedExamNumber(row.exam_number, row.week_number),
+            normalizeHomeworkSkill(row.homework_skill),
+            row.release_date || null
+          )
         )
-      )
-  );
+    );
   const legacyIds = adjustedLegacy.map((row) => String(row.id));
 
   const [resourceResult, assignmentResult, legacyResultRows, assignmentReadResult, legacyReadResult, coursePlanHomework] =
