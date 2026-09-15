@@ -685,6 +685,9 @@ export default function AdminMessagesPage() {
               <span>From: {selectedMessage.sender_name}</span>
               <span>Role: {roleLabel(selectedMessage.sender_role)}</span>
               <span>Date: {formatMessageDateTime(selectedMessage.created_at)}</span>
+              <span>
+                Status: {selectedMessage.dealt_with_at ? "Dealt with" : "Needs attention"}
+              </span>
               {selectedMessage.dealt_with_at && (
                 <>
                   <span>

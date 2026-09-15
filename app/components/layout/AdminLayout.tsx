@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
-import { getAdminUnreadTeacherMessageCount } from "../../../lib/messages";
+import { getAdminOutstandingMessageCount } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
 import LogoutButton from "../auth/LogoutButton";
 import TeacherLiveClock from "./TeacherLiveClock";
@@ -241,10 +241,10 @@ export default function AdminLayout({
   const [menuOpen, setMenuOpen] = useState(false);
   const [adminId, setAdminId] = useState("");
   const [adminName, setAdminName] = useState({ firstName: "", fullName: "" });
-  const [unreadTeacherMessages, setUnreadTeacherMessages] = useState(0);
+  const [outstandingAdminMessages, setOutstandingAdminMessages] = useState(0);
   const [attendanceAlertCount, setAttendanceAlertCount] = useState(0);
   const mountedRef = useRef(false);
-  const unreadCountErrorLoggedRef = useRef(false);
+  const outstandingCountErrorLoggedRef = useRef(false);
   const attendanceCountErrorLoggedRef = useRef(false);
 
   useEffect(() => {
@@ -285,7 +285,7 @@ export default function AdminLayout({
     };
   }, []);
 
-  const loadUnreadCount = useCallback(async () => {
+  const loadOutstandingMessageCount = useCallback(async () => {
     try {
       const {
         data: { session },
@@ -293,21 +293,21 @@ export default function AdminLayout({
 
       if (!session?.user?.id) {
         if (mountedRef.current) {
-          setUnreadTeacherMessages(0);
+          setOutstandingAdminMessages(0);
         }
         return;
       }
 
-      const count = await getAdminUnreadTeacherMessageCount(session.user.id);
-      unreadCountErrorLoggedRef.current = false;
+      const count = await getAdminOutstandingMessageCount(session.user.id);
+      outstandingCountErrorLoggedRef.current = false;
 
       if (mountedRef.current) {
-        setUnreadTeacherMessages(count);
+        setOutstandingAdminMessages(count);
       }
     } catch (error) {
-      if (!unreadCountErrorLoggedRef.current) {
-        unreadCountErrorLoggedRef.current = true;
-        console.error("Unable to load unread admin messages:", error);
+      if (!outstandingCountErrorLoggedRef.current) {
+        outstandingCountErrorLoggedRef.current = true;
+        console.error("Unable to load Admin messages requiring attention:", error);
       }
     }
   }, []);
@@ -359,7 +359,7 @@ export default function AdminLayout({
   }, [adminId, loadAttendanceAlertCount]);
 
   useMessageRealtimeRefresh({
-    onRefresh: loadUnreadCount,
+    onRefresh: loadOutstandingMessageCount,
     enabled: Boolean(adminId),
     intervalMs: 60000,
     customEventName: "admin-unread-messages-changed",
@@ -462,9 +462,9 @@ export default function AdminLayout({
     return pathname.startsWith(href);
   };
 
-  const hasUnreadTeacherMessages = unreadTeacherMessages > 0;
-  const unreadAccessibleLabel = hasUnreadTeacherMessages
-    ? `Messages, ${unreadTeacherMessages} unread`
+  const hasOutstandingAdminMessages = outstandingAdminMessages > 0;
+  const outstandingAccessibleLabel = hasOutstandingAdminMessages
+    ? `Messages, ${outstandingAdminMessages} requiring attention`
     : "Messages";
   const hasAttendanceAlerts = attendanceAlertCount > 0;
   const attendanceAccessibleLabel = hasAttendanceAlerts
@@ -498,15 +498,15 @@ export default function AdminLayout({
           <Link
             href="/admin/messages"
             className="admin-mobile-status-link"
-            aria-label={unreadAccessibleLabel}
+            aria-label={outstandingAccessibleLabel}
             style={{
               alignItems: "center",
-              background: hasUnreadTeacherMessages ? "#fff1f2" : "#ffffff",
-              border: hasUnreadTeacherMessages
+              background: hasOutstandingAdminMessages ? "#fff1f2" : "#ffffff",
+              border: hasOutstandingAdminMessages
                 ? "1px solid #fecdd3"
                 : "1px solid var(--ss-border)",
               borderRadius: "10px",
-              color: hasUnreadTeacherMessages ? "#991b1b" : "var(--ss-blue-dark)",
+              color: hasOutstandingAdminMessages ? "#991b1b" : "var(--ss-blue-dark)",
               display: "inline-flex",
               gap: "7px",
               minHeight: "42px",
@@ -516,7 +516,7 @@ export default function AdminLayout({
             }}
           >
             <EnvelopeIcon size={20} />
-            <UnreadBadge count={unreadTeacherMessages} />
+            <UnreadBadge count={outstandingAdminMessages} />
           </Link>
 
           <Link
@@ -610,7 +610,7 @@ export default function AdminLayout({
                       aria-current={isActive(item.href) ? "page" : undefined}
                       aria-label={
                         isMessagesItem
-                          ? unreadAccessibleLabel
+                          ? outstandingAccessibleLabel
                           : isAttendanceItem
                             ? attendanceAccessibleLabel
                             : item.name
@@ -647,7 +647,7 @@ export default function AdminLayout({
                         </span>
                         <span>{item.name}</span>
                       </span>
-                      {isMessagesItem && <UnreadBadge count={unreadTeacherMessages} />}
+                      {isMessagesItem && <UnreadBadge count={outstandingAdminMessages} />}
                       {isAttendanceItem && <UnreadBadge count={attendanceAlertCount} />}
                     </Link>
                   );
@@ -700,13 +700,13 @@ export default function AdminLayout({
             <Link
               href="/admin/messages"
               className={`admin-dashboard-message-control ${
-                hasUnreadTeacherMessages ? "has-unread" : ""
+                hasOutstandingAdminMessages ? "has-unread" : ""
               }`}
-              aria-label={unreadAccessibleLabel}
+              aria-label={outstandingAccessibleLabel}
             >
               <EnvelopeIcon size={24} />
               <span className="admin-dashboard-message-count" aria-hidden="true">
-                {unreadTeacherMessages > 99 ? "99+" : unreadTeacherMessages}
+                {outstandingAdminMessages > 99 ? "99+" : outstandingAdminMessages}
               </span>
             </Link>
             <TeacherLiveClock showLabel={false} />
@@ -714,7 +714,7 @@ export default function AdminLayout({
         </header>
         <div className="admin-main-content-inner">
           {typeof children === "function"
-            ? children(unreadTeacherMessages, attendanceAlertCount)
+            ? children(outstandingAdminMessages, attendanceAlertCount)
             : children}
         </div>
       </main>

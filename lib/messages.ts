@@ -619,40 +619,35 @@ export async function getAdminInboxMessages(adminId: string) {
   return enrichMessagesWithProfile(data || [], "sender_id", "sender");
 }
 
-export async function getAdminUnreadTeacherMessageCount(adminId: string) {
+/**
+ * Count received Admin-inbox messages that still require attention.
+ *
+ * This deliberately does not inspect read_at: opening a message is not the
+ * same as marking it dealt with. The dedicated dealt_with_at field is the
+ * only state that clears the Admin dashboard indicator.
+ */
+export async function getAdminOutstandingMessageCount(adminId: string) {
   if (!adminId) {
     throw new Error("Unable to identify the logged-in admin.");
   }
 
-  const { data: candidates, error: candidatesError } = await supabase
+  const { count, error } = await supabase
     .from("messages")
-    .select("id, sender_id, receiver_id, recipient_group")
-    .is("read_at", null)
+    .select("id", { count: "exact", head: true })
+    .or(`receiver_id.eq.${adminId},and(recipient_group.eq.admin,receiver_id.is.null)`)
     .is("admin_deleted_at", null)
-    .or(`recipient_group.eq.admin,and(receiver_id.eq.${adminId},recipient_group.is.null)`);
+    .is("dealt_with_at", null)
+    // A message sent by this Admin is not a received item requiring attention.
+    .neq("sender_id", adminId);
 
-  if (candidatesError) throw candidatesError;
+  if (error) throw error;
 
-  const senderIds = Array.from(
-    new Set((candidates || []).map((message) => message.sender_id).filter(Boolean))
-  );
+  return count || 0;
+}
 
-  if (senderIds.length === 0) {
-    return 0;
-  }
-
-  const { data: teacherProfiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id")
-    .in("id", senderIds)
-    .eq("role", "teacher");
-
-  if (profilesError) throw profilesError;
-
-  const teacherIds = new Set((teacherProfiles || []).map((profile) => profile.id));
-
-  return (candidates || []).filter((message) => teacherIds.has(message.sender_id))
-    .length;
+/** @deprecated Use getAdminOutstandingMessageCount instead. */
+export async function getAdminUnreadTeacherMessageCount(adminId: string) {
+  return getAdminOutstandingMessageCount(adminId);
 }
 
 export async function getAdminSentMessages(adminId: string) {
