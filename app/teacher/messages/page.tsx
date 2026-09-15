@@ -20,6 +20,13 @@ import {
 } from "../../../lib/messages";
 import TeacherStudentMessagesInbox from "./TeacherStudentMessagesInbox";
 import { getTeacherStudentMessages } from "../../../lib/teacherStudentMessages";
+import MessageAttachmentPicker from "../../components/messages/MessageAttachmentPicker";
+import MessageAttachments from "../../components/messages/MessageAttachments";
+import {
+  cleanupMessageAttachments,
+  uploadMessageAttachments,
+  type MessageAttachment,
+} from "../../../lib/messageAttachments";
 
 const tabs = ["Inbox", "Sent"];
 const TEACHER_MESSAGES_CHANGED_EVENT = "teacher-unread-messages-changed";
@@ -100,6 +107,11 @@ function MessageRow({
           <span className="teacher-messages-row-preview">
             {previewText(item.message)}
           </span>
+          {Array.isArray(item.attachments) && item.attachments.length > 0 && (
+            <span className="teacher-messages-row-attachments">
+              {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
+            </span>
+          )}
       </span>
       <span className="teacher-messages-row-trailing">
         <time dateTime={item.created_at || undefined}>
@@ -137,6 +149,8 @@ export default function TeacherMessagesPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attachmentLink, setAttachmentLink] = useState("");
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [replyAttachmentFiles, setReplyAttachmentFiles] = useState<File[]>([]);
   const [replyMessage, setReplyMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -341,6 +355,7 @@ export default function TeacherMessagesPage() {
     setSubject("");
     setMessage("");
     setAttachmentLink("");
+    setAttachmentFiles([]);
   }
 
   async function handleSend() {
@@ -379,7 +394,10 @@ export default function TeacherMessagesPage() {
 
     setSending(true);
 
+    let uploadedAttachments: MessageAttachment[] = [];
     try {
+      if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
+      uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
       const selectedRecipient = recipients.admins.find(
         (admin) => admin.id === receiverId
       );
@@ -395,6 +413,7 @@ export default function TeacherMessagesPage() {
         subject: subject.trim(),
         message: message.trim(),
         attachment_link: attachmentLink.trim() || null,
+        attachments: uploadedAttachments,
       });
 
       resetComposer();
@@ -403,6 +422,7 @@ export default function TeacherMessagesPage() {
       setActiveTab("Sent");
       window.dispatchEvent(new Event(TEACHER_MESSAGES_CHANGED_EVENT));
     } catch (error: any) {
+      if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send staff message:", error);
       setErrorMessage(error?.message || "Unable to send message.");
     } finally {
@@ -426,7 +446,10 @@ export default function TeacherMessagesPage() {
 
     setSending(true);
 
+    let uploadedAttachments: MessageAttachment[] = [];
     try {
+      if (replyAttachmentFiles.length) setStatusMessage("Uploading attachments...");
+      uploadedAttachments = await uploadMessageAttachments(replyAttachmentFiles);
       await sendTeacherStaffMessage({
         senderId: teacherId,
         recipient:
@@ -438,13 +461,16 @@ export default function TeacherMessagesPage() {
               : { type: "direct_staff", staffId: selectedMessage.sender_id },
         subject: getReplySubject(selectedMessage.subject),
         message: replyMessage.trim(),
+        attachments: uploadedAttachments,
       });
 
       setReplyMessage("");
+      setReplyAttachmentFiles([]);
       setStatusMessage("Reply sent successfully.");
       await loadMessages(teacherId);
       window.dispatchEvent(new Event(TEACHER_MESSAGES_CHANGED_EVENT));
     } catch (error: any) {
+      if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send staff reply:", error);
       setErrorMessage(error?.message || "Unable to send reply.");
     } finally {
@@ -628,6 +654,7 @@ export default function TeacherMessagesPage() {
                     <button type="button" className="teacher-messages-back" onClick={() => {
                       setSelectedMessage(null);
                       setReplyMessage("");
+                      setReplyAttachmentFiles([]);
                       setStatusMessage("");
                       setErrorMessage("");
                     }}>
@@ -641,6 +668,7 @@ export default function TeacherMessagesPage() {
                     </div>
                     <p className="teacher-messages-detail-body">{selectedMessage.message}</p>
                     {selectedMessage.attachment_link && <a className="teacher-messages-attachment" href={selectedMessage.attachment_link} target="_blank" rel="noopener noreferrer">Open attachment</a>}
+                    <MessageAttachments messageId={String(selectedMessage.id)} attachments={selectedMessage.attachments} />
                     {selectedMessage.read_at && (
                       <button type="button" className="teacher-messages-delete" onClick={() => handleDeleteFromInbox(selectedMessage)} disabled={deletingMessageId === selectedMessage.id}>
                         {deletingMessageId === selectedMessage.id ? "Removing..." : "Delete from Inbox"}
@@ -652,6 +680,7 @@ export default function TeacherMessagesPage() {
                       {errorMessage && <p className="teacher-messages-notice is-error" role="alert">{errorMessage}</p>}
                       <label htmlFor="teacher-staff-message-reply">Message</label>
                       <textarea id="teacher-staff-message-reply" value={replyMessage} onChange={(event) => setReplyMessage(event.target.value)} placeholder="Write your reply..." rows={5} />
+                      <MessageAttachmentPicker files={replyAttachmentFiles} onChange={setReplyAttachmentFiles} disabled={sending} />
                       <button type="button" className="teacher-messages-primary-button" onClick={handleReply} disabled={sending}>{sending ? "Sending..." : "Send Reply"}</button>
                     </div>
                   </article>
@@ -676,6 +705,7 @@ export default function TeacherMessagesPage() {
                     {errorMessage && <p className="teacher-messages-notice is-error" role="alert">{errorMessage}</p>}
                     <p className="teacher-messages-detail-body">{selectedMessage.message}</p>
                     {selectedMessage.attachment_link && <a className="teacher-messages-attachment" href={selectedMessage.attachment_link} target="_blank" rel="noopener noreferrer">Open attachment</a>}
+                    <MessageAttachments messageId={String(selectedMessage.id)} attachments={selectedMessage.attachments} />
                     <button type="button" className="teacher-messages-delete" onClick={() => handleDeleteFromSent(selectedMessage)} disabled={deletingMessageId === selectedMessage.id}>
                       {deletingMessageId === selectedMessage.id ? "Removing..." : "Delete from Sent"}
                     </button>
@@ -714,6 +744,7 @@ export default function TeacherMessagesPage() {
                       <label><span>Subject</span><input value={subject} onChange={(event) => setSubject(event.target.value)} /></label>
                       <label><span>Message</span><textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={7} /></label>
                       <label><span>Attachment or resource link</span><input value={attachmentLink} onChange={(event) => setAttachmentLink(event.target.value)} /></label>
+                      <MessageAttachmentPicker files={attachmentFiles} onChange={setAttachmentFiles} disabled={sending} />
                       <div className="teacher-messages-compose-actions">
                         <button type="button" className="teacher-messages-primary-button" onClick={handleSend} disabled={sending || recipientsLoading || Boolean(recipientsError) || !hasStaffRecipients}>{sending ? "Sending..." : "Send Message"}</button>
                         <button type="button" className="teacher-messages-cancel-button" onClick={() => {

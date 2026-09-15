@@ -3569,6 +3569,15 @@ body {
   line-height: 1.45;
 }
 
+.teacher-student-messages-row-attachments,
+.teacher-messages-row-attachments,
+.student-messages-attachment-count {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
 .teacher-student-messages-row-actions {
   align-items: flex-end;
   color: #718096;
@@ -6554,6 +6563,157 @@ img {
   border-top: 1px solid #edf1f7;
   padding: 16px 18px;
   text-align: center;
+}
+
+/* Shared private-message attachment controls.  The picker is intentionally
+   compact so it works inside every Admin, Teacher, and Student composer. */
+.message-attachment-picker {
+  background: #f8fafd;
+  border: 1px dashed #b8c7ee;
+  border-radius: 10px;
+  color: #475569;
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 12px;
+}
+
+.message-attachment-picker.is-dragging {
+  background: #eef4ff;
+  border-color: #2f7db8;
+}
+
+.message-attachment-button {
+  background: #ffffff;
+  border: 1px solid #9fb4dc;
+  border-radius: 8px;
+  color: #1f3c88;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  justify-self: start;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.message-attachment-button:hover:not(:disabled) {
+  background: #eef4ff;
+  border-color: #2f7db8;
+}
+
+.message-attachment-button:focus-visible,
+.message-attachment-picker button:focus-visible,
+.message-attachments button:focus-visible,
+.message-attachments a:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.3);
+  outline-offset: 2px;
+}
+
+.message-attachment-button:disabled,
+.message-attachment-picker button:disabled,
+.message-attachments button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.message-attachment-hint {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.message-attachment-list,
+.message-attachments {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.message-attachment-list li,
+.message-attachment-item {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dbe3f0;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.message-attachment-list li > span,
+.message-attachment-item > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.message-attachment-list strong,
+.message-attachment-item strong {
+  color: #1f2937;
+  overflow-wrap: anywhere;
+}
+
+.message-attachment-list small,
+.message-attachment-item small {
+  color: #64748b;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.message-attachment-list button,
+.message-attachment-item button,
+.message-attachment-item a {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #1f3c88;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 9px;
+  text-decoration: none;
+}
+
+.message-attachment-list button:hover:not(:disabled),
+.message-attachment-item button:hover:not(:disabled),
+.message-attachment-item a:hover {
+  background: #eef4ff;
+  border-color: #2f7db8;
+}
+
+.message-attachment-error {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-attachment-button,
+  .message-attachment-list button,
+  .message-attachment-item button,
+  .message-attachment-item a {
+    transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .message-attachment-list li,
+  .message-attachment-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .message-attachment-list button,
+  .message-attachment-item button,
+  .message-attachment-item a {
+    align-self: flex-start;
+  }
 }
 
 .admin-message-queue-row {

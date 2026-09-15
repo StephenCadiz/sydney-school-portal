@@ -11,7 +11,7 @@ import {
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MESSAGE_COLUMNS =
-  "id, sender_id, receiver_id, recipient_group, subject, message, attachment_link, created_at, read_at, recipient_deleted_at";
+  "id, sender_id, receiver_id, recipient_group, subject, message, attachment_link, attachments, created_at, read_at, recipient_deleted_at";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -31,6 +31,7 @@ function safeMessage(message: any, student: StudentClassInfo) {
     attachment_link: message.attachment_link
       ? String(message.attachment_link)
       : null,
+    attachments: Array.isArray(message.attachments) ? message.attachments : [],
     created_at: message.created_at || null,
     read_at: message.read_at || null,
   };
@@ -162,7 +163,7 @@ export async function POST(request: NextRequest) {
       return jsonError("Invalid reply request.", 400);
     }
     const record = body as Record<string, unknown>;
-    if (!isOnlyAllowedKeys(record, ["student_id", "subject", "message", "attachment_link"])) {
+    if (!isOnlyAllowedKeys(record, ["student_id", "subject", "message", "attachment_link", "attachments"])) {
       return jsonError("The request contains unsupported fields.", 400);
     }
 
@@ -181,6 +182,10 @@ export async function POST(request: NextRequest) {
     if (record.attachment_link !== undefined && record.attachment_link !== null && typeof record.attachment_link !== "string") {
       return jsonError("Attachment link must be text.", 400);
     }
+    if (record.attachments !== undefined && !Array.isArray(record.attachments)) {
+      return jsonError("Attachments must be an array.", 400);
+    }
+    const attachments = Array.isArray(record.attachments) ? record.attachments : [];
 
     const students = await loadTeacherAuthorisedStudentClassInfo(
       auth.teacherId,
@@ -199,8 +204,9 @@ export async function POST(request: NextRequest) {
         subject,
         message,
         attachment_link: attachmentLink,
+        attachments,
       })
-      .select("id, receiver_id, subject, message, attachment_link, created_at")
+      .select("id, receiver_id, subject, message, attachment_link, attachments, created_at")
       .maybeSingle();
     if (insertError) throw insertError;
     if (!reply) return jsonError("Unable to send reply.", 500);
@@ -212,6 +218,7 @@ export async function POST(request: NextRequest) {
         subject: String(reply.subject || ""),
         message: String(reply.message || ""),
         attachment_link: reply.attachment_link ? String(reply.attachment_link) : null,
+        attachments: Array.isArray(reply.attachments) ? reply.attachments : [],
         created_at: reply.created_at || null,
       },
     });

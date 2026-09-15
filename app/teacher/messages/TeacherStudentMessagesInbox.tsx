@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Inbox } from "lucide-react";
+import MessageAttachmentPicker from "../../components/messages/MessageAttachmentPicker";
+import MessageAttachments from "../../components/messages/MessageAttachments";
+import {
+  cleanupMessageAttachments,
+  uploadMessageAttachments,
+  type MessageAttachment,
+} from "../../../lib/messageAttachments";
 
 import { formatMessageDateTime } from "../../../lib/messages";
 import {
@@ -45,6 +52,7 @@ export default function TeacherStudentMessagesInbox({
   const [statusMessage, setStatusMessage] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
   const [attachmentLink, setAttachmentLink] = useState("");
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -91,6 +99,7 @@ export default function TeacherStudentMessagesInbox({
     setSelectedMessage(item);
     setReplyMessage("");
     setAttachmentLink("");
+    setAttachmentFiles([]);
     setStatusMessage("");
     setErrorMessage("");
 
@@ -127,17 +136,23 @@ export default function TeacherStudentMessagesInbox({
 
     setSending(true);
 
+    let uploadedAttachments: MessageAttachment[] = [];
     try {
+      if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
+      uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
       await replyToTeacherStudentMessage({
         studentId: selectedMessage.sender_id,
         subject: getReplySubject(selectedMessage.subject),
         message: replyMessage.trim(),
         attachmentLink: attachmentLink.trim() || null,
+        attachments: uploadedAttachments,
       });
       setReplyMessage("");
       setAttachmentLink("");
+      setAttachmentFiles([]);
       setStatusMessage("Reply sent successfully.");
     } catch (error: any) {
+      if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send student reply:", error);
       setErrorMessage(error?.message || "Unable to send reply.");
     } finally {
@@ -231,6 +246,7 @@ export default function TeacherStudentMessagesInbox({
             Open attachment
           </a>
         )}
+        <MessageAttachments messageId={String(selectedMessage.id)} attachments={selectedMessage.attachments} />
 
         {selectedMessage.read_at && (
           <button
@@ -266,6 +282,7 @@ export default function TeacherStudentMessagesInbox({
             placeholder="Write your reply..."
             rows={5}
           />
+          <MessageAttachmentPicker files={attachmentFiles} onChange={setAttachmentFiles} disabled={sending} />
 
           <label htmlFor="teacher-student-message-attachment">
             Attachment or resource link
@@ -340,6 +357,11 @@ export default function TeacherStudentMessagesInbox({
                 <p className="teacher-student-messages-row-preview">
                   {previewText(message.message)}
                 </p>
+                {Array.isArray(message.attachments) && message.attachments.length > 0 && (
+                  <span className="teacher-student-messages-row-attachments">
+                    {message.attachments.length} attachment{message.attachments.length === 1 ? "" : "s"}
+                  </span>
+                )}
               </div>
             </button>
             <div className="teacher-student-messages-row-actions">

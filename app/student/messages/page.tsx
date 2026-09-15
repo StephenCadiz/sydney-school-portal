@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 import StudentMenu from "../StudentMenu";
+import MessageAttachmentPicker from "../../components/messages/MessageAttachmentPicker";
+import MessageAttachments from "../../components/messages/MessageAttachments";
 import {
   formatMessageDateTime,
   getInboxMessages,
@@ -15,6 +17,11 @@ import {
   getCurrentUser,
 } from "../../../lib/user";
 import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../../lib/academicYearRules";
+import {
+  cleanupMessageAttachments,
+  uploadMessageAttachments,
+  type MessageAttachment,
+} from "../../../lib/messageAttachments";
 
 const inputStyle = {
   width: "100%",
@@ -48,6 +55,7 @@ export default function StudentMessagesPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attachmentLink, setAttachmentLink] = useState("");
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -134,6 +142,7 @@ export default function StudentMessagesPage() {
     setSubject(replySubject);
     setMessage("");
     setAttachmentLink("");
+    setAttachmentFiles([]);
     setOpenMessage(null);
     setStatusMessage("");
     setErrorMessage("");
@@ -162,22 +171,28 @@ export default function StudentMessagesPage() {
 
     setSending(true);
 
+    let uploadedAttachments: MessageAttachment[] = [];
     try {
+      if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
+      uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
       await sendMessage({
         sender_id: studentId,
         receiver_id: teacher.id,
         subject: subject.trim(),
         message: message.trim(),
         attachment_link: attachmentLink.trim() || null,
+        attachments: uploadedAttachments,
       });
 
       setSubject("");
       setMessage("");
       setAttachmentLink("");
+      setAttachmentFiles([]);
       setStatusMessage("Message sent successfully.");
       await loadMessages();
       setActiveTab("sent");
     } catch (error) {
+      if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send message:", error);
       setErrorMessage("Unable to send message.");
     } finally {
@@ -232,6 +247,11 @@ export default function StudentMessagesPage() {
             <p className="student-messages-preview">
               {getPreview(item.message)}
             </p>
+            {Array.isArray(item.attachments) && item.attachments.length > 0 && (
+              <span className="student-messages-attachment-count">
+                {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -325,6 +345,10 @@ export default function StudentMessagesPage() {
                 Open attachment
               </a>
             )}
+            <MessageAttachments
+              messageId={String(openMessage.id)}
+              attachments={openMessage.attachments}
+            />
 
             {openMessageType === "inbox" && (
               <div className="student-messages-actions">
@@ -419,6 +443,12 @@ export default function StudentMessagesPage() {
                   }
                   placeholder="Optional"
                   style={{ ...inputStyle, margin: "6px 0 18px" }}
+                />
+
+                <MessageAttachmentPicker
+                  files={attachmentFiles}
+                  onChange={setAttachmentFiles}
+                  disabled={sending}
                 />
 
                 <button

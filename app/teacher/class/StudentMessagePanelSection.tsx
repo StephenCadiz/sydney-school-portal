@@ -7,6 +7,13 @@ import {
   getMessages,
   sendMessage,
 } from "../../../lib/messages";
+import MessageAttachmentPicker from "../../components/messages/MessageAttachmentPicker";
+import MessageAttachments from "../../components/messages/MessageAttachments";
+import {
+  cleanupMessageAttachments,
+  uploadMessageAttachments,
+  type MessageAttachment,
+} from "../../../lib/messageAttachments";
 
 type StudentMessagePanelSectionProps = {
   teacherId: string;
@@ -29,6 +36,7 @@ export default function StudentMessagePanelSection({
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attachmentLink, setAttachmentLink] = useState("");
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -81,21 +89,27 @@ export default function StudentMessagePanelSection({
 
     setSending(true);
 
+    let uploadedAttachments: MessageAttachment[] = [];
     try {
+      if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
+      uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
       await sendMessage({
         sender_id: teacherId,
         receiver_id: studentId,
         subject: subject.trim(),
         message: message.trim(),
         attachment_link: attachmentLink.trim() || null,
+        attachments: uploadedAttachments,
       });
 
       setSubject("");
       setMessage("");
       setAttachmentLink("");
+      setAttachmentFiles([]);
       setStatusMessage("Message sent successfully.");
       await loadMessages();
     } catch (error) {
+      if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send student message:", error);
       setErrorMessage("Unable to send message.");
     } finally {
@@ -136,6 +150,8 @@ export default function StudentMessagePanelSection({
             placeholder="Message subject"
           />
         </label>
+
+        <MessageAttachmentPicker files={attachmentFiles} onChange={setAttachmentFiles} disabled={sending} />
 
         <label className="student-workspace-field">
           <span>Message</span>
@@ -204,6 +220,7 @@ export default function StudentMessagePanelSection({
                     Open attachment
                   </a>
                 )}
+                <MessageAttachments messageId={String(item.id)} attachments={item.attachments} />
               </article>
             );
           })

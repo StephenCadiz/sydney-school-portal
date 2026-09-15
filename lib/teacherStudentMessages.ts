@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { MessageAttachment } from "./messageAttachmentConfig";
 
 export type TeacherStudentMessage = {
   id: string;
@@ -11,6 +12,7 @@ export type TeacherStudentMessage = {
   subject: string;
   message: string;
   attachment_link: string | null;
+  attachments: MessageAttachment[];
   created_at: string | null;
   read_at: string | null;
 };
@@ -75,6 +77,7 @@ export async function replyToTeacherStudentMessage(input: {
   subject: string;
   message: string;
   attachmentLink?: string | null;
+  attachments?: MessageAttachment[];
 }) {
   return request("/api/teacher/student-messages", {
     method: "POST",
@@ -84,6 +87,7 @@ export async function replyToTeacherStudentMessage(input: {
       subject: input.subject,
       message: input.message,
       attachment_link: input.attachmentLink || null,
+      attachments: input.attachments || [],
     }),
   });
 }

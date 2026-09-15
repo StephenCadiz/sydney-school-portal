@@ -7,6 +7,13 @@ import {
   getTeacherSentMessagesForClass,
   sendMessage,
 } from "../../../lib/messages";
+import MessageAttachmentPicker from "../../components/messages/MessageAttachmentPicker";
+import MessageAttachments from "../../components/messages/MessageAttachments";
+import {
+  cleanupMessageAttachments,
+  uploadMessageAttachments,
+  type MessageAttachment,
+} from "../../../lib/messageAttachments";
 
 type Props = {
   students: any[];
@@ -43,6 +50,7 @@ export default function ClassMessagesTab({
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attachmentLink, setAttachmentLink] = useState("");
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [sentMessages, setSentMessages] = useState<any[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -139,21 +147,27 @@ export default function ClassMessagesTab({
 
     setSending(true);
 
+    let uploadedAttachments: MessageAttachment[] = [];
     try {
+      if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
+      uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
       await sendMessage({
         sender_id: teacherId,
         receiver_id: selectedStudentId,
         subject: subject.trim(),
         message: message.trim(),
         attachment_link: attachmentLink.trim() || null,
+        attachments: uploadedAttachments,
       });
 
       setSubject("");
       setMessage("");
       setAttachmentLink("");
+      setAttachmentFiles([]);
       setStatusMessage("Message sent successfully.");
       await loadSentMessages();
     } catch (error) {
+      if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send class message:", error);
       setErrorMessage("Unable to send message.");
     } finally {
@@ -287,6 +301,8 @@ export default function ClassMessagesTab({
           style={{ ...inputStyle, marginBottom: "18px" }}
         />
 
+        <MessageAttachmentPicker files={attachmentFiles} onChange={setAttachmentFiles} disabled={sending} />
+
         <button
           onClick={handleSendMessage}
           disabled={sending}
@@ -369,6 +385,7 @@ export default function ClassMessagesTab({
                     Open attachment
                   </a>
                 )}
+                <MessageAttachments messageId={String(item.id)} attachments={item.attachments} />
               </div>
             ))}
           </div>

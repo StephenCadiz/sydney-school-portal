@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { MessageAttachment } from "./messageAttachmentConfig";
 
 const messageDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/Madrid",
@@ -411,12 +412,14 @@ export async function sendTeacherStaffMessage({
   subject,
   message,
   attachment_link,
+  attachments,
 }: {
   senderId: string;
   recipient: TeacherStaffMessageRecipient;
   subject: string;
   message: string;
   attachment_link?: string | null;
+  attachments?: MessageAttachment[];
 }) {
   if (!senderId) {
     throw new Error("Unable to identify the logged-in teacher.");
@@ -498,6 +501,7 @@ export async function sendTeacherStaffMessage({
   if (attachment_link) {
     payload.attachment_link = attachment_link;
   }
+  if (attachments?.length) payload.attachments = attachments;
 
   const { error } = await supabase.from("messages").insert([payload]);
 
@@ -686,6 +690,7 @@ export async function sendAdminMessageToTeacher({
   subject,
   message,
   attachment_link,
+  attachments,
   senderIdentity = "admin",
 }: {
   adminId: string;
@@ -693,6 +698,7 @@ export async function sendAdminMessageToTeacher({
   subject: string;
   message: string;
   attachment_link?: string;
+  attachments?: MessageAttachment[];
   senderIdentity?: "admin" | "rosa";
 }) {
   const { data: senderProfile, error: senderError } = await supabase
@@ -737,6 +743,7 @@ export async function sendAdminMessageToTeacher({
   if (attachment_link) {
     payload.attachment_link = attachment_link;
   }
+  if (attachments?.length) payload.attachments = attachments;
 
   const { error } = await supabase.from("messages").insert([payload]);
 
@@ -749,6 +756,7 @@ export async function sendAdminMessageToAllTeachers({
   subject,
   message,
   attachment_link,
+  attachments,
   senderIdentity = "admin",
 }: {
   adminId: string;
@@ -756,6 +764,7 @@ export async function sendAdminMessageToAllTeachers({
   subject: string;
   message: string;
   attachment_link?: string;
+  attachments?: MessageAttachment[];
   senderIdentity?: "admin" | "rosa";
 }) {
   const { data: senderProfile, error: senderError } = await supabase
@@ -791,6 +800,7 @@ export async function sendAdminMessageToAllTeachers({
       if (attachment_link) {
         payload.attachment_link = attachment_link;
       }
+      if (attachments?.length) payload.attachments = attachments;
 
       return payload;
     });

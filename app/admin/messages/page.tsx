@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "../../components/layout/AdminLayout";
+import MessageAttachmentPicker from "../../components/messages/MessageAttachmentPicker";
+import MessageAttachments from "../../components/messages/MessageAttachments";
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageSoundPreference } from "../../hooks/useStaffMessageNotifications";
 import { Volume2, VolumeX } from "lucide-react";
@@ -17,6 +19,11 @@ import {
   isRosaProfile,
 } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
+import {
+  cleanupMessageAttachments,
+  uploadMessageAttachments,
+  type MessageAttachment,
+} from "../../../lib/messageAttachments";
 
 const tabs = ["New / Active", "Dealt With", "Sent", "New Message"];
 
@@ -84,6 +91,8 @@ export default function AdminMessagesPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attachmentLink, setAttachmentLink] = useState("");
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [replyAttachmentFiles, setReplyAttachmentFiles] = useState<File[]>([]);
   const [replyMessage, setReplyMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -293,8 +302,11 @@ export default function AdminMessagesPage() {
 
     setSending(true);
 
+    let uploadedAttachments: MessageAttachment[] = [];
     try {
       const attachment = attachmentLink.trim() || undefined;
+      if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
+      uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
 
       if (recipientMode === "individual") {
         await sendAdminMessageToTeacher({
@@ -303,6 +315,7 @@ export default function AdminMessagesPage() {
           subject: subject.trim(),
           message: message.trim(),
           attachment_link: attachment,
+          attachments: uploadedAttachments,
           senderIdentity: isRosaAdmin ? senderIdentity : "admin",
         });
 
@@ -314,6 +327,7 @@ export default function AdminMessagesPage() {
           subject: subject.trim(),
           message: message.trim(),
           attachment_link: attachment,
+          attachments: uploadedAttachments,
           senderIdentity: isRosaAdmin ? senderIdentity : "admin",
         });
 
@@ -323,10 +337,12 @@ export default function AdminMessagesPage() {
       setSubject("");
       setMessage("");
       setAttachmentLink("");
+      setAttachmentFiles([]);
       setTeacherId("");
       await loadMessages(adminId);
       setActiveTab("Sent");
     } catch (error) {
+      if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send admin message:", error);
       setErrorMessage("Unable to send message.");
     } finally {
@@ -350,13 +366,17 @@ export default function AdminMessagesPage() {
 
     setSending(true);
 
+    let uploadedAttachments: MessageAttachment[] = [];
     try {
+      if (replyAttachmentFiles.length) setStatusMessage("Uploading attachments...");
+      uploadedAttachments = await uploadMessageAttachments(replyAttachmentFiles);
       if (isRosaAdmin) {
         await sendAdminMessageToTeacher({
           adminId,
           teacherId: selectedMessage.sender_id,
           subject: getReplySubject(selectedMessage.subject),
           message: replyMessage.trim(),
+          attachments: uploadedAttachments,
           senderIdentity: replySenderIdentity,
         });
       } else {
@@ -365,13 +385,16 @@ export default function AdminMessagesPage() {
           receiver_id: selectedMessage.sender_id,
           subject: getReplySubject(selectedMessage.subject),
           message: replyMessage.trim(),
+          attachments: uploadedAttachments,
         });
       }
 
       setReplyMessage("");
+      setReplyAttachmentFiles([]);
       setStatusMessage("Reply sent successfully.");
       await loadMessages(adminId);
     } catch (error) {
+      if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send admin reply:", error);
       setErrorMessage("Unable to send reply.");
     } finally {
@@ -701,6 +724,7 @@ export default function AdminMessagesPage() {
                 Open attachment
               </a>
             )}
+            <MessageAttachments messageId={String(selectedMessage.id)} attachments={selectedMessage.attachments} />
 
             <div className="admin-message-resolution-action">
               <button
@@ -794,6 +818,8 @@ export default function AdminMessagesPage() {
                 style={{ ...inputStyle, resize: "vertical" }}
               />
 
+              <MessageAttachmentPicker files={replyAttachmentFiles} onChange={setReplyAttachmentFiles} disabled={sending} />
+
               <button
                 onClick={handleReply}
                 disabled={sending}
@@ -861,6 +887,7 @@ export default function AdminMessagesPage() {
                       message={item.message}
                       date={item.created_at}
                       attachmentLink={item.attachment_link}
+                      attachmentCount={Array.isArray(item.attachments) ? item.attachments.length : 0}
                     />
                     {item.dealt_with_at && (
                       <div className="admin-message-dealt-metadata">
@@ -934,6 +961,11 @@ export default function AdminMessagesPage() {
                       message={item.message}
                       date={item.created_at}
                       attachmentLink={item.attachment_link}
+                      attachmentCount={Array.isArray(item.attachments) ? item.attachments.length : 0}
+                    />
+                    <MessageAttachments
+                      messageId={String(item.id)}
+                      attachments={item.attachments}
                     />
                   </div>
                   {canDeleteAdminMessages && (
@@ -1064,6 +1096,8 @@ export default function AdminMessagesPage() {
                 />
               </div>
 
+              <MessageAttachmentPicker files={attachmentFiles} onChange={setAttachmentFiles} disabled={sending} />
+
               <button
                 onClick={handleSend}
                 disabled={sending}
@@ -1135,6 +1169,7 @@ function MessageRow({
   message,
   date,
   attachmentLink,
+  attachmentCount = 0,
 }: {
   badge?: string;
   name?: string;
@@ -1143,6 +1178,7 @@ function MessageRow({
   message?: string | null;
   date?: string | null;
   attachmentLink?: string | null;
+  attachmentCount?: number;
 }) {
   return (
     <div
@@ -1209,6 +1245,11 @@ function MessageRow({
           >
             Open attachment
           </a>
+        )}
+        {attachmentCount > 0 && (
+          <span style={{ color: "#64748b", fontSize: "12px", marginTop: "6px" }}>
+            {attachmentCount} attachment{attachmentCount === 1 ? "" : "s"}
+          </span>
         )}
       </div>
 
