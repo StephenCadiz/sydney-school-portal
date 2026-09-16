@@ -21,6 +21,15 @@ test("Cambridge creation allows roster-only students and keeps Young Learners un
   assert.match(bulkRoute, /student\.method === "none"/);
   assert.match(bulkRoute, /randomUUID\(\)/);
   assert.match(bulkRoute, /Email is required when creating an account with a password/);
+  assert.match(bulkPage, /if \(!row\.email\) return groups;/);
+  assert.match(bulkRoute, /if \(!student\.email\) \{\s*return groups;/);
+  assert.match(bulkRoute, /email: student\.email \|\| null/);
+  assert.match(bulkPage, /placeholder="student@example\.com"/);
+  assert.match(bulkPage, /method: password\.length > 0 \? "manual" : email \? "invitation" : "none"/);
+  assert.match(bulkPage, /const email = normalizeCambridgeEmail\(row\.email\)/);
+  assert.match(bulkRoute, /const email = normalizeEmail\(student\.email\)/);
+  assert.match(bulkRoute, /findExistingProfileEmails\(\s*preparedStudents\.map/);
+  assert.match(bulkRoute, /auth\.admin\.inviteUserByEmail/);
 });
 
 test("Access Control is available only for Cambridge students in Admin and assigned Teacher workspaces", () => {

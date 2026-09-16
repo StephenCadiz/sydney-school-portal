@@ -438,10 +438,13 @@ function validateCambridgeRows(rows: CambridgeBulkRow[]) {
 
   const duplicateRows = new Set<number>();
   const rowsByEmail = completeRows.reduce<Record<string, number[]>>(
-    (groups, row) => ({
-      ...groups,
-      [row.email]: [...(groups[row.email] || []), row.row],
-    }),
+    (groups, row) => {
+      if (!row.email) return groups;
+      return {
+        ...groups,
+        [row.email]: [...(groups[row.email] || []), row.row],
+      };
+    },
     {}
   );
 
