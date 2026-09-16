@@ -130,7 +130,9 @@ export default function TeacherClassProgressReminder() {
     );
   }
 
-  if (!activeReminder || !reminders.length) return null;
+  // Class workspaces render their scoped persistent task card instead of the
+  // global dashboard popup, so another class can never interrupt the workspace.
+  if (pathname === "/teacher/class" || !activeReminder || !reminders.length) return null;
 
   return (
     <div className="teacher-class-progress-reminder-backdrop" role="presentation">

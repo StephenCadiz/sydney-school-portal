@@ -18788,7 +18788,66 @@ img {
 @media (max-width: 640px) {
   .student-access-control { padding: 14px; }
   .student-access-control-actions { display: grid; }
-  .student-access-control-actions button { width: 100%; }
+.student-access-control-actions button { width: 100%; }
+}
+
+.teacher-outstanding-task-cards {
+  width: min(100%, var(--teacher-content-max-width));
+  margin: 18px auto 0;
+  display: grid;
+  gap: 12px;
+}
+.teacher-outstanding-task-card {
+  border: 1px solid #c9d9ed;
+  border-radius: 14px;
+  background: #f7fbff;
+  box-shadow: 0 8px 20px rgba(36, 59, 90, 0.08), inset 0 1px 0 rgba(255,255,255,.8);
+  padding: 16px;
+}
+.teacher-outstanding-task-card > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.teacher-outstanding-task-card h2 { margin: 0; color: #173b68; font-size: 1rem; }
+.teacher-outstanding-task-card header p { margin: 4px 0 0; color: #64748b; font-size: .84rem; }
+.teacher-outstanding-task-card header > span { color: #b42318; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.teacher-outstanding-task-list { display: grid; gap: 8px; }
+.teacher-outstanding-task-entry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+  border: 1px solid #dbe7f4;
+  border-radius: 10px;
+  background: #fff;
+}
+.teacher-outstanding-task-icon { color: #2d6ca8; display: grid; place-items: center; }
+.teacher-outstanding-task-copy { display: grid; gap: 3px; min-width: 0; }
+.teacher-outstanding-task-copy strong { color: #243b5a; overflow-wrap: anywhere; }
+.teacher-outstanding-task-copy span { color: #667085; font-size: .82rem; overflow-wrap: anywhere; }
+.teacher-outstanding-task-entry button {
+  min-height: 36px;
+  border: 1px solid #2d6ca8;
+  border-radius: 8px;
+  padding: 7px 11px;
+  background: #2d6ca8;
+  color: #fff;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.teacher-outstanding-task-entry button:hover { background: #245a8f; }
+.teacher-outstanding-task-entry button:focus-visible { outline: 3px solid rgba(45,108,168,.35); outline-offset: 2px; }
+@media (max-width: 640px) {
+  .teacher-outstanding-task-cards { margin-top: 12px; }
+  .teacher-outstanding-task-card { padding: 13px; }
+  .teacher-outstanding-task-entry { grid-template-columns: auto minmax(0, 1fr); }
+  .teacher-outstanding-task-entry button { grid-column: 2; justify-self: start; width: 100%; }
 }
 
 .student-workspace-section-header h3,

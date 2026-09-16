@@ -11,8 +11,6 @@ import TeacherAnnouncementBanner from "../components/teacher/TeacherAnnouncement
 import FridayExamPracticeCard from "../components/teacher/FridayExamPracticeCard";
 import FridayAt6DutyCard from "../components/teacher/FridayAt6DutyCard";
 import FridayTutorialAttendanceCard from "../components/teacher/FridayTutorialAttendanceCard";
-import TeacherClassProgressDashboardReminders from "../components/teacher/TeacherClassProgressDashboardReminders";
-import TeacherClassRegisterDashboardReminders from "../components/teacher/TeacherClassRegisterDashboardReminders";
 import TeacherWorkingDayPanel from "../components/teacher/TeacherWorkingDayPanel";
 import { supabase } from "../../lib/supabase";
 import {
@@ -217,8 +215,6 @@ export default function TeacherPage() {
         </section>
 
         <div className="teacher-dashboard-feed">
-          <TeacherClassRegisterDashboardReminders />
-          <TeacherClassProgressDashboardReminders />
           <TeacherAnnouncementBanner teacherId={teacherId} />
           <TeacherMessageNotifications teacherId={teacherId} />
           <FridayAt6DutyCard duty={fridayAt6Duty} />
