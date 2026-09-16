@@ -10,7 +10,7 @@ const progress = read("app/components/teacher/TeacherClassProgressReminder.tsx")
 const styles = read("app/globals.css");
 
 test("Dashboard renders grouped register and class-progress task cards below the header", () => {
-  assert.match(layout, /<PortalHeader[\s\S]*<TeacherOutstandingTaskCards \/>[\s\S]*teacher-main-content-body/);
+  assert.match(layout, /<PortalHeader[\s\S]*<Suspense fallback=\{null\}>[\s\S]*<TeacherOutstandingTaskCards \/>[\s\S]*<\/Suspense>[\s\S]*teacher-main-content-body/);
   assert.match(cards, /Registers required/);
   assert.match(cards, /Class progress required/);
   assert.match(cards, /Open register/);

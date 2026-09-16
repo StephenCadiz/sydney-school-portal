@@ -1,7 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+  ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import TeacherSidebar from "./TeacherSidebar";
 import PortalHeader from "./PortalHeader";
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
@@ -224,7 +231,9 @@ export default function TeacherLayout({
           onMenuOpen={() => setMenuOpen(true)}
         />
 
-        <TeacherOutstandingTaskCards />
+        <Suspense fallback={null}>
+          <TeacherOutstandingTaskCards />
+        </Suspense>
 
         <div className="teacher-main-content-body">
           {typeof children === "function"
