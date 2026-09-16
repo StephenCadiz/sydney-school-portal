@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 import { supabase } from "../../../lib/supabase";
 
@@ -43,12 +43,17 @@ function displayTime(value: string) {
 
 export default function TeacherClassProgressReminder() {
   const router = useRouter();
+  const pathname = usePathname();
   const [reminders, setReminders] = useState<ClassProgressReminder[]>([]);
   const [activeReminder, setActiveReminder] = useState<ClassProgressReminder | null>(
     null
   );
+  const openingReminderKeyRef = useRef<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const loadReminders = useCallback(async () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     try {
       const {
         data: { session },
@@ -67,12 +72,41 @@ export default function TeacherClassProgressReminder() {
       const nextReminders = Array.isArray(payload?.reminders)
         ? (payload.reminders as ClassProgressReminder[])
         : [];
+      if (requestId !== requestIdRef.current) return;
       setReminders(nextReminders);
-      setActiveReminder(nextReminders.find((reminder) => !isDismissed(reminder)) || null);
+      const openingKey = openingReminderKeyRef.current;
+      if (openingKey) {
+        // Completing a reminder navigates to the Class Progress form. Keep the
+        // reminder hidden while that form is active, even when a refresh fires.
+        if (!nextReminders.some((reminder) => reminderKey(reminder) === openingKey)) {
+          openingReminderKeyRef.current = null;
+        }
+        setActiveReminder(null);
+        return;
+      }
+
+      setActiveReminder((current) => {
+        if (current) {
+          const refreshed = nextReminders.find(
+            (reminder) => reminderKey(reminder) === reminderKey(current)
+          );
+          if (refreshed && !isDismissed(refreshed)) return refreshed;
+        }
+        return nextReminders.find((reminder) => !isDismissed(reminder)) || null;
+      });
     } catch (error) {
       console.error("Unable to load Class Progress reminders:", error);
     }
   }, []);
+
+  useEffect(() => {
+    // If the teacher leaves the class progress form without completing it,
+    // allow the reminder to become available again on the next refresh.
+    if (openingReminderKeyRef.current && pathname !== "/teacher/class") {
+      openingReminderKeyRef.current = null;
+      void loadReminders();
+    }
+  }, [pathname, loadReminders]);
 
   useEffect(() => {
     void loadReminders();
@@ -86,6 +120,9 @@ export default function TeacherClassProgressReminder() {
   }, [loadReminders]);
 
   function completeNow(reminder: ClassProgressReminder) {
+    if (openingReminderKeyRef.current) return;
+    openingReminderKeyRef.current = reminderKey(reminder);
+    setActiveReminder(null);
     router.push(
       `/teacher/class?id=${encodeURIComponent(reminder.class_id)}&tab=class-progress&lessonDate=${encodeURIComponent(
         reminder.lesson_date
@@ -122,13 +159,9 @@ export default function TeacherClassProgressReminder() {
             className="is-secondary"
             onClick={() => {
               dismiss(activeReminder);
-              setActiveReminder(
-                reminders.find(
-                  (reminder) =>
-                    reminderKey(reminder) !== reminderKey(activeReminder) &&
-                    !isDismissed(reminder)
-                ) || null
-              );
+              // Keep the reminder surface closed for now; do not replace it
+              // with another reminder immediately.
+              setActiveReminder(null);
             }}
           >
             Dismiss for now
