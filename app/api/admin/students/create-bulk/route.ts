@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { validateInitialEnrolment, enrolProfileStudent } from "../../../../../lib/classEnrolmentServer";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -31,13 +32,13 @@ type PreparedStudent = {
   last_name: string;
   email: string;
   password: string;
-  method: "invitation" | "manual";
+  method: "invitation" | "manual" | "none";
 };
 
 type RowResult = {
   row: number;
   status: "created" | "failed";
-  method: "invitation" | "manual";
+  method: "invitation" | "manual" | "none";
   message?: string;
 };
 
@@ -161,7 +162,7 @@ function isInvalidEmailError(error: unknown) {
   return text.includes("invalid email") || text.includes("email address");
 }
 
-function getAuthFailureMessage(error: unknown, method: "invitation" | "manual") {
+function getAuthFailureMessage(error: unknown, method: "invitation" | "manual" | "none") {
   if (isExistingAccountError(error)) {
     return "An account with this email already exists.";
   }
@@ -308,13 +309,7 @@ function validateSubmittedStudents(submittedStudents: SubmittedStudent[]) {
         });
       }
 
-      if (!email) {
-        errors.push({
-          row,
-          field: "email",
-          message: "Email is required.",
-        });
-      } else if (email.length > maxEmailLength || !isValidEmail(email)) {
+      if (email && (email.length > maxEmailLength || !isValidEmail(email))) {
         errors.push({
           row,
           field: "email",
@@ -344,13 +339,21 @@ function validateSubmittedStudents(submittedStudents: SubmittedStudent[]) {
         });
       }
 
+      if (passwordHasText && !email) {
+        errors.push({
+          row,
+          field: "email",
+          message: "Email is required when creating an account with a password.",
+        });
+      }
+
       return {
         row,
         first_name: firstName,
         last_name: lastName,
         email,
         password,
-        method: passwordHasText ? "manual" : "invitation",
+        method: passwordHasText ? "manual" : email ? "invitation" : "none",
       };
     }
   );
@@ -387,6 +390,8 @@ function validateSubmittedStudents(submittedStudents: SubmittedStudent[]) {
 }
 
 async function findExistingProfileEmails(emails: string[]) {
+  const requestedEmails = new Set(emails.filter(Boolean));
+  if (requestedEmails.size === 0) return new Set<string>();
   const { data: profiles, error } = await supabaseAdmin
     .from("profiles")
     .select("email");
@@ -396,7 +401,6 @@ async function findExistingProfileEmails(emails: string[]) {
     throw new Error("Unable to check existing users.");
   }
 
-  const requestedEmails = new Set(emails);
   return new Set(
     (profiles || [])
       .map((profile) => normalizeEmail(profile.email))
@@ -435,7 +439,7 @@ async function setupStudentRecords(
     .from("profiles")
     .upsert({
       id: studentId,
-      email: student.email,
+      email: student.email || null,
       first_name: student.first_name,
       last_name: student.last_name,
       role: "student",
@@ -453,6 +457,16 @@ async function setupStudentRecords(
 }
 
 async function createStudentAccount(student: PreparedStudent, classId: string, actorId: string, startsOn: string) {
+  if (student.method === "none") {
+    const studentId = randomUUID();
+    try {
+      await setupStudentRecords(student, studentId, classId, actorId, startsOn);
+    } catch (setupError) {
+      console.error("Bulk roster-only student setup failed:", formatError(setupError));
+      return { setupFailed: true };
+    }
+    return { studentId };
+  }
   if (student.method === "invitation") {
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       student.email,

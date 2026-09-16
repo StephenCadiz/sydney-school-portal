@@ -9,6 +9,7 @@ import AdminClassEnrolments from "../../components/admin/AdminClassEnrolments";
 import SetPasswordDialog, {
   PasswordAccountTarget,
 } from "../../components/admin/SetPasswordDialog";
+import StudentAccessControl from "../../components/student/StudentAccessControl";
 import {
   getAdminCambridgeStudentDirectory,
   getAdminYoungLearnerDirectory,
@@ -1588,6 +1589,10 @@ export default function AdminStudentsPage() {
                   <span>Email</span>
                   <input readOnly disabled value={form.email || "-"} />
                 </label>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <StudentAccessControl studentId={editingStudentId} onChanged={loadData} />
+                </div>
 
                 <div style={{ gridColumn: "1 / -1" }}>
                   <AdminClassEnrolments

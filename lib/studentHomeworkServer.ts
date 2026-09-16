@@ -15,6 +15,7 @@ import {
 import { buildHomeworkResultMap } from "./progress";
 import { resolveStudentCurrentClassServer } from "./academicYearsServer";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { resolveProfileIdForAuthUser } from "./cambridgeStudentAccessServer";
 
 export const CAMBRIDGE_ASSIGNMENT_HOMEWORK_CUTOVER_DATE = "2026-07-28";
 export const STUDENT_HOMEWORK_LIMIT = 100;
@@ -113,10 +114,11 @@ export async function authenticateStudentHomework(request: NextRequest) {
     return { studentId: "", error: "Authentication required.", status: 401 };
   }
 
+  const studentId = await resolveProfileIdForAuthUser(data.user.id);
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id, role")
-    .eq("id", data.user.id)
+    .eq("id", studentId)
     .maybeSingle();
   if (profileError) {
     console.error("Student homework authorization failed:", {
@@ -128,7 +130,7 @@ export async function authenticateStudentHomework(request: NextRequest) {
   if (profile?.role !== "student") {
     return { studentId: "", error: "Student access required.", status: 403 };
   }
-  return { studentId: data.user.id, error: null, status: 200 };
+  return { studentId, error: null, status: 200 };
 }
 
 export async function resolveStudentHomeworkContext(studentId: string):

@@ -12,6 +12,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import AdminLayout from "../../components/layout/AdminLayout";
+import StudentAccessControl from "../../components/student/StudentAccessControl";
 import {
   formatAttendancePercentage,
   type AdminAttendanceAlert,
@@ -871,6 +872,13 @@ export default function AdminAttendancePage() {
                     tone={selectedStudent.alerts.some((alert) => alert.status === "needs_attention") ? "warning" : "default"}
                   />
                 </section>
+
+                {selectedStudent.student.student_type === "profile" && (
+                  <details className={styles.panel}>
+                    <summary>Cambridge Student Portal access</summary>
+                    <StudentAccessControl studentId={selectedStudent.student.student_id} />
+                  </details>
+                )}
 
                 {selectedStudent.alerts.some((alert) => alert.status === "needs_attention") && (
                   <AlertQueue

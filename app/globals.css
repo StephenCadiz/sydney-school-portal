@@ -18765,6 +18765,32 @@ img {
   gap: 20px;
 }
 
+.student-access-control {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--ss-border);
+  border-radius: 14px;
+  background: var(--ss-card-bg, #fff);
+}
+.student-access-control-heading h3 { margin: 0; color: var(--ss-blue-dark); }
+.student-access-control-heading p { margin: 6px 0 0; color: #667085; }
+.student-access-control label { display: grid; gap: 6px; font-weight: 700; color: var(--ss-blue-dark); }
+.student-access-control input { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--ss-border); border-radius: 9px; font: inherit; }
+.student-access-control-status { margin: 0; color: #475467; }
+.student-access-control-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.student-access-control-actions button { border: 1px solid var(--ss-blue); border-radius: 9px; padding: 10px 14px; background: var(--ss-blue); color: #fff; font-weight: 700; cursor: pointer; }
+.student-access-control-actions button:disabled { opacity: .6; cursor: not-allowed; }
+.student-access-control-success, .student-access-control-error { margin: 0; padding: 10px 12px; border-radius: 8px; }
+.student-access-control-success { color: #166534; background: #ecfdf3; }
+.student-access-control-error { color: #9f1d1d; background: #fef2f2; }
+.add-users-cambridge-method-roster { color: #475467; background: #f2f4f7; }
+@media (max-width: 640px) {
+  .student-access-control { padding: 14px; }
+  .student-access-control-actions { display: grid; }
+  .student-access-control-actions button { width: 100%; }
+}
+
 .student-workspace-section-header h3,
 .student-workspace-list h4 {
   color: var(--ss-blue-dark);

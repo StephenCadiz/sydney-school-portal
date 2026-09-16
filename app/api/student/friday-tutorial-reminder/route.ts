@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { resolveProfileIdForAuthUser } from "../../../../lib/cambridgeStudentAccessServer";
 import { resolveStudentCurrentClassServer } from "../../../../lib/academicYearsServer";
 import {
   getFridayTutorialSessionTypeForDate,
@@ -136,10 +137,11 @@ async function authenticateStudent(request: NextRequest) {
     };
   }
 
+  const studentId = await resolveProfileIdForAuthUser(authData.user.id);
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id, role")
-    .eq("id", authData.user.id)
+    .eq("id", studentId)
     .single();
 
   if (profileError || profile?.role !== "student") {
@@ -153,7 +155,7 @@ async function authenticateStudent(request: NextRequest) {
     };
   }
 
-  return { studentId: authData.user.id, response: null };
+  return { studentId, response: null };
 }
 
 async function resolveReminderContext(

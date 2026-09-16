@@ -14,6 +14,20 @@ export async function getCurrentUser() {
     throw new Error("No user logged in.");
   }
 
+  // Profiles created without an email receive a durable Auth link only when
+  // an administrator later sends an invitation. Resolve that link so the
+  // Student Portal continues to use the application profile id for enrolments.
+  try {
+    const { data: link } = await supabase
+      .from("student_portal_accounts")
+      .select("profile_id")
+      .eq("auth_user_id", session.user.id)
+      .maybeSingle();
+    if (link?.profile_id) return { ...session.user, id: link.profile_id };
+  } catch {
+    // The mapping table is introduced by a later migration; direct-id accounts
+    // remain fully compatible while it is unavailable.
+  }
   return session.user;
 }
 

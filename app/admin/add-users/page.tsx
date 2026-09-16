@@ -259,6 +259,10 @@ function getCambridgeMethodText(row: CambridgeBulkRow, rowErrors: CambridgeBulkR
     return "Manual password - no email will be sent";
   }
 
+  if (!row.email.trim()) {
+    return "Roster-only - add an email later";
+  }
+
   return "Invitation email will be sent";
 }
 
@@ -272,6 +276,10 @@ function getCambridgeMethodClass(
 
   if (row.password.length > 0) {
     return "add-users-cambridge-method-manual";
+  }
+
+  if (!row.email.trim()) {
+    return "add-users-cambridge-method-roster";
   }
 
   return "add-users-cambridge-method-invite";
@@ -323,7 +331,7 @@ function validateCambridgeRows(rows: CambridgeBulkRow[]) {
     last_name: string;
     email: string;
     password: string;
-    method: "invitation" | "manual";
+    method: "invitation" | "manual" | "none";
   }> = [];
   let hasEnteredRows = false;
 
@@ -366,15 +374,10 @@ function validateCambridgeRows(rows: CambridgeBulkRow[]) {
       };
     }
 
-    if (!email) {
-      errorsByRow[row.id] = {
-        ...errorsByRow[row.id],
-        email: "Email is required.",
-      };
-    } else if (
+    if (email && (
       email.length > cambridgeMaxEmailLength ||
       !isValidCambridgeEmail(email)
-    ) {
+    )) {
       errorsByRow[row.id] = {
         ...errorsByRow[row.id],
         email: "Enter a valid email address.",
@@ -403,14 +406,21 @@ function validateCambridgeRows(rows: CambridgeBulkRow[]) {
       };
     }
 
+    if (password.length > 0 && !email) {
+      errorsByRow[row.id] = {
+        ...errorsByRow[row.id],
+        email: "Email is required when creating an account with a password.",
+      };
+    }
+
     if (
       firstName &&
       lastName &&
-      email &&
       firstName.length <= cambridgeMaxNameLength &&
       lastName.length <= cambridgeMaxNameLength &&
       email.length <= cambridgeMaxEmailLength &&
-      isValidCambridgeEmail(email) &&
+      (!email || isValidCambridgeEmail(email)) &&
+      (!password || Boolean(email)) &&
       !/\s/.test(row.email.trim()) &&
       (password.length === 0 ||
         (password.trim() && password.length >= cambridgeMinimumPasswordLength))
@@ -421,7 +431,7 @@ function validateCambridgeRows(rows: CambridgeBulkRow[]) {
         last_name: lastName,
         email,
         password,
-        method: password.length > 0 ? "manual" : "invitation",
+        method: password.length > 0 ? "manual" : email ? "invitation" : "none",
       });
     }
   });
@@ -1623,8 +1633,9 @@ export default function AddUsersPage() {
               <h2>Add Cambridge Students</h2>
               <p>
                 Select a Cambridge class and add up to 12 students at once.
-                Leave Initial Password blank to send an invitation email, or
-                enter a password to create the account manually.
+                Email is optional. Leave it blank to keep the student roster-only;
+                enter an email without a password to send an invitation, or add a
+                password to create the account directly.
               </p>
               <p className="add-users-cambridge-password-note">
                 Passwords are never saved in the browser and are cleared after
@@ -2077,8 +2088,9 @@ export default function AddUsersPage() {
             <p className="add-users-young-footer-info">
               <InfoIcon />
               <span>
-                Blank rows are ignored. Invitation rows send a setup email;
-                manual-password rows create the login directly.
+                Blank rows are ignored. Rows with an email send an invitation or
+                create the login from the supplied password; rows without an email
+                remain roster-only.
               </span>
             </p>
 

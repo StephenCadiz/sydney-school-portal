@@ -10,6 +10,7 @@ import StudentMockResultsSection from "./StudentMockResultsSection";
 import StudentNotesPanelSection from "./StudentNotesPanelSection";
 import StudentProgressPanelSection from "./StudentProgressPanelSection";
 import TeacherStudentAttendanceSection from "./TeacherStudentAttendanceSection";
+import StudentAccessControl from "../../components/student/StudentAccessControl";
 
 export type StudentWorkspaceSection =
   | "notes"
@@ -19,7 +20,8 @@ export type StudentWorkspaceSection =
   | "progress"
   | "attendance"
   | "follow-up"
-  | "message";
+  | "message"
+  | "access-control";
 
 type StudentWorkspacePanelProps = {
   open: boolean;
@@ -52,6 +54,7 @@ const sections: StudentWorkspaceNavigationItem[] = [
   { id: "attendance", label: "Attendance" },
   { id: "follow-up", label: "Follow-up" },
   { id: "message", label: "Message" },
+  { id: "access-control", label: "Access Control" },
 ];
 
 function getCourseLabel(level: string, courseType: string) {
@@ -253,6 +256,10 @@ export default function StudentWorkspacePanel({
               studentId={studentId}
               studentName={studentName}
             />
+          )}
+
+          {activeSection === "access-control" && (
+            <StudentAccessControl studentId={studentId} classId={classId} teacherMode />
           )}
         </div>
       </section>

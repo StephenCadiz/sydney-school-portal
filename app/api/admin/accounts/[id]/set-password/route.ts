@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
 import {
   reconcileAdminProfileEmail,
 } from "../../../../../../lib/adminStaffAccountsServer";
+import { resolveStudentAuthUser } from "../../../../../../lib/cambridgeStudentAccessServer";
 
 const cambridgeLevels = new Set(["B1", "B2", "C1", "C2"]);
 const maximumPasswordLength = 256;
@@ -141,35 +142,6 @@ export async function POST(
       }
     }
 
-    const {
-      data: { user: targetAuthUser },
-      error: targetAuthError,
-    } = await supabaseAdmin.auth.admin.getUserById(targetId);
-
-    if (targetAuthError || !targetAuthUser) {
-      return jsonError("Portal login account not found.", 404);
-    }
-
-    const authEmail = normalizeEmail(targetAuthUser.email);
-    if (!authEmail) {
-      return jsonError("Account requires reconciliation.", 409);
-    }
-
-    if (targetRole === "admin") {
-      try {
-        await reconcileAdminProfileEmail(targetProfile, targetAuthUser);
-      } catch (reconciliationError) {
-        logFailure("admin-account-reconciliation", actorId, targetId, targetRole);
-        console.error("Admin password reconciliation failed:", {
-          targetId,
-          error: reconciliationError,
-        });
-        return jsonError("Unable to update the password right now.", 500);
-      }
-    } else if (normalizeEmail(targetProfile.email) !== authEmail) {
-      return jsonError("Account requires reconciliation.", 409);
-    }
-
     const body = await request.json();
     const password =
       typeof body.password === "string" ? body.password : undefined;
@@ -197,8 +169,82 @@ export async function POST(
       return jsonError("Passwords do not match.", 422);
     }
 
+    const targetAuthUser =
+      targetRole === "student"
+        ? await resolveStudentAuthUser(targetProfile)
+        : (
+            await supabaseAdmin.auth.admin.getUserById(targetId)
+          ).data.user;
+
+    if (!targetAuthUser) {
+      if (targetRole !== "student") {
+        return jsonError("Portal login account not found.", 404);
+      }
+
+      const email = normalizeEmail(targetProfile.email);
+      if (!email) {
+        return jsonError(
+          "Add a login email before activating this student account.",
+          409
+        );
+      }
+
+      const { data: created, error: createError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            profile_id: targetProfile.id,
+          },
+        });
+
+      if (createError || !created.user) {
+        logFailure("auth-account-create", actorId, targetId, targetRole);
+        return jsonError("Unable to create the student portal account.", 500);
+      }
+
+      const { error: mappingError } = await supabaseAdmin
+        .from("student_portal_accounts")
+        .insert({
+          profile_id: targetProfile.id,
+          auth_user_id: created.user.id,
+        });
+
+      if (mappingError) {
+        await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+        logFailure("student-account-mapping", actorId, targetId, targetRole);
+        return jsonError("Unable to link the student portal account.", 500);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Student portal account activated successfully.",
+      });
+    }
+
+    const authEmail = normalizeEmail(targetAuthUser.email);
+    if (!authEmail) {
+      return jsonError("Account requires reconciliation.", 409);
+    }
+
+    if (targetRole === "admin") {
+      try {
+        await reconcileAdminProfileEmail(targetProfile, targetAuthUser);
+      } catch (reconciliationError) {
+        logFailure("admin-account-reconciliation", actorId, targetId, targetRole);
+        console.error("Admin password reconciliation failed:", {
+          targetId,
+          error: reconciliationError,
+        });
+        return jsonError("Unable to update the password right now.", 500);
+      }
+    } else if (normalizeEmail(targetProfile.email) !== authEmail) {
+      return jsonError("Account requires reconciliation.", 409);
+    }
+
     const { error: updateError } =
-      await supabaseAdmin.auth.admin.updateUserById(targetId, { password });
+      await supabaseAdmin.auth.admin.updateUserById(targetAuthUser.id, { password });
 
     if (updateError) {
       logFailure("auth-password-update", actorId, targetId, targetRole);

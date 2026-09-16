@@ -6,6 +6,7 @@ import {
 } from "../../../../lib/cambridgeExamBank";
 import { resolveStudentCurrentClassServer } from "../../../../lib/academicYearsServer";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { resolveProfileIdForAuthUser } from "../../../../lib/cambridgeStudentAccessServer";
 
 const teacherResourcesBucket = "teacher-resources";
 const signedUrlExpiresInSeconds = 120;
@@ -42,10 +43,11 @@ async function authenticateStudent(request: NextRequest) {
     };
   }
 
+  const studentId = await resolveProfileIdForAuthUser(authData.user.id);
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id, role")
-    .eq("id", authData.user.id)
+    .eq("id", studentId)
     .maybeSingle();
   if (profileError) {
     logFailure("profile", profileError);
@@ -61,7 +63,7 @@ async function authenticateStudent(request: NextRequest) {
     };
   }
 
-  return { studentId: authData.user.id, errorResponse: null };
+  return { studentId, errorResponse: null };
 }
 
 async function getCurrentClass(studentId: string) {

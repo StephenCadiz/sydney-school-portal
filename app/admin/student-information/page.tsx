@@ -5,6 +5,7 @@ import AdminLayout from "../../components/layout/AdminLayout";
 import AdminStudentsTabs from "../../components/admin/AdminStudentsTabs";
 import AdminStudentAttendance from "../../components/admin/AdminStudentAttendance";
 import AdminStudentClassWork from "../../components/admin/AdminStudentClassWork";
+import StudentAccessControl from "../../components/student/StudentAccessControl";
 import { getStudentAcademicYearDisplayValue } from "../../../lib/academicYearRules";
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
 import {
@@ -1576,6 +1577,7 @@ function FollowUpsSection({ followUps }: { followUps: any[] }) {
 
 type StudentDetailSection =
   | "overview"
+  | "access-control"
   | "attendance"
   | "class-work"
   | "homework"
@@ -1686,6 +1688,7 @@ function StudentDetailModal({
   const sections: Array<{ id: StudentDetailSection; label: string }> = isCambridge
     ? [
         { id: "overview", label: "Overview" },
+        { id: "access-control", label: "Access Control" },
         { id: "attendance", label: "Attendance" },
         { id: "class-work", label: "Class Work" },
         { id: "homework", label: "Homework" },
@@ -1780,6 +1783,9 @@ function StudentDetailModal({
               studentId={student.id}
               studentType={student.student_type}
             />
+          )}
+          {!loading && student && isCambridge && activeSection === "access-control" && (
+            <StudentAccessControl studentId={student.id} />
           )}
           {!loading && student && activeSection === "class-work" && (
             <AdminStudentClassWork
