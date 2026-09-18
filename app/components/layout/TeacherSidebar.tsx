@@ -18,6 +18,7 @@ interface TeacherSidebarProps {
   onClose?: () => void;
   unreadMessageCount?: number;
   showSyllabuses?: boolean;
+  studentMonitoringCount?: number;
 }
 
 export default function TeacherSidebar({
@@ -25,6 +26,7 @@ export default function TeacherSidebar({
   onClose,
   unreadMessageCount = 0,
   showSyllabuses = false,
+  studentMonitoringCount = 0,
 }: TeacherSidebarProps) {
   const pathname = usePathname();
 
@@ -45,7 +47,7 @@ export default function TeacherSidebar({
       }}
     >
       <SidebarItem
-        href="/teacher"
+        href="/teacher#student-monitoring"
         icon={<Home size={20} />}
         title="Dashboard"
         active={isActive("/teacher")}
@@ -109,6 +111,15 @@ export default function TeacherSidebar({
         title="Admin Tasks"
         active={isActive("/teacher/admin")}
         onClick={onClose}
+      />
+
+      <SidebarItem
+        href="/teacher"
+        icon={<Settings size={20} />}
+        title="Student Monitoring"
+        active={false}
+        onClick={onClose}
+        unreadCount={studentMonitoringCount}
       />
 
       <div style={{ flex: 1 }} />

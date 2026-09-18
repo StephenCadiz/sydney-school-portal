@@ -17,6 +17,7 @@ import { getTeacherUnreadMessageCount } from "../../../lib/teacherMessageUnreadC
 import { supabase } from "../../../lib/supabase";
 import TeacherClassProgressReminder from "../teacher/TeacherClassProgressReminder";
 import TeacherOutstandingTaskCards from "../teacher/TeacherOutstandingTaskCards";
+import TeacherStudentMonitoringTasks from "../teacher/TeacherStudentMonitoringTasks";
 
 interface TeacherLayoutProps {
   children: ReactNode | ((unreadMessageCount: number) => ReactNode);
@@ -33,6 +34,7 @@ export default function TeacherLayout({
   const [showWelcome, setShowWelcome] = useState(false);
   const [isSyllabusCoordinator, setIsSyllabusCoordinator] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [studentMonitoringCount, setStudentMonitoringCount] = useState(0);
   const mountedRef = useRef(false);
   const unreadCountErrorLoggedRef = useRef(false);
   const pathname = usePathname();
@@ -55,6 +57,7 @@ export default function TeacherLayout({
       setTeacherId("");
       setTeacherFirstName("");
       setUnreadMessageCount(0);
+      setStudentMonitoringCount(0);
       setShowWelcome(false);
     });
 
@@ -158,6 +161,29 @@ export default function TeacherLayout({
     };
   }, [pathname]);
 
+  useEffect(() => {
+    if (!teacherId) return;
+    let active = true;
+    const loadMonitoringCount = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const response = await fetch("/api/teacher/student-monitoring?summary=1", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (active && response.ok) setStudentMonitoringCount(Math.max(0, Number(payload.count) || 0));
+    };
+    void loadMonitoringCount();
+    const interval = window.setInterval(() => void loadMonitoringCount(), 60_000);
+    window.addEventListener("teacher-student-monitoring-updated", loadMonitoringCount);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("teacher-student-monitoring-updated", loadMonitoringCount);
+    };
+  }, [teacherId]);
+
   const loadUnreadCount = useCallback(async () => {
     if (!teacherId) return;
 
@@ -211,6 +237,7 @@ export default function TeacherLayout({
         isMobileOpen={menuOpen}
         onClose={() => setMenuOpen(false)}
         unreadMessageCount={unreadMessageCount}
+        studentMonitoringCount={studentMonitoringCount}
         showSyllabuses={isSyllabusCoordinator}
       />
 
@@ -233,6 +260,7 @@ export default function TeacherLayout({
 
         <Suspense fallback={null}>
           <TeacherOutstandingTaskCards />
+          <TeacherStudentMonitoringTasks />
         </Suspense>
 
         <div className="teacher-main-content-body">

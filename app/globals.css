@@ -3354,6 +3354,90 @@
   }
 }
 
+/* Student Monitoring task cards */
+.teacher-monitoring-task-cards {
+  width: min(100%, var(--teacher-content-max-width, 1180px));
+  margin: 0 auto 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.teacher-monitoring-task-cards > header,
+.teacher-monitoring-task-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.teacher-monitoring-task-cards > header,
+.teacher-monitoring-task-entry,
+.admin-student-monitoring-page .admin-page-card,
+.admin-monitoring-row {
+  background: var(--ss-card-bg, #fff);
+  border: 1px solid var(--ss-border, #dbe3f0);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(20, 54, 104, .08);
+}
+
+.teacher-monitoring-task-cards > header { padding: 18px 20px; }
+.teacher-monitoring-task-cards h2,
+.admin-student-monitoring-page h1,
+.admin-student-monitoring-page h2 { color: var(--ss-blue-dark, #1f3c88); margin: 0; }
+.teacher-monitoring-task-cards p,
+.teacher-monitoring-task-entry span,
+.admin-monitoring-row span { display: block; color: #53647d; margin: 5px 0 0; }
+.teacher-monitoring-alert-count { background: #dc2626; color: #fff; border-radius: 999px; min-width: 30px; min-height: 30px; display: inline-grid; place-items: center; font-weight: 800; }
+.teacher-monitoring-task-entry { padding: 16px 20px; }
+.teacher-monitoring-task-entry > div:first-child { min-width: 0; }
+.teacher-monitoring-task-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.teacher-monitoring-task-actions button,
+.teacher-monitoring-form button,
+.admin-student-monitoring-form button { border: 0; border-radius: 10px; background: var(--ss-blue, #1f66b1); color: #fff; padding: 10px 13px; font-weight: 700; cursor: pointer; }
+.teacher-monitoring-task-actions button:focus-visible,
+.teacher-monitoring-form button:focus-visible,
+.teacher-monitoring-close:focus-visible,
+.admin-student-monitoring-form button:focus-visible,
+.admin-monitoring-decision button:focus-visible,
+.admin-monitoring-decision select:focus-visible { outline: 3px solid #f3c969; outline-offset: 2px; }
+.teacher-monitoring-task-actions button:disabled,
+.teacher-monitoring-form button:disabled { opacity: .55; cursor: not-allowed; }
+.monitoring-overdue { color: #b42318 !important; font-weight: 800; }
+.teacher-monitoring-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgba(10, 26, 58, .5); backdrop-filter: blur(5px); }
+.teacher-monitoring-modal { width: min(100%, 680px); max-height: min(90vh, 760px); overflow: auto; position: relative; background: #fff; border-radius: 18px; padding: 26px; box-shadow: 0 24px 70px rgba(5, 20, 48, .3); }
+.teacher-monitoring-close { position: absolute; top: 12px; right: 14px; border: 0; background: transparent; color: var(--ss-blue-dark, #1f3c88); font-size: 28px; cursor: pointer; }
+.teacher-monitoring-form { display: grid; gap: 14px; margin-top: 20px; }
+.teacher-monitoring-form label,
+.admin-student-monitoring-form label { display: grid; gap: 6px; color: #243854; font-weight: 700; }
+.teacher-monitoring-form input,
+.teacher-monitoring-form textarea,
+.admin-student-monitoring-form input,
+.admin-student-monitoring-form textarea,
+.admin-student-monitoring-form select { width: 100%; border: 1px solid var(--ss-border, #c9d4e4); border-radius: 9px; padding: 10px 11px; font: inherit; background: #fff; }
+.teacher-monitoring-form textarea { min-height: 82px; resize: vertical; }
+.admin-student-monitoring-page { width: min(100%, var(--admin-content-max-width, 1180px)); margin: 0 auto; display: grid; gap: 20px; }
+.admin-student-monitoring-page .admin-page-card { padding: 24px; }
+.admin-student-monitoring-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+.admin-student-monitoring-wide { grid-column: 1 / -1; }
+.admin-student-monitoring-teacher { grid-column: 1 / -1; color: #53647d; }
+.admin-monitoring-list { display: grid; gap: 10px; margin-top: 16px; }
+.admin-monitoring-row { padding: 16px; display: flex; justify-content: space-between; gap: 16px; }
+.admin-monitoring-row > div { min-width: 0; }
+.monitoring-status { text-transform: capitalize; font-weight: 800; }
+.monitoring-status-overdue { color: #b42318; }
+
+@media (max-width: 700px) {
+  .teacher-monitoring-task-cards > header,
+  .teacher-monitoring-task-entry,
+  .admin-monitoring-row { align-items: stretch; flex-direction: column; }
+  .teacher-monitoring-task-actions { justify-content: flex-start; }
+  .admin-student-monitoring-form { grid-template-columns: 1fr; }
+  .admin-student-monitoring-wide { grid-column: auto; }
+  .admin-student-monitoring-teacher { grid-column: auto; }
+  .teacher-monitoring-modal-backdrop { padding: 10px; }
+  .teacher-monitoring-modal { max-height: calc(100vh - 20px); padding: 22px 18px; }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

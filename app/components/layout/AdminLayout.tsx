@@ -427,6 +427,7 @@ export default function AdminLayout({
       items: [
         { name: "Attendance", href: "/admin/attendance", icon: "attendance" as AdminNavIconName },
         { name: "Follow Ups", href: "/admin/follow-ups", icon: "clipboardCheck" as AdminNavIconName },
+        { name: "Student Monitoring", href: "/admin/student-monitoring", icon: "clipboardCheck" as AdminNavIconName },
       ],
     },
     {
