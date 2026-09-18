@@ -12,6 +12,8 @@ const teacherPanel = read("app/teacher/class/StudentWorkspacePanel.tsx");
 const adminInfo = read("app/admin/student-information/page.tsx");
 const accessUi = read("app/components/student/StudentAccessControl.tsx");
 const passwordRoute = read("app/api/admin/accounts/[id]/set-password/route.ts");
+const studentSessionRoute = read("app/api/student/session/route.ts");
+const studentUser = read("lib/user.ts");
 const migration = read("supabase/migrations/20260916120000_cambridge_student_access_control.sql");
 
 test("Cambridge creation allows roster-only students and keeps Young Learners unchanged", () => {
@@ -46,6 +48,29 @@ test("Teacher Access Control GET carries the profile identifier from the workspa
   assert.match(accessUi, /student_id=\$\{encodeURIComponent\(studentId\)\}/);
   assert.match(teacherRoute, /searchParams\.get\("student_id"\)/);
   assert.match(accessServer, /resolveStudentAuthUser\(profile\)/);
+});
+
+test("Legacy Cambridge Auth accounts repair a verified profile mapping", () => {
+  assert.match(accessServer, /export async function ensureStudentPortalAccountMapping/);
+  assert.match(accessServer, /eq\("profile_id", profileId\)/);
+  assert.match(accessServer, /eq\("auth_user_id", authUserId\)/);
+  assert.match(accessServer, /This student profile is linked to another portal account/);
+  assert.match(accessServer, /This portal account is linked to another student profile/);
+  assert.match(accessServer, /insert\(\{ profile_id: profileId, auth_user_id: authUserId \}\)/);
+  assert.match(accessServer, /await ensureStudentPortalAccountMapping\(profile\.id, authUser\.id\)/);
+  assert.match(accessServer, /await ensureStudentPortalAccountMapping\(profileId, existing\.id\)/);
+  assert.match(accessServer, /await ensureStudentPortalAccountMapping\(profileId, data\.user\.id\)/);
+});
+
+test("Student login resolves legacy Cambridge profiles without linking by name", () => {
+  assert.match(studentSessionRoute, /resolveProfileIdForAuthUser\(authData\.user\.id\)/);
+  assert.match(studentSessionRoute, /Student record cannot be accessed in the portal/);
+  assert.match(studentSessionRoute, /Cache-Control.*no-store/);
+  assert.match(accessServer, /from\("current_class_enrolments"\)/);
+  assert.match(accessServer, /classes!inner\(is_cambridge\)/);
+  assert.match(accessServer, /matchingProfiles\[0\]\.id/);
+  assert.match(studentUser, /fetch\("\/api\/student\/session"/);
+  assert.match(studentUser, /cache: "no-store"/);
 });
 
 test("Email save is separate from explicit invitation and never exposes passwords", () => {

@@ -126,13 +126,96 @@ export async function resolveStudentAuthUser(profile: { id: string; email?: stri
   return (users?.users || []).find((user) => normalizeStudentEmail(user.email) === email) || null;
 }
 
+export async function ensureStudentPortalAccountMapping(
+  profileId: string,
+  authUserId: string
+) {
+  const { data: byProfile, error: profileLookupError } = await supabaseAdmin
+    .from("student_portal_accounts")
+    .select("profile_id, auth_user_id")
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  if (profileLookupError) {
+    throw new CambridgeAccessError("Unable to verify the student portal account link.", 500);
+  }
+  if (byProfile?.auth_user_id && byProfile.auth_user_id !== authUserId) {
+    throw new CambridgeAccessError("This student profile is linked to another portal account.", 409);
+  }
+
+  const { data: byAuth, error: authLookupError } = await supabaseAdmin
+    .from("student_portal_accounts")
+    .select("profile_id, auth_user_id")
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+  if (authLookupError) {
+    throw new CambridgeAccessError("Unable to verify the student portal account link.", 500);
+  }
+  if (byAuth?.profile_id && byAuth.profile_id !== profileId) {
+    throw new CambridgeAccessError("This portal account is linked to another student profile.", 409);
+  }
+
+  if (!byProfile) {
+    const { error: linkError } = await supabaseAdmin
+      .from("student_portal_accounts")
+      .insert({ profile_id: profileId, auth_user_id: authUserId });
+    if (linkError) {
+      throw new CambridgeAccessError("Unable to link the student portal account.", 500);
+    }
+  }
+}
+
 export async function resolveProfileIdForAuthUser(authUserId: string) {
   const { data } = await supabaseAdmin
     .from("student_portal_accounts")
     .select("profile_id")
     .eq("auth_user_id", authUserId)
     .maybeSingle();
-  return data?.profile_id || authUserId;
+  if (data?.profile_id) return data.profile_id;
+
+  // Legacy roster-only Cambridge profiles may predate the mapping table. A
+  // safe fallback uses only an exact, unique email match plus an active
+  // Cambridge enrolment; names are never used for account linking.
+  const { data: directProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("id", authUserId)
+    .maybeSingle();
+  if (directProfile?.id) return authUserId;
+
+  const { data: authResult } = await supabaseAdmin.auth.admin.getUserById(authUserId);
+  const email = normalizeStudentEmail(authResult.user?.email);
+  if (!email) return authUserId;
+
+  const { data: profiles, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, email")
+    .eq("role", "student")
+    .limit(1000);
+  const matchingProfiles = (profiles || []).filter(
+    (profile: any) => normalizeStudentEmail(profile.email) === email
+  );
+  if (profileError || matchingProfiles.length !== 1) return authUserId;
+
+  const profileId = String(matchingProfiles[0].id || "");
+  if (!profileId) return authUserId;
+  const { data: enrolments, error: enrolmentError } = await supabaseAdmin
+    .from("current_class_enrolments")
+    .select("class_id, classes!inner(is_cambridge)")
+    .eq("student_id", profileId);
+  if (
+    enrolmentError ||
+    !(enrolments || []).some((row: any) => row?.classes?.is_cambridge === true)
+  ) {
+    return authUserId;
+  }
+
+  try {
+    await ensureStudentPortalAccountMapping(profileId, authUserId);
+    return profileId;
+  } catch {
+    // Fail closed if the verified identity cannot be linked atomically.
+    return authUserId;
+  }
 }
 
 export async function loadStudentAccess(profileId: string): Promise<CambridgeStudentAccess> {
@@ -143,6 +226,9 @@ export async function loadStudentAccess(profileId: string): Promise<CambridgeStu
     .single();
   if (error || !profile) throw new CambridgeAccessError("Cambridge student not found.", 404);
   const authUser = await resolveStudentAuthUser(profile);
+  if (authUser) {
+    await ensureStudentPortalAccountMapping(profile.id, authUser.id);
+  }
   const invitedAt = authUser?.invited_at || null;
   return {
     profile_id: profile.id,
@@ -207,6 +293,7 @@ export async function sendStudentInvitation(
   if (error || !profile || !profile.email) throw new CambridgeAccessError("Add a valid email address before sending an invitation.", 400);
   const existing = await resolveStudentAuthUser(profile);
   if (existing) {
+    await ensureStudentPortalAccountMapping(profileId, existing.id);
     if (existing.email && normalizeStudentEmail(existing.email) !== normalizeStudentEmail(profile.email)) {
       throw new CambridgeAccessError("Save the corrected email before sending an invitation.", 400);
     }
@@ -233,10 +320,11 @@ export async function sendStudentInvitation(
       inviteError?.status === 429 ? 429 : 500
     );
   }
-  const { error: linkError } = await supabaseAdmin.from("student_portal_accounts").upsert({ profile_id: profileId, auth_user_id: data.user.id });
-  if (linkError) {
+  try {
+    await ensureStudentPortalAccountMapping(profileId, data.user.id);
+  } catch (error) {
     await supabaseAdmin.auth.admin.deleteUser(data.user.id);
-    throw new CambridgeAccessError("Invitation was created but could not be linked to the student profile.", 500);
+    throw error;
   }
   return { access: await loadStudentAccess(profileId), already_active: false };
 }
