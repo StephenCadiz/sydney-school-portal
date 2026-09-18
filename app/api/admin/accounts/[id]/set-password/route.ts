@@ -4,7 +4,11 @@ import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
 import {
   reconcileAdminProfileEmail,
 } from "../../../../../../lib/adminStaffAccountsServer";
-import { resolveStudentAuthUser } from "../../../../../../lib/cambridgeStudentAccessServer";
+import {
+  CambridgeAccessError,
+  ensureStudentPortalAccountMapping,
+  resolveStudentAuthUser,
+} from "../../../../../../lib/cambridgeStudentAccessServer";
 
 const cambridgeLevels = new Set(["B1", "B2", "C1", "C2"]);
 const maximumPasswordLength = 256;
@@ -228,6 +232,24 @@ export async function POST(
       return jsonError("Account requires reconciliation.", 409);
     }
 
+    if (targetRole === "student") {
+      try {
+        // A legacy exact-email match may predate the mapping table. Reconcile
+        // that verified identity before changing credentials so the password
+        // reset and subsequent Student session resolve the same profile.
+        await ensureStudentPortalAccountMapping(
+          targetProfile.id,
+          targetAuthUser.id
+        );
+      } catch (mappingError) {
+        logFailure("student-account-mapping", actorId, targetId, targetRole);
+        if (mappingError instanceof CambridgeAccessError) {
+          return jsonError(mappingError.message, mappingError.status);
+        }
+        return jsonError("Unable to link the student portal account.", 500);
+      }
+    }
+
     if (targetRole === "admin") {
       try {
         await reconcileAdminProfileEmail(targetProfile, targetAuthUser);
@@ -244,7 +266,12 @@ export async function POST(
     }
 
     const { error: updateError } =
-      await supabaseAdmin.auth.admin.updateUserById(targetAuthUser.id, { password });
+      await supabaseAdmin.auth.admin.updateUserById(
+        targetAuthUser.id,
+        targetRole === "student"
+          ? { password, email_confirm: true }
+          : { password }
+      );
 
     if (updateError) {
       logFailure("auth-password-update", actorId, targetId, targetRole);

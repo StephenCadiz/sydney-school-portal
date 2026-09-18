@@ -123,7 +123,16 @@ export async function resolveStudentAuthUser(profile: { id: string; email?: stri
   if (!email) return null;
   const { data: users, error: usersError } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (usersError) throw new CambridgeAccessError("Unable to check duplicate email addresses.", 500);
-  return (users?.users || []).find((user) => normalizeStudentEmail(user.email) === email) || null;
+  const matches = (users?.users || []).filter(
+    (user) => normalizeStudentEmail(user.email) === email
+  );
+  if (matches.length > 1) {
+    throw new CambridgeAccessError(
+      "Multiple portal accounts match this student email. Account reconciliation is required.",
+      409
+    );
+  }
+  return matches[0] || null;
 }
 
 export async function ensureStudentPortalAccountMapping(

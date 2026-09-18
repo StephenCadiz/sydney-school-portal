@@ -113,7 +113,8 @@ test("Admin password activation links roster-only Cambridge profiles safely", ()
   assert.match(passwordRoute, /auth\.admin\.createUser/);
   assert.match(passwordRoute, /student_portal_accounts/);
   assert.match(passwordRoute, /deleteUser\(created\.user\.id\)/);
-  assert.match(passwordRoute, /updateUserById\(targetAuthUser\.id, \{ password \}\)/);
+  assert.match(passwordRoute, /updateUserById\(\s*targetAuthUser\.id/);
+  assert.match(passwordRoute, /password, email_confirm: true/);
   assert.match(passwordRoute, /Add a login email before activating/);
   assert.match(passwordRoute, /targetRole !== "student"/);
 });
