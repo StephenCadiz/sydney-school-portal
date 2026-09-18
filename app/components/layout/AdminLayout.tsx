@@ -31,6 +31,19 @@ type AdminNavIconName =
   | "attendance"
   | "megaphone";
 
+export type AdminMonitoringSummary = {
+  feedbackCount: number;
+  overdueCount: number;
+  feedback: Array<{
+    id: string;
+    student_name: string;
+    class_name: string;
+    level_name: string;
+    teacher_name: string;
+    submitted_at: string | null;
+  }>;
+};
+
 function AdminNavIcon({
   name,
   size = 19,
@@ -235,7 +248,7 @@ export default function AdminLayout({
 }: {
   children:
     | React.ReactNode
-    | ((unreadMessageCount: number, attendanceAlertCount: number) => React.ReactNode);
+    | ((unreadMessageCount: number, attendanceAlertCount: number, monitoringSummary: AdminMonitoringSummary) => React.ReactNode);
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -243,9 +256,11 @@ export default function AdminLayout({
   const [adminName, setAdminName] = useState({ firstName: "", fullName: "" });
   const [outstandingAdminMessages, setOutstandingAdminMessages] = useState(0);
   const [attendanceAlertCount, setAttendanceAlertCount] = useState(0);
+  const [monitoringSummary, setMonitoringSummary] = useState<AdminMonitoringSummary>({ feedbackCount: 0, overdueCount: 0, feedback: [] });
   const mountedRef = useRef(false);
   const outstandingCountErrorLoggedRef = useRef(false);
   const attendanceCountErrorLoggedRef = useRef(false);
+  const monitoringCountErrorLoggedRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -344,6 +359,35 @@ export default function AdminLayout({
     }
   }, []);
 
+  const loadMonitoringSummary = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        if (mountedRef.current) setMonitoringSummary({ feedbackCount: 0, overdueCount: 0, feedback: [] });
+        return;
+      }
+      const response = await fetch("/api/admin/student-monitoring?summary=1", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Unable to load monitoring alerts.");
+      monitoringCountErrorLoggedRef.current = false;
+      if (mountedRef.current) {
+        setMonitoringSummary({
+          feedbackCount: Math.max(0, Number(payload.feedbackCount) || 0),
+          overdueCount: Math.max(0, Number(payload.overdueCount) || 0),
+          feedback: Array.isArray(payload.feedback) ? payload.feedback : [],
+        });
+      }
+    } catch (error) {
+      if (!monitoringCountErrorLoggedRef.current) {
+        monitoringCountErrorLoggedRef.current = true;
+        console.error("Unable to load Admin Student Monitoring alerts:", error);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!adminId) return;
 
@@ -357,6 +401,18 @@ export default function AdminLayout({
       window.removeEventListener("admin-attendance-alerts-changed", refresh);
     };
   }, [adminId, loadAttendanceAlertCount]);
+
+  useEffect(() => {
+    if (!adminId) return;
+    const refresh = () => void loadMonitoringSummary();
+    refresh();
+    const intervalId = window.setInterval(refresh, 60000);
+    window.addEventListener("admin-student-monitoring-changed", refresh);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("admin-student-monitoring-changed", refresh);
+    };
+  }, [adminId, loadMonitoringSummary]);
 
   useMessageRealtimeRefresh({
     onRefresh: loadOutstandingMessageCount,
@@ -650,6 +706,7 @@ export default function AdminLayout({
                       </span>
                       {isMessagesItem && <UnreadBadge count={outstandingAdminMessages} />}
                       {isAttendanceItem && <UnreadBadge count={attendanceAlertCount} />}
+                      {item.name === "Student Monitoring" && <UnreadBadge count={monitoringSummary.feedbackCount} />}
                     </Link>
                   );
                 })}
@@ -715,7 +772,7 @@ export default function AdminLayout({
         </header>
         <div className="admin-main-content-inner">
           {typeof children === "function"
-            ? children(outstandingAdminMessages, attendanceAlertCount)
+            ? children(outstandingAdminMessages, attendanceAlertCount, monitoringSummary)
             : children}
         </div>
       </main>

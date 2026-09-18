@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import AdminLayout from "../components/layout/AdminLayout";
+import AdminLayout, { type AdminMonitoringSummary } from "../components/layout/AdminLayout";
 import TeacherWorkingDayPanel from "../components/teacher/TeacherWorkingDayPanel";
 import { getAdminClasses } from "../../lib/adminClasses";
 import { getTeachers } from "../../lib/adminTeachers";
@@ -550,17 +550,12 @@ export default function AdminDashboard() {
   const latestFollowUps = unreviewedFollowUps.slice(0, 3);
   return (
     <AdminLayout>
-      {(unreadMessageCount, attendanceAlertCount) => {
+      {(unreadMessageCount, attendanceAlertCount, monitoringSummary: AdminMonitoringSummary) => {
         const visibleAttendanceCount =
           attendanceAlertCount > 99 ? "99+" : String(attendanceAlertCount);
 
         return (
           <div className="admin-dashboard-page">
-        <TeacherWorkingDayPanel
-          endpoint="/api/admin/staff-time/self"
-          hideWhenUnavailable
-        />
-
         {mockResultsAwaitingReview > 0 && (
           <section className="admin-dashboard-alert-card admin-dashboard-mock-review-alert">
             <div className="admin-dashboard-alert-header">
@@ -603,6 +598,46 @@ export default function AdminDashboard() {
             </div>
           </section>
         )}
+
+        {monitoringSummary.feedbackCount > 0 && (
+          <section className="admin-dashboard-alert-card admin-dashboard-monitoring-alert" aria-labelledby="monitoring-review-title">
+            <div className="admin-dashboard-alert-header">
+              <div>
+                <div className="admin-dashboard-monitoring-alert-title">
+                  <h2 id="monitoring-review-title">Student Monitoring requires review</h2>
+                  <span aria-label={`${monitoringSummary.feedbackCount} feedback submissions awaiting review`}>{monitoringSummary.feedbackCount}</span>
+                </div>
+                <p>{monitoringSummary.feedbackCount} teacher feedback submission{monitoringSummary.feedbackCount === 1 ? "" : "s"} await an Admin outcome.</p>
+              </div>
+              <Link href="/admin/student-monitoring" className="admin-dashboard-button">Review feedback <DashboardIcon name="chevron" size={16} /></Link>
+            </div>
+            <div className="admin-dashboard-monitoring-feedback-list">
+              {monitoringSummary.feedback.slice(0, 4).map((item) => (
+                <div key={item.id} className="admin-dashboard-monitoring-feedback-item">
+                  <strong>{item.student_name || "Student"}</strong>
+                  <span>{item.class_name || "Class"} · {item.level_name || "Level"} · {item.teacher_name || "Teacher"} · {item.submitted_at ? new Date(item.submitted_at).toLocaleDateString("en-GB") : "Date unavailable"}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {monitoringSummary.overdueCount > 0 && (
+          <section className="admin-dashboard-alert-card admin-dashboard-monitoring-overdue-alert" aria-labelledby="monitoring-overdue-title">
+            <div className="admin-dashboard-alert-header">
+              <div>
+                <h2 id="monitoring-overdue-title">Student Monitoring overdue</h2>
+                <p>{monitoringSummary.overdueCount} teacher feedback task{monitoringSummary.overdueCount === 1 ? " is" : "s are"} overdue.</p>
+              </div>
+              <Link href="/admin/student-monitoring" className="admin-dashboard-button">Review monitoring <DashboardIcon name="chevron" size={16} /></Link>
+            </div>
+          </section>
+        )}
+
+        <TeacherWorkingDayPanel
+          endpoint="/api/admin/staff-time/self"
+          hideWhenUnavailable
+        />
 
         {unreviewedFollowUps.length > 0 && (
           <section className="admin-dashboard-alert-card">

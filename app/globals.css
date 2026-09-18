@@ -3415,7 +3415,7 @@
 .admin-student-monitoring-form textarea,
 .admin-student-monitoring-form select { width: 100%; border: 1px solid var(--ss-border, #c9d4e4); border-radius: 9px; padding: 10px 11px; font: inherit; background: #fff; }
 .teacher-monitoring-form textarea { min-height: 82px; resize: vertical; }
-.admin-student-monitoring-page { width: min(100%, var(--admin-content-max-width, 1180px)); margin: 0 auto; display: grid; gap: 20px; }
+.admin-student-monitoring-page { width: 100%; max-width: var(--admin-content-max-width, 1480px); margin: 0 auto; display: grid; gap: 20px; }
 .admin-student-monitoring-page .admin-page-card { padding: 24px; }
 .admin-student-monitoring-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
 .admin-student-monitoring-wide { grid-column: 1 / -1; }
@@ -3423,8 +3423,53 @@
 .admin-monitoring-list { display: grid; gap: 10px; margin-top: 16px; }
 .admin-monitoring-row { padding: 16px; display: flex; justify-content: space-between; gap: 16px; }
 .admin-monitoring-row > div { min-width: 0; }
+.admin-monitoring-record-card { overflow: hidden; border: 1px solid #d7e1ef; border-radius: 14px; background: #fff; box-shadow: 0 8px 22px rgba(20, 54, 104, .06); }
+.admin-monitoring-record-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px 22px; background: #f7faff; border-bottom: 1px solid #e0e8f4; }
+.admin-monitoring-record-header h3 { margin: 2px 0 0; color: var(--ss-blue-dark, #1f3c88); font-size: 1.2rem; }
+.admin-monitoring-eyebrow { margin: 0; color: #53647d; font-size: .76rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.admin-monitoring-record-meta { margin: 7px 0 0; color: #53647d; line-height: 1.5; overflow-wrap: anywhere; }
+.monitoring-status-badge { flex: 0 0 auto; border-radius: 999px; padding: 6px 10px; color: #1f3c88; background: #e7f0ff; font-size: .78rem; font-weight: 800; text-transform: none; }
+.monitoring-status-badge.monitoring-status-overdue { color: #9b1c1c; background: #fff0f0; }
+.monitoring-status-badge.monitoring-status-feedback_submitted { color: #8a4b08; background: #fff5df; }
+.admin-monitoring-record-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 17px 22px; }
+.admin-monitoring-record-details > div { min-width: 0; }
+.admin-monitoring-record-details span, .admin-monitoring-feedback-grid dt { display: block; color: #667085; font-size: .75rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.admin-monitoring-record-details strong { display: block; margin-top: 4px; color: #243854; line-height: 1.45; overflow-wrap: anywhere; }
+.admin-monitoring-record-section { border-top: 1px solid #e4eaf2; padding: 18px 22px 20px; }
+.admin-monitoring-record-section h4 { margin: 0 0 13px; color: var(--ss-blue-dark, #1f3c88); font-size: 1rem; }
+.admin-monitoring-feedback-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; margin: 0; }
+.admin-monitoring-feedback-grid > div { min-width: 0; }
+.admin-monitoring-feedback-grid dd { margin: 5px 0 0; color: #243854; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin-monitoring-decision-panel { background: #fbfcff; }
+.admin-monitoring-decision-fields { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.4fr) minmax(150px, .7fr) auto; gap: 12px; align-items: end; }
+.admin-monitoring-decision-fields label { display: grid; gap: 6px; color: #243854; font-size: .86rem; font-weight: 700; }
+.admin-monitoring-decision-fields select, .admin-monitoring-decision-fields textarea, .admin-monitoring-decision-fields input { width: 100%; border: 1px solid var(--ss-border, #c9d4e4); border-radius: 9px; padding: 9px 10px; background: #fff; font: inherit; color: #243854; }
+.admin-monitoring-decision-fields textarea { resize: vertical; }
+.admin-monitoring-decision-fields button { border: 0; border-radius: 9px; min-height: 42px; padding: 10px 14px; background: var(--ss-blue, #1f66b1); color: #fff; font-weight: 800; cursor: pointer; }
+.admin-monitoring-decision-fields button:disabled { cursor: not-allowed; opacity: .55; }
 .monitoring-status { text-transform: capitalize; font-weight: 800; }
 .monitoring-status-overdue { color: #b42318; }
+.admin-monitoring-combobox-wrap { position: relative; }
+.admin-monitoring-combobox { position: relative; }
+.admin-monitoring-combobox input { width: 100%; border: 1px solid var(--ss-border, #c9d4e4); border-radius: 9px; padding: 11px 42px 11px 12px; font: inherit; }
+.admin-monitoring-combobox input:focus-visible,
+.admin-monitoring-combobox-results button:focus-visible,
+.admin-monitoring-enrolment-panel select:focus-visible { outline: 3px solid #f3c969; outline-offset: 2px; }
+.admin-monitoring-clear { position: absolute; top: 5px; right: 8px; border: 0; background: transparent; color: var(--ss-blue-dark, #1f3c88); font-size: 24px; cursor: pointer; }
+.admin-monitoring-combobox-results { position: absolute; z-index: 20; left: 0; right: 0; max-height: 280px; overflow-y: auto; list-style: none; margin: 4px 0 0; padding: 4px; border: 1px solid var(--ss-border, #c9d4e4); border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(20, 54, 104, .16); }
+.admin-monitoring-combobox-results li { margin: 0; }
+.admin-monitoring-combobox-results button { width: 100%; border: 0; border-radius: 7px; background: transparent; padding: 10px; text-align: left; cursor: pointer; }
+.admin-monitoring-combobox-results button:hover { background: #eef5ff; }
+.admin-monitoring-combobox-results span { display: block; color: #53647d; font-size: .9rem; margin-top: 3px; }
+.admin-monitoring-result-programme { font-weight: 700; color: var(--ss-blue-dark, #1f3c88) !important; }
+.admin-monitoring-result-enrolment { overflow-wrap: anywhere; }
+.admin-monitoring-search-state { color: #53647d; margin: 7px 0 0; }
+.admin-monitoring-enrolment-panel { border: 1px solid #cbd8ec; border-radius: 12px; background: #f6f9ff; padding: 16px; }
+.admin-monitoring-enrolment-panel h3 { color: var(--ss-blue-dark, #1f3c88); margin: 0 0 12px; }
+.admin-monitoring-enrolment-panel select { width: 100%; border: 1px solid var(--ss-border, #c9d4e4); border-radius: 9px; padding: 10px; background: #fff; font: inherit; }
+.admin-monitoring-enrolment-details { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 16px 0 0; }
+.admin-monitoring-enrolment-details dt { color: #53647d; font-size: .78rem; font-weight: 700; text-transform: uppercase; }
+.admin-monitoring-enrolment-details dd { margin: 3px 0 0; color: #243854; font-weight: 700; overflow-wrap: anywhere; }
 
 @media (max-width: 700px) {
   .teacher-monitoring-task-cards > header,
@@ -3434,8 +3479,12 @@
   .admin-student-monitoring-form { grid-template-columns: 1fr; }
   .admin-student-monitoring-wide { grid-column: auto; }
   .admin-student-monitoring-teacher { grid-column: auto; }
+  .admin-monitoring-record-header { flex-direction: column; }
+  .admin-monitoring-record-details, .admin-monitoring-feedback-grid { grid-template-columns: 1fr; }
+  .admin-monitoring-decision-fields { grid-template-columns: 1fr; align-items: stretch; }
   .teacher-monitoring-modal-backdrop { padding: 10px; }
   .teacher-monitoring-modal { max-height: calc(100vh - 20px); padding: 22px 18px; }
+  .admin-monitoring-enrolment-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @theme inline {
@@ -6946,6 +6995,52 @@ img {
   border-color: #efc4c1;
   border-left-color: #b83a36;
 }
+
+.admin-dashboard-monitoring-alert {
+  border-color: #c6d8f5;
+  border-left-color: var(--ss-blue, #1f66b1);
+}
+
+.admin-dashboard-monitoring-overdue-alert {
+  border-color: #efc4c1;
+  border-left-color: #b42318;
+}
+
+.admin-dashboard-monitoring-alert-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-dashboard-monitoring-alert-title > span {
+  align-items: center;
+  background: var(--ss-blue, #1f66b1);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 850;
+  justify-content: center;
+  min-height: 25px;
+  min-width: 25px;
+  padding: 4px 8px;
+}
+
+.admin-dashboard-monitoring-feedback-list {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-dashboard-monitoring-feedback-item {
+  border-top: 1px solid #e4eaf2;
+  display: grid;
+  gap: 3px;
+  padding-top: 10px;
+}
+
+.admin-dashboard-monitoring-feedback-item strong { color: var(--ss-blue-dark); }
+.admin-dashboard-monitoring-feedback-item span { color: #5f6b7a; font-size: .86rem; overflow-wrap: anywhere; }
 
 .admin-dashboard-attendance-alert-title {
   align-items: center;
