@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const profileId = await resolveProfileIdForAuthUser(authData.user.id);
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
-    .select("id, email, role")
+    .select("id, email, role, first_name, last_name")
     .eq("id", profileId)
     .maybeSingle();
   if (profileError) return errorResponse("Unable to verify student access.", 500);
@@ -35,7 +35,12 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { id: profile.id, email: profile.email || authData.user.email || null },
+    {
+      id: profile.id,
+      email: profile.email || authData.user.email || null,
+      first_name: profile.first_name || null,
+      last_name: profile.last_name || null,
+    },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

@@ -80,14 +80,7 @@ export default function StudentDashboard() {
         const courseInfo = await getCurrentStudentCourseInfo();
 
         setStudentId(user.id);
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("first_name")
-          .eq("id", user.id)
-          .single();
-
-        setStudentName(profile?.first_name || "Student");
+        setStudentName(user.first_name || "Student");
         setTeacherName(
           `${teacher.first_name || ""} ${
             teacher.last_name || ""

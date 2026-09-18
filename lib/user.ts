@@ -26,6 +26,8 @@ export async function getCurrentUser() {
     ...session.user,
     id: String(payload.id),
     email: payload.email || session.user.email,
+    first_name: payload.first_name || null,
+    last_name: payload.last_name || null,
   };
 }
 
