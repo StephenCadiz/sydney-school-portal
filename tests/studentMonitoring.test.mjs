@@ -56,9 +56,74 @@ test("Teacher cards persist until feedback and keep overdue tasks visible", () =
   assert.match(tasks, /status === "overdue"/);
   assert.match(tasks, /cache: "no-store"/);
   assert.match(tasks, /setActive\(record\)/);
-  assert.match(layout, /<TeacherStudentMonitoringTasks \/>/);
+  assert.match(layout, /<TeacherStudentMonitoringTasks/);
   assert.match(sidebar, /studentMonitoringCount/);
   assert.match(sidebar, /title="Student Monitoring"/);
+});
+
+test("Teacher Student Monitoring opens as a floating mailbox-style window", () => {
+  assert.match(sidebar, /onStudentMonitoringOpen/);
+  assert.match(sidebar, /aria-haspopup="dialog"/);
+  assert.match(sidebar, /onStudentMonitoringOpen\(\)/);
+  assert.match(layout, /studentMonitoringOpen/);
+  assert.match(layout, /openRequested={studentMonitoringOpen}/);
+  assert.match(tasks, /role="dialog"/);
+  assert.match(tasks, /aria-modal="true"/);
+  assert.match(tasks, /onKeyDown/);
+  assert.match(tasks, /event.key === "Escape"/);
+  assert.match(tasks, /document.body.style.overflow = "hidden"/);
+  assert.match(tasks, /teacher-monitoring-modal-backdrop/);
+  assert.match(tasks, /Needs feedback/);
+  assert.match(tasks, /Monitoring continued/);
+  assert.match(tasks, /Feedback submitted/);
+  assert.match(tasks, /Continue monitoring/);
+  assert.match(tasks, /Open class/);
+});
+
+test("Teacher monitoring modal keeps actions and mobile surfaces bounded", () => {
+  assert.match(styles, /teacher-monitoring-modal-record/);
+  assert.match(styles, /teacher-monitoring-modal-actions/);
+  assert.match(styles, /@media \(max-width: 700px\)[\s\S]*teacher-monitoring-modal-record/);
+  assert.match(styles, /teacher-monitoring-modal-actions button \{ flex: 1 1 145px/);
+  assert.match(tasks, /status === "overdue"/);
+  assert.match(tasks, /!overdue/);
+  assert.match(tasks, /No student monitoring tasks require your attention\./);
+  assert.match(tasks, /Retry/);
+});
+
+test("Teacher monitoring modal uses structured production-quality task cards", () => {
+  assert.match(tasks, /TEACHER TASKS/);
+  assert.match(tasks, /Review monitoring tasks for your assigned classes\./);
+  assert.match(tasks, /teacher-monitoring-record-header/);
+  assert.match(tasks, /teacher-monitoring-programme-badge/);
+  assert.match(tasks, /teacher-monitoring-status-badge/);
+  assert.match(tasks, /<dt>Level<\/dt>/);
+  assert.match(tasks, /<dt>Class<\/dt>/);
+  assert.match(tasks, /<dt>Schedule<\/dt>/);
+  assert.match(tasks, /<dt>Teacher<\/dt>/);
+  assert.match(tasks, /<dt>Reason<\/dt>/);
+  assert.match(tasks, /<dt>Feedback deadline<\/dt>/);
+  assert.match(tasks, /teacher-monitoring-group-count/);
+  assert.match(tasks, /populatedGroups = useMemo/);
+  assert.match(tasks, /populatedGroups\.map/);
+  assert.match(tasks, /No student monitoring tasks require your attention\./);
+  assert.match(tasks, /teacher-monitoring-action-primary/);
+  assert.match(tasks, /teacher-monitoring-action-secondary/);
+  assert.match(tasks, /teacher-monitoring-action-tertiary/);
+  assert.match(styles, /teacher-monitoring-modal {[^}]*backdrop-filter: blur\(18px\)/s);
+  assert.match(styles, /teacher-monitoring-modal-list {[^}]*overflow-y: auto/s);
+  assert.match(styles, /teacher-monitoring-record-details {[^}]*grid-template-columns: repeat\(2/s);
+  assert.match(styles, /teacher-monitoring-status-overdue/);
+});
+
+test("Teacher monitoring omits empty status sections and keeps the shared count", () => {
+  assert.match(tasks, /groupedRecords\.filter\(\(group\) => group\.records\.length > 0\)/);
+  assert.match(tasks, /populatedGroups\.length === 0/);
+  assert.match(sidebar, /studentMonitoringCount/);
+  assert.match(tasks, /Complete feedback/);
+  assert.match(tasks, /Continue monitoring/);
+  assert.doesNotMatch(tasks, /No \{group\.title\.toLowerCase\(\)\} tasks/);
+  assert.match(styles, /teacher-monitoring-empty-state/);
 });
 
 test("Madrid deadline and secure RPC settings are explicit", () => {
@@ -178,7 +243,7 @@ test("Admin monitoring feedback stays visible until an outcome and is clearly st
 test("Teacher continuation preserves the authoritative deadline", () => {
   assert.doesNotMatch(tasks, /type="date"/);
   assert.match(tasks, /existing deadline/);
-  assert.match(tasks, /body\s*:\s*action === "continue" \? JSON\.stringify\(\{ action \}\)/);
+  assert.match(tasks, /body\s*:\s*action === "continue"\s*\?\s*JSON\.stringify\(\{ action \}\)/);
   assert.match(teacherRoute, /loadMonitoringRecords\(auth\.actor\.id, "teacher"\)/);
   assert.match(teacherRoute, /p_new_deadline: current\.feedback_due_on/);
   assert.match(teacherRoute, /current\.status === "overdue"/);

@@ -35,6 +35,7 @@ export default function TeacherLayout({
   const [isSyllabusCoordinator, setIsSyllabusCoordinator] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [studentMonitoringCount, setStudentMonitoringCount] = useState(0);
+  const [studentMonitoringOpen, setStudentMonitoringOpen] = useState(false);
   const mountedRef = useRef(false);
   const unreadCountErrorLoggedRef = useRef(false);
   const pathname = usePathname();
@@ -58,6 +59,7 @@ export default function TeacherLayout({
       setTeacherFirstName("");
       setUnreadMessageCount(0);
       setStudentMonitoringCount(0);
+      setStudentMonitoringOpen(false);
       setShowWelcome(false);
     });
 
@@ -72,6 +74,7 @@ export default function TeacherLayout({
             setTeacherId("");
             setTeacherFirstName("");
             setUnreadMessageCount(0);
+            setStudentMonitoringOpen(false);
             setIsSyllabusCoordinator(false);
           }
           return;
@@ -111,6 +114,7 @@ export default function TeacherLayout({
               setTeacherId("");
               setTeacherFirstName("");
               setUnreadMessageCount(0);
+              setStudentMonitoringOpen(false);
             }
             return;
           }
@@ -122,6 +126,7 @@ export default function TeacherLayout({
             setTeacherId("");
             setTeacherFirstName("");
             setUnreadMessageCount(0);
+            setStudentMonitoringOpen(false);
             setIsSyllabusCoordinator(false);
           }
           return;
@@ -239,6 +244,7 @@ export default function TeacherLayout({
         unreadMessageCount={unreadMessageCount}
         studentMonitoringCount={studentMonitoringCount}
         showSyllabuses={isSyllabusCoordinator}
+        onStudentMonitoringOpen={() => setStudentMonitoringOpen(true)}
       />
 
       <main
@@ -260,7 +266,10 @@ export default function TeacherLayout({
 
         <Suspense fallback={null}>
           <TeacherOutstandingTaskCards />
-          <TeacherStudentMonitoringTasks />
+          <TeacherStudentMonitoringTasks
+            openRequested={studentMonitoringOpen}
+            onOpenRequestHandled={() => setStudentMonitoringOpen(false)}
+          />
         </Suspense>
 
         <div className="teacher-main-content-body">

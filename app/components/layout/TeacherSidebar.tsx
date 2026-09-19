@@ -19,6 +19,7 @@ interface TeacherSidebarProps {
   unreadMessageCount?: number;
   showSyllabuses?: boolean;
   studentMonitoringCount?: number;
+  onStudentMonitoringOpen?: () => void;
 }
 
 export default function TeacherSidebar({
@@ -27,6 +28,7 @@ export default function TeacherSidebar({
   unreadMessageCount = 0,
   showSyllabuses = false,
   studentMonitoringCount = 0,
+  onStudentMonitoringOpen,
 }: TeacherSidebarProps) {
   const pathname = usePathname();
 
@@ -113,14 +115,26 @@ export default function TeacherSidebar({
         onClick={onClose}
       />
 
-      <SidebarItem
-        href="/teacher"
-        icon={<Settings size={20} />}
-        title="Student Monitoring"
-        active={false}
-        onClick={onClose}
-        unreadCount={studentMonitoringCount}
-      />
+      {onStudentMonitoringOpen ? (
+        <SidebarButton
+          icon={<Settings size={20} />}
+          title="Student Monitoring"
+          unreadCount={studentMonitoringCount}
+          onClick={() => {
+            onClose?.();
+            onStudentMonitoringOpen();
+          }}
+        />
+      ) : (
+        <SidebarItem
+          href="/teacher"
+          icon={<Settings size={20} />}
+          title="Student Monitoring"
+          active={false}
+          onClick={onClose}
+          unreadCount={studentMonitoringCount}
+        />
+      )}
 
       <div style={{ flex: 1 }} />
 
@@ -212,5 +226,60 @@ function SidebarItem({
       </span>
       <UnreadBadge count={unreadCount} />
     </Link>
+  );
+}
+
+function SidebarButton({
+  icon,
+  title,
+  unreadCount = 0,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  unreadCount?: number;
+  onClick: () => void;
+}) {
+  const ariaLabel =
+    unreadCount > 0 ? `${title}, ${unreadCount} unread` : title;
+
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      aria-haspopup="dialog"
+      className="ss-sidebar-link teacher-sidebar-link"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        justifyContent: "space-between",
+        color: "#fff",
+        textDecoration: "none",
+        padding: "12px",
+        borderRadius: "8px",
+        marginBottom: "6px",
+        background: "rgba(255,255,255,0.08)",
+        fontWeight: 500,
+        width: "100%",
+        border: 0,
+        textAlign: "left",
+        cursor: "pointer",
+      }}
+    >
+      <span
+        style={{
+          alignItems: "center",
+          display: "inline-flex",
+          gap: "12px",
+          minWidth: 0,
+        }}
+      >
+        {icon}
+        <span>{title}</span>
+      </span>
+      <UnreadBadge count={unreadCount} />
+    </button>
   );
 }
