@@ -91,8 +91,14 @@ test("Rosa Vara's confirmed duty ID is passed through the controlled delete help
   assert.match(page, /onClick=\{\(\) => removeDuty\(duty\)\}/);
 });
 
-test("legacy Friday Tutorials route redirects to the canonical duty workflow", () => {
-  assert.match(legacyPage, /window\.location\.replace\("\/admin\/friday-exam-practice"\)/);
+test("Admin Friday navigation keeps Tutorials and Friday @ 6 on separate routes", () => {
+  const adminLayout = readFileSync(new URL("../app/components/layout/AdminLayout.tsx", import.meta.url), "utf8");
+  assert.match(adminLayout, /\{ name: "Friday Tutorials", href: "\/admin\/friday-tutorials"/);
+  assert.match(adminLayout, /\{ name: "Friday @ 6", href: "\/admin\/friday-exam-practice"/);
+  assert.doesNotMatch(legacyPage, /window\.location\.replace\("\/admin\/friday-exam-practice"\)/);
+  assert.match(legacyPage, /export default function AdminFridayTutorialsPage/);
+  assert.match(legacyPage, /const \[activeTab, setActiveTab\] = useState\("weekly"\)/);
+  assert.match(page, /Friday @ 6/);
 });
 
 test("exam practice is independent of tutorial rotation and requires a Friday", () => {
