@@ -132,10 +132,46 @@ async function getCounts(userId: string) {
     };
   }
 
+  const categoryQuery = (privacy: "admin" | "private", dealt: boolean) => {
+    let query = supabaseAdmin
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .is("admin_deleted_at", null);
+
+    if (privacy === "admin") {
+      query = query.eq("recipient_group", "admin").is("receiver_id", null);
+    } else {
+      query = query.eq("receiver_id", userId).is("recipient_group", null);
+    }
+
+    return dealt
+      ? query.not("dealt_with_at", "is", null)
+      : query.is("dealt_with_at", null);
+  };
+
+  const categoryResults = await Promise.all([
+    categoryQuery("admin", false),
+    categoryQuery("private", false),
+    categoryQuery("admin", true),
+    categoryQuery("private", true),
+  ]);
+  const categoryError = categoryResults.find((result) => result.error)?.error;
+  if (categoryError) {
+    return {
+      counts: null,
+      error: categoryError,
+      stage: "message-category-counts",
+    };
+  }
+
   return {
     counts: {
       active: activeResult.count || 0,
       dealt: dealtResult.count || 0,
+      admin_active: categoryResults[0].count || 0,
+      private_active: categoryResults[1].count || 0,
+      admin_dealt: categoryResults[2].count || 0,
+      private_dealt: categoryResults[3].count || 0,
     },
     error: null,
     stage: null,

@@ -8,6 +8,7 @@ const messages = read("lib/messages.ts");
 const teacherPage = read("app/teacher/messages/page.tsx");
 const teacherMessageStyles = read("app/globals.css");
 const adminPage = read("app/admin/messages/page.tsx");
+const adminStyles = read("app/globals.css");
 const adminSentRoute = read("app/api/admin/messages/sent/route.ts");
 const migration = read(
   "supabase/migrations/20260911150000_private_rosa_staff_messages.sql"
@@ -168,6 +169,36 @@ test("Rosa can switch between Admin and Rosa Vara sender identities", () => {
   assert.match(messages, /isRosaProfile\(senderProfile\) && senderIdentity === "admin"\s*\? "admin"\s*:\s*null/);
   assert.match(messages, /isRosaProfile\(senderProfile\) && senderIdentity === "admin"/);
   assert.match(messages, /message\.recipient_group === "admin" \? "Admin"/);
+});
+
+test("Rosa receives a mailbox-selection screen with separate Admin and Private folders", () => {
+  for (const label of [
+    "Admin Inbox",
+    "Private Inbox",
+    "Admin Sent",
+    "Private Sent",
+    "Admin Dealt with",
+    "Private Dealt with",
+  ]) {
+    assert.match(adminPage, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.match(adminPage, /Choose a mailbox/);
+  assert.match(adminPage, /setActiveTab\("Mailbox selection"\)/);
+  assert.match(adminPage, /isRosaAdmin && !rosaMailbox/);
+  assert.match(adminPage, /selectRosaMailbox\(mailbox\.id\)/);
+  assert.match(adminPage, /recipient_group === "admin"/);
+  assert.match(adminPage, /!isAdminIdentityMessage\(message\)/);
+});
+
+test("Rosa mailbox counts and responsive cards stay scoped to the Admin Messages UI", () => {
+  assert.match(adminPage, /admin_active/);
+  assert.match(adminPage, /private_active/);
+  assert.match(adminPage, /admin_dealt/);
+  assert.match(adminPage, /private_dealt/);
+  assert.match(adminPage, /getRosaMailboxCount/);
+  assert.match(adminStyles, /\.admin-message-mailbox-grid[\s\S]*grid-template-columns: repeat\(2/);
+  assert.match(adminStyles, /@media \(max-width: 680px\)[\s\S]*\.admin-message-mailbox-grid[\s\S]*grid-template-columns: 1fr/);
+  assert.match(adminStyles, /\.admin-message-mailbox-card:focus-visible/);
 });
 
 test("Admin identity inserts are constrained by Admin RLS and teacher recipients", () => {

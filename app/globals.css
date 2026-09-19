@@ -6620,6 +6620,14 @@ img {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .admin-message-mailbox-card {
+    transition: none;
+  }
+
+  .admin-message-mailbox-card:hover {
+    transform: none;
+  }
+
   .admin-portal-header .admin-dashboard-message-control {
     transition: none;
   }
@@ -6634,6 +6642,79 @@ img {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 18px;
+}
+
+.admin-message-mailbox-selection {
+  background: #ffffff;
+  border: 1px solid #dbe3f0;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(31, 60, 136, 0.08);
+  margin-bottom: 18px;
+  padding: 24px;
+}
+
+.admin-message-mailbox-selection h2 {
+  color: var(--ss-blue);
+  font-size: 22px;
+  margin: 0 0 6px;
+}
+
+.admin-message-mailbox-selection > p {
+  color: #64748b;
+  margin: 0 0 18px;
+}
+
+.admin-message-mailbox-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-message-mailbox-card {
+  align-items: flex-start;
+  background: #f8fafd;
+  border: 1px solid #dbe3f0;
+  border-radius: 12px;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 120px;
+  padding: 16px;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  width: 100%;
+}
+
+.admin-message-mailbox-card:hover {
+  border-color: var(--ss-blue);
+  box-shadow: 0 8px 18px rgba(31, 60, 136, 0.12);
+  transform: translateY(-1px);
+}
+
+.admin-message-mailbox-card:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.32);
+  outline-offset: 2px;
+}
+
+.admin-message-mailbox-card-title {
+  color: var(--ss-blue);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.admin-message-mailbox-card-description {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-message-mailbox-card-count {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 800;
+  margin-top: auto;
 }
 
 .admin-message-tabs button:focus-visible,
@@ -7558,6 +7639,14 @@ img {
 }
 
 @media (max-width: 680px) {
+  .admin-message-mailbox-selection {
+    padding: 18px;
+  }
+
+  .admin-message-mailbox-grid {
+    grid-template-columns: 1fr;
+  }
+
   .admin-message-tabs button {
     flex: 1 1 calc(50% - 5px);
     min-height: 44px;

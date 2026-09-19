@@ -27,6 +27,74 @@ import {
 
 const tabs = ["New / Active", "Dealt With", "Sent", "New Message"];
 
+type RosaMailbox =
+  | "admin-inbox"
+  | "private-inbox"
+  | "admin-sent"
+  | "private-sent"
+  | "admin-dealt"
+  | "private-dealt";
+
+type AdminMessageCounts = {
+  active: number;
+  dealt: number;
+  admin_active?: number;
+  private_active?: number;
+  admin_dealt?: number;
+  private_dealt?: number;
+};
+
+const ROSA_MAILBOXES: Array<{
+  id: RosaMailbox;
+  label: string;
+  description: string;
+  kind: "inbox" | "sent" | "dealt";
+  privacy: "admin" | "private";
+}> = [
+  {
+    id: "admin-inbox",
+    label: "Admin Inbox",
+    description: "Shared Admin messages requiring attention.",
+    kind: "inbox",
+    privacy: "admin",
+  },
+  {
+    id: "private-inbox",
+    label: "Private Inbox",
+    description: "Direct messages addressed privately to Rosa Vara.",
+    kind: "inbox",
+    privacy: "private",
+  },
+  {
+    id: "admin-sent",
+    label: "Admin Sent",
+    description: "Messages Rosa sent using the Admin identity.",
+    kind: "sent",
+    privacy: "admin",
+  },
+  {
+    id: "private-sent",
+    label: "Private Sent",
+    description: "Messages Rosa sent as Rosa Vara.",
+    kind: "sent",
+    privacy: "private",
+  },
+  {
+    id: "admin-dealt",
+    label: "Admin Dealt with",
+    description: "Shared Admin messages already marked dealt with.",
+    kind: "dealt",
+    privacy: "admin",
+  },
+  {
+    id: "private-dealt",
+    label: "Private Dealt with",
+    description: "Private messages already marked dealt with.",
+    kind: "dealt",
+    privacy: "private",
+  },
+];
+
 type AdminMessageDeleteTarget = {
   id: string;
   section: "sent" | "dealt";
@@ -77,11 +145,15 @@ export default function AdminMessagesPage() {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [activeMessages, setActiveMessages] = useState<any[]>([]);
   const [dealtMessages, setDealtMessages] = useState<any[]>([]);
-  const [messageCounts, setMessageCounts] = useState({ active: 0, dealt: 0 });
+  const [messageCounts, setMessageCounts] = useState<AdminMessageCounts>({
+    active: 0,
+    dealt: 0,
+  });
   const [canDeleteAdminMessages, setCanDeleteAdminMessages] = useState(false);
   const [dealtHasMore, setDealtHasMore] = useState(false);
   const [loadingMoreDealt, setLoadingMoreDealt] = useState(false);
   const [sentMessages, setSentMessages] = useState<any[]>([]);
+  const [rosaMailbox, setRosaMailbox] = useState<RosaMailbox | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [recipientMode, setRecipientMode] = useState("all");
   const [teacherId, setTeacherId] = useState("");
@@ -106,6 +178,40 @@ export default function AdminMessagesPage() {
   const selectedMessageRef = useRef<any | null>(null);
   const { soundEnabled, setSoundEnabled } =
     useStaffMessageSoundPreference();
+
+  const selectedRosaMailbox = ROSA_MAILBOXES.find(
+    (mailbox) => mailbox.id === rosaMailbox
+  );
+
+  function selectRosaMailbox(mailbox: RosaMailbox) {
+    setRosaMailbox(mailbox);
+    setSelectedMessage(null);
+    setStatusMessage("");
+    setErrorMessage("");
+    const definition = ROSA_MAILBOXES.find((item) => item.id === mailbox);
+    setActiveTab(definition?.kind === "sent" ? "Sent" : definition?.kind === "dealt" ? "Dealt With" : "New / Active");
+  }
+
+  function isAdminIdentityMessage(message: any) {
+    return message?.recipient_group === "admin";
+  }
+
+  function mailboxMatchesMessage(
+    mailbox: (typeof ROSA_MAILBOXES)[number],
+    message: any
+  ) {
+    return mailbox.privacy === "admin"
+      ? isAdminIdentityMessage(message)
+      : !isAdminIdentityMessage(message);
+  }
+
+  function getRosaMailboxCount(mailbox: (typeof ROSA_MAILBOXES)[number]) {
+    if (mailbox.id === "admin-inbox") return messageCounts.admin_active ?? activeMessages.filter((message) => mailboxMatchesMessage(mailbox, message)).length;
+    if (mailbox.id === "private-inbox") return messageCounts.private_active ?? activeMessages.filter((message) => mailboxMatchesMessage(mailbox, message)).length;
+    if (mailbox.id === "admin-dealt") return messageCounts.admin_dealt ?? dealtMessages.filter((message) => mailboxMatchesMessage(mailbox, message)).length;
+    if (mailbox.id === "private-dealt") return messageCounts.private_dealt ?? dealtMessages.filter((message) => mailboxMatchesMessage(mailbox, message)).length;
+    return sentMessages.filter((message) => mailboxMatchesMessage(mailbox, message)).length;
+  }
 
   const loadMessages = useCallback(async (currentAdminId: string) => {
     if (!currentAdminId) return;
@@ -200,7 +306,12 @@ export default function AdminMessagesPage() {
         if (!mountedRef.current) return;
 
         setAdminId(session.user.id);
-        setIsRosaAdmin(isRosaProfile(profile));
+        const rosaAdmin = isRosaProfile(profile);
+        setIsRosaAdmin(rosaAdmin);
+        if (rosaAdmin) {
+          setRosaMailbox(null);
+          setActiveTab("Mailbox selection");
+        }
 
         const teacherData = await getTeachers();
         if (!mountedRef.current) return;
@@ -340,6 +451,9 @@ export default function AdminMessagesPage() {
       setAttachmentFiles([]);
       setTeacherId("");
       await loadMessages(adminId);
+      if (isRosaAdmin) {
+        setRosaMailbox(senderIdentity === "admin" ? "admin-sent" : "private-sent");
+      }
       setActiveTab("Sent");
     } catch (error) {
       if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
@@ -393,6 +507,12 @@ export default function AdminMessagesPage() {
       setReplyAttachmentFiles([]);
       setStatusMessage("Reply sent successfully.");
       await loadMessages(adminId);
+      if (isRosaAdmin) {
+        setRosaMailbox(
+          replySenderIdentity === "admin" ? "admin-sent" : "private-sent"
+        );
+        setActiveTab("Sent");
+      }
     } catch (error) {
       if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send admin reply:", error);
@@ -555,6 +675,16 @@ export default function AdminMessagesPage() {
 
   const queueMessages =
     activeTab === "Dealt With" ? dealtMessages : activeMessages;
+  const visibleQueueMessages = selectedRosaMailbox
+    ? queueMessages.filter((message) =>
+        mailboxMatchesMessage(selectedRosaMailbox, message)
+      )
+    : queueMessages;
+  const visibleSentMessages = selectedRosaMailbox
+    ? sentMessages.filter((message) =>
+        mailboxMatchesMessage(selectedRosaMailbox, message)
+      )
+    : sentMessages;
   const isQueueTab =
     activeTab === "New / Active" || activeTab === "Dealt With";
 
@@ -586,45 +716,133 @@ export default function AdminMessagesPage() {
           </button>
         </header>
 
-        <div
-          className="admin-message-tabs"
-          role="tablist"
-          aria-label="Admin message sections"
-        >
-          {tabs.map((tab) => {
-            const active = activeTab === tab;
-
-            return (
+        {isRosaAdmin ? (
+          <div className="admin-message-tabs" aria-label="Rosa Vara mailboxes">
+            {(rosaMailbox || activeTab === "New Message") && (
               <button
-                key={tab}
                 type="button"
-                role="tab"
-                aria-selected={active}
                 onClick={() => {
-                  setActiveTab(tab);
+                  setRosaMailbox(null);
+                  setActiveTab("Mailbox selection");
                   setSelectedMessage(null);
                   setStatusMessage("");
                   setErrorMessage("");
                 }}
                 style={{
-                  background: active ? "#1f3c88" : "#ffffff",
-                  color: active ? "#ffffff" : "#1f3c88",
-                  border: active ? "1px solid #1f3c88" : "1px solid #dbe3f0",
+                  background: "#ffffff",
+                  color: "#1f3c88",
+                  border: "1px solid #dbe3f0",
                   borderRadius: "999px",
                   padding: "10px 16px",
                   fontWeight: 700,
                   cursor: "pointer",
                 }}
               >
-                {tab === "New / Active"
-                  ? `New / Active (${messageCounts.active})`
-                  : tab === "Dealt With"
-                  ? `Dealt With (${messageCounts.dealt})`
-                  : tab}
+                ← Mailboxes
               </button>
-            );
-          })}
-        </div>
+            )}
+            {rosaMailbox && (
+              <span style={{ color: "#1f3c88", fontWeight: 800 }}>
+                {selectedRosaMailbox?.label}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("New Message");
+                setSelectedMessage(null);
+                setStatusMessage("");
+                setErrorMessage("");
+              }}
+              style={{
+                marginLeft: "auto",
+                background: "#1f3c88",
+                color: "#ffffff",
+                border: "1px solid #1f3c88",
+                borderRadius: "999px",
+                padding: "10px 16px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              New Message
+            </button>
+          </div>
+        ) : (
+          <div
+            className="admin-message-tabs"
+            role="tablist"
+            aria-label="Admin message sections"
+          >
+            {tabs.map((tab) => {
+              const active = activeTab === tab;
+
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setSelectedMessage(null);
+                    setStatusMessage("");
+                    setErrorMessage("");
+                  }}
+                  style={{
+                    background: active ? "#1f3c88" : "#ffffff",
+                    color: active ? "#ffffff" : "#1f3c88",
+                    border: active ? "1px solid #1f3c88" : "1px solid #dbe3f0",
+                    borderRadius: "999px",
+                    padding: "10px 16px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  {tab === "New / Active"
+                    ? `New / Active (${messageCounts.active})`
+                    : tab === "Dealt With"
+                    ? `Dealt With (${messageCounts.dealt})`
+                    : tab}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {!loading && isRosaAdmin && !rosaMailbox && activeTab !== "New Message" && (
+          <section
+            className="admin-message-mailbox-selection"
+            aria-labelledby="rosa-mailbox-selection-title"
+          >
+            <h2 id="rosa-mailbox-selection-title">Choose a mailbox</h2>
+            <p>Select Admin or Private mail before opening a message folder.</p>
+            <div className="admin-message-mailbox-grid">
+              {ROSA_MAILBOXES.map((mailbox) => {
+                const count = getRosaMailboxCount(mailbox);
+
+                return (
+                  <button
+                    key={mailbox.id}
+                    type="button"
+                    className="admin-message-mailbox-card"
+                    onClick={() => selectRosaMailbox(mailbox.id)}
+                  >
+                    <span className="admin-message-mailbox-card-title">
+                      {mailbox.label}
+                    </span>
+                    <span className="admin-message-mailbox-card-description">
+                      {mailbox.description}
+                    </span>
+                    <span className="admin-message-mailbox-card-count">
+                      {count} {count === 1 ? "message" : "messages"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {loading && (
           <section style={{ ...cardStyle, padding: "20px", color: "#334155" }}>
@@ -666,7 +884,7 @@ export default function AdminMessagesPage() {
                 marginBottom: "18px",
               }}
             >
-              ← Back to {activeTab}
+              ← Back to {selectedRosaMailbox?.label || activeTab}
             </button>
 
             <h2 style={{ color: "#1f3c88", margin: "0 0 10px" }}>
@@ -851,14 +1069,14 @@ export default function AdminMessagesPage() {
             {errorMessage && (
               <div className="admin-message-inline-error">{errorMessage}</div>
             )}
-            {queueMessages.length === 0 ? (
+            {visibleQueueMessages.length === 0 ? (
               <div style={{ padding: "22px", color: "#334155" }}>
                 {activeTab === "Dealt With"
                   ? "No messages have been dealt with yet."
                   : "No active messages."}
               </div>
             ) : (
-              queueMessages.map((item) => (
+              visibleQueueMessages.map((item) => (
                 <div
                   key={item.id}
                   className="admin-message-queue-row"
@@ -940,12 +1158,12 @@ export default function AdminMessagesPage() {
             {errorMessage && (
               <div className="admin-message-inline-error">{errorMessage}</div>
             )}
-            {sentMessages.length === 0 ? (
+            {visibleSentMessages.length === 0 ? (
               <div style={{ padding: "22px", color: "#334155" }}>
                 No sent messages yet.
               </div>
             ) : (
-              sentMessages.map((item) => (
+              visibleSentMessages.map((item) => (
                 <div
                   key={item.id}
                   style={{
