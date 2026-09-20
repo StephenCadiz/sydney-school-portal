@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
@@ -42,6 +43,20 @@ export type AdminMonitoringSummary = {
     teacher_name: string;
     submitted_at: string | null;
   }>;
+};
+
+type AdminNavItem = {
+  name: string;
+  href: string;
+  icon: AdminNavIconName;
+  section?: string;
+};
+
+type AdminNavGroup = {
+  key: string;
+  label: string;
+  icon: AdminNavIconName;
+  items: AdminNavItem[];
 };
 
 function AdminNavIcon({
@@ -243,6 +258,8 @@ function UnreadBadge({ count }: { count: number }) {
   );
 }
 
+const ADMIN_NAV_CLOSE_AFTER_NAVIGATION_KEY = "admin-nav-close-after-navigation";
+
 export default function AdminLayout({
   children,
 }: {
@@ -257,6 +274,16 @@ export default function AdminLayout({
   const [outstandingAdminMessages, setOutstandingAdminMessages] = useState(0);
   const [attendanceAlertCount, setAttendanceAlertCount] = useState(0);
   const [monitoringSummary, setMonitoringSummary] = useState<AdminMonitoringSummary>({ feedbackCount: 0, overdueCount: 0, feedback: [] });
+  const [openNavGroup, setOpenNavGroup] = useState("dashboard");
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [navigationMounted, setNavigationMounted] = useState(false);
+  const [flyoutPosition, setFlyoutPosition] = useState({ top: 0, left: 0 });
+  const adminNavRef = useRef<HTMLElement>(null);
+  const flyoutRef = useRef<HTMLDivElement>(null);
+  const groupButtonRefs = useRef<Record<string, HTMLElement | null>>({});
+  const previousPathnameRef = useRef<string | null>(null);
+  const openGroupRef = useRef("dashboard");
+  const suppressPathExpansionRef = useRef(false);
   const mountedRef = useRef(false);
   const outstandingCountErrorLoggedRef = useRef(false);
   const attendanceCountErrorLoggedRef = useRef(false);
@@ -429,75 +456,83 @@ export default function AdminLayout({
     refreshEventName: "admin-unread-messages-changed",
   });
 
-  const menuGroups = [
+  const menuGroups: AdminNavGroup[] = [
     {
+      key: "dashboard",
       label: "Dashboard",
-      showHeading: false,
+      icon: "home",
       items: [
         {
           name: "Dashboard",
           href: "/admin",
-          icon: "home" as AdminNavIconName,
+          icon: "home",
         },
       ],
     },
     {
+      key: "people-classes",
       label: "People & Classes",
+      icon: "users",
       items: [
-        { name: "Classes", href: "/admin/classes", icon: "school" as AdminNavIconName },
-        { name: "Academic Years", href: "/admin/academic-years", icon: "calendar" as AdminNavIconName },
-        { name: "Students", href: "/admin/students", icon: "graduation" as AdminNavIconName },
-        { name: "Teachers", href: "/admin/teachers", icon: "users" as AdminNavIconName },
-        { name: "Admin Staff", href: "/admin/admin-staff", icon: "users" as AdminNavIconName },
-        { name: "User Management", href: "/admin/add-users", icon: "userPlus" as AdminNavIconName },
+        { name: "Classes", href: "/admin/classes", icon: "school" },
+        { name: "Academic Years", href: "/admin/academic-years", icon: "calendar" },
+        { name: "Students", href: "/admin/students", icon: "graduation" },
+        { name: "Teachers", href: "/admin/teachers", icon: "users" },
+        { name: "Admin Staff", href: "/admin/admin-staff", icon: "users" },
+        { name: "User Management", href: "/admin/add-users", icon: "userPlus" },
       ],
     },
     {
-      label: "Cambridge Programme",
+      key: "exams-assessment",
+      label: "Exams & Assessment",
+      icon: "clipboard",
       items: [
-        { name: "Exam Bank", href: "/admin/exam-bank", icon: "clipboard" as AdminNavIconName },
-        { name: "Assigned Exams", href: "/admin/exam-bank/assignments", icon: "book" as AdminNavIconName },
-        { name: "Mock Results Review", href: "/admin/mock-results", icon: "clipboardCheck" as AdminNavIconName },
-        { name: "Course Planning", href: "/admin/course-planning", icon: "calendarCheck" as AdminNavIconName },
+        { name: "Exam Bank", href: "/admin/exam-bank", icon: "clipboard", section: "Cambridge assessment" },
+        { name: "Assigned Exams", href: "/admin/exam-bank/assignments", icon: "book", section: "Cambridge assessment" },
+        { name: "Mock Results Review", href: "/admin/mock-results", icon: "clipboardCheck", section: "Results and planning" },
+        { name: "Course Planning", href: "/admin/course-planning", icon: "calendarCheck", section: "Results and planning" },
+        { name: "Class Exams", href: "/admin/class-exams", icon: "clipboard", section: "Young Learner exams" },
+        { name: "Print Exams", href: "/admin/print-class-exams", icon: "printer", section: "Young Learner exams" },
       ],
     },
     {
-      label: "Young Learner Exams",
+      key: "calendar-scheduling",
+      label: "Calendar & Scheduling",
+      icon: "calendarCheck",
       items: [
-        { name: "Class Exams", href: "/admin/class-exams", icon: "clipboard" as AdminNavIconName },
-        { name: "Print Exams", href: "/admin/print-class-exams", icon: "printer" as AdminNavIconName },
+        { name: "Staff Time Register", href: "/admin/staff-time", icon: "clock" },
+        { name: "School Calendar", href: "/admin/school-calendar", icon: "calendarCheck" },
+        { name: "Teacher Calendar", href: "/admin/teacher-calendar", icon: "calendar" },
+        { name: "Friday Tutorials", href: "/admin/friday-tutorials", icon: "calendarCheck" },
+        { name: "Friday @ 6", href: "/admin/friday-exam-practice", icon: "clock" },
       ],
     },
     {
-      label: "Scheduling & Activities",
-      items: [
-        { name: "Staff Time Register", href: "/admin/staff-time", icon: "clock" as AdminNavIconName },
-        { name: "School Calendar", href: "/admin/school-calendar", icon: "calendarCheck" as AdminNavIconName },
-        { name: "Teacher Calendar", href: "/admin/teacher-calendar", icon: "calendar" as AdminNavIconName },
-        { name: "Friday Tutorials", href: "/admin/friday-tutorials", icon: "calendarCheck" as AdminNavIconName },
-        { name: "Friday @ 6", href: "/admin/friday-exam-practice", icon: "clock" as AdminNavIconName },
-      ],
-    },
-    {
+      key: "student-support",
       label: "Student Support",
+      icon: "attendance",
       items: [
-        { name: "Attendance", href: "/admin/attendance", icon: "attendance" as AdminNavIconName },
-        { name: "Follow Ups", href: "/admin/follow-ups", icon: "clipboardCheck" as AdminNavIconName },
-        { name: "Student Monitoring", href: "/admin/student-monitoring", icon: "clipboardCheck" as AdminNavIconName },
+        { name: "Attendance", href: "/admin/attendance", icon: "attendance" },
+        { name: "Follow Ups", href: "/admin/follow-ups", icon: "clipboardCheck" },
+        { name: "Student Monitoring", href: "/admin/student-monitoring", icon: "clipboardCheck" },
       ],
     },
     {
+      key: "communication",
       label: "Communication",
+      icon: "envelope",
       items: [
-        { name: "Messages", href: "/admin/messages", icon: "envelope" as AdminNavIconName },
-        { name: "Announcements", href: "/admin/announcements", icon: "megaphone" as AdminNavIconName },
+        { name: "Messages", href: "/admin/messages", icon: "envelope" },
+        { name: "Announcements", href: "/admin/announcements", icon: "megaphone" },
       ],
     },
     {
-      label: "Resources",
+      key: "teaching-resources",
+      label: "Teaching Resources",
+      icon: "folder",
       items: [
-        { name: "Resources", href: "/admin/resources", icon: "folder" as AdminNavIconName },
-        { name: "Syllabuses", href: "/admin/syllabuses", icon: "book" as AdminNavIconName },
+        { name: "Resources", href: "/admin/resources", icon: "folder" },
+        { name: "Syllabuses", href: "/admin/syllabuses", icon: "book" },
       ],
     },
   ];
@@ -519,6 +554,147 @@ export default function AdminLayout({
     return pathname.startsWith(href);
   };
 
+  const closeNavGroup = useCallback(
+    (restoreFocus = true) => {
+      const closingGroup = openGroupRef.current;
+      // Clear the ref as well as React state so a pathname refresh cannot
+      // resurrect the fly-out after an explicit child selection.
+      openGroupRef.current = "";
+      setOpenNavGroup("");
+      if (restoreFocus) {
+        window.setTimeout(() => groupButtonRefs.current[closingGroup]?.focus(), 0);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const activeGroup = menuGroups.find((group) =>
+      group.items.some((item) => isActive(item.href))
+    );
+    const previousPathname = previousPathnameRef.current;
+    let suppressInitialExpansion = false;
+
+    try {
+      const pendingClosePath = window.sessionStorage.getItem(
+        ADMIN_NAV_CLOSE_AFTER_NAVIGATION_KEY
+      );
+      if (pendingClosePath) {
+        window.sessionStorage.removeItem(ADMIN_NAV_CLOSE_AFTER_NAVIGATION_KEY);
+        suppressInitialExpansion = pendingClosePath === pathname;
+      }
+    } catch {
+      // Session storage may be unavailable in privacy-restricted browsers.
+    }
+
+    if (previousPathname === null) {
+      const initialGroup = suppressInitialExpansion
+        ? ""
+        : activeGroup?.key || "dashboard";
+      openGroupRef.current = initialGroup;
+      setOpenNavGroup(initialGroup);
+    } else if (previousPathname !== pathname) {
+      if (suppressPathExpansionRef.current) {
+        suppressPathExpansionRef.current = false;
+        closeNavGroup(false);
+      } else {
+        const nextGroup = activeGroup?.key || "dashboard";
+        openGroupRef.current = nextGroup;
+        setOpenNavGroup(nextGroup);
+      }
+    }
+
+    previousPathnameRef.current = pathname;
+  }, [pathname, closeNavGroup]);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setIsMobileViewport(window.matchMedia("(max-width: 700px)").matches);
+    };
+
+    updateViewport();
+    setNavigationMounted(true);
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  const updateFlyoutPosition = useCallback(() => {
+    if (!openNavGroup || openNavGroup === "dashboard" || isMobileViewport) return;
+
+    const button = groupButtonRefs.current[openNavGroup];
+    if (!button) return;
+
+    const rect = button.getBoundingClientRect();
+    const sidebar = adminNavRef.current?.closest<HTMLElement>(
+      ".admin-sidebar-panel"
+    );
+    const sidebarRect = sidebar?.getBoundingClientRect();
+    const panelHeight = flyoutRef.current?.getBoundingClientRect().height ?? 0;
+    const maxTop = Math.max(12, window.innerHeight - panelHeight - 12);
+    setFlyoutPosition({
+      top: Math.max(12, Math.min(rect.top, maxTop)),
+      left: (sidebarRect?.right ?? rect.right) + 12,
+    });
+  }, [isMobileViewport, openNavGroup]);
+
+  useEffect(() => {
+    if (!openNavGroup || openNavGroup === "dashboard" || isMobileViewport) return;
+
+    updateFlyoutPosition();
+    window.addEventListener("resize", updateFlyoutPosition);
+    window.addEventListener("scroll", updateFlyoutPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateFlyoutPosition);
+      window.removeEventListener("scroll", updateFlyoutPosition, true);
+    };
+  }, [isMobileViewport, openNavGroup, updateFlyoutPosition]);
+
+  useEffect(() => {
+    if (!openNavGroup || openNavGroup === "dashboard") return;
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        !adminNavRef.current?.contains(target) &&
+        !flyoutRef.current?.contains(target)
+      ) {
+        closeNavGroup();
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeNavGroup();
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [closeNavGroup, openNavGroup]);
+
+  useEffect(() => {
+    if (!openNavGroup || openNavGroup === "dashboard") return;
+
+    const isDesktop = window.matchMedia("(min-width: 701px)").matches;
+    if (!isDesktop) return;
+
+    window.requestAnimationFrame(() => {
+      flyoutRef.current?.querySelector<HTMLElement>('a[href], button:not([disabled])')?.focus();
+    });
+  }, [openNavGroup]);
+
+  const groupAttentionCount = (group: AdminNavGroup) => {
+    if (group.key === "student-support") {
+      return attendanceAlertCount + monitoringSummary.feedbackCount + monitoringSummary.overdueCount;
+    }
+    if (group.key === "communication") return outstandingAdminMessages;
+    return 0;
+  };
+
   const hasOutstandingAdminMessages = outstandingAdminMessages > 0;
   const outstandingAccessibleLabel = hasOutstandingAdminMessages
     ? `Messages, ${outstandingAdminMessages} requiring attention`
@@ -532,6 +708,85 @@ export default function AdminLayout({
       ? `Welcome, ${adminName.firstName || adminName.fullName}`
       : `Logged in as ${adminName.fullName}`
     : "Admin";
+
+  const openGroup =
+    openNavGroup && openNavGroup !== "dashboard"
+      ? menuGroups.find((group) => group.key === openNavGroup)
+      : undefined;
+  const renderGroupPanel = (group: AdminNavGroup, isFlyout: boolean) => {
+    const panelId = `admin-nav-panel-${group.key}`;
+
+    return (
+      <div
+        ref={flyoutRef}
+        id={panelId}
+        className={`admin-nav-group-panel${isFlyout ? " admin-nav-group-panel--flyout" : ""}`}
+        role="menu"
+        aria-label={`${group.label} menu`}
+        style={
+          isFlyout
+            ? { left: `${flyoutPosition.left}px`, top: `${flyoutPosition.top}px` }
+            : undefined
+        }
+      >
+        {group.items.map((item, itemIndex) => {
+          const isMessagesItem = item.href === "/admin/messages";
+          const isAttendanceItem = item.href === "/admin/attendance";
+          const previousItem = group.items[itemIndex - 1];
+          const showSubheading =
+            Boolean(item.section) && item.section !== previousItem?.section;
+
+          return (
+            <div key={item.href} className="admin-nav-child-wrap">
+              {showSubheading && (
+                <h3 className="admin-nav-child-heading">{item.section}</h3>
+              )}
+              <Link
+                href={item.href}
+                role="menuitem"
+                aria-current={isActive(item.href) ? "page" : undefined}
+                aria-label={
+                  isMessagesItem
+                    ? outstandingAccessibleLabel
+                    : isAttendanceItem
+                      ? attendanceAccessibleLabel
+                      : item.name
+                }
+                className="ss-sidebar-link admin-sidebar-link"
+                onClick={() => {
+                  suppressPathExpansionRef.current = item.href !== pathname;
+                  if (item.href !== pathname) {
+                    try {
+                      window.sessionStorage.setItem(
+                        ADMIN_NAV_CLOSE_AFTER_NAVIGATION_KEY,
+                        item.href
+                      );
+                    } catch {
+                      // Session storage may be unavailable in privacy-restricted browsers.
+                    }
+                  }
+                  closeNavGroup(false);
+                  setMenuOpen(false);
+                }}
+              >
+                <span className="admin-sidebar-link-main">
+                  <span className="admin-nav-icon">
+                    <AdminNavIcon name={item.icon} />
+                  </span>
+                  <span>{item.name}</span>
+                </span>
+                {isMessagesItem && <UnreadBadge count={outstandingAdminMessages} />}
+                {isAttendanceItem && <UnreadBadge count={attendanceAlertCount} />}
+                {item.name === "Student Monitoring" && (
+                  <UnreadBadge count={monitoringSummary.feedbackCount} />
+                )}
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -630,96 +885,99 @@ export default function AdminLayout({
           padding: "24px 20px 30px",
         }}
       >
-        <nav aria-label="Admin navigation">
-          {menuGroups.map((group, groupIndex) => {
-            const headingId = `admin-nav-group-${groupIndex}`;
+        <nav ref={adminNavRef} className="admin-sidebar-nav" aria-label="Admin navigation">
+          {menuGroups.map((group) => {
+            const isOpen = openNavGroup === group.key;
+            const attentionCount = groupAttentionCount(group);
+            const isDashboard = group.key === "dashboard";
 
             return (
               <section
-                key={group.label}
-                aria-label={group.showHeading === false ? group.label : undefined}
-                aria-labelledby={group.showHeading === false ? undefined : headingId}
-                style={{ marginTop: groupIndex === 0 ? 0 : "18px" }}
+                key={group.key}
+                className={`admin-nav-group${isOpen && !isDashboard ? " is-open" : ""}`}
               >
-                {group.showHeading !== false && (
-                  <h2
-                    id={headingId}
-                    style={{
-                      color: "rgba(255,255,255,0.68)",
-                      fontSize: "10px",
-                      fontWeight: 800,
-                      letterSpacing: "0.12em",
-                      margin: "0 10px 8px",
-                      textTransform: "uppercase",
+                {isDashboard ? (
+                  <Link
+                    href="/admin"
+                    ref={(element) => {
+                      groupButtonRefs.current[group.key] = element;
+                    }}
+                    className="admin-nav-group-toggle admin-nav-dashboard-link"
+                    aria-current={isActive("/admin") ? "page" : undefined}
+                    onClick={() => {
+                      suppressPathExpansionRef.current = pathname !== "/admin";
+                      if (pathname !== "/admin") {
+                        try {
+                          window.sessionStorage.setItem(
+                            ADMIN_NAV_CLOSE_AFTER_NAVIGATION_KEY,
+                            "/admin"
+                          );
+                        } catch {
+                          // Session storage may be unavailable in privacy-restricted browsers.
+                        }
+                      }
+                      closeNavGroup(false);
+                      setMenuOpen(false);
                     }}
                   >
-                    {group.label}
-                  </h2>
-                )}
-                {group.items.map((item) => {
-                  const isMessagesItem = item.href === "/admin/messages";
-                  const isAttendanceItem = item.href === "/admin/attendance";
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      aria-current={isActive(item.href) ? "page" : undefined}
-                      aria-label={
-                        isMessagesItem
-                          ? outstandingAccessibleLabel
-                          : isAttendanceItem
-                            ? attendanceAccessibleLabel
-                            : item.name
-                      }
-                      className="ss-sidebar-link admin-sidebar-link"
-                      onClick={() => setMenuOpen(false)}
-                      style={{
-                        alignItems: "center",
-                        color: "#ffffff",
-                        display: "flex",
-                        gap: "10px",
-                        justifyContent: "space-between",
-                        textDecoration: "none",
-                        padding: "11px 14px",
-                        borderRadius: "8px",
-                        marginBottom: "6px",
-                        background: isActive(item.href)
-                          ? "var(--ss-blue-hover)"
-                          : "rgba(255,255,255,0.12)",
-                        fontWeight: isActive(item.href) ? 700 : 500,
+                    <span className="admin-nav-group-label">
+                      <span className="admin-nav-icon">
+                        <AdminNavIcon name={group.icon} />
+                      </span>
+                      <span>{group.label}</span>
+                    </span>
+                  </Link>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="admin-nav-group-toggle"
+                      ref={(element) => {
+                        groupButtonRefs.current[group.key] = element;
+                      }}
+                      aria-expanded={isOpen}
+                      aria-haspopup="menu"
+                      aria-controls={`admin-nav-panel-${group.key}`}
+                      onClick={() => {
+                        if (isOpen) {
+                          closeNavGroup();
+                          return;
+                        }
+                        openGroupRef.current = group.key;
+                        setOpenNavGroup(group.key);
                       }}
                     >
-                      <span
-                        className="admin-sidebar-link-main"
-                        style={{
-                          alignItems: "center",
-                          display: "inline-flex",
-                          gap: "10px",
-                          minWidth: 0,
-                        }}
-                      >
+                      <span className="admin-nav-group-label">
                         <span className="admin-nav-icon">
-                          <AdminNavIcon name={item.icon} />
+                          <AdminNavIcon name={group.icon} />
                         </span>
-                        <span>{item.name}</span>
+                        <span>{group.label}</span>
                       </span>
-                      {isMessagesItem && <UnreadBadge count={outstandingAdminMessages} />}
-                      {isAttendanceItem && <UnreadBadge count={attendanceAlertCount} />}
-                      {item.name === "Student Monitoring" && <UnreadBadge count={monitoringSummary.feedbackCount} />}
-                    </Link>
-                  );
-                })}
+                      <span className="admin-nav-group-controls">
+                        <UnreadBadge count={attentionCount} />
+                        <span className="admin-nav-group-chevron" aria-hidden="true">⌄</span>
+                      </span>
+                    </button>
+
+                    {isOpen && isMobileViewport && renderGroupPanel(group, false)}
+                  </>
+                )}
               </section>
             );
           })}
         </nav>
         <div style={{ flex: 1 }} />
-        <LogoutButton
-          className="admin-logout"
-          onSuccess={() => setMenuOpen(false)}
-        />
+        <div className="admin-nav-logout-group">
+          <LogoutButton
+            className="admin-logout"
+            onSuccess={() => setMenuOpen(false)}
+          />
+        </div>
       </aside>
+
+      {navigationMounted && !isMobileViewport && openGroup
+        ? createPortal(renderGroupPanel(openGroup, true), document.body)
+        : null}
 
       {/* Main Content */}
 

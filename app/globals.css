@@ -6396,6 +6396,391 @@ img {
   min-height: 46px;
 }
 
+.admin-sidebar-nav {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-nav-group {
+  min-width: 0;
+  position: relative;
+}
+
+.admin-nav-group-toggle {
+  align-items: center;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.06)
+  ) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  box-sizing: border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 5px 14px rgba(8, 29, 72, 0.1);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 10px 12px;
+  position: relative;
+  text-align: left;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+  width: 100%;
+}
+
+.admin-nav-group-toggle:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.09)
+  ) !important;
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 18px rgba(8, 29, 72, 0.16);
+  transform: translateY(-1px);
+}
+
+.admin-nav-dashboard-link {
+  text-decoration: none;
+}
+
+.admin-nav-dashboard-link[aria-current="page"] {
+  background: linear-gradient(
+    135deg,
+    rgba(76, 145, 214, 0.92),
+    rgba(31, 92, 164, 0.88)
+  ) !important;
+  border-color: rgba(194, 226, 255, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 8px 18px rgba(8, 29, 72, 0.22);
+  color: #ffffff;
+}
+
+.admin-nav-group.is-open > .admin-nav-group-toggle {
+  background: linear-gradient(
+    135deg,
+    rgba(76, 145, 214, 0.92),
+    rgba(31, 92, 164, 0.88)
+  ) !important;
+  border-color: rgba(194, 226, 255, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 8px 18px rgba(8, 29, 72, 0.22);
+  transform: translateY(-1px);
+}
+
+.admin-nav-group-toggle:focus-visible,
+.admin-nav-group-panel .admin-sidebar-link:focus-visible {
+  border-color: rgba(255, 255, 255, 0.78);
+  outline: 3px solid rgba(191, 226, 255, 0.95);
+  outline-offset: 2px;
+}
+
+.admin-nav-group-toggle:active {
+  box-shadow:
+    inset 0 2px 5px rgba(8, 29, 72, 0.18),
+    0 3px 8px rgba(8, 29, 72, 0.1);
+  transform: translateY(0);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .admin-nav-group-toggle,
+  .admin-nav-group-panel .admin-sidebar-link,
+  .admin-nav-group-panel {
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    backdrop-filter: blur(14px) saturate(120%);
+  }
+}
+
+.admin-nav-group-label,
+.admin-nav-group-controls {
+  align-items: center;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.admin-nav-group-label {
+  gap: 10px;
+}
+
+.admin-nav-group-label > span:last-child {
+  font-size: 0.9rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.admin-nav-group-controls {
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.admin-nav-group-chevron {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 1.1rem;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 0.2s ease;
+}
+
+.admin-nav-group.is-open .admin-nav-group-chevron {
+  transform: rotate(180deg);
+}
+
+.admin-nav-group-panel {
+  background: linear-gradient(
+    145deg,
+    rgba(248, 252, 255, 0.9),
+    rgba(215, 234, 249, 0.76)
+  );
+  border: 1px solid rgba(91, 145, 192, 0.36);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 12px 28px rgba(31, 60, 136, 0.16);
+  border-radius: 12px;
+  color: var(--ss-blue-dark);
+  display: grid;
+  gap: 4px;
+  margin: 5px 0 2px;
+  padding: 7px;
+}
+
+.admin-nav-child-wrap {
+  min-width: 0;
+}
+
+.admin-nav-child-heading {
+  color: var(--ss-blue-dark);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin: 8px 8px 3px;
+  text-transform: uppercase;
+}
+
+.admin-nav-group-panel .admin-sidebar-link {
+  align-items: center;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.82),
+    rgba(235, 246, 254, 0.62)
+  ) !important;
+  border: 1px solid rgba(91, 145, 192, 0.3);
+  border-radius: 8px;
+  box-sizing: border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 4px 12px rgba(31, 60, 136, 0.1);
+  color: var(--ss-blue-dark);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  position: relative;
+  margin: 0;
+  min-height: 42px;
+  padding: 9px 10px;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.admin-nav-group-panel .admin-sidebar-link:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(229, 243, 253, 0.84)
+  ) !important;
+  border-color: rgba(52, 112, 173, 0.48);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 7px 16px rgba(31, 60, 136, 0.14);
+  transform: translateY(-1px);
+}
+
+.admin-nav-group-panel .admin-sidebar-link:active {
+  box-shadow:
+    inset 0 2px 5px rgba(31, 60, 136, 0.14),
+    0 3px 8px rgba(31, 60, 136, 0.1);
+  transform: translateY(0);
+}
+
+.admin-nav-group-panel .admin-sidebar-link[aria-current="page"] {
+  background: linear-gradient(
+    135deg,
+    rgba(76, 145, 214, 0.92),
+    rgba(31, 92, 164, 0.88)
+  ) !important;
+  border-color: rgba(194, 226, 255, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 8px 18px rgba(8, 29, 72, 0.22);
+  color: #ffffff;
+}
+
+.admin-nav-group-panel .admin-sidebar-link:focus-visible {
+  border-color: rgba(31, 92, 164, 0.68);
+  outline: 3px solid rgba(31, 92, 164, 0.42);
+  outline-offset: 2px;
+}
+
+.admin-nav-logout-group {
+  margin-top: 18px;
+}
+
+.admin-nav-logout-group .portal-logout-button {
+  align-items: center;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.06)
+  ) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 5px 14px rgba(8, 29, 72, 0.1);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 500;
+  gap: 12px;
+  justify-content: center;
+  line-height: 24px;
+  min-height: 44px;
+  padding: 12px;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+  width: 100%;
+}
+
+.admin-nav-logout-group .portal-logout-button:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.09)
+  ) !important;
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 18px rgba(8, 29, 72, 0.16);
+  transform: translateY(-1px);
+}
+
+.admin-nav-logout-group .portal-logout-button:active:not(:disabled) {
+  box-shadow:
+    inset 0 2px 5px rgba(8, 29, 72, 0.18),
+    0 3px 8px rgba(8, 29, 72, 0.1);
+  transform: translateY(0);
+}
+
+.admin-nav-logout-group .portal-logout-button:focus-visible {
+  border-color: rgba(255, 255, 255, 0.78);
+  outline: 3px solid rgba(191, 226, 255, 0.95);
+  outline-offset: 2px;
+}
+
+@media (min-width: 701px) {
+  .admin-sidebar-panel {
+    overflow: visible;
+    position: relative;
+    z-index: 90;
+  }
+
+  .admin-nav-group-panel--flyout .admin-sidebar-link {
+    white-space: nowrap;
+  }
+}
+
+/* Desktop group menus are portalled outside the sidebar so they overlay the
+   page without changing the sidebar's height or pushing the main content. */
+.admin-nav-group-panel--flyout {
+  background-color: rgba(238, 248, 255, 0.86) !important;
+  background: linear-gradient(
+    145deg,
+    rgba(248, 252, 255, 0.88),
+    rgba(209, 232, 249, 0.74)
+  );
+  border: 1px solid rgba(91, 145, 192, 0.36);
+  box-sizing: border-box;
+  color: var(--ss-blue-dark);
+  left: auto;
+  margin: 0;
+  max-height: calc(100vh - 24px);
+  min-width: 300px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: fixed !important;
+  top: auto;
+  width: min(360px, calc(100vw - 24px));
+  z-index: 1000;
+}
+
+.admin-layout-shell > .admin-sidebar-panel {
+  background: linear-gradient(
+    145deg,
+    rgba(45, 119, 187, 0.9),
+    rgba(27, 82, 148, 0.84)
+  ) !important;
+  border-right: 1px solid rgba(190, 224, 250, 0.34);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .admin-layout-shell > .admin-sidebar-panel {
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    backdrop-filter: blur(16px) saturate(120%);
+  }
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .admin-nav-group-panel--flyout {
+    -webkit-backdrop-filter: blur(18px) saturate(125%);
+    backdrop-filter: blur(18px) saturate(125%);
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-nav-group-panel--flyout {
+    position: static !important;
+    width: auto;
+  }
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .admin-nav-logout-group .portal-logout-button {
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    backdrop-filter: blur(14px) saturate(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-nav-group-toggle,
+  .admin-nav-group-panel .admin-sidebar-link,
+  .admin-nav-logout-group .portal-logout-button {
+    transition: none;
+  }
+
+  .admin-nav-group-toggle:hover,
+  .admin-nav-group-panel .admin-sidebar-link:hover,
+  .admin-nav-logout-group .portal-logout-button:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
 .admin-sidebar-link:focus-visible,
 .admin-dashboard-button:focus-visible,
 .admin-dashboard-secondary-link:focus-visible,
@@ -6407,6 +6792,10 @@ img {
 }
 
 .admin-sidebar-link-main {
+  align-items: center;
+  display: inline-flex;
+  gap: 10px;
+  min-width: 0;
   overflow: hidden;
 }
 
