@@ -493,124 +493,126 @@ export default function TeacherStudentMonitoringTasks({
               </p>
             </header>
 
-            {loadError && (
-              <div className="teacher-monitoring-modal-error" role="alert">
-                {loadError}
-                <button type="button" onClick={() => void load()}>
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {active ? (
-              <div className="teacher-monitoring-form-view">
-                <button
-                  type="button"
-                  className="teacher-monitoring-back"
-                  onClick={() => {
-                    if (!saving) {
-                      setActive(null);
-                      setActiveAction(null);
-                      setError("");
-                    }
-                  }}
-                >
-                  ← Back to monitoring tasks
-                </button>
-                <div className="teacher-monitoring-form-summary">
-                  <strong>{active.student_name || "Student"}</strong>
-                  <span>
-                    {active.programme || "Programme"} · {active.level_name || "Level"} · {active.class_name || "Class"}
-                  </span>
-                  <span>
-                    {formatSchedule(active)} · Due {active.feedback_due_on}
-                  </span>
+            <div className="teacher-monitoring-modal-body">
+              {loadError && (
+                <div className="teacher-monitoring-modal-error" role="alert">
+                  {loadError}
+                  <button type="button" onClick={() => void load()}>
+                    Retry
+                  </button>
                 </div>
-                {error && (
-                  <p className="teacher-monitoring-modal-error" role="alert">
-                    {error}
-                  </p>
-                )}
-                {activeAction === "continue" ? (
-                  <div className="teacher-monitoring-form">
-                    <p>
-                      The existing deadline of{" "}
-                      <strong>{active.feedback_due_on}</strong> will be preserved.
-                    </p>
-                    <button
-                      type="button"
-                      disabled={saving || active.status === "overdue"}
-                      onClick={() => void submit("continue")}
-                    >
-                      {saving ? "Saving…" : "Continue monitoring"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="teacher-monitoring-form">
-                    {FEEDBACK_FIELDS.map(([field, label]) => (
-                      <label key={field}>
-                        {label}
-                        <textarea
-                          required={field === "observations"}
-                          value={feedback[field]}
-                          onChange={(event) =>
-                            setFeedback((current) => ({
-                              ...current,
-                              [field]: event.target.value,
-                            }))
-                          }
-                        />
-                      </label>
-                    ))}
-                    <button
-                      type="button"
-                      disabled={saving || !feedback.observations.trim()}
-                      onClick={() => void submit("feedback")}
-                    >
-                      {saving ? "Saving…" : "Submit feedback"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : loading ? (
-              <p className="teacher-monitoring-modal-state">
-                Loading monitoring tasks…
-              </p>
-            ) : populatedGroups.length === 0 ? (
-              <p className="teacher-monitoring-empty-state">
-                No student monitoring tasks require your attention.
-              </p>
-            ) : (
-              <div className="teacher-monitoring-modal-list">
-                {populatedGroups.map((group) => (
-                  <section
-                    key={group.key}
-                    className="teacher-monitoring-modal-group"
+              )}
+
+              {active ? (
+                <div className="teacher-monitoring-form-view">
+                  <button
+                    type="button"
+                    className="teacher-monitoring-back"
+                    onClick={() => {
+                      if (!saving) {
+                        setActive(null);
+                        setActiveAction(null);
+                        setError("");
+                      }
+                    }}
                   >
-                    <header className="teacher-monitoring-group-header">
-                      <div>
-                        <h3>{group.title}</h3>
-                        <p>
-                          {group.key === "needs-feedback"
-                            ? "Feedback is required for these assigned classes."
-                            : group.key === "continued"
-                              ? "These tasks remain active under continued monitoring."
-                              : group.key === "overdue"
-                                ? "These deadlines have passed and need immediate attention."
-                                : "Previously submitted feedback retained for your history."}
-                        </p>
-                      </div>
-                      <span className="teacher-monitoring-group-count">
-                        {group.records.length}
-                      </span>
-                    </header>
-                    <div className="teacher-monitoring-group-records">
-                      {group.records.map((record) => renderRecord(record, true))}
+                    ← Back to monitoring tasks
+                  </button>
+                  <div className="teacher-monitoring-form-summary">
+                    <strong>{active.student_name || "Student"}</strong>
+                    <span>
+                      {active.programme || "Programme"} · {active.level_name || "Level"} · {active.class_name || "Class"}
+                    </span>
+                    <span>
+                      {formatSchedule(active)} · Due {active.feedback_due_on}
+                    </span>
+                  </div>
+                  {error && (
+                    <p className="teacher-monitoring-modal-error" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  {activeAction === "continue" ? (
+                    <div className="teacher-monitoring-form">
+                      <p>
+                        The existing deadline of{" "}
+                        <strong>{active.feedback_due_on}</strong> will be preserved.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={saving || active.status === "overdue"}
+                        onClick={() => void submit("continue")}
+                      >
+                        {saving ? "Saving…" : "Continue monitoring"}
+                      </button>
                     </div>
-                  </section>
-                ))}
-              </div>
-            )}
+                  ) : (
+                    <div className="teacher-monitoring-form">
+                      {FEEDBACK_FIELDS.map(([field, label]) => (
+                        <label key={field}>
+                          {label}
+                          <textarea
+                            required={field === "observations"}
+                            value={feedback[field]}
+                            onChange={(event) =>
+                              setFeedback((current) => ({
+                                ...current,
+                                [field]: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={saving || !feedback.observations.trim()}
+                        onClick={() => void submit("feedback")}
+                      >
+                        {saving ? "Saving…" : "Submit feedback"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : loading ? (
+                <p className="teacher-monitoring-modal-state">
+                  Loading monitoring tasks…
+                </p>
+              ) : populatedGroups.length === 0 ? (
+                <p className="teacher-monitoring-empty-state">
+                  No student monitoring tasks require your attention.
+                </p>
+              ) : (
+                <div className="teacher-monitoring-modal-list">
+                  {populatedGroups.map((group) => (
+                    <section
+                      key={group.key}
+                      className="teacher-monitoring-modal-group"
+                    >
+                      <header className="teacher-monitoring-group-header">
+                        <div>
+                          <h3>{group.title}</h3>
+                          <p>
+                            {group.key === "needs-feedback"
+                              ? "Feedback is required for these assigned classes."
+                              : group.key === "continued"
+                                ? "These tasks remain active under continued monitoring."
+                                : group.key === "overdue"
+                                  ? "These deadlines have passed and need immediate attention."
+                                  : "Previously submitted feedback retained for your history."}
+                          </p>
+                        </div>
+                        <span className="teacher-monitoring-group-count">
+                          {group.records.length}
+                        </span>
+                      </header>
+                      <div className="teacher-monitoring-group-records">
+                        {group.records.map((record) => renderRecord(record, true))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </div>
           </section>
         </div>
       )}

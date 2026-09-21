@@ -111,7 +111,8 @@ test("Teacher monitoring modal uses structured production-quality task cards", (
   assert.match(tasks, /teacher-monitoring-action-secondary/);
   assert.match(tasks, /teacher-monitoring-action-tertiary/);
   assert.match(styles, /teacher-monitoring-modal {[^}]*backdrop-filter: blur\(18px\)/s);
-  assert.match(styles, /teacher-monitoring-modal-list {[^}]*overflow-y: auto/s);
+  assert.match(styles, /teacher-monitoring-modal-body {[^}]*overflow-y: auto/s);
+  assert.match(styles, /teacher-monitoring-modal {[^}]*max-height: min\(760px, calc\(100dvh - 32px\)\)/s);
   assert.match(styles, /teacher-monitoring-record-details {[^}]*grid-template-columns: repeat\(2/s);
   assert.match(styles, /teacher-monitoring-status-overdue/);
 });
@@ -141,7 +142,20 @@ test("Responsive monitoring surfaces are bounded", () => {
   assert.match(styles, /teacher-monitoring-task-cards/);
   assert.match(styles, /teacher-monitoring-modal-backdrop/);
   assert.match(styles, /max-height: calc\(100vh - 20px\)/);
+  assert.match(styles, /max-height: calc\(100dvh - env\(safe-area-inset-top\)/);
+  assert.match(styles, /teacher-monitoring-modal-body {[^}]*scrollbar-gutter: stable/s);
+  assert.match(styles, /teacher-monitoring-modal-body::-webkit-scrollbar/);
   assert.match(styles, /@media \(max-width: 700px\)/);
+});
+
+test("Teacher feedback forms scroll inside the modal while the header stays fixed", () => {
+  assert.match(tasks, /className="teacher-monitoring-modal-body"/);
+  assert.match(tasks, /teacher-monitoring-modal-header[\s\S]*teacher-monitoring-modal-body/);
+  assert.match(tasks, /Submit feedback/);
+  assert.match(styles, /teacher-monitoring-modal {[^}]*overflow: hidden/s);
+  assert.match(styles, /teacher-monitoring-modal-body {[^}]*min-height: 0[^}]*overflow-x: hidden[^}]*overflow-y: auto/s);
+  assert.match(styles, /teacher-monitoring-modal-body::-webkit-scrollbar-thumb/);
+  assert.match(styles, /teacher-monitoring-form textarea { min-height: 82px; resize: vertical; }/);
 });
 
 test("Admin monitoring uses an accessible searchable all-programmes combobox", () => {
