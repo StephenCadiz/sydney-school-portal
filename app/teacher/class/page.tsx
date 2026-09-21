@@ -68,8 +68,6 @@ const cambridgeClassTabs = [
 
 const youngLearnerRemovedTabIds = new Set([
   "resources",
-  "shared-resources",
-  "official-resources",
   "homework",
   "class-exams",
   "unit-exam-results",
@@ -816,14 +814,14 @@ if (classResult.data) {
         />
       )}
 
-      {activeTab === "shared-resources" && isCambridgeClass && classData && (
+      {activeTab === "shared-resources" && (isCambridgeClass || isYoungLearnerClass) && classData && (
         <SharedResourcesTab
           levelId={classData.level_id}
           levelName={levelName}
         />
       )}
 
-      {activeTab === "official-resources" && isCambridgeClass && classData && (
+      {activeTab === "official-resources" && (isCambridgeClass || isYoungLearnerClass) && classData && (
         <OfficialResourcesTab
           classId={classData.id}
           levelId={classData.level_id}
