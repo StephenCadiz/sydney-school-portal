@@ -45,6 +45,28 @@ function LoginForm() {
         .single();
 
       if (profileError || !profile?.role) {
+        // Legacy Cambridge students can have a profile ID that differs from
+        // their Auth ID. Reuse the server-side mapping-aware session route
+        // instead of duplicating account-resolution logic in the client.
+        const accessToken = data.session?.access_token;
+        if (accessToken) {
+          const mappedSessionResponse = await fetch("/api/student/session", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            cache: "no-store",
+          });
+          const mappedSession = await mappedSessionResponse
+            .json()
+            .catch(() => ({}));
+          const resolvedProfileId =
+            typeof mappedSession?.id === "string" ? mappedSession.id : "";
+          // A successful response is Student-role-authorized by the endpoint;
+          // keep the resolved profile ID available for the routed session.
+          if (mappedSessionResponse.ok && resolvedProfileId) {
+            router.push("/student");
+            return;
+          }
+        }
+
         await supabase.auth.signOut();
         setErrorMessage("Unable to access your portal account. Please try again.");
         return;
