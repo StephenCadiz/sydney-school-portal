@@ -9,6 +9,7 @@ import {
   isStaffTimeReportStaffEligible,
   isStaffTimeStaffTabEligible,
   isStaffTimeTrackingEligible,
+  minutesBetween,
   staffTimeRoleLabel,
   wasAdminTimeRegistrationRequiredDuring,
 } from "../lib/staffTime.ts";
@@ -30,6 +31,13 @@ const baseMigration = readFileSync(
 const historicalCompanyMigration = readFileSync(
   new URL(
     "../supabase/migrations/20260910120000_add_historical_staff_time_company_correction.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const duplicateCorrectionMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260922130000_repair_staff_time_duplicate_correction.sql",
     import.meta.url
   ),
   "utf8"
@@ -460,6 +468,119 @@ test("reports include inclusive manual records, exclude outside dates, and dedup
   assert.equal(views.length, 4);
   assert.equal(views.filter((view) => view.work_date === "2026-09-10").length, 1);
   assert.equal(views.filter((view) => view.corrected).length, 4);
+});
+
+test("a linked duplicate-punch correction replaces the session span and recalculates exact minutes", () => {
+  const teacherId = "teacher-stephen";
+  const session = {
+    id: "clock-stephen-15",
+    teacher_id: teacherId,
+    work_date: "2026-09-15",
+    clocking_mode: "school_network",
+    opened_at: "2026-09-15T14:44:48.753Z",
+  };
+  const views = buildStaffTimeReportSessionViews(
+    [session],
+    [
+      {
+        session_id: session.id,
+        event_type: "sign_in",
+        occurred_at: "2026-09-15T14:44:48.753Z",
+        verification_result: "verified_school_network",
+      },
+      {
+        session_id: session.id,
+        event_type: "sign_out",
+        occurred_at: "2026-09-16T19:11:01.701Z",
+        verification_result: "verified_school_network",
+      },
+    ],
+    [{
+      id: "linked-correction-15",
+      teacher_id: teacherId,
+      work_date: "2026-09-15",
+      session_id: session.id,
+      requested_sign_in_at: "2026-09-15T14:44:00.000Z",
+      requested_sign_out_at: "2026-09-15T19:11:00.000Z",
+      reason: "Correct duplicate-punch span",
+      submitted_at: "2026-09-17T12:00:00.000Z",
+      reviewed_at: "2026-09-17T12:05:00.000Z",
+      status: "approved",
+    }],
+    "2026-09-15",
+    "2026-09-15"
+  );
+
+  assert.equal(views.length, 1);
+  assert.equal(views[0].corrected, true);
+  assert.equal(
+    minutesBetween(views[0].effective_sign_in_at, views[0].effective_sign_out_at),
+    267
+  );
+});
+
+test("superseded duplicate corrections are excluded while the linked repair remains authoritative", () => {
+  const teacherId = "teacher-stephen";
+  const sessionId = "clock-stephen-15";
+  const views = buildStaffTimeReportSessionViews(
+    [{
+      id: sessionId,
+      teacher_id: teacherId,
+      work_date: "2026-09-15",
+      clocking_mode: "school_network",
+      opened_at: "2026-09-15T14:44:48.753Z",
+    }],
+    [{
+      session_id: sessionId,
+      event_type: "sign_in",
+      occurred_at: "2026-09-15T14:44:48.753Z",
+      verification_result: "verified_school_network",
+    }],
+    [
+      {
+        id: "superseded-orphan",
+        teacher_id: teacherId,
+        work_date: "2026-09-15",
+        session_id: null,
+        requested_sign_in_at: "2026-09-15T14:30:00.000Z",
+        requested_sign_out_at: "2026-09-15T19:00:00.000Z",
+        reason: "Original duplicate",
+        submitted_at: "2026-09-17T12:00:00.000Z",
+        reviewed_at: "2026-09-17T12:05:00.000Z",
+        status: "approved",
+        superseded_at: "2026-09-18T12:00:00.000Z",
+      },
+      {
+        id: "active-linked-repair",
+        teacher_id: teacherId,
+        work_date: "2026-09-15",
+        session_id: sessionId,
+        requested_sign_in_at: "2026-09-15T14:44:00.000Z",
+        requested_sign_out_at: "2026-09-15T19:11:00.000Z",
+        reason: "Linked repair",
+        submitted_at: "2026-09-18T12:01:00.000Z",
+        reviewed_at: "2026-09-18T12:02:00.000Z",
+        status: "approved",
+      },
+    ],
+    "2026-09-15",
+    "2026-09-15"
+  );
+
+  assert.equal(views.length, 1);
+  assert.equal(views[0].corrected, true);
+  assert.equal(
+    minutesBetween(views[0].effective_sign_in_at, views[0].effective_sign_out_at),
+    267
+  );
+  assert.match(duplicateCorrectionMigration, /superseded_at/);
+  assert.match(duplicateCorrectionMigration, /repair_staff_time_duplicate_correction/);
+  assert.match(duplicateCorrectionMigration, /Select the existing clock session/);
+  assert.match(duplicateCorrectionMigration, /security definer[\s\S]*set search_path = pg_catalog, pg_temp/i);
+  assert.match(duplicateCorrectionMigration, /grant execute on function public\.repair_staff_time_duplicate_correction[\s\S]*to service_role/i);
+  assert.match(duplicateCorrectionMigration, /4dc8e050-349e-4354-a25c-aed1c804a0f7/);
+  assert.match(duplicateCorrectionMigration, /e873a73b-0937-4573-8f5f-745c57df8264/);
+  assert.match(duplicateCorrectionMigration, /00772f87-e46a-4aec-bdeb-84b6d0098258/);
 });
 
 test("historical company corrections are Admin-only, append-only, and period-bounded", () => {

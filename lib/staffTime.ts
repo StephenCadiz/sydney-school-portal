@@ -265,6 +265,7 @@ export type StaffTimeReportCorrection = {
   submitted_at: string;
   reviewed_at: string | null;
   status: "pending" | "approved" | "rejected";
+  superseded_at?: string | null;
 };
 
 /**
@@ -287,7 +288,12 @@ export function buildStaffTimeReportSessionViews(
   }
   const approvedBySession = new Map<string, StaffTimeReportCorrection>();
   for (const correction of corrections) {
-    if (correction.status !== "approved" || !correction.session_id || !inRange(correction.work_date)) {
+    if (
+      correction.status !== "approved" ||
+      correction.superseded_at ||
+      !correction.session_id ||
+      !inRange(correction.work_date)
+    ) {
       continue;
     }
     const current = approvedBySession.get(correction.session_id);
@@ -322,7 +328,11 @@ export function buildStaffTimeReportSessionViews(
     syntheticKeys.add(`${view.teacher_id}|${view.work_date}|${view.effective_sign_in_at || ""}|${view.effective_sign_out_at || ""}`);
   }
   for (const correction of corrections) {
-    if (correction.status !== "approved" || !inRange(correction.work_date)) continue;
+    if (
+      correction.status !== "approved" ||
+      correction.superseded_at ||
+      !inRange(correction.work_date)
+    ) continue;
     if (correction.session_id && includedSessionIds.has(correction.session_id)) continue;
     const key = `${correction.teacher_id}|${correction.work_date}|${correction.requested_sign_in_at || ""}|${correction.requested_sign_out_at || ""}`;
     if (syntheticKeys.has(key)) continue;
