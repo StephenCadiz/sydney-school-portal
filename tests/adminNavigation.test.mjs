@@ -129,6 +129,15 @@ test("Admin navigation has accessible responsive group and child surfaces", () =
   assert.match(layout, /mobile-sidebar-overlay/);
 });
 
+test("Communication stays on one line while its badge and chevron remain separate", () => {
+  assert.match(layout, /admin-nav-group-label--communication/);
+  assert.match(styles, /\.admin-nav-group-toggle \{[\s\S]*display: grid;[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto/);
+  assert.match(styles, /\.admin-nav-group-label--communication \{[\s\S]*grid-template-columns: 22px max-content/);
+  assert.match(styles, /\.admin-nav-group-label--communication \.admin-nav-group-label-text \{[\s\S]*overflow-wrap: normal;[\s\S]*white-space: nowrap;[\s\S]*word-break: normal/);
+  assert.match(styles, /.admin-nav-group-controls {[\s\S]*flex: 0 0 auto;[\s\S]*gap: 7px/);
+  assert.match(layout, /<span className="admin-nav-group-controls">[\s\S]*<UnreadBadge count=\{attentionCount\} \/>[\s\S]*admin-nav-group-chevron/);
+});
+
 test("Admin group buttons, child links, badges, and logout share Teacher liquid-glass styling", () => {
   assert.match(styles, /\.admin-nav-group-toggle \{[\s\S]*linear-gradient\(/);
   assert.match(styles, /\.admin-nav-group-toggle \{[\s\S]*inset 0 1px 0 rgba\(255, 255, 255, 0\.16\)/);

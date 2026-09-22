@@ -6427,7 +6427,8 @@ img {
     0 5px 14px rgba(8, 29, 72, 0.1);
   color: #fff;
   cursor: pointer;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   font: inherit;
   gap: 10px;
   justify-content: space-between;
@@ -6517,13 +6518,33 @@ img {
 }
 
 .admin-nav-group-label {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 22px minmax(0, 1fr);
   gap: 10px;
+  min-width: 0;
 }
 
-.admin-nav-group-label > span:last-child {
+.admin-nav-group-label-text {
   font-size: 0.9rem;
   font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+}
+
+.admin-nav-group-label--communication {
+  grid-template-columns: 22px max-content;
+  min-width: max-content;
+}
+
+.admin-nav-group-label--communication .admin-nav-group-label-text {
+  min-width: max-content;
+  overflow: visible;
+  overflow-wrap: normal;
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .admin-nav-group-controls {

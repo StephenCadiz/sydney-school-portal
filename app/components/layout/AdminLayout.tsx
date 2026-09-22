@@ -924,7 +924,7 @@ export default function AdminLayout({
                       <span className="admin-nav-icon">
                         <AdminNavIcon name={group.icon} />
                       </span>
-                      <span>{group.label}</span>
+                      <span className="admin-nav-group-label-text">{group.label}</span>
                     </span>
                   </Link>
                 ) : (
@@ -947,11 +947,17 @@ export default function AdminLayout({
                         setOpenNavGroup(group.key);
                       }}
                     >
-                      <span className="admin-nav-group-label">
+                      <span
+                        className={`admin-nav-group-label${
+                          group.key === "communication"
+                            ? " admin-nav-group-label--communication"
+                            : ""
+                        }`}
+                      >
                         <span className="admin-nav-icon">
                           <AdminNavIcon name={group.icon} />
                         </span>
-                        <span>{group.label}</span>
+                        <span className="admin-nav-group-label-text">{group.label}</span>
                       </span>
                       <span className="admin-nav-group-controls">
                         <UnreadBadge count={attentionCount} />
