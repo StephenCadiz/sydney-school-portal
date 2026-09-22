@@ -5,6 +5,7 @@ import {
   StaffTimeError,
   addAllowedNetwork,
   authoriseRemoteWork,
+  closeStaleSession,
   createManualCorrection,
   correctHistoricalCompanySettings,
   getTrustedRequestIp,
@@ -111,6 +112,9 @@ export async function POST(request: NextRequest) {
         break;
       case "manual_correction":
         result = await createManualCorrection(actor, body);
+        break;
+      case "close_stale_session":
+        result = await closeStaleSession(actor, body, getTrustedRequestIp(request));
         break;
       case "resolve_incidence":
         result = await resolveIncidence(actor, body);

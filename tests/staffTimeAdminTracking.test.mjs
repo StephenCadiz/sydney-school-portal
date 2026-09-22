@@ -42,6 +42,13 @@ const duplicateCorrectionMigration = readFileSync(
   ),
   "utf8"
 );
+const manualSignoutMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260922150000_harden_staff_time_manual_signout.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const historicalCorrectionMigration = readFileSync(
   new URL(
     "../supabase/migrations/20260911130000_allow_historical_staff_time_corrections.sql",
@@ -343,6 +350,82 @@ test("self-review, manual correction, incident resolution, and self-disable are 
   assert.match(migration, /p_actor_id = p_teacher_id[\s\S]*manual correction/i);
   assert.match(migration, /v_pending\.teacher_id = p_actor_id/i);
   assert.match(migration, /v_incidence\.teacher_id = p_actor_id/i);
+});
+
+test("duplicate clock attempts are serialized and become idempotent no-ops", () => {
+  assert.match(
+    baseMigration,
+    /create unique index staff_clock_sessions_one_open_per_teacher_idx[\s\S]*on public\.staff_clock_sessions \(teacher_id\)[\s\S]*closed_at is null/i
+  );
+  assert.match(
+    baseMigration,
+    /staff_clock_in\([\s\S]*pg_advisory_xact_lock\(hashtextextended\(p_actor_id::text, 0\)\)[\s\S]*denied_already_signed_in/i
+  );
+  assert.match(
+    baseMigration,
+    /staff_clock_out\([\s\S]*pg_advisory_xact_lock\(hashtextextended\(p_actor_id::text, 0\)\)[\s\S]*denied_no_open_session/i
+  );
+});
+
+test("manual correction retries require an exact session when one exists", () => {
+  assert.match(
+    duplicateCorrectionMigration,
+    /if p_session_id is null and exists \([\s\S]*staff_clock_sessions session[\s\S]*session\.teacher_id = p_teacher_id[\s\S]*session\.work_date = p_work_date[\s\S]*Select the existing clock session/i
+  );
+  assert.match(
+    duplicateCorrectionMigration,
+    /where id = p_session_id and teacher_id = p_teacher_id and work_date = p_work_date/i
+  );
+  assert.match(
+    serverSource,
+    /submitTeacherCorrection|createManualCorrection/
+  );
+});
+
+test("unlinked correction retries collapse to one authoritative daily session", () => {
+  const correction = (id, signIn, signOut, submittedAt) => ({
+    id,
+    teacher_id: "natalia",
+    work_date: "2026-09-22",
+    session_id: null,
+    requested_sign_in_at: signIn,
+    requested_sign_out_at: signOut,
+    reason: "Admin repair",
+    submitted_at: submittedAt,
+    reviewed_at: submittedAt,
+    status: "approved",
+  });
+  const views = buildStaffTimeReportSessionViews(
+    [],
+    [],
+    [
+      correction("open-in", "2026-09-22T14:00:00.000Z", null, "2026-09-22T14:38:00.000Z"),
+      correction("open-out", null, "2026-09-22T17:30:00.000Z", "2026-09-22T17:37:00.000Z"),
+      correction("complete", "2026-09-22T14:30:00.000Z", "2026-09-22T17:30:00.000Z", "2026-09-22T17:39:00.000Z"),
+    ],
+    "2026-09-22",
+    "2026-09-22"
+  );
+  assert.equal(views.length, 1);
+  assert.equal(views[0].id, "correction-complete");
+  assert.equal(views[0].clocking_mode, "correction");
+  assert.equal(views[0].effective_sign_in_at, "2026-09-22T14:30:00.000Z");
+  assert.equal(views[0].effective_sign_out_at, "2026-09-22T17:30:00.000Z");
+});
+
+test("the durable Admin stale-session and Natalia repair RPCs are restricted and idempotent", () => {
+  assert.match(manualSignoutMigration, /staff_admin_close_stale_session\(/i);
+  assert.match(manualSignoutMigration, /repair_natalia_staff_time_corrections\(/i);
+  assert.match(manualSignoutMigration, /pg_advisory_xact_lock\(hashtextextended\(p_teacher_id::text, 0\)\)/i);
+  assert.match(manualSignoutMigration, /already_closed/);
+  assert.match(manualSignoutMigration, /return v_existing/);
+  assert.match(manualSignoutMigration, /revoke all on function public\.staff_admin_close_stale_session[\s\S]*from public, anon, authenticated/i);
+  assert.match(manualSignoutMigration, /grant execute on function public\.staff_admin_close_stale_session[\s\S]*to service_role/i);
+  assert.match(manualSignoutMigration, /c8abfb2d-192c-428d-bbdb-7088ae2f6269/);
+  assert.match(manualSignoutMigration, /d83ebe54-ad6d-4607-bc81-2f64c136e9fe/);
+  assert.match(manualSignoutMigration, /a2ab0f4e-11ce-41df-b121-1af480b70e28/);
+  assert.match(manualSignoutMigration, /81682039-e013-4167-a1f0-40eb64f20c48/);
+  assert.match(manualSignoutMigration, /9624e7b5-e1c8-4bbf-a951-a961cf4860a5/);
 });
 
 test("Admin manual corrections can cover pre-enrollment dates without opening live clocking", () => {

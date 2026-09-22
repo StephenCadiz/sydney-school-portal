@@ -313,6 +313,10 @@ export default function StaffTimeAdminPage() {
   const manualStaff = teachers.find(
     (teacher) => teacher.id === manualForm.teacher_id
   );
+  const staleOpenSessions = (teacherData?.selected?.sessions || []).filter(
+    (session: any) =>
+      !String(session.id).startsWith("correction-") && !session.effective_sign_out_at
+  );
   const manualSelfActionForbidden =
     manualStaff?.staff_role === "admin" && manualStaff.id === currentAdminId;
   const employmentControlledByEnrollment =
@@ -741,10 +745,11 @@ export default function StaffTimeAdminPage() {
                 </div>
                 <form className="staff-time-form-panel staff-time-manual-form" onSubmit={saveManualCorrection}>
                   <div className="staff-time-form-panel-heading"><UserRoundCog aria-hidden="true" size={19} /><div><h3>Audited manual resolution</h3><p>Create an approved correction for a missing or incorrect event. This never inserts a backdated original clock event.</p></div></div>
+                  {staleOpenSessions.length > 0 && <div className="staff-time-stale-session-list"><strong>Open clock session requires closure</strong><p>Close the stale session before entering a correction. Repeating this action is safe.</p>{staleOpenSessions.map((session: any) => <div key={session.id}><span>{displayDate(session.work_date)} · {formatMadridTime(session.effective_sign_in_at)}–{formatMadridTime(session.effective_sign_out_at)}</span><button type="button" disabled={busy} onClick={() => void perform("close_stale_session", { teacher_id: manualForm.teacher_id, session_id: session.id, reason: "Closed by Admin after a stale sign-out." }, "The stale clock session was closed.", async () => { if (selectedTeacherId) await loadTeachers(selectedTeacherId); })}>Close stale session</button></div>)}</div>}
                   <div className="staff-time-form-grid three-columns">
                     <label>Staff member<select value={manualForm.teacher_id} onChange={(event) => { const teacherId = event.target.value; setManualForm({ ...manualForm, teacher_id: teacherId, session_id: "" }); setSelectedTeacherId(teacherId); setTeacherData((data: any) => ({ ...data, selected: null })); if (teacherId) void loadTeachers(teacherId); }} required><option value="">Choose staff member</option>{teachers.map((teacher) => <option value={teacher.id} key={teacher.id} disabled={teacher.staff_role === "admin" && teacher.id === currentAdminId}>{teacher.name} · {teacher.staff_role_label}{teacher.staff_role === "admin" && teacher.id === currentAdminId ? " (your record)" : ""}</option>)}</select></label>
                     <label>Work date<input type="date" value={manualForm.work_date} onChange={(event) => setManualForm({ ...manualForm, work_date: event.target.value })} required /></label>
-                    <label>Related clock session<select value={manualForm.session_id} onChange={(event) => setManualForm({ ...manualForm, session_id: event.target.value })}><option value="">Missing event / no existing session</option>{(teacherData?.selected?.sessions || []).filter((session: any) => !String(session.id).startsWith("correction:") && session.work_date === manualForm.work_date).map((session: any) => <option value={session.id} key={session.id}>{displayDate(session.work_date)} · {formatMadridTime(session.effective_sign_in_at)}–{formatMadridTime(session.effective_sign_out_at)}</option>)}</select></label>
+                    <label>Related clock session<select value={manualForm.session_id} onChange={(event) => setManualForm({ ...manualForm, session_id: event.target.value })}><option value="">Missing event / no existing session</option>{(teacherData?.selected?.sessions || []).filter((session: any) => !String(session.id).startsWith("correction-") && session.work_date === manualForm.work_date).map((session: any) => <option value={session.id} key={session.id}>{displayDate(session.work_date)} · {formatMadridTime(session.effective_sign_in_at)}–{formatMadridTime(session.effective_sign_out_at)}</option>)}</select></label>
                     <label>Corrected sign-in<input type="time" value={manualForm.sign_in_time} onChange={(event) => setManualForm({ ...manualForm, sign_in_time: event.target.value })} /></label>
                     <label>Corrected sign-out<input type="time" value={manualForm.sign_out_time} onChange={(event) => setManualForm({ ...manualForm, sign_out_time: event.target.value })} /></label>
                   </div>

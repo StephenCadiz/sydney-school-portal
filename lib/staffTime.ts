@@ -134,7 +134,7 @@ export type StaffTimeSessionView = {
   id: string;
   teacher_id: string;
   work_date: string;
-  clocking_mode: "school_network" | "authorised_remote";
+  clocking_mode: "school_network" | "authorised_remote" | "correction";
   original_sign_in_at: string;
   original_sign_out_at: string | null;
   effective_sign_in_at: string | null;
@@ -327,6 +327,7 @@ export function buildStaffTimeReportSessionViews(
     includedSessionIds.add(session.id);
     syntheticKeys.add(`${view.teacher_id}|${view.work_date}|${view.effective_sign_in_at || ""}|${view.effective_sign_out_at || ""}`);
   }
+  const unlinkedByDay = new Map<string, StaffTimeReportCorrection>();
   for (const correction of corrections) {
     if (
       correction.status !== "approved" ||
@@ -334,14 +335,33 @@ export function buildStaffTimeReportSessionViews(
       !inRange(correction.work_date)
     ) continue;
     if (correction.session_id && includedSessionIds.has(correction.session_id)) continue;
-    const key = `${correction.teacher_id}|${correction.work_date}|${correction.requested_sign_in_at || ""}|${correction.requested_sign_out_at || ""}`;
+    const key = `${correction.teacher_id}|${correction.work_date}`;
+    const current = unlinkedByDay.get(key);
+    const currentHasCompleteSpan = Boolean(
+      current?.requested_sign_in_at && current?.requested_sign_out_at
+    );
+    const nextHasCompleteSpan = Boolean(
+      correction.requested_sign_in_at && correction.requested_sign_out_at
+    );
+    const currentTime = current?.reviewed_at || current?.submitted_at || "";
+    const nextTime = correction.reviewed_at || correction.submitted_at;
+    if (
+      !current ||
+      (nextHasCompleteSpan && !currentHasCompleteSpan) ||
+      (nextHasCompleteSpan === currentHasCompleteSpan && nextTime > currentTime)
+    ) {
+      unlinkedByDay.set(key, correction);
+    }
+  }
+  for (const correction of unlinkedByDay.values()) {
+    const key = `${correction.teacher_id}|${correction.work_date}`;
     if (syntheticKeys.has(key)) continue;
     syntheticKeys.add(key);
     views.push({
       id: `correction-${correction.id}`,
       teacher_id: correction.teacher_id,
       work_date: correction.work_date,
-      clocking_mode: "authorised_remote",
+      clocking_mode: "correction",
       original_sign_in_at: "",
       original_sign_out_at: null,
       effective_sign_in_at: correction.requested_sign_in_at,

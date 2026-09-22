@@ -1125,6 +1125,45 @@
   margin-top: 16px;
 }
 
+.staff-time-stale-session-list {
+  background: rgba(255, 247, 232, 0.82);
+  border: 1px solid rgba(184, 121, 32, 0.28);
+  border-radius: 14px;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.staff-time-stale-session-list p {
+  color: #5f4a28;
+  font-size: 13px;
+  margin: 0;
+}
+
+.staff-time-stale-session-list > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.staff-time-stale-session-list button {
+  background: #fff;
+  border: 1px solid rgba(30, 74, 123, 0.3);
+  border-radius: 9px;
+  color: #163e69;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 8px 11px;
+}
+
+.staff-time-stale-session-list button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .staff-time-report-panel {
   max-width: 960px;
 }

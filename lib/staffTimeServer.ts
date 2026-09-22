@@ -1236,6 +1236,34 @@ export async function createManualCorrection(actor: StaffTimeActor, body: unknow
   return data;
 }
 
+export async function closeStaleSession(
+  actor: StaffTimeActor,
+  body: unknown,
+  requestIp: string | null
+) {
+  const value = objectBody(body);
+  const teacherId = validUuid(value.teacher_id);
+  const sessionId = validUuid(value.session_id);
+  if (!teacherId) throw new StaffTimeError("Choose a staff member.", 422);
+  if (!sessionId) throw new StaffTimeError("Choose a valid open clock session.", 422);
+  if (teacherId === actor.id) {
+    throw new StaffTimeError(
+      "You cannot close a stale session for your own Staff Time record.",
+      403
+    );
+  }
+  const reason = requireText(value.reason, "Reason", 2000);
+  const { data, error } = await supabaseAdmin.rpc("staff_admin_close_stale_session", {
+    p_actor_id: actor.id,
+    p_teacher_id: teacherId,
+    p_session_id: sessionId,
+    p_request_ip: requestIp,
+    p_reason: reason,
+  });
+  if (error) throwDatabase(error, "Unable to close the stale clock session.");
+  return data;
+}
+
 export async function resolveIncidence(actor: StaffTimeActor, body: unknown) {
   const value = objectBody(body);
   const id = validUuid(value.id);
