@@ -11,6 +11,7 @@ import {
   resolveStudentAcademicYearContext,
   type StudentAcademicYearContext,
 } from "./academicYearRules";
+import { compareClassesByGlobalOrder, getGlobalLevelRank } from "./classOrdering";
 
 function formatSupabaseError(action: string, error: any) {
   return [
@@ -183,15 +184,6 @@ const levelAnalysisOrder = [
 
 function normalizeLevelName(levelName: string | null | undefined) {
   return String(levelName || "").trim().toUpperCase();
-}
-
-function getLevelSortIndex(levelName: string, isCambridge: boolean) {
-  const order = isCambridge ? cambridgeLevelOrder : youngLearnerLevelOrder;
-  const index = order.findIndex(
-    (item) => normalizeLevelName(item) === normalizeLevelName(levelName)
-  );
-
-  return index === -1 ? 999 : index;
 }
 
 function isCambridgeLevelName(levelName: string | null | undefined) {
@@ -397,20 +389,7 @@ export async function getClassSearchOptions() {
 
   return reference.classes
     .map((classRow: any) => buildClassDetails(classRow, reference))
-    .sort((first: any, second: any) => {
-      if (first.is_cambridge !== second.is_cambridge) {
-        return first.is_cambridge ? -1 : 1;
-      }
-
-      const firstIndex = getLevelSortIndex(first.level_name, first.is_cambridge);
-      const secondIndex = getLevelSortIndex(second.level_name, second.is_cambridge);
-
-      if (firstIndex !== secondIndex) {
-        return firstIndex - secondIndex;
-      }
-
-      return first.option_label.localeCompare(second.option_label);
-    });
+    .sort(compareClassesByGlobalOrder);
 }
 
 export async function searchAllStudents(query: string) {
@@ -1053,14 +1032,7 @@ export async function getLevelAnalysisOptions() {
       )
     )
     .sort((first, second) => {
-      const firstIndex = levelAnalysisOrder.findIndex(
-        (item) => normalizeLevelName(item) === normalizeLevelName(first.name)
-      );
-      const secondIndex = levelAnalysisOrder.findIndex(
-        (item) => normalizeLevelName(item) === normalizeLevelName(second.name)
-      );
-
-      return firstIndex - secondIndex;
+      return getGlobalLevelRank(first.name) - getGlobalLevelRank(second.name);
     })
     .map((level) => ({
       id: level.id,

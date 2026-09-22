@@ -8,6 +8,7 @@ import TeacherLayout from "../../components/layout/TeacherLayout";
 import { getCurrentAcademicYear } from "../../../lib/academicYears";
 import { supabase } from "../../../lib/supabase";
 import { getTeacherClasses } from "../../../lib/teacher";
+import { compareClassesByGlobalOrder } from "../../../lib/classOrdering";
 import {
   getEffectiveClassDateRange,
   isDateWithinEffectiveClassRange,
@@ -54,21 +55,6 @@ const weekdayShort: Record<string, string> = {
   saturday: "Sat",
   sunday: "Sun",
 };
-const levelOrder = ["B1", "B2", "C1", "C2"];
-const youngLearnerOrder = [
-  "PRE-KIDS 1",
-  "PRE-KIDS 2",
-  "PRE-KIDS 3",
-  "KIDS 1",
-  "KIDS 2",
-  "JUNIOR 1",
-  "JUNIOR 2",
-  "JUNIOR 3",
-  "JUNIOR 4",
-  "TEENS 1",
-];
-const youngLearnerFamilyOrder = ["PRE-KIDS", "KIDS", "JUNIOR", "TEENS"];
-const courseOrder = ["regular", "intensive", "express", "online"];
 
 function getMadridParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -228,18 +214,7 @@ function getTiming(item: ClassRow, currentMinutes: number): Timing {
 }
 
 function compareBySchedule(first: ClassRow, second: ClassRow) {
-  return (
-    String(first.start_time || "99:99").localeCompare(
-      String(second.start_time || "99:99")
-    ) ||
-    String(first.end_time || "99:99").localeCompare(
-      String(second.end_time || "99:99")
-    ) ||
-    getClassTitle(first).localeCompare(getClassTitle(second), undefined, {
-      sensitivity: "base",
-    }) ||
-    String(first.id).localeCompare(String(second.id))
-  );
+  return compareClassesByGlobalOrder(first, second);
 }
 
 function getProgramme(item: ClassRow) {
@@ -249,39 +224,8 @@ function getProgramme(item: ClassRow) {
     : "Young Learners";
 }
 
-function getLevelSort(item: ClassRow) {
-  const level = normalizeLevel(item.levels?.name);
-  if (item.is_cambridge === true) {
-    const index = levelOrder.indexOf(level);
-    return index === -1 ? levelOrder.length : index;
-  }
-  const index = youngLearnerOrder.indexOf(level);
-  if (index >= 0) return index;
-
-  const familyIndex = youngLearnerFamilyOrder.findIndex((name) =>
-    level.startsWith(name)
-  );
-  return familyIndex === -1
-    ? youngLearnerOrder.length + youngLearnerFamilyOrder.length
-    : youngLearnerOrder.length + familyIndex;
-}
-
 function compareAllClasses(first: ClassRow, second: ClassRow) {
-  const firstCourseIndex = courseOrder.indexOf(
-    String(first.course_type || "").toLowerCase()
-  );
-  const secondCourseIndex = courseOrder.indexOf(
-    String(second.course_type || "").toLowerCase()
-  );
-  const courseDifference =
-    (firstCourseIndex === -1 ? courseOrder.length : firstCourseIndex) -
-    (secondCourseIndex === -1 ? courseOrder.length : secondCourseIndex);
-  return (
-    getLevelSort(first) - getLevelSort(second) ||
-    courseDifference ||
-    String(first.days || "").localeCompare(String(second.days || "")) ||
-    compareBySchedule(first, second)
-  );
+  return compareClassesByGlobalOrder(first, second);
 }
 
 function ClassListRow({

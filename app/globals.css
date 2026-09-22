@@ -3354,6 +3354,126 @@
   }
 }
 
+/* Shared read-only School Roster */
+.school-roster-page {
+  width: 100%;
+  max-width: var(--admin-content-max-width, var(--teacher-content-max-width, 1480px));
+  margin: 0 auto;
+  color: var(--ss-blue-dark, #1f3c88);
+}
+
+.school-roster-heading,
+.school-roster-filters,
+.school-roster-student-results,
+.school-roster-programme {
+  border: 1px solid rgba(125, 177, 220, 0.38);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 18px 46px rgba(31, 60, 136, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-radius: 22px;
+}
+
+.school-roster-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 30px 32px;
+  margin-bottom: 18px;
+}
+
+.school-roster-eyebrow {
+  margin: 0 0 8px;
+  color: #2f7db8;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.school-roster-heading h1 { margin: 0; font-size: clamp(28px, 3vw, 40px); line-height: 1.1; }
+.school-roster-heading p,
+.school-roster-filter-heading p,
+.school-roster-state p,
+.school-roster-section-heading p { margin: 8px 0 0; color: #5b6b82; line-height: 1.5; }
+.school-roster-count,
+.school-roster-programme-heading > span,
+.school-roster-section-heading > span { border-radius: 999px; background: #e7f2fb; color: #1f5f92; padding: 8px 12px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+
+.school-roster-filters { padding: 24px 28px; margin-bottom: 18px; }
+.school-roster-filter-heading h2,
+.school-roster-section-heading h2,
+.school-roster-programme-heading h2 { margin: 0; font-size: 21px; }
+.school-roster-search { display: grid; gap: 7px; margin-top: 18px; }
+.school-roster-search span,
+.school-roster-filter-grid span { color: #344054; font-size: 13px; font-weight: 800; }
+.school-roster-search input,
+.school-roster-filter-grid select { width: 100%; min-height: 44px; border: 1px solid #b8cee2; border-radius: 11px; background: rgba(255,255,255,.9); color: #142b48; padding: 10px 12px; font: inherit; }
+.school-roster-search input:focus-visible,
+.school-roster-filter-grid select:focus-visible,
+.school-roster-class-card summary:focus-visible { outline: 3px solid rgba(47,125,184,.34); outline-offset: 2px; }
+.school-roster-filter-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.school-roster-filter-grid label { display: grid; gap: 7px; min-width: 0; }
+
+.school-roster-state { border: 1px dashed #b8cee2; border-radius: 18px; background: rgba(255,255,255,.66); padding: 34px; text-align: center; color: #344054; }
+.school-roster-state.is-error { border-color: #f0a8a8; color: #9f2d2d; background: #fff7f7; }
+.school-roster-state strong { font-size: 18px; color: var(--ss-blue-dark, #1f3c88); }
+.school-roster-section-heading,
+.school-roster-programme-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.school-roster-student-results { padding: 24px 28px; margin-bottom: 18px; }
+.school-roster-student-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin-top: 18px; }
+.school-roster-student-card { border: 1px solid #c9dced; border-radius: 16px; background: rgba(255,255,255,.88); padding: 18px; }
+.school-roster-student-name { font-size: 18px; font-weight: 850; color: #173967; margin-bottom: 8px; }
+.school-roster-programme-badge { display: inline-flex; border-radius: 999px; background: #edf6fc; color: #226596; padding: 5px 9px; font-size: 12px; font-weight: 800; }
+.school-roster-student-card dl,
+.school-roster-class-details dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin: 16px 0 0; }
+.school-roster-student-card dl div,
+.school-roster-class-details dl div { min-width: 0; }
+.school-roster-student-card dt,
+.school-roster-class-details dt { color: #667085; font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; }
+.school-roster-student-card dd,
+.school-roster-class-details dd { margin: 3px 0 0; color: #173967; font-weight: 700; overflow-wrap: anywhere; }
+.school-roster-groups { display: grid; gap: 18px; }
+.school-roster-programme { padding: 24px 28px; }
+.school-roster-level { margin-top: 22px; }
+.school-roster-level-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+.school-roster-level-heading h3 { margin: 0; color: #2f7db8; font-size: 16px; }
+.school-roster-level-heading > span { color: #667085; font-size: 13px; }
+.school-roster-level-heading strong { color: #1f3c88; }
+.school-roster-class-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; }
+.school-roster-class-card { border: 1px solid #c9dced; border-radius: 15px; background: rgba(255,255,255,.86); overflow: hidden; }
+.school-roster-class-card summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; cursor: pointer; list-style: none; padding: 17px 18px; }
+.school-roster-class-card summary::-webkit-details-marker { display: none; }
+.school-roster-class-card summary strong,
+.school-roster-class-card summary small { display: block; }
+.school-roster-class-card summary strong { color: #173967; font-size: 17px; }
+.school-roster-class-card summary small { margin-top: 5px; color: #667085; line-height: 1.4; }
+.school-roster-expand { color: #226596; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.school-roster-class-details { border-top: 1px solid #dbe7f3; padding: 16px 18px 18px; }
+.school-roster-student-list { margin-top: 18px; padding-top: 14px; border-top: 1px solid #e5edf5; }
+.school-roster-student-list h4 { margin: 0 0 8px; font-size: 14px; color: #1f3c88; }
+.school-roster-student-list ul { display: grid; gap: 7px; margin: 0; padding-left: 20px; color: #344054; }
+.school-roster-student-list p { margin: 0; color: #667085; }
+
+@media (max-width: 900px) {
+  .school-roster-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .school-roster-heading { align-items: flex-start; flex-direction: column; padding: 24px 20px; }
+  .school-roster-count { align-self: flex-start; }
+  .school-roster-filters,
+  .school-roster-student-results,
+  .school-roster-programme { padding: 20px 16px; border-radius: 17px; }
+  .school-roster-filter-grid { grid-template-columns: 1fr; }
+  .school-roster-class-grid { grid-template-columns: 1fr; }
+  .school-roster-level-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .school-roster-class-card summary { align-items: flex-start; flex-direction: column; }
+  .school-roster-expand { white-space: normal; }
+  .school-roster-student-card dl,
+  .school-roster-class-details dl { grid-template-columns: 1fr; }
+}
+
 /* Student Monitoring task cards */
 .teacher-monitoring-task-cards {
   width: min(100%, var(--teacher-content-max-width, 1180px));

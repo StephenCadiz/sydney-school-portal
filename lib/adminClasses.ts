@@ -1,4 +1,14 @@
 import { supabase } from "./supabase";
+import { sortClassesByGlobalOrder } from "./classOrdering";
+
+function logSupabaseError(context: string, error: any) {
+  console.error(`${context} Supabase error:`, {
+    message: error?.message || "",
+    code: error?.code || "",
+    details: error?.details || "",
+    hint: error?.hint || "",
+  });
+}
 
 function isOnlineCourse(courseType: string | null | undefined) {
   return String(courseType ?? "").trim().toLowerCase() === "online";
@@ -25,11 +35,25 @@ export async function getAdminClasses() {
     .select("*");
 
   if (error) {
-    console.error("getAdminClasses Supabase error:", error);
+    logSupabaseError("getAdminClasses", error);
     throw error;
   }
 
-  return data || [];
+  const levelIds = [...new Set((data || []).map((classroom: any) => classroom.level_id).filter((id: unknown) => id != null))];
+  const { data: levels, error: levelsError } = levelIds.length
+    ? await supabase.from("levels").select("id, name").in("id", levelIds)
+    : { data: [], error: null };
+
+  if (levelsError) {
+    logSupabaseError("getAdminClasses levels", levelsError);
+    throw levelsError;
+  }
+
+  const levelNames = new Map((levels || []).map((level: any) => [String(level.id), level.name]));
+  return sortClassesByGlobalOrder((data || []).map((classroom: any) => ({
+    ...classroom,
+    level_name: levelNames.get(String(classroom.level_id)) || null,
+  })));
 }
 
 export async function getLevels() {

@@ -10,6 +10,7 @@ import {
   BarChart3,
   MessageSquare,
   Settings,
+  Users,
 } from "lucide-react";
 import LogoutButton from "../auth/LogoutButton";
 
@@ -61,6 +62,14 @@ export default function TeacherSidebar({
         icon={<GraduationCap size={20} />}
         title="My Classes"
         active={isActive("/teacher/my-classes")}
+        onClick={onClose}
+      />
+
+      <SidebarItem
+        href="/teacher/school-roster"
+        icon={<Users size={20} />}
+        title="School Roster"
+        active={isActive("/teacher/school-roster")}
         onClick={onClose}
       />
 

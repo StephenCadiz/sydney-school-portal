@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { compareClassesByGlobalOrder } from "./classOrdering";
 import { getCurrentAcademicYear } from "./academicYears";
 import {
   resolveCurrentStudentClass,
@@ -672,11 +673,7 @@ export async function getCambridgeClassesForBulkCreate(): Promise<
         cambridgeLevelNames.includes(normalizeLevelName(classroom.level_name)) &&
         !isSupportLevel(classroom.level_name, classroom.level_catagory)
     )
-    .sort((first, second) =>
-      first.class_label.localeCompare(second.class_label, undefined, {
-        sensitivity: "base",
-      })
-    );
+    .sort(compareClassesByGlobalOrder);
 }
 
 export async function getYoungLearnerClassesForStudentCreate() {
@@ -800,11 +797,7 @@ export async function getYoungLearnerClassesForBulkCreate(): Promise<
       (classroom) =>
         classroom.is_cambridge !== true
     )
-    .sort((first, second) =>
-      first.class_label.localeCompare(second.class_label, undefined, {
-        sensitivity: "base",
-      })
-    );
+    .sort(compareClassesByGlobalOrder);
 }
 
 export async function getYoungLearners() {

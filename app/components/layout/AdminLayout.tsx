@@ -480,6 +480,7 @@ export default function AdminLayout({
         { name: "Teachers", href: "/admin/teachers", icon: "users" },
         { name: "Admin Staff", href: "/admin/admin-staff", icon: "users" },
         { name: "User Management", href: "/admin/add-users", icon: "userPlus" },
+        { name: "School Roster", href: "/admin/school-roster", icon: "users" },
       ],
     },
     {

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { sortClassesByGlobalOrder } from "./classOrdering";
 
 export type AdminTeacher = {
   id: string;
@@ -124,12 +125,12 @@ export async function getTeacherManagementData(): Promise<{
 
   return {
     teachers: (teachersResult.data || []) as AdminTeacher[],
-    classes: classRows.map((classroom) => ({
+    classes: sortClassesByGlobalOrder(classRows.map((classroom) => ({
       ...classroom,
       level_name: classroom.level_id
         ? levelNames.get(String(classroom.level_id)) || null
         : null,
-    })) as AdminTeacherClass[],
+    })) as AdminTeacherClass[]),
     levels: (levelsResult.data || []) as AdminLevel[],
     coordinators: (coordinatorsResult.data || []).map((row) => ({
       teacher_id: String(row.teacher_id || ""),

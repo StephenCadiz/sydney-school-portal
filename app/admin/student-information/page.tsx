@@ -18,6 +18,7 @@ import {
   getStudentInformation,
   searchAllStudents,
 } from "../../../lib/studentInformation";
+import { compareClassesByGlobalOrder } from "../../../lib/classOrdering";
 
 const tabs = ["Student Search", "Class Search", "Level Analysis"];
 
@@ -801,63 +802,8 @@ function getClassPickerPrimaryLabel(option: any) {
   return [name, courseType].filter(Boolean).join(" ");
 }
 
-function getClassPickerLevelRank(option: any) {
-  const level = String(option.level_name || "").trim().toLowerCase();
-  const programme = getClassPickerProgramme(option);
-  if (programme === "cambridge") {
-    const rank = ["b1", "b2", "c1", "c2"].indexOf(level);
-    return rank === -1 ? 99 : rank;
-  }
-  if (programme === "support") return 0;
-
-  const match = /^(pre[-\s]?kids|kids|junior|teens?)\s*(\d+)?/i.exec(level);
-  const familyRank: Record<string, number> = {
-    "pre-kids": 0,
-    "pre kids": 0,
-    kids: 1,
-    junior: 2,
-    teen: 3,
-    teens: 3,
-  };
-  const family = match?.[1]?.toLowerCase() || "";
-  return (familyRank[family] ?? 90) * 100 + Number(match?.[2] || 0);
-}
-
 function compareClassPickerOptions(first: any, second: any) {
-  const programmeOrder = { cambridge: 0, "young-learners": 1, support: 2 };
-  const firstProgramme = getClassPickerProgramme(first);
-  const secondProgramme = getClassPickerProgramme(second);
-  const programmeDifference = programmeOrder[firstProgramme] - programmeOrder[secondProgramme];
-  if (programmeDifference !== 0) return programmeDifference;
-
-  const levelDifference = getClassPickerLevelRank(first) - getClassPickerLevelRank(second);
-  if (levelDifference !== 0) return levelDifference;
-
-  const levelNameDifference = String(first.level_name || "").localeCompare(
-    String(second.level_name || ""), undefined, { numeric: true, sensitivity: "base" }
-  );
-  if (levelNameDifference !== 0) return levelNameDifference;
-
-  const courseOrder = { regular: 0, intensive: 1, express: 2, online: 3 };
-  const firstCourse = String(first.course_type || "").toLowerCase();
-  const secondCourse = String(second.course_type || "").toLowerCase();
-  const courseDifference = (courseOrder[firstCourse as keyof typeof courseOrder] ?? 9) -
-    (courseOrder[secondCourse as keyof typeof courseOrder] ?? 9);
-  if (courseDifference !== 0) return courseDifference;
-
-  const dayDifference = getClassPickerDayIndexes(first.days).join("").localeCompare(
-    getClassPickerDayIndexes(second.days).join("")
-  );
-  if (dayDifference !== 0) return dayDifference;
-
-  const timeDifference = String(first.start_time || "").localeCompare(String(second.start_time || ""));
-  if (timeDifference !== 0) return timeDifference;
-
-  return `${first.teacher_name || ""}:${first.class_id || ""}`.localeCompare(
-    `${second.teacher_name || ""}:${second.class_id || ""}`,
-    undefined,
-    { numeric: true, sensitivity: "base" }
-  );
+  return compareClassesByGlobalOrder(first, second);
 }
 
 function ClassSearchPicker({

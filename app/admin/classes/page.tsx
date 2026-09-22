@@ -25,6 +25,7 @@ import {
   updateClass,
 } from "../../../lib/adminClasses";
 import { validateCoursePlanningDateRange } from "../../../lib/coursePlanningDates";
+import { compareClassesByGlobalOrder, getGlobalLevelRank } from "../../../lib/classOrdering";
 import { supabase } from "../../../lib/supabase";
 
 type ClassView = "all" | "level" | "schedule" | "teacher";
@@ -91,24 +92,6 @@ const quarterHourTimeOptions = Array.from({ length: 24 * 4 }, (_, index) => {
 });
 
 const cambridgeLevelOrder = ["B1", "B2", "C1", "C2"];
-
-const youngLearnerLevelOrder = [
-  "Pre-Kids",
-  "Pre-Kids 1",
-  "Pre-Kids 2",
-  "Pre-Kids 3",
-  "Kids 1",
-  "Kids 2",
-  "Kids 3",
-  "Junior 1",
-  "Junior 2",
-  "Junior 3",
-  "Junior 4",
-  "Teens 1",
-  "Teens 2",
-  "Teens 3",
-  "Support Classes",
-];
 
 const unassignedTeacherFilter = "__unassigned";
 const missingLevelFilter = "__missing_level";
@@ -389,10 +372,6 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
 
 function getGroupTotalText(count: number) {
   return pluralize(count, "class", "classes");
-}
-
-function getSortText(value: string | null | undefined) {
-  return normalizeSearchValue(value);
 }
 
 function formatCalendarTime(minutes: number) {
@@ -1447,28 +1426,8 @@ export default function AdminClassesPage() {
   }
 
   function getLevelSortValue(levelName: string, levelId: string) {
-    const normalizedLevelName = normalizeLevelName(levelName);
-    const normalizedYoungLearnerOrder = youngLearnerLevelOrder.map((level) =>
-      normalizeLevelName(level)
-    );
-    const cambridgeIndex = cambridgeLevelOrder.indexOf(normalizedLevelName);
-
-    if (cambridgeIndex >= 0) {
-      return 100 + cambridgeIndex;
-    }
-
-    const youngLearnerIndex =
-      normalizedYoungLearnerOrder.indexOf(normalizedLevelName);
-
-    if (youngLearnerIndex >= 0) {
-      return 200 + youngLearnerIndex;
-    }
-
-    const loadedLevelIndex = levels.findIndex(
-      (level) => String(level.id) === String(levelId)
-    );
-
-    return loadedLevelIndex >= 0 ? 400 + loadedLevelIndex : 999;
+    void levelId;
+    return getGlobalLevelRank(levelName);
   }
 
   const enrichedClasses = useMemo(() => {
@@ -1577,29 +1536,21 @@ export default function AdminClassesPage() {
   ]);
 
   function sortClassRows(rows: any[]) {
-    return [...rows].sort((first, second) => {
-      const levelComparison = first.levelSortValue - second.levelSortValue;
-
-      if (levelComparison !== 0) return levelComparison;
-
-      const dayComparison = getDaySortKey(first.days).localeCompare(
-        getDaySortKey(second.days)
-      );
-
-      if (dayComparison !== 0) return dayComparison;
-
-      const timeComparison = first.startTime.localeCompare(second.startTime);
-
-      if (timeComparison !== 0) return timeComparison;
-
-      const teacherComparison = getSortText(first.teacherName).localeCompare(
-        getSortText(second.teacherName)
-      );
-
-      if (teacherComparison !== 0) return teacherComparison;
-
-      return first.id.localeCompare(second.id);
-    });
+    return [...rows].sort((first, second) =>
+      compareClassesByGlobalOrder({
+        level_name: first.levelName,
+        days: first.rawDays,
+        start_time: first.startTime,
+        class_name: first.className,
+        id: first.id,
+      }, {
+        level_name: second.levelName,
+        days: second.rawDays,
+        start_time: second.startTime,
+        class_name: second.className,
+        id: second.id,
+      })
+    );
   }
 
   const filteredClasses = useMemo(() => {
