@@ -91,10 +91,11 @@ export async function loadSchoolRoster(viewer: { role: string; userId: string })
   if (academicYearError || classesError) throw academicYearError || classesError;
 
   const currentAcademicYearId = academicYear?.id ? String(academicYear.id) : null;
-  const visibleClasses = (classes || []).filter((classroom) => {
-    if (!isActiveClass(classroom, today, currentAcademicYearId)) return false;
-    return viewer.role !== "teacher" || String(classroom.teacher_id || "") === viewer.userId;
-  });
+  // The endpoint is already restricted to Admins and authenticated Teachers.
+  // Teachers may browse the whole active school roster, not only their own classes.
+  const visibleClasses = (classes || []).filter((classroom) =>
+    isActiveClass(classroom, today, currentAcademicYearId)
+  );
   if (!visibleClasses.length) return [] as SchoolRosterClass[];
 
   const classIds = visibleClasses.map((classroom) => String(classroom.id));
