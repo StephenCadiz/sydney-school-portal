@@ -56,6 +56,7 @@ async function getAccessToken() {
 
 export default function SchoolCalendarPage() {
   const [closures, setClosures] = useState<SchoolClosure[]>([]);
+  const [upcomingGroups, setUpcomingGroups] = useState<any[]>([]);
   const [todayMadrid, setTodayMadrid] = useState(() => getMadridSchoolDate());
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState("");
@@ -77,6 +78,16 @@ export default function SchoolCalendarPage() {
     }
     setClosures(Array.isArray(payload.closures) ? payload.closures : []);
     setTodayMadrid(String(payload.today_madrid || getMadridSchoolDate()));
+    const groupsResponse = await fetch("/api/calendar/upcoming-groups", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const groupsPayload = await groupsResponse.json().catch(() => ({}));
+    setUpcomingGroups(
+      groupsResponse.ok && Array.isArray(groupsPayload.groups)
+        ? groupsPayload.groups
+        : []
+    );
   }, []);
 
   useEffect(() => {
@@ -378,6 +389,39 @@ export default function SchoolCalendarPage() {
         {loading ? (
           <div className={styles.loading} role="status">Loading School Calendar…</div>
         ) : (
+          <>
+          <section className={styles.section} aria-labelledby="upcoming-calendar-groups">
+            <div className={styles.sectionHeading}>
+              <div>
+                <span>Upcoming teaching events</span>
+                <h2 id="upcoming-calendar-groups">Friday Tutorials and Exam Week</h2>
+              </div>
+              <strong>{upcomingGroups.length}</strong>
+            </div>
+            {upcomingGroups.length === 0 ? (
+              <p className={styles.empty}>No upcoming Friday Tutorials or Exam Weeks.</p>
+            ) : (
+              <div className={styles.list}>
+                {upcomingGroups.map((group) => (
+                  <article className={styles.closureCard} key={group.id}>
+                    <div className={styles.dateMarker} aria-hidden="true">
+                      <CalendarDays size={21} />
+                    </div>
+                    <div className={styles.closureCopy}>
+                      <div className={styles.closureTitleRow}>
+                        <h3>{group.title}</h3>
+                        <span className={styles.typeBadge}>{group.kind === "exam_week" ? "Exam Week" : group.kind === "friday_at_6" ? "Friday @ 6" : "Friday Tutorial"}</span>
+                      </div>
+                      <strong className={styles.dateRange}>{formatDate(group.event_date)}{group.end_date !== group.event_date ? ` – ${formatDate(group.end_date)}` : ""}</strong>
+                      <ul className={styles.groupItems}>
+                        {group.items.map((item: any) => <li key={item.id}>{item.label}{item.start_time || item.end_time ? ` · ${String(item.start_time || "").slice(0, 5)}–${String(item.end_time || "").slice(0, 5)}` : ""}</li>)}
+                      </ul>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
           <div className={styles.sections}>
             <section className={styles.section} aria-labelledby="upcoming-closures">
               <div className={styles.sectionHeading}>
@@ -401,6 +445,7 @@ export default function SchoolCalendarPage() {
               {renderClosures(past, "No past closures.")}
             </section>
           </div>
+          </>
         )}
       </div>
     </AdminLayout>

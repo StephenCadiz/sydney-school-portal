@@ -8082,8 +8082,36 @@ img {
   display: grid;
   gap: 12px;
   max-height: 420px;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-right: 4px;
+  scrollbar-color: rgba(47, 125, 184, 0.72) rgba(226, 237, 247, 0.78);
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+}
+
+.admin-dashboard-event-list::-webkit-scrollbar,
+.teacher-dashboard-event-list::-webkit-scrollbar {
+  width: 11px;
+}
+
+.admin-dashboard-event-list::-webkit-scrollbar-track,
+.teacher-dashboard-event-list::-webkit-scrollbar-track {
+  background: rgba(226, 237, 247, 0.78);
+  border-radius: 999px;
+}
+
+.admin-dashboard-event-list::-webkit-scrollbar-thumb,
+.teacher-dashboard-event-list::-webkit-scrollbar-thumb {
+  background: rgba(47, 125, 184, 0.72);
+  border: 2px solid rgba(226, 237, 247, 0.78);
+  border-radius: 999px;
+}
+
+.admin-dashboard-event-list::-webkit-scrollbar-thumb:hover,
+.teacher-dashboard-event-list::-webkit-scrollbar-thumb:hover {
+  background: var(--ss-blue-dark);
 }
 
 .admin-dashboard-event {
@@ -8148,6 +8176,31 @@ img {
   line-height: 1.45;
   margin: 5px 0 0;
   overflow-wrap: anywhere;
+}
+
+.admin-dashboard-calendar-group-items,
+.teacher-dashboard-calendar-group-items {
+  color: #31445d;
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.admin-dashboard-calendar-group-items li,
+.teacher-dashboard-calendar-group-items li {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  line-height: 1.35;
+}
+
+.admin-dashboard-calendar-group-items small,
+.teacher-dashboard-calendar-group-items small {
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .admin-dashboard-action-grid {
@@ -12725,8 +12778,28 @@ img {
 
 .teacher-dashboard-event-list {
   max-height: 430px;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-right: 4px;
+  scrollbar-color: rgba(47, 125, 184, 0.72) rgba(226, 237, 247, 0.78);
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+}
+
+/* Keep the dashboard calendar clipped to its card without disabling its
+ * internal vertical scrolling. This selector intentionally wins over the
+ * older rounded-list overflow rule above. */
+.teacher-dashboard-calendar .teacher-dashboard-event-list {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+@media (max-width: 640px) {
+  .admin-dashboard-event-list,
+  .teacher-dashboard-event-list {
+    max-height: min(430px, calc(100svh - 220px));
+  }
 }
 
 .teacher-dashboard-event {
@@ -12810,6 +12883,10 @@ img {
   line-height: 1.3;
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.teacher-dashboard-calendar-group-items {
+  font-size: var(--teacher-meta);
 }
 
 .teacher-dashboard-event p {

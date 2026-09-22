@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { UpcomingCalendarGroup } from "./calendarGroups";
 import {
   getMadridSchoolDate,
   type SchoolClosureSummary,
@@ -36,7 +37,8 @@ export type TeacherCalendarClosureNotice = {
 
 export type TeacherCalendarAgendaItem =
   | TeacherCalendarEvent
-  | TeacherCalendarClosureNotice;
+  | TeacherCalendarClosureNotice
+  | UpcomingCalendarGroup;
 
 type TeacherPersonalReminderPayload = {
   title: string;
@@ -136,6 +138,20 @@ export async function getUpcomingTeacherSchoolClosures(): Promise<SchoolClosureS
   }
 
   return Array.isArray(payload.closures) ? payload.closures : [];
+}
+
+export async function getUpcomingCalendarGroups(): Promise<UpcomingCalendarGroup[]> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Your session has expired. Please sign in again.");
+  const response = await fetch("/api/calendar/upcoming-groups", {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Unable to load upcoming calendar groups.");
+  return Array.isArray(payload.groups) ? payload.groups : [];
 }
 
 function shiftDateKey(dateKey: string, days: number) {

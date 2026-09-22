@@ -43,8 +43,8 @@ test("Dashboard renders closure notices with accessible red styling without chan
   assert.match(styles, /overflow-wrap: anywhere/);
 });
 
-test("Closure notices are bounded to the existing three-item responsive agenda", () => {
-  assert.match(agenda, /events\.slice\(0, 3\)/);
+test("Closure notices remain visible in the contained all-events agenda", () => {
+  assert.match(agenda, /const visibleEvents = events/);
   assert.match(styles, /\.teacher-dashboard-event-list[\s\S]*overflow-y: auto/);
   assert.match(styles, /\.teacher-dashboard-event-content \{[\s\S]*min-width: 0/);
   assert.match(styles, /@media \(max-width: 840px\)[\s\S]*grid-template-columns: 1fr/);

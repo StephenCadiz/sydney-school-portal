@@ -8,6 +8,7 @@ import {
   getFutureTeacherSchoolClosures,
   getTeacherCalendarClosureTypeLabel,
   getUpcomingTeacherCalendarEvents,
+  getUpcomingCalendarGroups,
   getUpcomingTeacherSchoolClosures,
   mergeTeacherCalendarEventsWithClosures,
   type TeacherCalendarAgendaItem,
@@ -46,8 +47,18 @@ function formatTime(startTime: string | null, endTime: string | null) {
   return `${start} - ${end}`;
 }
 
+function formatDisplayDate(date: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Europe/Madrid",
+  }).format(new Date(`${date}T12:00:00Z`));
+}
+
 export default function TeacherCalendarAgenda() {
   const [calendarEvents, setCalendarEvents] = useState<TeacherCalendarEvent[]>([]);
+  const [calendarGroups, setCalendarGroups] = useState<Awaited<ReturnType<typeof getUpcomingCalendarGroups>>>([]);
   const [closures, setClosures] = useState<Awaited<ReturnType<typeof getUpcomingTeacherSchoolClosures>>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -57,7 +68,15 @@ export default function TeacherCalendarAgenda() {
   const closureTriggerRef = useRef<HTMLButtonElement>(null);
   const closureDialogRef = useRef<HTMLDivElement>(null);
 
-  const events = mergeTeacherCalendarEventsWithClosures(calendarEvents, closures);
+  const events = [
+    ...mergeTeacherCalendarEventsWithClosures(calendarEvents, closures),
+    ...calendarGroups,
+  ].sort((left, right) =>
+    left.event_date.localeCompare(right.event_date) ||
+    ("kind" in left ? -1 : 1) ||
+    String(left.id).localeCompare(String(right.id))
+  );
+  const visibleEvents = events;
   const futureClosures = getFutureTeacherSchoolClosures(closures);
 
   async function refreshClosures() {
@@ -77,15 +96,20 @@ export default function TeacherCalendarAgenda() {
   useEffect(() => {
     async function loadEvents() {
       try {
-        const [data, closures] = await Promise.all([
+        const [data, closures, groups] = await Promise.all([
           getUpcomingTeacherCalendarEvents(),
           getUpcomingTeacherSchoolClosures().catch((loadError) => {
             console.error("Unable to load school closures:", loadError);
             return [];
           }),
+          getUpcomingCalendarGroups().catch((loadError) => {
+            console.error("Unable to load Friday Tutorial and Exam Week events:", loadError);
+            return [];
+          }),
         ]);
         setCalendarEvents(data);
         setClosures(closures);
+        setCalendarGroups(groups);
       } catch (loadError) {
         console.error("Unable to load teacher calendar:", loadError);
         setError(true);
@@ -190,7 +214,7 @@ export default function TeacherCalendarAgenda() {
 
       {!loading && !error && events.length > 0 && (
         <div className="teacher-dashboard-event-list">
-          {events.slice(0, 3).map((item) => {
+          {visibleEvents.map((item) => {
             const dateParts = getDateParts(item.event_date);
             const isClosure = "is_closure_notice" in item && item.is_closure_notice;
 
@@ -232,6 +256,25 @@ export default function TeacherCalendarAgenda() {
                     >
                       View future holidays and school closures
                     </button>
+                  ) : "kind" in item ? (
+                    <>
+                      <p>
+                        {item.description} · {formatDisplayDate(item.event_date)}
+                        {item.end_date !== item.event_date
+                          ? `–${formatDisplayDate(item.end_date)}`
+                          : ""}
+                      </p>
+                      <ul className="teacher-dashboard-calendar-group-items">
+                        {item.items.map((groupItem) => (
+                          <li key={groupItem.id}>
+                            <span>{groupItem.label}</span>
+                            {groupItem.start_time || groupItem.end_time ? (
+                              <small>{formatTime(groupItem.start_time, groupItem.end_time)}</small>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
                   ) : item.description ? (
                     <p>
                       {item.description}

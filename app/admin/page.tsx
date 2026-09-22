@@ -8,7 +8,7 @@ import TeacherWorkingDayPanel from "../components/teacher/TeacherWorkingDayPanel
 import { getAdminClasses } from "../../lib/adminClasses";
 import { getTeachers } from "../../lib/adminTeachers";
 import { getUnreviewedFollowUpsForAdmin } from "../../lib/followUps";
-import { getUpcomingTeacherCalendarEvents } from "../../lib/teacherCalendar";
+import { getUpcomingCalendarGroups, getUpcomingTeacherCalendarEvents } from "../../lib/teacherCalendar";
 import { supabase } from "../../lib/supabase";
 import { getCurrentAcademicYear } from "../../lib/academicYears";
 import { resolveCurrentStudentClass } from "../../lib/academicYearRules";
@@ -389,6 +389,7 @@ export default function AdminDashboard() {
   const [unreviewedFollowUps, setUnreviewedFollowUps] = useState<any[]>([]);
   const [mockResultsAwaitingReview, setMockResultsAwaitingReview] = useState(0);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [calendarGroups, setCalendarGroups] = useState<any[]>([]);
   const [nextSchoolClosure, setNextSchoolClosure] =
     useState<SchoolClosure | null>(null);
   const [overview, setOverview] = useState({
@@ -448,10 +449,16 @@ export default function AdminDashboard() {
 
       try {
         const data = await getUpcomingTeacherCalendarEvents();
-        setCalendarEvents(data.slice(0, 5));
+        setCalendarEvents(data);
       } catch (error) {
         console.error("Unable to load teacher calendar events:", error);
         setCalendarError(true);
+      }
+
+      try {
+        setCalendarGroups(await getUpcomingCalendarGroups());
+      } catch (error) {
+        console.error("Unable to load Friday Tutorial and Exam Week events:", error);
       }
 
       try {
@@ -787,13 +794,15 @@ export default function AdminDashboard() {
               <p className="admin-dashboard-error">
                 Unable to load teacher calendar.
               </p>
-            ) : calendarEvents.length === 0 ? (
+            ) : calendarEvents.length === 0 && calendarGroups.length === 0 ? (
               <p className="admin-dashboard-empty-text">
                 No upcoming teacher events.
               </p>
             ) : (
               <div className="admin-dashboard-event-list">
-                {calendarEvents.map((event) => (
+                {[...calendarEvents, ...calendarGroups]
+                  .sort((left, right) => String(left.event_date).localeCompare(String(right.event_date)))
+                  .map((event) => (
                   <article key={event.id} className="admin-dashboard-event">
                     <div className="admin-dashboard-event-date">
                       <span>{formatDate(event.event_date).split(" ")[0]}</span>
@@ -811,12 +820,26 @@ export default function AdminDashboard() {
 
                       <h3>{event.title || "Untitled event"}</h3>
 
-                      {event.description && (
+                      {"items" in event ? (
+                        <>
+                          <p>{event.description}{event.end_date !== event.event_date ? ` · ${formatDate(event.end_date)}` : ""}</p>
+                          <ul className="admin-dashboard-calendar-group-items">
+                            {event.items.map((item: any) => (
+                              <li key={item.id}>
+                                <span>{item.label}</span>
+                                {(item.start_time || item.end_time) && (
+                                  <small>{formatTime(item.start_time, item.end_time)}</small>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : event.description && (
                         <p>{getPreview(event.description)}</p>
                       )}
-                    </div>
-                  </article>
-                ))}
+                  </div>
+                </article>
+                  ))}
               </div>
             )}
           </div>

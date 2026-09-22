@@ -298,6 +298,14 @@
   overflow-wrap: anywhere;
 }
 
+.groupItems {
+  color: #31445d;
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
 .actions {
   display: flex;
   gap: 8px;
