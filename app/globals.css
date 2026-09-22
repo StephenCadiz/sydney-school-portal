@@ -3626,11 +3626,15 @@
 .admin-monitoring-clear { position: absolute; top: 5px; right: 8px; border: 0; background: transparent; color: var(--ss-blue-dark, #1f3c88); font-size: 24px; cursor: pointer; }
 .admin-monitoring-combobox-results { position: absolute; z-index: 20; left: 0; right: 0; max-height: 280px; overflow-y: auto; list-style: none; margin: 4px 0 0; padding: 4px; border: 1px solid var(--ss-border, #c9d4e4); border-radius: 10px; background: #fff; box-shadow: 0 12px 28px rgba(20, 54, 104, .16); }
 .admin-monitoring-combobox-results li { margin: 0; }
-.admin-monitoring-combobox-results button { width: 100%; border: 0; border-radius: 7px; background: transparent; padding: 10px; text-align: left; cursor: pointer; }
-.admin-monitoring-combobox-results button:hover { background: #eef5ff; }
+.admin-monitoring-combobox-results button { width: 100%; border: 0; border-radius: 7px; background: rgba(255,255,255,.76); color: #243854; padding: 10px; text-align: left; cursor: pointer; }
+.admin-monitoring-combobox-results button strong { display: block; color: #102a56; font-size: 1rem; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; word-break: normal; white-space: normal; }
+.admin-monitoring-combobox-results button:hover,
+.admin-monitoring-combobox-results button:focus-visible,
+.admin-monitoring-combobox-results button.is-selected { background: #eaf3ff; color: #102a56; }
+.admin-monitoring-combobox-results button:active { background: #dceaff; }
 .admin-monitoring-combobox-results span { display: block; color: #53647d; font-size: .9rem; margin-top: 3px; }
 .admin-monitoring-result-programme { font-weight: 700; color: var(--ss-blue-dark, #1f3c88) !important; }
-.admin-monitoring-result-enrolment { overflow-wrap: anywhere; }
+.admin-monitoring-result-enrolment { color: #405777 !important; overflow-wrap: anywhere; }
 .admin-monitoring-search-state { color: #53647d; margin: 7px 0 0; }
 .admin-monitoring-enrolment-panel { border: 1px solid #cbd8ec; border-radius: 12px; background: #f6f9ff; padding: 16px; }
 .admin-monitoring-enrolment-panel h3 { color: var(--ss-blue-dark, #1f3c88); margin: 0 0 12px; }

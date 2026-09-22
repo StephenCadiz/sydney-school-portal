@@ -181,6 +181,17 @@ test("Admin monitoring uses an accessible searchable all-programmes combobox", (
   assert.match(searchRoute, /role !== "admin"/);
 });
 
+test("Student monitoring search results keep names readable and states accessible", () => {
+  assert.match(adminPage, /<strong>\{fullName\(student\)\}<\/strong>/);
+  assert.match(adminPage, /role="option" aria-selected=\{isSelected\}/);
+  assert.match(adminPage, /className=\{isSelected \? "is-selected" : undefined\}/);
+  assert.match(styles, /\.admin-monitoring-combobox-results button \{[^}]*color: #243854/);
+  assert.match(styles, /\.admin-monitoring-combobox-results button strong \{[^}]*color: #102a56/);
+  assert.match(styles, /\.admin-monitoring-combobox-results button strong \{[^}]*word-break: normal[^}]*white-space: normal/);
+  assert.match(styles, /button:hover,[\s\S]*button:focus-visible,[\s\S]*button\.is-selected/);
+  assert.match(styles, /\.admin-monitoring-result-enrolment \{[^}]*color: #405777 !important/);
+});
+
 test("Selected students load authoritative active enrolment details", () => {
   assert.match(adminPage, /load active enrolment/);
   assert.match(adminPage, /Level/);
@@ -217,8 +228,11 @@ test("Monitoring supports Young Learners with a focused schema extension", () =>
 });
 
 test("Student monitoring search covers names, programmes, and current enrolments", () => {
-  assert.match(server, /toLowerCase\(\)/);
-  assert.match(server, /first_name\.ilike\.%\$\{term\}%,last_name\.ilike\.%\$\{term\}%/);
+  assert.match(server, /normalizeMonitoringName/);
+  assert.match(server, /toLocaleLowerCase\(\)\.trim\(\)\.replace\(\/\\s\+\/g, " "\)/);
+  assert.match(server, /monitoringSearchTokens/);
+  assert.match(server, /first_name\.ilike\.%\$\{escaped\}%/);
+  assert.match(server, /last_name\.ilike\.%\$\{escaped\}%/);
   assert.match(server, /young_learners.*select\("id, first_name, last_name, active"\)/s);
   assert.match(server, /from\("class_roster_profiles"\)/);
   assert.match(server, /select\("student_id, first_name, last_name, email, class_id/);
@@ -228,6 +242,16 @@ test("Student monitoring search covers names, programmes, and current enrolments
   assert.match(server, /ends_before\.is\.null,ends_before\.gt\.\$\{today\}/);
   assert.match(adminPage, /No matching students/);
   assert.match(adminPage, /student_type === "young_learner"/);
+});
+
+test("Student monitoring search supports full, partial, repeated-space, and reversed names", () => {
+  assert.match(server, /monitoringNameMatches\(row\.first_name, row\.last_name, normalizedSearch\)/);
+  assert.match(server, /monitoringNameMatches\(student\.first_name, student\.last_name, normalizedSearch\)/);
+  assert.match(server, /const reversedName = normalizeMonitoringName/);
+  assert.match(server, /variants\.some\(\(name\) => name\.includes\(query\)\)/);
+  assert.match(server, /query\.split\(" "\).*\.every/);
+  assert.match(server, /row\.active !== false/);
+  assert.match(server, /eq\("active", true\)/);
 });
 
 test("Admin monitoring feedback stays visible until an outcome and is clearly structured", () => {

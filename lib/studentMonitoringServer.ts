@@ -141,20 +141,53 @@ export type MonitoringEnrolment = {
   ends_before: string | null;
 };
 
+function normalizeMonitoringName(value: unknown) {
+  return String(value || "").toLocaleLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function monitoringNameMatches(firstName: unknown, lastName: unknown, search: string) {
+  const query = normalizeMonitoringName(search);
+  if (!query) return false;
+  const fullName = normalizeMonitoringName(`${firstName || ""} ${lastName || ""}`);
+  const reversedName = normalizeMonitoringName(`${lastName || ""} ${firstName || ""}`);
+  const variants = [fullName, reversedName].filter(Boolean);
+  if (variants.some((name) => name.includes(query))) return true;
+  return query.split(" ").filter(Boolean).every((token) => variants.some((name) => name.includes(token)));
+}
+
+function monitoringSearchTokens(search: string) {
+  return [...new Set(normalizeMonitoringName(search).split(" ").filter(Boolean))];
+}
+
+function monitoringIlikeFilters(search: string) {
+  return monitoringSearchTokens(search)
+    .flatMap((token) => {
+      const escaped = token.replace(/[\\%,_]/g, "\\$&");
+      return [`first_name.ilike.%${escaped}%`, `last_name.ilike.%${escaped}%`];
+    })
+    .join(",");
+}
+
 export async function searchMonitoringStudents(search: string) {
-  const term = String(search || "").trim().toLowerCase().replace(/[%,_]/g, "\\$&");
-  if (term.length < 2) return [] as MonitoringStudentMatch[];
+  const normalizedSearch = normalizeMonitoringName(search);
+  if (normalizedSearch.length < 2) return [] as MonitoringStudentMatch[];
+  const nameFilters = monitoringIlikeFilters(normalizedSearch);
   // Use the same roster view as Admin and Teacher class lists. It preserves
   // legacy profile rows whose active flag is null while still excluding
   // inactive, cancelled, or ended enrolments below.
   const { data: rosterProfiles, error: profileError } = await supabaseAdmin
     .from("class_roster_profiles")
     .select("student_id, first_name, last_name, email, class_id, enrolled_at, ends_before, active")
-    .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%`)
+    .or(nameFilters)
     .limit(100);
   if (profileError) throw profileError;
   const today = getMadridDate();
-  const profileRosterRows = (rosterProfiles || []).filter((row) => row.active !== false && String(row.enrolled_at || "") <= today && (!row.ends_before || today < String(row.ends_before)));
+  const profileRosterRows = (rosterProfiles || []).filter((row) =>
+    monitoringNameMatches(row.first_name, row.last_name, normalizedSearch) &&
+    row.active !== false &&
+    String(row.enrolled_at || "") <= today &&
+    (!row.ends_before || today < String(row.ends_before))
+  );
   const profileClassIds = [...new Set(profileRosterRows.map((period) => String(period.class_id)).filter(Boolean))];
   const { data: profileClasses, error: profileClassError } = profileClassIds.length
     ? await supabaseAdmin.from("classes").select("id").in("id", profileClassIds).eq("is_cambridge", true)
@@ -167,9 +200,10 @@ export async function searchMonitoringStudents(search: string) {
 
   const { data: youngLearners, error: youngLearnerError } = await supabaseAdmin
     .from("young_learners").select("id, first_name, last_name, active").eq("active", true)
-    .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%`).order("last_name").order("first_name").limit(100);
+    .or(nameFilters).order("last_name").order("first_name").limit(100);
   if (youngLearnerError) throw youngLearnerError;
-  const youngIds = (youngLearners || []).map((student) => String(student.id));
+  const matchingYoungLearners = (youngLearners || []).filter((student) => monitoringNameMatches(student.first_name, student.last_name, normalizedSearch));
+  const youngIds = matchingYoungLearners.map((student) => String(student.id));
   const { data: youngPeriods, error: youngPeriodError } = youngIds.length
     ? await supabaseAdmin.from("class_enrolment_periods").select("young_learner_id, class_id").eq("student_type", "young_learner").in("young_learner_id", youngIds).is("cancelled_at", null).lte("starts_on", today).or(`ends_before.is.null,ends_before.gt.${today}`)
     : { data: [], error: null };
@@ -182,7 +216,7 @@ export async function searchMonitoringStudents(search: string) {
   const eligibleYoungIds = new Set((youngPeriods || []).filter((period) => (youngClasses || []).some((row) => String(row.id) === String(period.class_id))).map((period) => String(period.young_learner_id)));
   const matches = [
     ...profileMatches,
-    ...(youngLearners || []).filter((student) => eligibleYoungIds.has(String(student.id))).map((student) => ({ id: String(student.id), student_type: "young_learner" as const, first_name: student.first_name || null, last_name: student.last_name || null, email: null })),
+    ...matchingYoungLearners.filter((student) => eligibleYoungIds.has(String(student.id))).map((student) => ({ id: String(student.id), student_type: "young_learner" as const, first_name: student.first_name || null, last_name: student.last_name || null, email: null })),
   ].sort((left, right) => `${left.last_name || ""} ${left.first_name || ""}`.localeCompare(`${right.last_name || ""} ${right.first_name || ""}`)).slice(0, 20);
   return Promise.all(matches.map(async (student) => ({
     ...student,
