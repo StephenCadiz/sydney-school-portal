@@ -49,6 +49,13 @@ const manualSignoutMigration = readFileSync(
   ),
   "utf8"
 );
+const teacherCorrectionMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260922160000_link_teacher_corrections_to_sessions.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const historicalCorrectionMigration = readFileSync(
   new URL(
     "../supabase/migrations/20260911130000_allow_historical_staff_time_corrections.sql",
@@ -411,6 +418,72 @@ test("unlinked correction retries collapse to one authoritative daily session", 
   assert.equal(views[0].clocking_mode, "correction");
   assert.equal(views[0].effective_sign_in_at, "2026-09-22T14:30:00.000Z");
   assert.equal(views[0].effective_sign_out_at, "2026-09-22T17:30:00.000Z");
+});
+
+test("a late real sign-in plus an approved unlinked start correction keeps the real sign-out", () => {
+  const teacherId = "lucia-vila";
+  const sessionId = "lucia-session-2026-09-22";
+  const views = buildStaffTimeReportSessionViews(
+    [{
+      id: sessionId,
+      teacher_id: teacherId,
+      work_date: "2026-09-22",
+      clocking_mode: "school_network",
+      opened_at: "2026-09-22T15:12:07.575Z",
+    }],
+    [
+      {
+        session_id: sessionId,
+        event_type: "sign_in",
+        occurred_at: "2026-09-22T15:12:07.575Z",
+        verification_result: "verified_school_network",
+      },
+      {
+        session_id: sessionId,
+        event_type: "sign_out",
+        occurred_at: "2026-09-22T18:34:06.703Z",
+        verification_result: "verified_school_network",
+      },
+    ],
+    [{
+      id: "lucia-unlinked-start-correction",
+      teacher_id: teacherId,
+      work_date: "2026-09-22",
+      session_id: null,
+      requested_sign_in_at: "2026-09-22T14:30:00.000Z",
+      requested_sign_out_at: null,
+      reason: "Forgot to sign in",
+      submitted_at: "2026-09-22T15:12:13.698Z",
+      reviewed_at: "2026-09-22T15:12:57.112Z",
+      status: "approved",
+    }],
+    "2026-09-22",
+    "2026-09-22"
+  );
+
+  assert.equal(views.length, 1);
+  assert.equal(views[0].id, sessionId);
+  assert.equal(views[0].corrected, true);
+  assert.equal(views[0].effective_sign_in_at, "2026-09-22T14:30:00.000Z");
+  assert.equal(views[0].effective_sign_out_at, "2026-09-22T18:34:06.703Z");
+  assert.equal(minutesBetween(views[0].effective_sign_in_at, views[0].effective_sign_out_at), 244);
+});
+
+test("teacher correction submission links a unique same-day session and rejects ambiguity", () => {
+  assert.match(teacherCorrectionMigration, /create or replace function public\.staff_submit_time_correction\(/i);
+  assert.match(teacherCorrectionMigration, /pg_advisory_xact_lock\(hashtextextended\(p_actor_id::text, 0\)\)/i);
+  assert.match(teacherCorrectionMigration, /select count\(\*\) into v_session_count/i);
+  assert.match(teacherCorrectionMigration, /if v_session_count > 1 then[\s\S]*Select the exact existing clock session/i);
+  assert.match(teacherCorrectionMigration, /return v_existing/i);
+  assert.match(teacherCorrectionMigration, /set search_path = pg_catalog, pg_temp/i);
+  assert.match(teacherCorrectionMigration, /revoke all on function public\.staff_submit_time_correction[\s\S]*from public, anon, authenticated/i);
+  assert.match(teacherCorrectionMigration, /grant execute on function public\.staff_submit_time_correction[\s\S]*to service_role/i);
+  assert.match(teacherCorrectionMigration, /repair_lucia_staff_time_correction\(p_actor_id uuid\)/i);
+  assert.match(teacherCorrectionMigration, /0fd24d3e-d87e-49bc-8ed6-c53bd380f449/);
+  assert.match(teacherCorrectionMigration, /de8b15d2-dd81-4aac-9f83-532ba0eeadc0/);
+  assert.match(teacherCorrectionMigration, /57232ba6-9110-4c8a-92c6-e0014ec70706/);
+  assert.match(teacherCorrectionMigration, /revoke all on function public\.repair_lucia_staff_time_correction\(uuid\)[\s\S]*from public, anon, authenticated/i);
+  assert.match(teacherCorrectionMigration, /grant execute on function public\.repair_lucia_staff_time_correction\(uuid\)[\s\S]*to service_role/i);
 });
 
 test("the durable Admin stale-session and Natalia repair RPCs are restricted and idempotent", () => {

@@ -304,12 +304,59 @@ export function buildStaffTimeReportSessionViews(
   const views: Array<StaffTimeSessionView & { id: string; work_date: string }> = [];
   const syntheticKeys = new Set<string>();
   const includedSessionIds = new Set<string>();
+  const consumedUnlinkedCorrectionIds = new Set<string>();
+
+  // A Teacher may submit a "forgot sign-in" request just after a late real
+  // sign-in, before the UI has refreshed and populated the related-session
+  // selector. When there is exactly one real session for that teacher/date,
+  // safely fold a single-sided unlinked correction into that session. This
+  // keeps the real sign-out (and its audit trail) while applying the approved
+  // corrected start time. Ambiguous or complete unlinked corrections remain
+  // synthetic records and are never guessed into a real session.
+  const realSessionsByDay = new Map<string, StaffTimeReportClockSession[]>();
+  for (const session of sessions) {
+    if (!inRange(session.work_date)) continue;
+    const key = `${session.teacher_id}|${session.work_date}`;
+    const current = realSessionsByDay.get(key) || [];
+    realSessionsByDay.set(key, [...current, session]);
+  }
+  const eligibleUnlinkedCorrections = corrections.filter(
+    (correction) =>
+      correction.status === "approved" &&
+      !correction.superseded_at &&
+      !correction.session_id &&
+      inRange(correction.work_date) &&
+      Boolean(correction.requested_sign_in_at) !== Boolean(correction.requested_sign_out_at)
+  );
+  const eligibleUnlinkedByDay = new Map<string, StaffTimeReportCorrection[]>();
+  for (const correction of eligibleUnlinkedCorrections) {
+    const key = `${correction.teacher_id}|${correction.work_date}`;
+    const current = eligibleUnlinkedByDay.get(key) || [];
+    eligibleUnlinkedByDay.set(key, [...current, correction]);
+  }
+  const mergedUnlinkedBySession = new Map<string, StaffTimeReportCorrection>();
+  for (const [dayKey, dayCorrections] of eligibleUnlinkedByDay) {
+    if (dayCorrections.length !== 1) continue;
+    const correction = dayCorrections[0];
+    const daySessions = realSessionsByDay.get(dayKey) || [];
+    if (daySessions.length !== 1) continue;
+    const session = daySessions[0];
+    if (approvedBySession.has(session.id)) continue;
+    const sessionEvents = eventsBySession.get(session.id) || [];
+    const signIn = sessionEvents.find((event) => event.event_type === "sign_in") || null;
+    const signOut = sessionEvents.find((event) => event.event_type === "sign_out") || null;
+    if (correction.requested_sign_in_at && (!signIn || correction.requested_sign_in_at > signIn.occurred_at)) continue;
+    if (correction.requested_sign_out_at && (!signIn || !signOut || correction.requested_sign_out_at < signIn.occurred_at)) continue;
+    if (mergedUnlinkedBySession.has(session.id)) continue;
+    mergedUnlinkedBySession.set(session.id, correction);
+    consumedUnlinkedCorrectionIds.add(correction.id);
+  }
   for (const session of sessions) {
     if (!inRange(session.work_date)) continue;
     const sessionEvents = eventsBySession.get(session.id) || [];
     const signIn = sessionEvents.find((event) => event.event_type === "sign_in") || null;
     const signOut = sessionEvents.find((event) => event.event_type === "sign_out") || null;
-    const correction = approvedBySession.get(session.id) || null;
+    const correction = approvedBySession.get(session.id) || mergedUnlinkedBySession.get(session.id) || null;
     const view = {
       id: session.id,
       teacher_id: session.teacher_id,
@@ -334,6 +381,7 @@ export function buildStaffTimeReportSessionViews(
       correction.superseded_at ||
       !inRange(correction.work_date)
     ) continue;
+    if (consumedUnlinkedCorrectionIds.has(correction.id)) continue;
     if (correction.session_id && includedSessionIds.has(correction.session_id)) continue;
     const key = `${correction.teacher_id}|${correction.work_date}`;
     const current = unlinkedByDay.get(key);
