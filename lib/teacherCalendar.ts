@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import type { UpcomingCalendarGroup } from "./calendarGroups";
 import {
   getMadridSchoolDate,
+  getNextSchoolClosure,
   type SchoolClosureSummary,
 } from "./schoolClosures";
 
@@ -199,6 +200,13 @@ export function getFutureTeacherSchoolClosures(
         a.end_date.localeCompare(b.end_date) ||
         a.name.localeCompare(b.name)
     );
+}
+
+export function getNextTeacherSchoolClosure(
+  closures: readonly SchoolClosureSummary[],
+  today = getMadridSchoolDate()
+) {
+  return getNextSchoolClosure(closures, today);
 }
 
 function closureAlreadyRepresented(

@@ -91,7 +91,8 @@ test("Teacher Dashboard, Admin Dashboard, and School Calendar render both groupe
 
 test("Empty schedules remain empty and existing calendar events are preserved", () => {
   assert.match(groups, /return null/);
-  assert.match(teacherAgenda, /mergeTeacherCalendarEventsWithClosures\(calendarEvents, closures\)/);
+  assert.match(teacherAgenda, /const nextClosure = getNextTeacherSchoolClosure\(closures\)/);
+  assert.match(teacherAgenda, /nextClosure \? \[nextClosure\] : \[\]/);
   assert.match(teacherAgenda, /\.\.\.calendarGroups/);
   assert.match(adminDashboard, /\.\.\.calendarEvents, \.\.\.calendarGroups/);
   assert.match(teacherAgenda, /visibleEvents/);

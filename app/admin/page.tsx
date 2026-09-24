@@ -12,7 +12,7 @@ import { getUpcomingCalendarGroups, getUpcomingTeacherCalendarEvents } from "../
 import { supabase } from "../../lib/supabase";
 import { getCurrentAcademicYear } from "../../lib/academicYears";
 import { resolveCurrentStudentClass } from "../../lib/academicYearRules";
-import type { SchoolClosure } from "../../lib/schoolClosures";
+import { getNextSchoolClosure, type SchoolClosure } from "../../lib/schoolClosures";
 
 type IconName =
   | "classes"
@@ -475,11 +475,10 @@ export default function AdminDashboard() {
           throw new Error(payload.error || "Unable to load School Calendar.");
         }
         const today = String(payload.today_madrid || "");
-        setNextSchoolClosure(
-          (Array.isArray(payload.closures) ? payload.closures : []).find(
-            (closure: SchoolClosure) => closure.end_date >= today
-          ) || null
-        );
+        const closures = Array.isArray(payload.closures)
+          ? (payload.closures as SchoolClosure[])
+          : [];
+        setNextSchoolClosure(getNextSchoolClosure(closures, today));
       } catch (error) {
         console.error("Unable to load School Calendar summary:", error);
         setSchoolCalendarError(true);

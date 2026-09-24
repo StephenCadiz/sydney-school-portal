@@ -6,7 +6,9 @@ const root = new URL("../", import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), "utf8");
 const agenda = read("app/components/teacher/TeacherCalendarAgenda.tsx");
 const calendar = read("lib/teacherCalendar.ts");
+const schoolClosures = read("lib/schoolClosures.ts");
 const route = read("app/api/teacher/calendar/closures/route.ts");
+const adminDashboard = read("app/admin/page.tsx");
 const styles = read("app/globals.css");
 
 test("Teacher Dashboard reuses the Admin school_closures source through an authenticated no-store route", () => {
@@ -48,6 +50,19 @@ test("Closure notices remain visible in the contained all-events agenda", () => 
   assert.match(styles, /\.teacher-dashboard-event-list[\s\S]*overflow-y: auto/);
   assert.match(styles, /\.teacher-dashboard-event-content \{[\s\S]*min-width: 0/);
   assert.match(styles, /@media \(max-width: 840px\)[\s\S]*grid-template-columns: 1fr/);
+});
+
+test("Dashboard cards show only the nearest current or upcoming closure while the modal keeps the full list", () => {
+  assert.match(schoolClosures, /export function getNextSchoolClosure/);
+  assert.match(schoolClosures, /closure\.end_date >= today/);
+  assert.match(schoolClosures, /left\.start_date\.localeCompare\(right\.start_date\)/);
+  assert.match(calendar, /export function getNextTeacherSchoolClosure/);
+  assert.match(agenda, /getNextTeacherSchoolClosure\(closures\)/);
+  assert.match(agenda, /const nextClosure = getNextTeacherSchoolClosure\(closures\)/);
+  assert.match(agenda, /nextClosure \? \[nextClosure\] : \[\]/);
+  assert.match(agenda, /const futureClosures = getFutureTeacherSchoolClosures\(closures\)/);
+  assert.match(adminDashboard, /getNextSchoolClosure\(/);
+  assert.doesNotMatch(adminDashboard, /\.find\(\s*\(closure: SchoolClosure\) => closure\.end_date >= today/);
 });
 
 test("Future closures have an accessible expandable view with chronological ranges", () => {

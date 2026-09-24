@@ -10,6 +10,7 @@ import {
   getUpcomingTeacherCalendarEvents,
   getUpcomingCalendarGroups,
   getUpcomingTeacherSchoolClosures,
+  getNextTeacherSchoolClosure,
   mergeTeacherCalendarEventsWithClosures,
   type TeacherCalendarAgendaItem,
   type TeacherCalendarEvent,
@@ -68,8 +69,12 @@ export default function TeacherCalendarAgenda() {
   const closureTriggerRef = useRef<HTMLButtonElement>(null);
   const closureDialogRef = useRef<HTMLDivElement>(null);
 
+  const nextClosure = getNextTeacherSchoolClosure(closures);
   const events = [
-    ...mergeTeacherCalendarEventsWithClosures(calendarEvents, closures),
+    ...mergeTeacherCalendarEventsWithClosures(
+      calendarEvents,
+      nextClosure ? [nextClosure] : []
+    ),
     ...calendarGroups,
   ].sort((left, right) =>
     left.event_date.localeCompare(right.event_date) ||

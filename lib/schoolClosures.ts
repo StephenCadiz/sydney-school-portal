@@ -43,6 +43,28 @@ export function getMadridSchoolDate(date = new Date()) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+/**
+ * Returns the nearest closure that is still current or upcoming in the
+ * Madrid-local school calendar.  Keeping this selection deterministic lets
+ * dashboard summaries show one closure while the full calendar retains every
+ * future record.
+ */
+export function getNextSchoolClosure<
+  T extends Pick<SchoolClosure, "id" | "name" | "start_date" | "end_date">,
+>(closures: readonly T[], today = getMadridSchoolDate()): T | null {
+  return (
+    [...closures]
+      .filter((closure) => closure.end_date >= today)
+      .sort(
+        (left, right) =>
+          left.start_date.localeCompare(right.start_date) ||
+          left.end_date.localeCompare(right.end_date) ||
+          left.name.localeCompare(right.name) ||
+          left.id.localeCompare(right.id)
+      )[0] || null
+  );
+}
+
 export function findSchoolClosure<T extends Pick<SchoolClosure, "start_date" | "end_date">>(
   date: string,
   closures: readonly T[]
