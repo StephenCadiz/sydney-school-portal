@@ -8,7 +8,11 @@ import TeacherWorkingDayPanel from "../components/teacher/TeacherWorkingDayPanel
 import { getAdminClasses } from "../../lib/adminClasses";
 import { getTeachers } from "../../lib/adminTeachers";
 import { getUnreviewedFollowUpsForAdmin } from "../../lib/followUps";
-import { getUpcomingCalendarGroups, getUpcomingTeacherCalendarEvents } from "../../lib/teacherCalendar";
+import {
+  filterTeacherDashboardCalendarEvents,
+  getUpcomingCalendarGroups,
+  getUpcomingTeacherCalendarEvents,
+} from "../../lib/teacherCalendar";
 import { supabase } from "../../lib/supabase";
 import { getCurrentAcademicYear } from "../../lib/academicYears";
 import { resolveCurrentStudentClass } from "../../lib/academicYearRules";
@@ -390,6 +394,7 @@ export default function AdminDashboard() {
   const [mockResultsAwaitingReview, setMockResultsAwaitingReview] = useState(0);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [calendarGroups, setCalendarGroups] = useState<any[]>([]);
+  const [schoolClosures, setSchoolClosures] = useState<SchoolClosure[]>([]);
   const [nextSchoolClosure, setNextSchoolClosure] =
     useState<SchoolClosure | null>(null);
   const [overview, setOverview] = useState({
@@ -478,6 +483,7 @@ export default function AdminDashboard() {
         const closures = Array.isArray(payload.closures)
           ? (payload.closures as SchoolClosure[])
           : [];
+        setSchoolClosures(closures);
         setNextSchoolClosure(getNextSchoolClosure(closures, today));
       } catch (error) {
         console.error("Unable to load School Calendar summary:", error);
@@ -554,6 +560,10 @@ export default function AdminDashboard() {
   }, []);
 
   const latestFollowUps = unreviewedFollowUps.slice(0, 3);
+  const dashboardCalendarEvents = filterTeacherDashboardCalendarEvents(
+    calendarEvents,
+    schoolClosures
+  );
   return (
     <AdminLayout>
       {(unreadMessageCount, attendanceAlertCount, monitoringSummary: AdminMonitoringSummary) => {
@@ -793,13 +803,13 @@ export default function AdminDashboard() {
               <p className="admin-dashboard-error">
                 Unable to load teacher calendar.
               </p>
-            ) : calendarEvents.length === 0 && calendarGroups.length === 0 ? (
+            ) : dashboardCalendarEvents.length === 0 && calendarGroups.length === 0 ? (
               <p className="admin-dashboard-empty-text">
                 No upcoming teacher events.
               </p>
             ) : (
               <div className="admin-dashboard-event-list">
-                {[...calendarEvents, ...calendarGroups]
+                {[...dashboardCalendarEvents, ...calendarGroups]
                   .sort((left, right) => String(left.event_date).localeCompare(String(right.event_date)))
                   .map((event) => (
                   <article key={event.id} className="admin-dashboard-event">

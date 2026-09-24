@@ -57,11 +57,15 @@ test("Dashboard cards show only the nearest current or upcoming closure while th
   assert.match(schoolClosures, /closure\.end_date >= today/);
   assert.match(schoolClosures, /left\.start_date\.localeCompare\(right\.start_date\)/);
   assert.match(calendar, /export function getNextTeacherSchoolClosure/);
+  assert.match(calendar, /export function filterTeacherDashboardCalendarEvents/);
+  assert.match(calendar, /!closures\.some\(\(closure\) =>/);
   assert.match(agenda, /getNextTeacherSchoolClosure\(closures\)/);
+  assert.match(agenda, /filterTeacherDashboardCalendarEvents\(/);
   assert.match(agenda, /const nextClosure = getNextTeacherSchoolClosure\(closures\)/);
   assert.match(agenda, /nextClosure \? \[nextClosure\] : \[\]/);
   assert.match(agenda, /const futureClosures = getFutureTeacherSchoolClosures\(closures\)/);
   assert.match(adminDashboard, /getNextSchoolClosure\(/);
+  assert.match(adminDashboard, /filterTeacherDashboardCalendarEvents\(/);
   assert.doesNotMatch(adminDashboard, /\.find\(\s*\(closure: SchoolClosure\) => closure\.end_date >= today/);
 });
 

@@ -92,14 +92,15 @@ test("Teacher Dashboard, Admin Dashboard, and School Calendar render both groupe
 test("Empty schedules remain empty and existing calendar events are preserved", () => {
   assert.match(groups, /return null/);
   assert.match(teacherAgenda, /const nextClosure = getNextTeacherSchoolClosure\(closures\)/);
+  assert.match(teacherAgenda, /const dashboardCalendarEvents = filterTeacherDashboardCalendarEvents/);
   assert.match(teacherAgenda, /nextClosure \? \[nextClosure\] : \[\]/);
   assert.match(teacherAgenda, /\.\.\.calendarGroups/);
-  assert.match(adminDashboard, /\.\.\.calendarEvents, \.\.\.calendarGroups/);
+  assert.match(adminDashboard, /dashboardCalendarEvents, \.\.\.calendarGroups/);
   assert.match(teacherAgenda, /visibleEvents/);
 });
 
 test("Admin and Teacher dashboard calendars expose all events through contained scrolling", () => {
-  assert.match(adminDashboard, /calendarEvents, \.\.\.calendarGroups/);
+  assert.match(adminDashboard, /dashboardCalendarEvents, \.\.\.calendarGroups/);
   assert.match(teacherAgenda, /const visibleEvents = events/);
   assert.match(styles, /\.admin-dashboard-event-list[\s\S]*max-height: 420px[\s\S]*overflow-y: auto/);
   assert.match(styles, /\.teacher-dashboard-event-list[\s\S]*max-height: 430px[\s\S]*overflow-y: auto/);

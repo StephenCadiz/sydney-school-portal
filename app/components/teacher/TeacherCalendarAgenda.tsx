@@ -11,6 +11,7 @@ import {
   getUpcomingCalendarGroups,
   getUpcomingTeacherSchoolClosures,
   getNextTeacherSchoolClosure,
+  filterTeacherDashboardCalendarEvents,
   mergeTeacherCalendarEventsWithClosures,
   type TeacherCalendarAgendaItem,
   type TeacherCalendarEvent,
@@ -70,9 +71,13 @@ export default function TeacherCalendarAgenda() {
   const closureDialogRef = useRef<HTMLDivElement>(null);
 
   const nextClosure = getNextTeacherSchoolClosure(closures);
+  const dashboardCalendarEvents = filterTeacherDashboardCalendarEvents(
+    calendarEvents,
+    closures
+  );
   const events = [
     ...mergeTeacherCalendarEventsWithClosures(
-      calendarEvents,
+      dashboardCalendarEvents,
       nextClosure ? [nextClosure] : []
     ),
     ...calendarGroups,

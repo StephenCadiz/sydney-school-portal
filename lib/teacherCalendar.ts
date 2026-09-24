@@ -223,6 +223,60 @@ function closureAlreadyRepresented(
   });
 }
 
+function isTeacherClosureEvent(
+  event: Pick<TeacherCalendarEvent, "event_date" | "title" | "description">,
+  closure: SchoolClosureSummary,
+  closures: readonly SchoolClosureSummary[]
+) {
+  const eventDate = String(event.event_date || "");
+  const title = String(event.title || "").trim().toLocaleLowerCase();
+  const description = String(event.description || "").trim().toLocaleLowerCase();
+  const closureName = closure.name.trim().toLocaleLowerCase();
+  if (
+    closureName &&
+    (title.includes(closureName) || description.includes(closureName))
+  ) {
+    return true;
+  }
+
+  const looksLikeClosureNotice =
+    title.includes("public holiday") ||
+    title.includes("school closure") ||
+    title.includes("school closed") ||
+    title.includes("classes resume") ||
+    description.includes("public holiday") ||
+    description.includes("school closure") ||
+    description.includes("school closed") ||
+    description.includes("classes resume");
+  if (!looksLikeClosureNotice) return false;
+
+  const beforeDate = shiftDateKey(closure.start_date, -1);
+  const resumeDate = nextOpenDateAfter(closure.end_date, closures);
+  return (
+    eventDate === beforeDate ||
+    eventDate === closure.start_date ||
+    (eventDate >= closure.start_date && eventDate <= closure.end_date) ||
+    eventDate === resumeDate
+  );
+}
+
+/**
+ * Existing teacher-calendar rows can contain older holiday/closure notices.
+ * Dashboard cards should not reintroduce those later records after the shared
+ * school-calendar source has selected the nearest closure.
+ */
+export function filterTeacherDashboardCalendarEvents(
+  events: readonly TeacherCalendarEvent[],
+  closures: readonly SchoolClosureSummary[]
+) {
+  return events.filter(
+    (event) =>
+      !closures.some((closure) =>
+        isTeacherClosureEvent(event, closure, closures)
+      )
+  );
+}
+
 function nextOpenDateAfter(
   endDate: string,
   closures: readonly SchoolClosureSummary[]
