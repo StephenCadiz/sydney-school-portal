@@ -21,7 +21,11 @@ export default function AdminStudentsTabs() {
         className={!studentInformationActive ? "is-active" : ""}
         onClick={(event) => {
           event.stopPropagation();
-          window.dispatchEvent(new Event("admin-content-navigation"));
+          window.dispatchEvent(
+            new CustomEvent("admin-content-navigation", {
+              detail: { href: "/admin/students" },
+            })
+          );
         }}
       >
         Students
@@ -32,7 +36,11 @@ export default function AdminStudentsTabs() {
         className={studentInformationActive ? "is-active" : ""}
         onClick={(event) => {
           event.stopPropagation();
-          window.dispatchEvent(new Event("admin-content-navigation"));
+          window.dispatchEvent(
+            new CustomEvent("admin-content-navigation", {
+              detail: { href: "/admin/student-information" },
+            })
+          );
         }}
       >
         Student Information

@@ -620,13 +620,22 @@ export default function AdminLayout({
   }, []);
 
   useEffect(() => {
-    const closeForContentNavigation = () => {
+    const closeForContentNavigation = (event: Event) => {
       // Page-content links must not be treated as sidebar group navigation.
       // Clear the open group before Next navigates so the pathname effect does
       // not reopen the People & Classes fly-out on the destination page.
       suppressPathExpansionRef.current = true;
       openGroupRef.current = "";
       setOpenNavGroup("");
+
+      const href = (event as CustomEvent<{ href?: unknown }>).detail?.href;
+      if (typeof href === "string" && href) {
+        try {
+          window.sessionStorage.setItem(ADMIN_NAV_CLOSE_AFTER_NAVIGATION_KEY, href);
+        } catch {
+          // Session storage may be unavailable in privacy-restricted browsers.
+        }
+      }
     };
 
     window.addEventListener("admin-content-navigation", closeForContentNavigation);

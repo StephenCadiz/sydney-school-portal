@@ -117,6 +117,9 @@ test("Students content links close the People & Classes fly-out without toggling
   assert.match(layout, /suppressPathExpansionRef\.current = true/);
   assert.match(layout, /openGroupRef\.current = ""/);
   assert.match(layout, /setOpenNavGroup\(""\)/);
+  assert.match(layout, /sessionStorage\.setItem\(ADMIN_NAV_CLOSE_AFTER_NAVIGATION_KEY, href\)/);
+  assert.match(tabs, /detail: \{ href: "\/admin\/students" \}/);
+  assert.match(tabs, /detail: \{ href: "\/admin\/student-information" \}/);
 });
 
 test("Desktop Admin groups use a right-side fly-out while mobile stays accordion-based", () => {
