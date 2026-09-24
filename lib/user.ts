@@ -28,6 +28,7 @@ export async function getCurrentUser() {
     email: payload.email || session.user.email,
     first_name: payload.first_name || null,
     last_name: payload.last_name || null,
+    display_name: payload.display_name || null,
   };
 }
 

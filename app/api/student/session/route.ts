@@ -34,12 +34,18 @@ export async function GET(request: NextRequest) {
     return errorResponse("Student record cannot be accessed in the portal.", 403);
   }
 
+  const displayName = [profile.first_name, profile.last_name]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join(" ") || null;
+
   return NextResponse.json(
     {
       id: profile.id,
       email: profile.email || authData.user.email || null,
       first_name: profile.first_name || null,
       last_name: profile.last_name || null,
+      display_name: displayName,
     },
     { headers: { "Cache-Control": "no-store" } }
   );

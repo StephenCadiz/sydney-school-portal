@@ -54,7 +54,7 @@ function formatSchedule(value: string) {
 }
 
 export default function StudentDashboard() {
-  const [studentName, setStudentName] = useState("Student");
+  const [studentName, setStudentName] = useState("");
   const [teacherName, setTeacherName] = useState("-");
   const [level, setLevel] = useState("-");
   const [courseType, setCourseType] = useState("-");
@@ -80,7 +80,13 @@ export default function StudentDashboard() {
         const courseInfo = await getCurrentStudentCourseInfo();
 
         setStudentId(user.id);
-        setStudentName(user.first_name || "Student");
+        setStudentName(
+          user.display_name ||
+            [user.first_name, user.last_name]
+              .map((value) => String(value || "").trim())
+              .filter(Boolean)
+              .join(" ")
+        );
         setTeacherName(
           `${teacher.first_name || ""} ${
             teacher.last_name || ""
@@ -218,7 +224,7 @@ export default function StudentDashboard() {
             />
 
             <h1>
-              Welcome back, {studentName}
+              {studentName ? `Welcome back, ${studentName}` : loading ? "Loading your profile…" : "Welcome back"}
             </h1>
 
             <p>
