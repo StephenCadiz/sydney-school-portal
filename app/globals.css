@@ -19753,6 +19753,8 @@ img {
 .student-access-control-status { margin: 0; color: #475467; }
 .student-access-control-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .student-access-control-actions button { border: 1px solid var(--ss-blue); border-radius: 9px; padding: 10px 14px; background: var(--ss-blue); color: #fff; font-weight: 700; cursor: pointer; }
+.student-access-control-reset-link { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--ss-blue); border-radius: 9px; padding: 10px 14px; background: #fff; color: var(--ss-blue-dark); font-weight: 700; text-decoration: none; }
+.student-access-control-reset-link:hover, .student-access-control-reset-link:focus-visible { background: #eef6ff; text-decoration: underline; }
 .student-access-control-actions button:disabled { opacity: .6; cursor: not-allowed; }
 .student-access-control-success, .student-access-control-error { margin: 0; padding: 10px 12px; border-radius: 8px; }
 .student-access-control-success { color: #166534; background: #ecfdf3; }

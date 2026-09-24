@@ -70,6 +70,8 @@ export default function ForgotPasswordPage() {
 
   useEffect(() => {
     setCooldownUntil(readCooldownUntil());
+    const emailFromLink = new URLSearchParams(window.location.search).get("email");
+    if (emailFromLink) setEmail(normalizeEmail(emailFromLink));
   }, []);
 
   useEffect(() => {

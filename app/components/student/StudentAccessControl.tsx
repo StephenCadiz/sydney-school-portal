@@ -15,6 +15,8 @@ type Access = {
   portal_access_active: boolean;
   invitation_sent: boolean;
   invitation_sent_at: string | null;
+  invitation_pending: boolean;
+  auth_confirmed: boolean;
 };
 
 export default function StudentAccessControl({ studentId, classId, teacherMode = false, onChanged }: Props) {
@@ -27,6 +29,9 @@ export default function StudentAccessControl({ studentId, classId, teacherMode =
   const [error, setError] = useState("");
   const savedEmail = (access?.email || "").trim().toLowerCase();
   const enteredEmail = email.trim().toLowerCase();
+  const passwordResetHref = savedEmail
+    ? `/forgot-password?email=${encodeURIComponent(savedEmail)}`
+    : "/forgot-password";
 
   async function request(action?: string, value?: string) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -94,10 +99,14 @@ export default function StudentAccessControl({ studentId, classId, teacherMode =
       {error && <p className="student-access-control-error" role="alert">{error}</p>}
       {message && <p className="student-access-control-success" role="status">{message}</p>}
       <label><span>Email address</span><input type="email" value={email} placeholder="No email added" disabled={busy} onChange={(event) => setEmail(event.target.value)} /></label>
-      <p className="student-access-control-status"><strong>{access?.portal_access_active ? "Student Portal access active" : "No active Student Portal access"}</strong>{access?.invitation_sent && <> · Invitation sent{access.invitation_sent_at ? ` ${new Date(access.invitation_sent_at).toLocaleString()}` : ""}</>}</p>
+      <p className="student-access-control-status"><strong>{access?.portal_access_active ? "Student Portal access active" : "No active Student Portal access"}</strong>{access?.invitation_pending ? <> · Invitation pending{access.invitation_sent_at ? ` ${new Date(access.invitation_sent_at).toLocaleString()}` : ""}</> : access?.invitation_sent ? <> · Invitation sent{access.invitation_sent_at ? ` ${new Date(access.invitation_sent_at).toLocaleString()}` : ""}</> : null}</p>
       <div className="student-access-control-actions">
         <button type="button" onClick={() => void runAction("save-email")} disabled={busy}>{busy ? "Saving…" : "Save email"}</button>
-        <button type="button" onClick={() => void runAction(access?.invitation_sent ? "resend-invitation" : "send-invitation")} disabled={busy || !email || enteredEmail !== savedEmail}>{access?.invitation_sent ? "Resend invitation" : "Send invitation"}</button>
+        {access?.auth_confirmed ? (
+          <a className="student-access-control-reset-link" href={passwordResetHref}>Use password reset</a>
+        ) : (
+          <button type="button" onClick={() => void runAction(access?.invitation_pending ? "resend-invitation" : "send-invitation")} disabled={busy || !email || enteredEmail !== savedEmail}>{access?.invitation_pending ? "Resend invitation" : "Send invitation"}</button>
+        )}
       </div>
     </section>
   );

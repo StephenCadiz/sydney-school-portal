@@ -29,7 +29,8 @@ test("Ambiguous exact-email Auth matches fail closed", () => {
 });
 
 test("Access Control reports confirmed Auth accounts as active", () => {
-  assert.match(accessServer, /portal_access_active: Boolean\(authUser && authUser\.email_confirmed_at\)/);
+  assert.match(accessServer, /const authConfirmed = Boolean\(authUser\?\.email_confirmed_at\)/);
+  assert.match(accessServer, /portal_access_active: Boolean\(authUser && authConfirmed\)/);
   assert.match(accessUi, /Student Portal access active/);
   assert.match(accessUi, /No active Student Portal access/);
 });

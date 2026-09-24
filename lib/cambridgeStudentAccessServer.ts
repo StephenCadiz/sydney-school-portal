@@ -22,6 +22,7 @@ export type CambridgeStudentAccess = {
   portal_access_active: boolean;
   invitation_sent: boolean;
   invitation_sent_at: string | null;
+  invitation_pending: boolean;
   auth_confirmed: boolean;
 };
 
@@ -238,15 +239,18 @@ export async function loadStudentAccess(profileId: string): Promise<CambridgeStu
   if (authUser) {
     await ensureStudentPortalAccountMapping(profile.id, authUser.id);
   }
-  const invitedAt = authUser?.invited_at || null;
+  const invitedAt = authUser?.invited_at || authUser?.confirmation_sent_at || null;
+  const authConfirmed = Boolean(authUser?.email_confirmed_at);
+  const invitationPending = Boolean(authUser && !authConfirmed);
   return {
     profile_id: profile.id,
     email: profile.email || null,
     auth_user_id: authUser?.id || null,
-    portal_access_active: Boolean(authUser && authUser.email_confirmed_at),
+    portal_access_active: Boolean(authUser && authConfirmed),
     invitation_sent: Boolean(invitedAt),
     invitation_sent_at: invitedAt,
-    auth_confirmed: Boolean(authUser?.email_confirmed_at),
+    invitation_pending: invitationPending,
+    auth_confirmed: authConfirmed,
   };
 }
 
@@ -306,7 +310,12 @@ export async function sendStudentInvitation(
     if (existing.email && normalizeStudentEmail(existing.email) !== normalizeStudentEmail(profile.email)) {
       throw new CambridgeAccessError("Save the corrected email before sending an invitation.", 400);
     }
-    if (existing.email_confirmed_at) return { access: await loadStudentAccess(profileId), already_active: true };
+    if (existing.email_confirmed_at) {
+      throw new CambridgeAccessError(
+        "This Student Portal account is already confirmed. Use password reset instead of sending another invitation.",
+        409
+      );
+    }
     if (!options.resend) {
       throw new CambridgeAccessError("An invitation is already pending. Use Resend invitation to send it again.", 409);
     }

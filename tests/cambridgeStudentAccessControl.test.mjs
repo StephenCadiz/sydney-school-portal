@@ -83,10 +83,11 @@ test("Email save is separate from explicit invitation and never exposes password
   assert.match(accessServer, /inviteUserByEmail/);
   assert.match(accessServer, /options\.resend/);
   assert.match(accessUi, /Invitation sent again successfully/);
+  assert.match(accessUi, /Use password reset/);
+  assert.match(accessUi, /access\?\.invitation_pending \? "resend-invitation" : "send-invitation"/);
   assert.match(accessUi, /busyRef\.current/);
   const saveSection = accessServer.split("export async function saveStudentEmail")[1]?.split("export async function sendStudentInvitation")[0] || "";
   assert.doesNotMatch(saveSection, /inviteUserByEmail/);
-  assert.doesNotMatch(accessUi, /password/i);
 });
 
 test("Auth links are durable and protected by restrictive RLS", () => {
