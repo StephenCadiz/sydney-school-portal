@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), "utf8");
+const require = createRequire(import.meta.url);
+const ts = require("typescript");
 const groups = read("lib/calendarGroupsServer.ts");
 const route = read("app/api/calendar/upcoming-groups/route.ts");
 const teacherAgenda = read("app/components/teacher/TeacherCalendarAgenda.tsx");
@@ -11,6 +14,18 @@ const teacherCalendar = read("lib/teacherCalendar.ts");
 const adminDashboard = read("app/admin/page.tsx");
 const schoolCalendar = read("app/admin/school-calendar/page.tsx");
 const styles = read("app/globals.css");
+
+function loadCalendarGroupHelpers() {
+  const code = ts.transpileModule(read("lib/calendarGroups.ts"), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  const module = { exports: {} };
+  new Function("module", "exports", code)(module, module.exports);
+  return module.exports;
+}
 
 test("Friday Tutorial groups choose the nearest Madrid-local Friday and include every session", () => {
   assert.match(groups, /selectUpcomingFridayTutorialGroup/);
@@ -35,6 +50,26 @@ test("Exam Week entries are grouped by period and levels are deduplicated", () =
   assert.match(groups, /exam_week_start_date/);
   assert.match(groups, /exam_week_end_date/);
   assert.match(groups, /academic_years/);
+  assert.match(groups, /unit_number/);
+  assert.match(groups, /formatExamWeekLevelLabel/);
+});
+
+test("Exam Week labels use configured units and never infer missing units", () => {
+  const calendarGroups = read("lib/calendarGroups.ts");
+  assert.match(calendarGroups, /formatExamWeekLevelLabel/);
+  assert.match(calendarGroups, /Unit not specified/);
+  assert.match(calendarGroups, /Number\.isInteger\(numericUnit\)/);
+  assert.match(groups, /unit\.sort_order/);
+  assert.match(groups, /level_name.*unit_number/);
+  assert.match(groups, /label: formatExamWeekLevelLabel/);
+});
+
+test("Exam Week formatting preserves one unit per level and marks missing configuration", () => {
+  const { formatExamWeekLevelLabel } = loadCalendarGroupHelpers();
+  assert.equal(formatExamWeekLevelLabel("Junior 1", 1), "Junior 1 — Unit 1");
+  assert.equal(formatExamWeekLevelLabel("B1", 3), "B1 — Unit 3");
+  assert.equal(formatExamWeekLevelLabel("C1", null), "C1 — Unit not specified");
+  assert.equal(formatExamWeekLevelLabel("C2", ""), "C2 — Unit not specified");
 });
 
 test("Friday @ 6 events use the existing duty schedule and roll over after 19:00 Madrid time", () => {

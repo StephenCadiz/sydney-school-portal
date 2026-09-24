@@ -2,7 +2,10 @@ import "server-only";
 
 import { getMadridSchoolDate } from "./schoolClosures";
 import { supabaseAdmin } from "./supabaseAdmin";
-import type { UpcomingCalendarGroup } from "./calendarGroups";
+import {
+  formatExamWeekLevelLabel,
+  type UpcomingCalendarGroup,
+} from "./calendarGroups";
 import {
   assignEffectiveFridayTutorialDutyDates,
   getFridayTutorialSessionTypeForDate,
@@ -112,6 +115,7 @@ export function selectUpcomingExamWeekGroup(
     level_name: string;
     start_date: string;
     end_date: string;
+    unit_number?: number | null;
   }[],
   today: string
 ) {
@@ -134,7 +138,7 @@ export function selectUpcomingExamWeekGroup(
     description: "Syllabus exam week for the scheduled levels.",
     items: uniqueLevels.map((row) => ({
       id: String(row.id),
-      label: row.level_name,
+      label: formatExamWeekLevelLabel(row.level_name, row.unit_number),
       start_time: null,
       end_time: null,
     })),
@@ -297,7 +301,7 @@ export async function loadUpcomingCalendarGroups(today = getMadridSchoolDate()) 
     if (syllabusIds.length) {
       const { data: units, error: unitsError } = await supabaseAdmin
         .from("syllabus_units")
-        .select("id, syllabus_id, exam_week_start_date, exam_week_end_date")
+        .select("id, syllabus_id, sort_order, exam_week_start_date, exam_week_end_date")
         .in("syllabus_id", syllabusIds)
         .not("exam_week_start_date", "is", null)
         .not("exam_week_end_date", "is", null);
@@ -314,6 +318,10 @@ export async function loadUpcomingCalendarGroups(today = getMadridSchoolDate()) 
           id: String(unit.id),
           start_date: String(unit.exam_week_start_date),
           end_date: String(unit.exam_week_end_date),
+          unit_number:
+            Number.isInteger(Number(unit.sort_order)) && Number(unit.sort_order) > 0
+              ? Number(unit.sort_order)
+              : null,
           level_name: levelNames.get(String(syllabusLevels.get(String(unit.syllabus_id)))) || "Unknown level",
         })),
         today

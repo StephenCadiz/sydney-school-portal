@@ -16,3 +16,15 @@ export type UpcomingCalendarGroup = {
   description: string;
   items: UpcomingCalendarGroupItem[];
 };
+
+export function formatExamWeekLevelLabel(
+  levelName: unknown,
+  unitNumber: unknown
+) {
+  const level = String(levelName ?? "").trim() || "Unknown level";
+  const numericUnit =
+    typeof unitNumber === "number" ? unitNumber : Number(unitNumber);
+  const hasConfiguredUnit =
+    Number.isInteger(numericUnit) && numericUnit > 0;
+  return `${level} — ${hasConfiguredUnit ? `Unit ${numericUnit}` : "Unit not specified"}`;
+}
