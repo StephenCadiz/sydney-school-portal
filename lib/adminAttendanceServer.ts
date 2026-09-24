@@ -31,6 +31,7 @@ import {
   getEffectiveClassDateRange,
   isDateWithinEffectiveClassRange,
 } from "./classDateRange";
+import { isAdminAttendanceAlertExempt } from "./adminAttendanceAlertPolicy";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -268,7 +269,15 @@ async function loadAlerts(classIds: string[]) {
       )
       .in("class_id", classIdChunk);
     if (error) throw error;
-    rows.push(...((data || []) as RawAttendanceAlert[]));
+    rows.push(
+      ...((data || []) as RawAttendanceAlert[]).filter((alert) => {
+        const studentId =
+          alert.student_type === "profile"
+            ? alert.profile_student_id
+            : alert.young_learner_id;
+        return !isAdminAttendanceAlertExempt(alert.student_type, studentId);
+      })
+    );
   }
   return rows;
 }
@@ -546,6 +555,13 @@ function buildAlertRows(dataset: AttendanceDataset): AdminAttendanceAlert[] {
   const factsByStudentClass = groupFactsByStudentClass(dataset.facts);
 
   return dataset.alerts
+    .filter((alert) => {
+      const studentId =
+        alert.student_type === "profile"
+          ? alert.profile_student_id
+          : alert.young_learner_id;
+      return !isAdminAttendanceAlertExempt(alert.student_type, studentId);
+    })
     .flatMap((alert): AdminAttendanceAlert[] => {
       const classroom = classMap.get(text(alert.class_id));
       const studentId =
@@ -752,14 +768,20 @@ export async function getAdminAttendanceAlertCount() {
   const classIds = classRows.map((classroom) => text(classroom.id));
   let total = 0;
   for (const classIdChunk of chunks(classIds)) {
-    const { count, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("attendance_alerts")
-      .select("id", { count: "exact", head: true })
+      .select("id, student_type, profile_student_id, young_learner_id")
       .in("class_id", classIdChunk)
       .eq("condition_active", true)
       .is("dealt_with_at", null);
     if (error) throw error;
-    total += Math.max(0, Number(count) || 0);
+    total += (data || []).filter((alert) => {
+      const studentId =
+        alert.student_type === "profile"
+          ? alert.profile_student_id
+          : alert.young_learner_id;
+      return !isAdminAttendanceAlertExempt(alert.student_type, studentId);
+    }).length;
   }
   return total;
 }
@@ -783,6 +805,7 @@ export async function getAdminAttendanceOverview(
     if (
       student &&
       summary.attendance_percentage !== null &&
+      !isAdminAttendanceAlertExempt(student.student_type, student.student_id) &&
       summary.attendance_percentage < 70
     ) {
       studentsBelow70.add(personKey(student.student_type, student.student_id));
@@ -1087,7 +1110,15 @@ export async function getAdminAttendanceStudentDetails(
         : query.eq("young_learner_id", studentId);
     const alertResult = await query;
     if (alertResult.error) throw alertResult.error;
-    alerts.push(...((alertResult.data || []) as RawAttendanceAlert[]));
+    alerts.push(
+      ...((alertResult.data || []) as RawAttendanceAlert[]).filter((alert) => {
+        const alertStudentId =
+          alert.student_type === "profile"
+            ? alert.profile_student_id
+            : alert.young_learner_id;
+        return !isAdminAttendanceAlertExempt(alert.student_type, alertStudentId);
+      })
+    );
   }
   const dealtWithIds = unique(alerts.map((alert) => alert.dealt_with_by));
   const dealtWithProfiles = dealtWithIds.length
