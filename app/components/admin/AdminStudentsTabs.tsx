@@ -19,6 +19,10 @@ export default function AdminStudentsTabs() {
         href="/admin/students"
         aria-current={!studentInformationActive ? "page" : undefined}
         className={!studentInformationActive ? "is-active" : ""}
+        onClick={(event) => {
+          event.stopPropagation();
+          window.dispatchEvent(new Event("admin-content-navigation"));
+        }}
       >
         Students
       </Link>
@@ -26,6 +30,10 @@ export default function AdminStudentsTabs() {
         href="/admin/student-information"
         aria-current={studentInformationActive ? "page" : undefined}
         className={studentInformationActive ? "is-active" : ""}
+        onClick={(event) => {
+          event.stopPropagation();
+          window.dispatchEvent(new Event("admin-content-navigation"));
+        }}
       >
         Student Information
       </Link>

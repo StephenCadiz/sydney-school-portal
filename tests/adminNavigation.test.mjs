@@ -103,6 +103,22 @@ test("Admin child navigation clears the fly-out before route effects can reopen 
   assert.match(layout, /suppressInitialExpansion[\s\S]*pendingClosePath === pathname/);
 });
 
+test("Students content links close the People & Classes fly-out without toggling it", () => {
+  const tabs = read("app/components/admin/AdminStudentsTabs.tsx");
+  assert.match(tabs, /href="\/admin\/students"/);
+  assert.match(tabs, /href="\/admin\/student-information"/);
+  assert.strictEqual(
+    (tabs.match(/admin-content-navigation/g) || []).length,
+    2,
+    "both page-content links should notify the layout before navigation"
+  );
+  assert.match(tabs, /event\.stopPropagation\(\)/);
+  assert.match(layout, /admin-content-navigation/);
+  assert.match(layout, /suppressPathExpansionRef\.current = true/);
+  assert.match(layout, /openGroupRef\.current = ""/);
+  assert.match(layout, /setOpenNavGroup\(""\)/);
+});
+
 test("Desktop Admin groups use a right-side fly-out while mobile stays accordion-based", () => {
   assert.match(layout, /role="menu"/);
   assert.match(layout, /role="menuitem"/);

@@ -619,6 +619,21 @@ export default function AdminLayout({
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
+  useEffect(() => {
+    const closeForContentNavigation = () => {
+      // Page-content links must not be treated as sidebar group navigation.
+      // Clear the open group before Next navigates so the pathname effect does
+      // not reopen the People & Classes fly-out on the destination page.
+      suppressPathExpansionRef.current = true;
+      openGroupRef.current = "";
+      setOpenNavGroup("");
+    };
+
+    window.addEventListener("admin-content-navigation", closeForContentNavigation);
+    return () =>
+      window.removeEventListener("admin-content-navigation", closeForContentNavigation);
+  }, []);
+
   const updateFlyoutPosition = useCallback(() => {
     if (!openNavGroup || openNavGroup === "dashboard" || isMobileViewport) return;
 
