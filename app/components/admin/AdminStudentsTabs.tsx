@@ -9,6 +9,17 @@ export default function AdminStudentsTabs() {
     "/admin/student-information"
   );
 
+  function prepareContentNavigation(href: string) {
+    try {
+      window.sessionStorage.setItem("admin-nav-close-after-navigation", href);
+    } catch {
+      // Session storage may be unavailable in privacy-restricted browsers.
+    }
+    window.dispatchEvent(
+      new CustomEvent("admin-content-navigation", { detail: { href } })
+    );
+  }
+
   return (
     <nav
       className="exam-bank-tabs"
@@ -21,11 +32,7 @@ export default function AdminStudentsTabs() {
         className={!studentInformationActive ? "is-active" : ""}
         onClick={(event) => {
           event.stopPropagation();
-          window.dispatchEvent(
-            new CustomEvent("admin-content-navigation", {
-              detail: { href: "/admin/students" },
-            })
-          );
+          prepareContentNavigation("/admin/students");
         }}
       >
         Students
@@ -36,11 +43,7 @@ export default function AdminStudentsTabs() {
         className={studentInformationActive ? "is-active" : ""}
         onClick={(event) => {
           event.stopPropagation();
-          window.dispatchEvent(
-            new CustomEvent("admin-content-navigation", {
-              detail: { href: "/admin/student-information" },
-            })
-          );
+          prepareContentNavigation("/admin/student-information");
         }}
       >
         Student Information

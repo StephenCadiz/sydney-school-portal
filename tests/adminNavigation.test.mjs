@@ -109,8 +109,13 @@ test("Students content links close the People & Classes fly-out without toggling
   assert.match(tabs, /href="\/admin\/student-information"/);
   assert.strictEqual(
     (tabs.match(/admin-content-navigation/g) || []).length,
-    2,
-    "both page-content links should notify the layout before navigation"
+    1,
+    "page-content links should share one layout navigation signal"
+  );
+  assert.strictEqual(
+    (tabs.match(/prepareContentNavigation\(/g) || []).length,
+    3,
+    "the helper and both page-content links should be present"
   );
   assert.match(tabs, /event\.stopPropagation\(\)/);
   assert.match(layout, /admin-content-navigation/);
@@ -118,8 +123,9 @@ test("Students content links close the People & Classes fly-out without toggling
   assert.match(layout, /openGroupRef\.current = ""/);
   assert.match(layout, /setOpenNavGroup\(""\)/);
   assert.match(layout, /sessionStorage\.setItem\(ADMIN_NAV_CLOSE_AFTER_NAVIGATION_KEY, href\)/);
-  assert.match(tabs, /detail: \{ href: "\/admin\/students" \}/);
-  assert.match(tabs, /detail: \{ href: "\/admin\/student-information" \}/);
+  assert.match(tabs, /sessionStorage\.setItem\("admin-nav-close-after-navigation", href\)/);
+  assert.match(tabs, /prepareContentNavigation\("\/admin\/students"\)/);
+  assert.match(tabs, /prepareContentNavigation\("\/admin\/student-information"\)/);
 });
 
 test("Desktop Admin groups use a right-side fly-out while mobile stays accordion-based", () => {
