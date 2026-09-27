@@ -58,8 +58,6 @@ const responsibilityLevelLabels: Record<string, string> = {
   B1: "B1",
 };
 
-const registerStatusValues = ["choose", "yes", "no"];
-
 const sessionStudentUpdateFields = [
   "reason",
   "whatsapp_sent_status",
@@ -856,37 +854,25 @@ export async function updateFridayTutorialSessionStudent(
       if (Object.prototype.hasOwnProperty.call(updates, field)) {
         current[field] = updates[field];
       }
-
       return current;
     },
     {}
   );
 
-  [
-    "whatsapp_sent_status",
-    "parent_confirmed_status",
-    "material_received_status",
-    "student_attended_status",
-  ].forEach((field) => {
-    if (
-      safeUpdates[field] &&
-      !registerStatusValues.includes(safeUpdates[field])
-    ) {
-      safeUpdates[field] = "choose";
-    }
+  const token = await getFridayTutorialAdminToken();
+  const response = await fetch("/api/admin/friday-tutorials/workflow", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ session_student_id: id, updates: safeUpdates }),
   });
-
-  const { error } = await supabase
-    .from("friday_tutorial_session_students")
-    .update({
-      ...safeUpdates,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  if (error) {
-    throw new Error(formatSupabaseError("weekly register update", error));
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to update the weekly register.");
   }
+  return result;
 }
 
 export async function removeFutureFridayTutorialSessionMemberships(

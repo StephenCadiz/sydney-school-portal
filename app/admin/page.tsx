@@ -397,6 +397,7 @@ export default function AdminDashboard() {
   const [schoolClosures, setSchoolClosures] = useState<SchoolClosure[]>([]);
   const [nextSchoolClosure, setNextSchoolClosure] =
     useState<SchoolClosure | null>(null);
+  const [fridayTutorialReminder, setFridayTutorialReminder] = useState<any | null>(null);
   const [overview, setOverview] = useState({
     classes: 0,
     teachers: 0,
@@ -443,6 +444,23 @@ export default function AdminDashboard() {
         }
       } catch (error) {
         console.error("Unable to load Mock Results awaiting review:", error);
+      }
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const response = await fetch("/api/admin/friday-tutorials/workflow", {
+            cache: "no-store",
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || "Unable to load Friday Tutorial reminder.");
+          setFridayTutorialReminder(payload.show ? payload : null);
+        }
+      } catch (error) {
+        console.error("Unable to load Friday Tutorial reminder:", error);
       }
 
       try {
@@ -572,6 +590,22 @@ export default function AdminDashboard() {
 
         return (
           <div className="admin-dashboard-page">
+        {fridayTutorialReminder?.show && (
+          <section className="admin-dashboard-alert-card admin-dashboard-friday-tutorial-alert" aria-labelledby="friday-tutorial-reminder-title">
+            <div className="admin-dashboard-alert-header">
+              <div>
+                <h2 id="friday-tutorial-reminder-title">Friday Tutorial list requires completion</h2>
+                <p>
+                  Complete WhatsApp, parent confirmation, and teacher material status for all {fridayTutorialReminder.total_students} student{fridayTutorialReminder.total_students === 1 ? "" : "s"} on the {fridayTutorialReminder.session_date} weekly list.
+                </p>
+              </div>
+              <Link href="/admin/friday-tutorials" className="admin-dashboard-button">
+                Open Friday Tutorials
+                <DashboardIcon name="chevron" size={16} />
+              </Link>
+            </div>
+          </section>
+        )}
         {mockResultsAwaitingReview > 0 && (
           <section className="admin-dashboard-alert-card admin-dashboard-mock-review-alert">
             <div className="admin-dashboard-alert-header">
