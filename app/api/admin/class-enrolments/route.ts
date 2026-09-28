@@ -25,14 +25,59 @@ export async function GET(request: NextRequest) {
       .eq("student_type", type).eq("student_id", id)
       .order("starts_on", { ascending: false }).order("id");
     if (error) throw error;
-    const classIds = [...new Set((data || []).map(period => period.class_id))];
-    const classes = classIds.length
-      ? await supabaseAdmin.from("classes").select("id, class_name").in("id", classIds)
-      : { data: [], error: null };
+    const classes = await supabaseAdmin.from("classes")
+      .select("id, class_name, days, start_time, end_time, classroom_id, teacher_id, level_id, is_cambridge, course_type, academic_year_id, start_date, end_date");
     if (classes.error) throw classes.error;
+    const { data: currentAcademicYear, error: academicYearError } = await supabaseAdmin
+      .from("academic_years").select("id").eq("status", "current").maybeSingle();
+    if (academicYearError) throw academicYearError;
+    const today = madridEnrolmentDate();
+    const currentAcademicYearId = currentAcademicYear?.id ? String(currentAcademicYear.id) : "";
+    const isActiveClass = (row: any) => {
+      const course = String(row.course_type || "").trim().toLowerCase();
+      if (course === "intensive" || course === "express") {
+        return (!row.start_date || String(row.start_date) <= today) && (!row.end_date || today <= String(row.end_date));
+      }
+      return Boolean(currentAcademicYearId) && String(row.academic_year_id || "") === currentAcademicYearId;
+    };
+    const levelIds = [...new Set((classes.data || []).map(row => row.level_id).filter(Boolean))];
+    const teacherIds = [...new Set((classes.data || []).map(row => row.teacher_id).filter(Boolean))];
+    const classroomIds = [...new Set((classes.data || []).map(row => row.classroom_id).filter(Boolean))];
+    const [{ data: levels, error: levelsError }, { data: teachers, error: teachersError }, { data: classrooms, error: classroomsError }] = await Promise.all([
+      levelIds.length ? supabaseAdmin.from("levels").select("id, name").in("id", levelIds) : Promise.resolve({ data: [], error: null }),
+      teacherIds.length ? supabaseAdmin.from("profiles").select("id, first_name, last_name").in("id", teacherIds) : Promise.resolve({ data: [], error: null }),
+      classroomIds.length ? supabaseAdmin.from("classrooms").select("id, name").in("id", classroomIds) : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (levelsError || teachersError || classroomsError) throw levelsError || teachersError || classroomsError;
     const names = new Map((classes.data || []).map(row => [row.id, row.class_name]));
+    const levelNames = new Map((levels || []).map(row => [String(row.id), row.name]));
+    const teacherNames = new Map((teachers || []).map(row => [String(row.id), `${row.first_name || ""} ${row.last_name || ""}`.trim()]));
+    const classroomNames = new Map((classrooms || []).map(row => [String(row.id), row.name]));
+    const periodRows = (data || []).map(period => ({
+      ...period,
+      class_name: names.get(period.class_id) || "Class",
+      level_name: levelNames.get(String((classes.data || []).find(row => row.id === period.class_id)?.level_id)) || "Level",
+    }));
+    const classRows = (classes.data || [])
+      .filter(row => Boolean(row.is_cambridge) === (type === "profile"))
+      .filter(isActiveClass)
+      .map(row => ({
+        id: row.id,
+        class_name: row.class_name,
+        level_name: levelNames.get(String(row.level_id)) || "Level",
+        days: row.days || null,
+        start_time: row.start_time || null,
+        end_time: row.end_time || null,
+        classroom_name: classroomNames.get(String(row.classroom_id)) || null,
+        teacher_name: teacherNames.get(String(row.teacher_id)) || null,
+        course_type: row.course_type || null,
+        academic_year_id: row.academic_year_id || null,
+        start_date: row.start_date || null,
+        end_date: row.end_date || null,
+      }));
     return response({
-      periods: (data || []).map(period => ({ ...period, class_name: names.get(period.class_id) || "Class" })),
+      periods: periodRows,
+      classes: classRows,
       today_madrid: madridEnrolmentDate(),
     });
   } catch (error) {
@@ -45,18 +90,20 @@ export async function POST(request: NextRequest) {
   const admin = await requireExamBankAdmin(request);
   if (admin.response) return admin.response;
   const body = await request.json().catch(() => null);
-  const keys = ["student_type", "student_id", "action", "class_id", "starts_on", "ends_before", "period_id"];
+  const keys = ["student_type", "student_id", "action", "class_id", "starts_on", "ends_before", "period_id", "reason"];
   if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some(key => !keys.includes(key)) ||
     !validStudent(body.student_type, body.student_id) ||
     !["enrol", "transfer", "withdraw", "correct", "cancel"].includes(body.action) ||
     typeof body.class_id !== "string" || !uuid.test(body.class_id) ||
     !isEnrolmentDate(body.starts_on) ||
     (body.ends_before !== null && !isEnrolmentDate(body.ends_before)) ||
+    (body.reason !== undefined && body.reason !== null && (typeof body.reason !== "string" || body.reason.trim().length > 500)) ||
+    (body.action === "withdraw" && typeof body.reason !== "string" || body.action === "withdraw" && !body.reason.trim()) ||
     (body.action === "enrol" ? body.period_id !== null : typeof body.period_id !== "string" || !uuid.test(body.period_id))) {
     return response({ error: "Provide a valid class, operation and explicit enrolment dates." }, 400);
   }
   try {
-    const { data, error } = await supabaseAdmin.rpc("manage_class_enrolment_period", {
+    const { data, error } = await supabaseAdmin.rpc("manage_class_enrolment_period_with_reason", {
       p_actor_id: admin.userId,
       p_student_type: body.student_type,
       p_student_id: body.student_id,
@@ -65,6 +112,7 @@ export async function POST(request: NextRequest) {
       p_starts_on: body.starts_on,
       p_ends_before: body.ends_before,
       p_period_id: body.period_id,
+      p_reason: typeof body.reason === "string" ? body.reason.trim() : null,
     });
     if (error) {
       if (error.code === "42501") return response({ error: "Admin access required." }, 403);

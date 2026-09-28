@@ -20987,7 +20987,7 @@ img {
   box-shadow: 0 28px 70px rgba(17, 35, 61, 0.3);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  max-height: 91vh;
+  max-height: min(91vh, calc(100vh - 32px));
   max-width: 1100px;
   overflow: hidden;
   position: relative;
@@ -21082,10 +21082,72 @@ img {
 }
 
 .admin-student-detail-modal-content {
+  min-height: 0;
   min-height: 260px;
   overflow: auto;
   overscroll-behavior: contain;
   padding: 24px 26px 30px;
+  scrollbar-gutter: stable;
+}
+
+.admin-student-management { display: grid; gap: 16px; color: #142b49; }
+.admin-student-management-header { display: flex; justify-content: space-between; gap: 24px; padding: 22px; border: 1px solid rgba(99,160,208,.36); border-radius: 18px; background: linear-gradient(135deg, rgba(239,248,255,.9), rgba(255,255,255,.78)); box-shadow: 0 12px 30px rgba(31,60,136,.09), inset 0 1px 0 rgba(255,255,255,.9); }
+.admin-student-management-header-copy { min-width: 0; }
+.admin-student-management-eyebrow { margin: 0 0 5px; color: var(--ss-blue); font-size: 11px; letter-spacing: .1em; font-weight: 800; }
+.admin-student-management-header h3 { margin: 0; color: var(--ss-blue-dark); font-size: 22px; }
+.admin-student-management-header p:not(.admin-student-management-eyebrow) { margin: 6px 0 0; color: #526176; font-size: 13px; }
+.admin-student-management-identity { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px; color: #526176; font-size: 12px; }
+.admin-student-management-identity strong { color: var(--ss-blue-dark); font-size: 16px; flex-basis: 100%; }
+.admin-student-management-identity span { position: relative; }
+.admin-student-management-identity span + span::before { content: "•"; color: #9bb9cf; margin-right: 14px; }
+.admin-student-management-status { display: grid; align-content: center; justify-items: end; gap: 8px; min-width: 190px; text-align: right; }
+.admin-student-management-status-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 11px; font-size: 12px; font-weight: 800; }
+.admin-student-management-status-badge.is-active { color: #17633a; background: #e9f8ef; border: 1px solid #b9e2c5; }
+.admin-student-management-status-badge.is-withdrawn { color: #8f241b; background: #fff0ee; border: 1px solid #f0b7b0; }
+.admin-student-management-status-badge.is-future { color: #79520b; background: #fff8e8; border: 1px solid #f0cf8b; }
+.admin-student-management-portal-status { color: #526176; font-size: 12px; }
+.admin-student-management-card { padding: 22px; border: 1px solid rgba(177,198,218,.72); border-radius: 16px; background: rgba(255,255,255,.88); box-shadow: 0 8px 22px rgba(31,60,136,.055), inset 0 1px 0 rgba(255,255,255,.9); }
+.admin-student-management-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 15px; }
+.admin-student-management-card-heading .admin-student-management-eyebrow { margin-bottom: 4px; }
+.admin-student-management-card-heading h4 { margin-bottom: 0; }
+.admin-student-management-card-icon, .admin-student-management-card-number { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 32px; height: 32px; border-radius: 10px; color: var(--ss-blue-dark); background: #edf6fc; border: 1px solid #cfe5f5; font-size: 12px; font-weight: 800; }
+.admin-student-management-card-number { width: auto; padding: 0 9px; font-size: 11px; letter-spacing: .08em; }
+.admin-student-management-card h4 { margin: 0 0 8px; color: var(--ss-blue-dark); font-size: 16px; }
+.admin-student-management-card p { margin: 0 0 12px; color: #526176; font-size: 13px; line-height: 1.5; }
+.admin-student-management-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 12px; }
+.admin-student-management-grid div { display: grid; gap: 4px; }
+.admin-student-management-grid span, .admin-student-management-timeline span { color: #667085; font-size: 12px; }
+.admin-student-management-grid strong { color: #142b49; font-size: 14px; }
+.admin-student-management-form { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(170px,.8fr) auto; gap: 14px; align-items: end; }
+.admin-student-management-form label { display: grid; gap: 6px; color: #526176; font-size: 12px; font-weight: 700; }
+.admin-student-management-form select, .admin-student-management-form input, .admin-student-management-form textarea { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #cbd8e6; border-radius: 9px; padding: 10px; color: #142b49; background: #fff; font: inherit; }
+.admin-student-management-form button, .admin-student-management-confirm button { border: 1px solid var(--ss-blue); border-radius: 9px; padding: 10px 14px; color: #fff; background: var(--ss-blue); font-weight: 700; cursor: pointer; }
+.admin-student-management-form button:disabled { opacity: .55; cursor: not-allowed; }
+.admin-student-management-form button:focus-visible, .admin-student-management-confirm button:focus-visible, .admin-student-management-form select:focus-visible, .admin-student-management-form input:focus-visible, .admin-student-management-form textarea:focus-visible { outline: 3px solid rgba(47,125,184,.28); outline-offset: 2px; }
+.admin-student-management-required { color: #9f1d1d; font-size: 11px; font-weight: 700; }
+.admin-student-management-form .admin-student-management-danger { border-color: #b42318; background: #b42318; }
+.admin-student-management-error, .admin-student-management-success { margin: 0; padding: 11px 13px; border-radius: 9px; font-size: 13px; }
+.admin-student-management-error { color: #9f1d1d; background: #fff0f0; border: 1px solid #f0b7b7; }
+.admin-student-management-success { color: #17633a; background: #effaf3; border: 1px solid #b9e2c5; }
+.admin-student-management-confirm { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 16px; border: 1px solid #f0c36b; border-radius: 14px; background: #fff8e8; box-shadow: 0 8px 18px rgba(121,82,11,.08); }
+.admin-student-management-confirm p { margin: 5px 0 0; color: #6b4c13; font-size: 13px; }
+.admin-student-management-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-student-management-confirm button:first-of-type { color: #526176; border-color: #cbd8e6; background: #fff; }
+.admin-student-management-timeline { display: grid; gap: 8px; }
+.admin-student-management-timeline > div { display: grid; grid-template-columns: 10px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 13px 0; border-bottom: 1px solid #e6edf4; }
+.admin-student-management-timeline > div:last-child { border-bottom: 0; }
+.admin-student-management-timeline em { color: var(--ss-blue-dark); font-size: 12px; font-style: normal; font-weight: 700; }
+.admin-student-management-timeline em.is-active { color: #17633a; }
+.admin-student-management-timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ss-blue); box-shadow: 0 0 0 4px #eaf5fc; }
+.admin-student-management-muted { color: #667085; }
+.admin-student-management-action-card.is-warning { border-color: #f0c8c2; background: linear-gradient(135deg, rgba(255,250,249,.96), rgba(255,255,255,.9)); }
+@media (max-width: 640px) {
+  .admin-student-management-header { display: grid; }
+  .admin-student-management-status { justify-items: start; text-align: left; }
+  .admin-student-management-form { grid-template-columns: 1fr; }
+  .admin-student-management-form button { width: 100%; }
+  .admin-student-management-timeline > div { grid-template-columns: 1fr; gap: 3px; }
+  .admin-student-management-timeline-dot { display: none; }
 }
 
 .admin-student-detail-modal-state {

@@ -34,6 +34,7 @@ export default function AdminClassEnrolments({ studentId, studentType, classes, 
   const [classId, setClassId] = useState("");
   const [start, setStart] = useState(madridEnrolmentDate);
   const [end, setEnd] = useState("");
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState("");
@@ -62,7 +63,7 @@ export default function AdminClassEnrolments({ studentId, studentType, classes, 
   async function save() {
     if (action !== "enrol" && !selected) return setMessage("Choose the enrolment period to change.");
     const targetClass = ["withdraw", "correct", "cancel"].includes(action) ? selected!.class_id : classId;
-    if (!targetClass || !start || (action === "withdraw" && !end)) return setMessage("Choose a class and provide the required dates.");
+    if (!targetClass || !start || (action === "withdraw" && !end) || (action === "withdraw" && !reason.trim())) return setMessage(action === "withdraw" ? "Choose the first non-enrolled day and provide a reason." : "Choose a class and provide the required dates.");
     if (!window.confirm("Confirm that these dates are supported by the student's registration, withdrawal or transfer records for this specific class. If historical dates are uncertain, cancel and obtain Admin evidence first; do not substitute profile, course or academic-year start dates. Save this change? Attendance outside the resulting periods will be excluded, but historical records will remain stored.")) return;
     setBusy(true);
     setMessage("");
@@ -71,6 +72,7 @@ export default function AdminClassEnrolments({ studentId, studentType, classes, 
         student_type: studentType, student_id: studentId, action, class_id: targetClass,
         starts_on: start, ends_before: ["withdraw", "correct", "cancel"].includes(action) ? end || null : null,
         period_id: action === "enrol" ? null : periodId,
+        reason: action === "withdraw" ? reason.trim() : null,
       });
       await load();
       await onChanged();
@@ -97,7 +99,7 @@ export default function AdminClassEnrolments({ studentId, studentType, classes, 
     </div>
     <fieldset disabled={busy || !ready}>
       <label>Operation<select value={action} onChange={event => {
-        setAction(event.target.value); setPeriodId(""); setStart(today); setEnd("");
+        setAction(event.target.value); setPeriodId(""); setStart(today); setEnd(""); setReason("");
       }}>
         <option value="enrol">Enrol / re-enrol in a class</option>
         <option value="transfer">Transfer to another class</option>
@@ -116,6 +118,7 @@ export default function AdminClassEnrolments({ studentId, studentType, classes, 
       <label>{action === "transfer" ? "Effective transfer date" : "Enrolment start date"}<input type="date" value={start} readOnly={action === "withdraw" || action === "cancel"} onChange={event => setStart(event.target.value)} /></label>
       {action === "cancel" && <p>The future assignment stays in history but never counts as enrolment. An assignment that has already started cannot be cancelled.</p>}
       {(action === "withdraw" || action === "correct") && <label>First non-enrolled day{action === "correct" ? " (leave blank for open-ended)" : ""}<input type="date" value={end} onChange={event => setEnd(event.target.value)} /></label>}
+      {action === "withdraw" && <label>Withdrawal reason<textarea value={reason} onChange={event => setReason(event.target.value)} maxLength={500} rows={2} /></label>}
       <button type="button" className="admin-students-secondary-button" onClick={() => void save()}>{busy ? "Saving enrolment…" : "Save enrolment change"}</button>
     </fieldset>
     {message && <p role="status">{message}</p>}

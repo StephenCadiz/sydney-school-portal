@@ -91,8 +91,32 @@ test("Admin enrolment HTTP handlers reject every non-Admin and supply the verifi
   assert.equal((await route.POST(f.request("/api/admin/class-enrolments", "admin", body))).status, 200);
   assert.deepEqual(f.calls.find(call => call.name)?.args, {
     p_actor_id: id(3), p_student_type: "profile", p_student_id: id(1), p_action: "enrol", p_class_id: id(10),
-    p_starts_on: "2026-10-01", p_ends_before: null, p_period_id: null,
+    p_starts_on: "2026-10-01", p_ends_before: null, p_period_id: null, p_reason: null,
   });
+});
+
+test("Admin Student Management GET returns compatible active classes with read-only details", async () => {
+  const f = fixture();
+  f.rows.profiles.push({ id: id(20), role: "teacher", first_name: "Teacher", last_name: "One" });
+  f.rows.classes[0] = { ...f.rows.classes[0], academic_year_id: id(30), course_type: "regular" };
+  f.rows.academic_years = [{ id: id(30), status: "current" }];
+  const route = f.load("app/api/admin/class-enrolments/route.ts");
+  const result = await route.GET(f.request(`/api/admin/class-enrolments?student_type=profile&student_id=${id(1)}`, "admin"));
+  assert.equal(result.status, 200);
+  const payload = await result.json();
+  assert.equal(payload.classes[0].id, id(10));
+  assert.equal(payload.classes[0].level_name, "B1");
+  assert.equal(payload.classes[0].teacher_name, "Teacher One");
+});
+
+test("Student Management keeps Young Learner classes whose legacy flag is null", async () => {
+  const f = fixture();
+  f.rows.classes[0] = { ...f.rows.classes[0], is_cambridge: null, academic_year_id: id(30), course_type: "regular" };
+  f.rows.academic_years = [{ id: id(30), status: "current" }];
+  const route = f.load("app/api/admin/class-enrolments/route.ts");
+  const result = await route.GET(f.request(`/api/admin/class-enrolments?student_type=young_learner&student_id=${id(2)}`, "admin"));
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).classes[0].id, id(10));
 });
 
 test("ordinary student deletion authenticates before a single atomic RPC", async () => {

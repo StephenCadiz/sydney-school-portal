@@ -5,6 +5,7 @@ import AdminLayout from "../../components/layout/AdminLayout";
 import AdminStudentsTabs from "../../components/admin/AdminStudentsTabs";
 import AdminStudentAttendance from "../../components/admin/AdminStudentAttendance";
 import AdminStudentClassWork from "../../components/admin/AdminStudentClassWork";
+import AdminStudentManagement from "../../components/admin/AdminStudentManagement";
 import StudentAccessControl from "../../components/student/StudentAccessControl";
 import { getStudentAcademicYearDisplayValue } from "../../../lib/academicYearRules";
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
@@ -1526,6 +1527,7 @@ type StudentDetailSection =
   | "access-control"
   | "attendance"
   | "class-work"
+  | "student-management"
   | "homework"
   | "friday"
   | "mocks"
@@ -1622,11 +1624,13 @@ function StudentDetailModal({
   loading,
   onClose,
   returnFocusTo,
+  onRefresh,
 }: {
   student: any | null;
   loading: boolean;
   onClose: () => void;
   returnFocusTo: HTMLElement | null;
+  onRefresh?: () => Promise<void> | void;
 }) {
   const [activeSection, setActiveSection] = useState<StudentDetailSection>("overview");
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1637,6 +1641,7 @@ function StudentDetailModal({
         { id: "access-control", label: "Access Control" },
         { id: "attendance", label: "Attendance" },
         { id: "class-work", label: "Class Work" },
+        { id: "student-management", label: "Student Management" },
         { id: "homework", label: "Homework" },
         { id: "friday", label: "Friday Tutorials" },
         { id: "mocks", label: "Mock Exams" },
@@ -1646,6 +1651,7 @@ function StudentDetailModal({
         { id: "overview", label: "Overview" },
         { id: "attendance", label: "Attendance" },
         { id: "class-work", label: "Class Work" },
+        { id: "student-management", label: "Student Management" },
         { id: "unit-exams", label: "Unit Exams" },
         { id: "follow-up", label: "Follow-up" },
       ];
@@ -1737,6 +1743,18 @@ function StudentDetailModal({
             <AdminStudentClassWork
               studentId={student.id}
               studentType={student.student_type}
+            />
+          )}
+          {!loading && student && activeSection === "student-management" && (
+            <AdminStudentManagement
+              studentId={student.id}
+              studentType={student.student_type === "young_learner" ? "young_learner" : "profile"}
+              studentName={student.full_name}
+              studentLevel={student.level_name}
+              studentClass={student.class_label}
+              studentSchedule={[student.class_days, student.start_time && student.end_time ? `${student.start_time}-${student.end_time}` : ""].filter(Boolean).join(" · ")}
+              studentTeacher={student.teacher_name}
+              onChanged={onRefresh}
             />
           )}
           {!loading && student && isCambridge && activeSection === "homework" && (
@@ -1885,6 +1903,12 @@ export default function StudentInformationPage() {
     } finally {
       setLoadingStudent(false);
     }
+  }
+
+  async function refreshSelectedStudent() {
+    if (!selectedStudent) return;
+    const data = await getStudentInformation(selectedStudent.student_type, selectedStudent.id);
+    setSelectedStudent(data);
   }
 
   async function handleClassSelect(classId: string) {
@@ -2152,6 +2176,7 @@ export default function StudentInformationPage() {
           loading={loadingStudent}
           onClose={closeStudentModal}
           returnFocusTo={studentModalReturnFocusRef.current}
+          onRefresh={refreshSelectedStudent}
         />
       )}
       </>
