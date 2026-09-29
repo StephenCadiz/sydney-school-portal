@@ -512,6 +512,60 @@ export async function sendTeacherStaffMessage({
   };
 }
 
+/**
+ * Send a reply to the staff member who sent the opened message.
+ *
+ * Replies use a server-side message-id check so a stale New Message recipient
+ * cannot redirect the response to another staff member. The API also keeps
+ * the existing RLS-scoped manual recipient flow unchanged.
+ */
+export async function sendTeacherStaffReply({
+  messageId,
+  subject,
+  message,
+  attachment_link,
+  attachments,
+}: {
+  messageId: string;
+  subject: string;
+  message: string;
+  attachment_link?: string | null;
+  attachments?: MessageAttachment[];
+}) {
+  if (!messageId) {
+    throw new Error("Unable to identify the message.");
+  }
+
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+
+  if (sessionError || !token) {
+    throw new Error("Your session has expired.");
+  }
+
+  const response = await fetch("/api/teacher/messages/reply", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messageId,
+      subject,
+      message,
+      attachment_link: attachment_link || null,
+      attachments: attachments || [],
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Unable to send reply.");
+  }
+
+  return payload;
+}
+
 export async function markTeacherStaffMessageAsRead(
   messageId: string,
   teacherId: string

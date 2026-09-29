@@ -16,6 +16,7 @@ import {
   hideTeacherSentStaffMessage,
   markTeacherStaffMessageAsRead,
   sendTeacherStaffMessage,
+  sendTeacherStaffReply,
   TEACHER_ADMIN_RECIPIENT_VALUE,
 } from "../../../lib/messages";
 import TeacherStudentMessagesInbox from "./TeacherStudentMessagesInbox";
@@ -450,15 +451,8 @@ export default function TeacherMessagesPage() {
     try {
       if (replyAttachmentFiles.length) setStatusMessage("Uploading attachments...");
       uploadedAttachments = await uploadMessageAttachments(replyAttachmentFiles);
-      await sendTeacherStaffMessage({
-        senderId: teacherId,
-        recipient:
-          selectedMessage.recipient_group === "admin" &&
-          !selectedMessage.receiver_id
-            ? { type: "admin_group" }
-            : selectedMessage.sender_role === "teacher"
-              ? { type: "teacher", teacherId: selectedMessage.sender_id }
-              : { type: "direct_staff", staffId: selectedMessage.sender_id },
+      await sendTeacherStaffReply({
+        messageId: String(selectedMessage.id),
         subject: getReplySubject(selectedMessage.subject),
         message: replyMessage.trim(),
         attachments: uploadedAttachments,

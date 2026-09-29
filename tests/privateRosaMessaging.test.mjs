@@ -34,10 +34,11 @@ test("teacher recipients resolve the current Rosa Admin profile and direct sends
   assert.match(messages, /payload\.recipient_group = null/);
 });
 
-test("Rosa replies remain direct while shared Admin replies remain shared", () => {
-  assert.match(teacherPage, /selectedMessage\.recipient_group === "admin"/);
-  assert.match(teacherPage, /type: "direct_staff", staffId: selectedMessage\.sender_id/);
-  assert.match(teacherPage, /type: "admin_group"/);
+test("staff replies use the opened sender while manual composition keeps its recipient rules", () => {
+  assert.match(teacherPage, /sendTeacherStaffReply/);
+  assert.match(teacherPage, /messageId: String\(selectedMessage\.id\)/);
+  assert.match(messages, /type: "direct_staff"/);
+  assert.match(messages, /type: "admin_group"/);
 });
 
 test("direct messages are participant-readable and non-participants are excluded by RLS", () => {
