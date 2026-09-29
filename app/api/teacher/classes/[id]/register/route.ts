@@ -29,6 +29,7 @@ function knownDatabaseMessage(error: unknown) {
     "Attendance must be Present or Absent",
     "Mark every student Present or Absent",
     "Completed Class Registers must remain complete",
+    "Completed Class Registers may only be edited during the scheduled class session",
     "Class Register was not found",
     "Class Register access denied",
     "School is closed on this date",

@@ -328,6 +328,24 @@ function lessonIsAvailable(
   return getMadridMinutes(now) >= (scheduledTimeToMinutes(startTime) || 0);
 }
 
+function lessonIsInSession(
+  lessonDate: string,
+  startTime: string,
+  endTime: string,
+  now = new Date()
+) {
+  if (lessonDate !== getMadridDateString(now)) return false;
+  const currentMinutes = getMadridMinutes(now);
+  const startMinutes = scheduledTimeToMinutes(startTime);
+  const endMinutes = scheduledTimeToMinutes(endTime);
+  return (
+    startMinutes !== null &&
+    endMinutes !== null &&
+    currentMinutes >= startMinutes &&
+    currentMinutes < endMinutes
+  );
+}
+
 export function verifyClassRegisterLesson(
   context: ClassRegisterContext,
   lessonDate: string,
@@ -422,6 +440,15 @@ function buildLesson(
     scheduled.scheduled_start_time,
     now
   );
+  const canEditSubmitted = Boolean(
+    register?.completed_at &&
+      lessonIsInSession(
+        scheduled.lesson_date,
+        scheduled.scheduled_start_time,
+        scheduled.scheduled_end_time,
+        now
+      )
+  );
   const overdue =
     scheduled.lesson_date < today ||
     (scheduled.lesson_date === today && available && currentMinutes > endMinutes);
@@ -444,6 +471,7 @@ function buildLesson(
     unmarked_count: counts.unmarkedCount,
     student_count: entries.length,
     is_available: available,
+    can_edit_submitted: canEditSubmitted,
     is_overdue: overdue && !register?.completed_at,
     status,
   };
@@ -750,7 +778,7 @@ export async function saveClassRegister(
   }
   const { data: register, error: registerError } = await supabaseAdmin
     .from("class_registers")
-    .select("id, class_id, lesson_date, scheduled_start_time")
+    .select("id, class_id, lesson_date, scheduled_start_time, scheduled_end_time, completed_at")
     .eq("id", input.registerId)
     .eq("class_id", context.classId)
     .maybeSingle();
@@ -771,13 +799,38 @@ export async function saveClassRegister(
     normalizeScheduledTime(register.scheduled_start_time),
     { requireAvailable: true }
   );
+  if (
+    register.completed_at &&
+    !lessonIsInSession(
+      lesson.lesson_date,
+      lesson.scheduled_start_time,
+      normalizeScheduledTime(register.scheduled_end_time),
+      new Date()
+    )
+  ) {
+    throw new ClassRegisterError(
+      "Completed Class Registers may only be edited during the scheduled class session.",
+      409
+    );
+  }
+  if (register.completed_at && input.complete !== true) {
+    throw new ClassRegisterError(
+      "Completed Class Registers must remain complete.",
+      422
+    );
+  }
   const entries = parseAttendanceEntries(input.entries);
-  const { error } = await supabaseAdmin.rpc("save_class_register_attendance", {
-    p_actor_id: context.actor.id,
-    p_register_id: input.registerId,
-    p_entries: entries,
-    p_complete: input.complete === true,
-  });
+  const { error } = await supabaseAdmin.rpc(
+    register.completed_at
+      ? "edit_class_register_attendance"
+      : "save_class_register_attendance",
+    {
+      p_actor_id: context.actor.id,
+      p_register_id: input.registerId,
+      p_entries: entries,
+      p_complete: input.complete === true,
+    }
+  );
   if (error) throw error;
 
   return loadClassRegisterSnapshot(context, {

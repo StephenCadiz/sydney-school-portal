@@ -47,6 +47,7 @@ export type ClassRegisterLesson = {
   unmarked_count: number;
   student_count: number;
   is_available: boolean;
+  can_edit_submitted: boolean;
   is_overdue: boolean;
   status: "upcoming" | "not_started" | "in_progress" | "completed";
 };

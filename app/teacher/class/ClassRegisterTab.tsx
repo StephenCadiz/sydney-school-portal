@@ -51,6 +51,49 @@ function displayCompletedTime(value: string | null) {
   }).format(new Date(value));
 }
 
+function madridDateAndMinutes(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(now)
+    .reduce<Record<string, string>>((values, part) => {
+      if (part.type !== "literal") values[part.type] = part.value;
+      return values;
+    }, {});
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: Number(parts.hour) * 60 + Number(parts.minute),
+  };
+}
+
+function isLessonInSessionOnClient(
+  lesson: Pick<ClassRegisterLesson, "lesson_date" | "scheduled_start_time" | "scheduled_end_time">,
+  now: Date
+) {
+  const madrid = madridDateAndMinutes(now);
+  const toMinutes = (value: string) => {
+    const [hour, minute] = String(value || "").split(":").map(Number);
+    return Number.isFinite(hour) && Number.isFinite(minute)
+      ? hour * 60 + minute
+      : null;
+  };
+  const start = toMinutes(lesson.scheduled_start_time);
+  const end = toMinutes(lesson.scheduled_end_time);
+  return (
+    madrid.date === lesson.lesson_date &&
+    start !== null &&
+    end !== null &&
+    madrid.minutes >= start &&
+    madrid.minutes < end
+  );
+}
+
 function getLessonStatusText(lesson: ClassRegisterLesson) {
   if (lesson.status === "completed") {
     return `${lesson.present_count} Present · ${lesson.absent_count} Absent`;
@@ -81,7 +124,13 @@ export default function ClassRegisterTab({
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [clockNow, setClockNow] = useState(() => new Date());
   const handledInitialLesson = useRef(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const getToken = useCallback(async () => {
     const {
@@ -227,6 +276,12 @@ export default function ClassRegisterTab({
 
   const selectedRegister = snapshot?.selected_register || null;
   const entries = selectedRegister?.entries || [];
+  const submittedRegisterReadOnly = Boolean(
+    selectedRegister?.completed_at &&
+      snapshot?.selected_lesson &&
+      (!snapshot.selected_lesson.can_edit_submitted ||
+        !isLessonInSessionOnClient(snapshot.selected_lesson, clockNow))
+  );
   const liveCounts = useMemo(() => {
     const values = entries.map((entry) => attendance[entry.id] ?? null);
     const present = values.filter((value) => value === "present").length;
@@ -311,7 +366,9 @@ export default function ClassRegisterTab({
         disabled={working}
       >
         {lesson.status === "completed"
-          ? "View / Edit"
+          ? lesson.can_edit_submitted && isLessonInSessionOnClient(lesson, clockNow)
+            ? "Edit register"
+            : "View register"
           : lesson.status === "in_progress"
             ? "Continue"
             : "Take Register"}
@@ -463,7 +520,7 @@ export default function ClassRegisterTab({
                     Object.fromEntries(entries.map((entry) => [entry.id, "present"]))
                   )
                 }
-                disabled={working}
+                disabled={working || submittedRegisterReadOnly}
               >
                 <UserCheck aria-hidden="true" size={17} />
                 Mark All Present
@@ -495,6 +552,7 @@ export default function ClassRegisterTab({
                         className={status === "present" ? "is-present" : ""}
                         aria-pressed={status === "present"}
                         aria-label={`Mark ${entry.full_name} Present`}
+                        disabled={working || submittedRegisterReadOnly}
                         onClick={() =>
                           setAttendance((current) => ({
                             ...current,
@@ -510,6 +568,7 @@ export default function ClassRegisterTab({
                         className={status === "absent" ? "is-absent" : ""}
                         aria-pressed={status === "absent"}
                         aria-label={`Mark ${entry.full_name} Absent`}
+                        disabled={working || submittedRegisterReadOnly}
                         onClick={() =>
                           setAttendance((current) => ({
                             ...current,
@@ -529,6 +588,12 @@ export default function ClassRegisterTab({
 
           <footer className="class-register-editor-footer">
             <div>
+              {submittedRegisterReadOnly && (
+                <p>
+                  <Clock3 aria-hidden="true" size={16} />
+                  This register is read-only after the scheduled class session.
+                </p>
+              )}
               {!allMarked && (
                 <p>
                   <AlertCircle aria-hidden="true" size={16} />
@@ -543,7 +608,7 @@ export default function ClassRegisterTab({
               )}
             </div>
             <div className="class-register-footer-actions">
-              {!selectedRegister.completed_at && (
+              {!selectedRegister.completed_at && !submittedRegisterReadOnly && (
                 <button
                   type="button"
                   className="class-register-secondary-button"
@@ -553,7 +618,7 @@ export default function ClassRegisterTab({
                   {working ? "Saving..." : "Save Progress"}
                 </button>
               )}
-              <button
+              {!submittedRegisterReadOnly && <button
                 type="button"
                 className="class-register-primary-button"
                 onClick={() => void saveRegister(true)}
@@ -564,7 +629,7 @@ export default function ClassRegisterTab({
                   : selectedRegister.completed_at
                     ? "Save Corrections"
                     : "Complete Register"}
-              </button>
+              </button>}
             </div>
           </footer>
         </section>
