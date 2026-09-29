@@ -8,6 +8,7 @@ import {
   validateTeacherResourceExternalUrl,
   validateTeacherResourceTitle,
 } from "../../../lib/teacherResourceValidation";
+import ClassDocumentResources from "./ClassDocumentResources";
 
 export type ClassResource = {
   id: string;
@@ -491,6 +492,8 @@ export default function ClassResourcesTab({
             </button>
           </div>
       </form>
+
+      <ClassDocumentResources classId={classId} canManage={canManage} />
 
       {deleteTarget && (
         <div

@@ -14,6 +14,9 @@ type StudentResource = {
   source_label: string;
   level_name: string | null;
   requires_signed_url: boolean;
+  original_filename?: string | null;
+  mime_type?: string | null;
+  file_size?: number | null;
 };
 
 export default function ResourcesPage() {
@@ -203,6 +206,13 @@ export default function ResourcesPage() {
                 </div>
                 <strong>{resource.title || "Learning resource"}</strong>
                 {resource.description && <p>{resource.description}</p>}
+                {(resource.original_filename || resource.mime_type || resource.file_size) && (
+                  <small>
+                    {[resource.original_filename, resource.mime_type, resource.file_size ? `${Math.round(Number(resource.file_size) / 1024)} KB` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </small>
+                )}
                 {resource.resource_url && (
                   <a
                     className="student-resources-action"

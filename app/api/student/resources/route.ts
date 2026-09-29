@@ -9,6 +9,7 @@ import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { resolveProfileIdForAuthUser } from "../../../../lib/cambridgeStudentAccessServer";
 
 const teacherResourcesBucket = "teacher-resources";
+const classResourcesBucket = "class-resources";
 const signedUrlExpiresInSeconds = 120;
 
 function jsonError(message: string, status: number) {
@@ -149,6 +150,35 @@ export async function GET(request: NextRequest) {
     source_label: "Class Resource",
     level_name: null,
     requires_signed_url: false,
+    original_filename: null,
+    mime_type: null,
+    file_size: null,
+  }));
+
+  const { data: classDocumentRows, error: classDocumentError } =
+    await supabaseAdmin
+      .from("teacher_resources")
+      .select(
+        "id, title, description, storage_path, original_filename, mime_type, file_size, created_at"
+      )
+      .eq("resource_scope", "cambridge_class")
+      .eq("class_id", classId)
+      .order("created_at", { ascending: false });
+  if (classDocumentError) {
+    logFailure("class-document-load", classDocumentError);
+  }
+  const classDocuments = (classDocumentRows || []).map((resource) => ({
+    id: String(resource.id),
+    title: resource.title,
+    description: resource.description,
+    resource_url: null,
+    source: "class" as const,
+    source_label: "Class Document",
+    level_name: null,
+    requires_signed_url: Boolean(resource.storage_path),
+    original_filename: resource.original_filename,
+    mime_type: resource.mime_type,
+    file_size: resource.file_size,
   }));
 
   const level = await getCambridgeLevel(currentClass.classroom.level_id);
@@ -183,13 +213,16 @@ export async function GET(request: NextRequest) {
         source_label: `${level.name} Resource`,
         level_name: level.name,
         requires_signed_url: Boolean(resource.storage_path),
+        original_filename: null,
+        mime_type: null,
+        file_size: null,
       }));
     }
   }
 
   return NextResponse.json(
     {
-      resources: [...cambridgeResources, ...classResources],
+      resources: [...cambridgeResources, ...classResources, ...classDocuments],
     },
     { headers: { "Cache-Control": "no-store" } }
   );
@@ -211,17 +244,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const level = await getCambridgeLevel(currentClass.classroom.level_id);
-  if (!level) {
-    return jsonError("You do not have access to this resource.", 403);
-  }
+  const classId = String(currentClass.classroom.id || "");
+  if (!classId) return jsonError("Unable to open resource file.", 500);
 
   const { data: resource, error: resourceError } = await supabaseAdmin
     .from("teacher_resources")
-    .select("id, storage_path")
+    .select("id, storage_path, resource_scope, class_id, level_id")
     .eq("id", resourceId)
-    .eq("resource_scope", "cambridge_student")
-    .eq("level_id", level.id)
     .maybeSingle();
 
   if (resourceError) {
@@ -231,12 +260,31 @@ export async function POST(request: NextRequest) {
   if (!resource) {
     return jsonError("You do not have access to this resource.", 403);
   }
+  if (
+    resource.resource_scope === "cambridge_class" &&
+    String(resource.class_id || "") !== classId
+  ) {
+    return jsonError("You do not have access to this resource.", 403);
+  }
+  if (resource.resource_scope !== "cambridge_class") {
+    const level = await getCambridgeLevel(currentClass.classroom.level_id);
+    if (
+      resource.resource_scope !== "cambridge_student" ||
+      !level ||
+      String(resource.level_id || "") !== level.id
+    ) {
+      return jsonError("You do not have access to this resource.", 403);
+    }
+  }
   if (!resource.storage_path) {
     return jsonError("This resource is an external link.", 400);
   }
 
+  const bucket = resource.resource_scope === "cambridge_class"
+    ? classResourcesBucket
+    : teacherResourcesBucket;
   const { data, error: signedUrlError } = await supabaseAdmin.storage
-    .from(teacherResourcesBucket)
+    .from(bucket)
     .createSignedUrl(resource.storage_path, signedUrlExpiresInSeconds);
 
   if (signedUrlError || !data?.signedUrl) {

@@ -13,6 +13,7 @@ export type TeacherResource = {
   description: string;
   resource_scope: TeacherResourceScope;
   level_id: number | string | null;
+  class_id?: string | null;
   created_by: string | null;
   external_url: string | null;
   storage_path: string | null;

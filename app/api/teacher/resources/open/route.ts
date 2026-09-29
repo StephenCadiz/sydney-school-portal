@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { isTeacherResourceScope } from "../../../../../lib/teacherResourceValidation";
 
 const teacherResourcesBucket = "teacher-resources";
+const classResourcesBucket = "class-resources";
 const signedUrlExpiresInSeconds = 120;
 
 function jsonError(message: string, status: number) {
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     const { data: resource, error: resourceError } = await supabaseAdmin
       .from("teacher_resources")
-      .select("id, resource_scope, level_id, external_url, storage_path")
+      .select("id, resource_scope, level_id, class_id, external_url, storage_path")
       .eq("id", resourceId)
       .single();
 
@@ -133,6 +134,15 @@ export async function POST(request: NextRequest) {
     if (profile.role !== "admin") {
       if (resource.resource_scope === "general_teacher") {
         if (resource.level_id !== null) {
+          return jsonError("You do not have access to this resource.", 403);
+        }
+      } else if (resource.resource_scope === "cambridge_class") {
+        const { data: classRow, error: classError } = await supabaseAdmin
+          .from("classes")
+          .select("id, teacher_id")
+          .eq("id", resource.class_id)
+          .maybeSingle();
+        if (classError || !classRow || String(classRow.teacher_id || "") !== user.id) {
           return jsonError("You do not have access to this resource.", 403);
         }
       } else {
@@ -154,8 +164,11 @@ export async function POST(request: NextRequest) {
       return jsonError("This resource is an external link.", 400);
     }
 
+    const storageBucket = resource.resource_scope === "cambridge_class"
+      ? classResourcesBucket
+      : teacherResourcesBucket;
     const { data, error: signedUrlError } = await supabaseAdmin.storage
-      .from(teacherResourcesBucket)
+      .from(storageBucket)
       .createSignedUrl(resource.storage_path, signedUrlExpiresInSeconds);
 
     if (signedUrlError || !data?.signedUrl) {

@@ -28871,3 +28871,14 @@ img {
     display: none;
   }
 }
+.teacher-class-document-resources { display: grid; gap: 14px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--ss-border, #dbe7f3); }
+.teacher-class-document-dropzone { display: grid; gap: 10px; padding: 16px; border: 1px dashed #8bb9dc; border-radius: 14px; background: rgba(239,248,255,.78); color: #1f3c88; }
+.teacher-class-document-dropzone.is-dragging { background: #e5f3ff; border-color: #2f7db8; }
+.teacher-class-document-dropzone input[type="text"], .teacher-class-document-dropzone input:not([type]), .teacher-class-document-dropzone textarea, .teacher-class-document-card input, .teacher-class-document-card textarea { width: 100%; box-sizing: border-box; border: 1px solid #dbe7f3; border-radius: 9px; padding: 9px 10px; background: #fff; color: #172b4d; }
+.teacher-class-document-dropzone button, .teacher-class-document-card button { width: fit-content; border: 0; border-radius: 9px; padding: 9px 13px; background: var(--ss-blue, #2f7db8); color: #fff; font-weight: 700; cursor: pointer; }
+.teacher-class-document-dropzone button:disabled, .teacher-class-document-card button:disabled { opacity: .6; cursor: not-allowed; }
+.teacher-class-document-list { display: grid; gap: 12px; }
+.teacher-class-document-card { display: grid; gap: 8px; padding: 15px; border: 1px solid var(--ss-border, #dbe7f3); border-radius: 12px; background: rgba(255,255,255,.9); color: #1f3c88; }
+.teacher-class-document-card span, .teacher-class-document-card small { color: #667085; overflow-wrap: anywhere; }
+.teacher-class-document-card p { margin: 0; color: #475467; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .teacher-class-document-dropzone, .teacher-class-document-card { padding: 13px; } .teacher-class-document-dropzone button, .teacher-class-document-card button { width: 100%; } }

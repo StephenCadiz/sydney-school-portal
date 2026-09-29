@@ -6,6 +6,7 @@ export const TEACHER_RESOURCE_SCOPES = [
   "shared_teacher",
   "official_teacher",
   "cambridge_student",
+  "cambridge_class",
   "general_teacher",
 ] as const;
 
