@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { supabase } from "../../../lib/supabase";
 
@@ -163,6 +163,12 @@ export default function CoursePlanningTab({
   const [uploadLabel, setUploadLabel] = useState("");
   const [bookName, setBookName] = useState("");
   const [viewMode, setViewMode] = useState<"edit" | "final">("edit");
+  const [openExamPurpose, setOpenExamPurpose] = useState<FormExamItem["purpose"] | null>(null);
+  const [activeExamByPurpose, setActiveExamByPurpose] = useState<Record<FormExamItem["purpose"], string>>({
+    class_practice: "",
+    homework: "",
+  });
+  const examMenuRef = useRef<HTMLDivElement | null>(null);
   const endpoint = "/api/teacher/classes/" + encodeURIComponent(classId) + "/course-planning";
 
   const load = useCallback(async () => {
@@ -190,7 +196,6 @@ export default function CoursePlanningTab({
   );
   const selectedDay = selectedDayIndex >= 0 ? snapshot?.plan?.days[selectedDayIndex] || null : null;
   const selectedExam = snapshot?.exams.find((exam) => exam.id === examSetId) || null;
-
   useEffect(() => {
     const days = snapshot?.plan?.days || [];
     if (!days.length) {
@@ -204,6 +209,22 @@ export default function CoursePlanningTab({
     setForm(formFromDay(days[resolved], days[resolved + 1] || null));
     setError("");
   }, [selectedDayId, snapshot]);
+
+  useEffect(() => {
+    if (!openExamPurpose) return;
+    const handleOutsidePointer = (event: PointerEvent) => {
+      if (!examMenuRef.current?.contains(event.target as Node)) setOpenExamPurpose(null);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenExamPurpose(null);
+    };
+    document.addEventListener("pointerdown", handleOutsidePointer);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointer);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [openExamPurpose]);
 
   function applySnapshot(payload: CoursePlanSnapshot & { message?: string }) {
     setSnapshot(payload);
@@ -250,6 +271,127 @@ export default function CoursePlanningTab({
       ],
     }));
     setError("");
+  }
+
+  const supportsMultiPartSelections = ["express", "intensive"].includes(
+    snapshot?.class.course_type.trim().toLowerCase() || ""
+  );
+
+  function itemsForPurpose(purpose: FormExamItem["purpose"]) {
+    return form.examItems.filter((item) => item.purpose === purpose);
+  }
+
+  function examSelectionCount(examId: string, purpose: FormExamItem["purpose"]) {
+    return itemsForPurpose(purpose).filter((item) => item.exam_set_id === examId).length;
+  }
+
+  function openExamMenu(purpose: FormExamItem["purpose"], preferAnother = false) {
+    if (!snapshot?.exams.length) return;
+    const selectedExamIds = new Set(itemsForPurpose(purpose).map((item) => item.exam_set_id));
+    const currentExamId = activeExamByPurpose[purpose];
+    const nextExam = preferAnother
+      ? snapshot.exams.find((exam) => !selectedExamIds.has(exam.id)) || snapshot.exams.find((exam) => exam.id === currentExamId)
+      : snapshot.exams.find((exam) => exam.id === currentExamId) || snapshot.exams[0];
+    setActiveExamByPurpose((current) => ({ ...current, [purpose]: nextExam?.id || "" }));
+    setOpenExamPurpose(purpose);
+  }
+
+  function isWholeExamSelected(examSetId: string, purpose: FormExamItem["purpose"]) {
+    return itemsForPurpose(purpose).some(
+      (item) => item.exam_set_id === examSetId && item.selection_scope === "full_exam"
+    );
+  }
+
+  function isExamPartSelected(
+    examSetId: string,
+    examPartId: string,
+    purpose: FormExamItem["purpose"]
+  ) {
+    return itemsForPurpose(purpose).some(
+      (item) =>
+        item.exam_set_id === examSetId &&
+        (item.selection_scope === "full_exam" || item.exam_part_id === examPartId)
+    );
+  }
+
+  function updateExamSelections(
+    purpose: FormExamItem["purpose"],
+    update: (items: FormExamItem[]) => FormExamItem[]
+  ) {
+    setForm((current) => {
+      const otherItems = current.examItems.filter((item) => item.purpose !== purpose);
+      const nextItems = update(current.examItems.filter((item) => item.purpose === purpose));
+      return { ...current, examItems: [...otherItems, ...nextItems] };
+    });
+    setError("");
+  }
+
+  function toggleWholeExam(exam: Exam, purpose: FormExamItem["purpose"]) {
+    const currentlySelected = isWholeExamSelected(exam.id, purpose);
+    updateExamSelections(purpose, (items) => {
+      const withoutExam = items.filter((item) => item.exam_set_id !== exam.id);
+      if (currentlySelected) return withoutExam;
+      return [
+        ...withoutExam,
+        {
+          exam_set_id: exam.id,
+          exam_part_id: null,
+          purpose,
+          selection_scope: "full_exam",
+        },
+      ];
+    });
+    setOpenExamPurpose(null);
+  }
+
+  function toggleExamPart(
+    exam: Exam,
+    part: ExamPart,
+    purpose: FormExamItem["purpose"]
+  ) {
+    if (!part.id) return;
+    const wholeSelected = isWholeExamSelected(exam.id, purpose);
+    const currentlySelected = isExamPartSelected(exam.id, part.id, purpose);
+    updateExamSelections(purpose, (items) => {
+      if (wholeSelected) {
+        // Turning off one part converts the legacy whole-exam row into the
+        // remaining explicit parts, keeping the selection precise.
+        return exam.parts
+          .filter((candidate) => candidate.id && candidate.id !== part.id)
+          .map((candidate) => ({
+            exam_set_id: exam.id,
+            exam_part_id: candidate.id,
+            purpose,
+            selection_scope: "part" as const,
+          }));
+      }
+      if (currentlySelected) {
+        return items.filter(
+          (item) => !(item.exam_set_id === exam.id && item.exam_part_id === part.id)
+        );
+      }
+      return [
+        ...items,
+        {
+          exam_set_id: exam.id,
+          exam_part_id: part.id,
+          purpose,
+          selection_scope: "part",
+        },
+      ];
+    });
+    setOpenExamPurpose(null);
+  }
+
+  function selectedExamLabel(item: FormExamItem) {
+    const exam = snapshot?.exams.find((candidate) => candidate.id === item.exam_set_id);
+    const part = exam?.parts.find((candidate) => candidate.id === item.exam_part_id);
+    return (
+      "Exam " +
+      (exam?.exam_number || "") +
+      (exam?.title ? " · " + exam.title : "") +
+      (part ? " · " + part.label : " · Whole exam")
+    );
   }
 
   function examItemName(item: FormExamItem) {
@@ -426,18 +568,72 @@ export default function CoursePlanningTab({
               <label className="is-wide"><span>Pages to be covered</span><input value={form.pagesToCover} onChange={(event) => setForm((current) => ({ ...current, pagesToCover: event.target.value }))} placeholder="e.g. Unit 3, pages 42–47 and Workbook page 16" /></label>
               <label className="is-wide"><span>Other activities</span><textarea value={form.otherActivities} onChange={(event) => setForm((current) => ({ ...current, otherActivities: event.target.value }))} placeholder="Speaking, revision, games or other lesson activities" /></label>
             </div>
-            <section className="course-planning-detail-section">
-              <div className="course-planning-section-heading"><div><p>Exam activities</p><h4>Cambridge Exam Bank</h4></div></div>
-              <div className="course-planning-add-row">
-                <select value={examSetId} onChange={(event) => { setExamSetId(event.target.value); setExamPartId(""); }}><option value="">Choose exam</option>{snapshot.exams.map((exam) => <option key={exam.id} value={exam.id}>Exam {exam.exam_number}{exam.title ? " · " + exam.title : ""}</option>)}</select>
-                <select value={examPartId} onChange={(event) => setExamPartId(event.target.value)} disabled={!selectedExam}><option value="">Full exam</option>{selectedExam?.parts.filter((part) => part.id).map((part) => <option key={part.id} value={String(part.id)}>{part.label}</option>)}</select>
-                <select value={examPurpose} onChange={(event) => setExamPurpose(event.target.value as "class_practice" | "homework")}><option value="class_practice">Class practice</option><option value="homework">Homework</option></select>
-                <button type="button" className="is-secondary" onClick={addExamItem}>Add</button>
-              </div>
-              <ul className="course-planning-item-list">{form.examItems.map((item, index) => <li key={item.exam_set_id + "-" + item.exam_part_id + "-" + index}><div><span>{examItemName(item)}</span><div className="course-planning-item-links">{materialLinksFor(item.exam_set_id, item.exam_part_id, item.selection_scope, String(index)).map((resource) => <a key={resource.key} href={resource.url} target="_blank" rel="noreferrer">{resource.label}</a>)}</div></div><button type="button" onClick={() => setForm((current) => ({ ...current, examItems: current.examItems.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></li>)}{!form.examItems.length && <li className="is-empty">No Exam Bank activity planned for this lesson.</li>}</ul>
+            <section className="course-planning-detail-section course-planning-exam-section">
+              <div className="course-planning-section-heading course-planning-exam-heading"><div><p>Exam activities</p><h4>Cambridge Exam Bank</h4><span className="course-planning-section-description">Choose the exam parts learners will practise in class or complete as homework.</span></div></div>
+              {supportsMultiPartSelections ? (
+                <div className="course-planning-exam-selectors" ref={examMenuRef}>
+                  {(["class_practice", "homework"] as const).map((purpose) => {
+                    const purposeItems = itemsForPurpose(purpose);
+                    const menuOpen = openExamPurpose === purpose;
+                    const activeExam = snapshot.exams.find((exam) => exam.id === activeExamByPurpose[purpose]) || null;
+                    return (
+                      <section className={"course-planning-exam-purpose" + (menuOpen ? " is-open" : "")} key={purpose}>
+                        <div className="course-planning-purpose-heading">
+                          <div><h5>{purpose === "homework" ? "Homework" : "Classwork"}</h5><p>{purpose === "homework" ? "Independent exam practice for learners" : "Exam practice completed during the lesson"}</p></div>
+                          <button type="button" className="course-planning-exam-trigger" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => openExamMenu(purpose)}>
+                            <span>{purposeItems.length ? `${purposeItems.length} ${purposeItems.length === 1 ? "selection" : "selections"}` : "Select exam parts"}</span><span aria-hidden="true">{menuOpen ? "⌃" : "⌄"}</span>
+                          </button>
+                        </div>
+                        {menuOpen && (
+                          <div className="course-planning-exam-popover" role="dialog" aria-label={(purpose === "homework" ? "Homework" : "Classwork") + " exam parts"}>
+                            <div className="course-planning-exam-popover-body">
+                              <div className="course-planning-exam-menu" role="listbox" aria-label="Available exams">
+                                <span className="course-planning-exam-menu-label">Choose an exam</span>
+                                {snapshot.exams.map((exam) => {
+                                  const selectedCount = examSelectionCount(exam.id, purpose);
+                                  return <button type="button" role="option" aria-selected={activeExam?.id === exam.id} className={activeExam?.id === exam.id ? "is-active" : ""} key={exam.id} onClick={() => setActiveExamByPurpose((current) => ({ ...current, [purpose]: exam.id }))}><span><strong>Exam {exam.exam_number}</strong><small>{exam.title || "Cambridge assessment"}</small></span>{selectedCount > 0 && <em>{selectedCount}</em>}</button>;
+                                })}
+                              </div>
+                              <div className="course-planning-exam-choice">
+                                {activeExam ? (
+                                  <>
+                                    <div className="course-planning-exam-choice-heading"><span>Exam {activeExam.exam_number}</span><strong>{activeExam.title || "Cambridge assessment"}</strong></div>
+                                    <label className="course-planning-exam-whole"><input type="checkbox" checked={isWholeExamSelected(activeExam.id, purpose)} onChange={() => toggleWholeExam(activeExam, purpose)} /><span>Whole exam</span></label>
+                                    <div className="course-planning-exam-parts"><span className="course-planning-exam-parts-label">Exam parts</span>{activeExam.parts.filter((part) => part.id).map((part) => { const selected = isExamPartSelected(activeExam.id, String(part.id), purpose); return <label className={"course-planning-exam-part" + (selected ? " is-selected" : "")} key={part.id}><input type="checkbox" checked={selected} onChange={() => toggleExamPart(activeExam, part, purpose)} /><span className="course-planning-exam-part-name">{part.label}</span><span className="course-planning-exam-part-state">{selected ? "Selected" : "Available"}</span></label>; })}</div>
+                                  </>
+                                ) : <p className="course-planning-exam-empty">Choose an exam to see its parts.</p>}
+                              </div>
+                            </div>
+                            <div className="course-planning-exam-popover-footer"><span>Selecting an item closes this menu.</span><button type="button" className="is-secondary" onClick={() => setOpenExamPurpose(null)}>Done</button></div>
+                          </div>
+                        )}
+                        <div className="course-planning-selected-exams" aria-label={purpose === "homework" ? "Selected homework exams" : "Selected classwork exams"}>
+                          <div className="course-planning-selected-heading"><span className="course-planning-selected-label">Selected {purpose === "homework" ? "homework" : "classwork"}</span><span className="course-planning-selected-count">{purposeItems.length} {purposeItems.length === 1 ? "selection" : "selections"}</span>{purposeItems.length > 0 && <button type="button" className="course-planning-add-exam" onClick={() => openExamMenu(purpose, true)}>Add another exam</button>}</div>
+                          {purposeItems.length ? purposeItems.map((item) => (
+                            <span className="course-planning-selected-chip" key={item.exam_set_id + "-" + item.exam_part_id + "-" + item.selection_scope}>
+                              <span>{selectedExamLabel(item)}</span>
+                              <button type="button" className="course-planning-chip-remove" aria-label={"Remove " + selectedExamLabel(item)} onClick={() => updateExamSelections(purpose, (items) => items.filter((candidate) => candidate !== item))}><span aria-hidden="true">×</span></button>
+                            </span>
+                          )) : <span className="course-planning-selected-empty">No selections yet</span>}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : (
+                <>
+                  <div className="course-planning-add-row">
+                    <select value={examSetId} onChange={(event) => { setExamSetId(event.target.value); setExamPartId(""); }}><option value="">Choose exam</option>{snapshot.exams.map((exam) => <option key={exam.id} value={exam.id}>Exam {exam.exam_number}{exam.title ? " · " + exam.title : ""}</option>)}</select>
+                    <select value={examPartId} onChange={(event) => setExamPartId(event.target.value)} disabled={!selectedExam}><option value="">Full exam</option>{selectedExam?.parts.filter((part) => part.id).map((part) => <option key={part.id} value={String(part.id)}>{part.label}</option>)}</select>
+                    <select value={examPurpose} onChange={(event) => setExamPurpose(event.target.value as "class_practice" | "homework")}><option value="class_practice">Class practice</option><option value="homework">Homework</option></select>
+                    <button type="button" className="is-secondary" onClick={addExamItem}>Add</button>
+                  </div>
+                  <ul className="course-planning-item-list">{form.examItems.map((item, index) => <li key={item.exam_set_id + "-" + item.exam_part_id + "-" + index}><div><span>{examItemName(item)}</span><div className="course-planning-item-links">{materialLinksFor(item.exam_set_id, item.exam_part_id, item.selection_scope, String(index)).map((resource) => <a key={resource.key} href={resource.url} target="_blank" rel="noreferrer">{resource.label}</a>)}</div></div><button type="button" onClick={() => setForm((current) => ({ ...current, examItems: current.examItems.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></li>)}{!form.examItems.length && <li className="is-empty">No Exam Bank activity planned for this lesson.</li>}</ul>
+                </>
+              )}
             </section>
             <section className="course-planning-detail-section">
-              <div className="course-planning-section-heading"><div><p>Homework</p><h4>Instructions and due date</h4></div></div>
+              <div className="course-planning-section-heading"><div><p>Written homework</p><h4>Instructions and due date</h4></div></div>
               <div className="course-planning-fields"><label className="is-wide"><span>Written homework instructions</span><textarea value={form.homeworkInstructions} onChange={(event) => setForm((current) => ({ ...current, homeworkInstructions: event.target.value }))} placeholder="Add instructions for written homework." /></label><label><span>Due date</span><input type="date" min={selectedDay.lesson_date} value={form.homeworkDueDate} onChange={(event) => setForm((current) => ({ ...current, homeworkDueDate: event.target.value }))} /></label></div>
             </section>
             <section className="course-planning-detail-section">

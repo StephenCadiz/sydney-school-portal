@@ -571,6 +571,7 @@ function parseExamItems(value: unknown): ParsedExamItem[] {
     throw new CoursePlanningError("Too many exam activities were supplied.", 422);
   }
   const seen = new Set<string>();
+  const wholeExamByPurpose = new Set<string>();
   return value.map((item, index) => {
     const record = checkObject(item, "Invalid exam activity.");
     const allowed = new Set([
@@ -603,7 +604,20 @@ function parseExamItems(value: unknown): ParsedExamItem[] {
     if (seen.has(selectionKey)) {
       throw new CoursePlanningError("The same exam activity can only be selected once per lesson.", 422);
     }
+    const purposeExamKey = purpose + "|" + examSetId;
+    if (selectionScope === "full_exam") {
+      if (wholeExamByPurpose.has(purposeExamKey)) {
+        throw new CoursePlanningError("The same whole exam can only be selected once per lesson.", 422);
+      }
+      if (seen.has(purpose + "|part|" + examSetId)) {
+        throw new CoursePlanningError("Choose Whole exam or individual parts for the same exam, not both.", 422);
+      }
+      wholeExamByPurpose.add(purposeExamKey);
+    } else if (wholeExamByPurpose.has(purposeExamKey)) {
+      throw new CoursePlanningError("Choose Whole exam or individual parts for the same exam, not both.", 422);
+    }
     seen.add(selectionKey);
+    if (selectionScope === "part") seen.add(purpose + "|part|" + examSetId);
     return {
       examSetId,
       examPartId,
