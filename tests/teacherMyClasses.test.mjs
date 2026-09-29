@@ -28,3 +28,17 @@ test("Teacher class loading keeps Cambridge and Young Learner class data", () =>
   assert.match(page, /current_young_learners/);
   assert.match(page, /student_count/);
 });
+
+test("Tuesday 29 September uses an ISO Madrid date for effective class windows", () => {
+  const madridDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date("2026-09-29T12:00:00Z"));
+
+  assert.equal(madridDate, "2026-09-29");
+  assert.match(page, /getMadridDateString\(date\)/);
+  assert.match(page, /academicYearStart: item\.academic_year_start/);
+  assert.match(page, /isDateWithinEffectiveClassRange\(madrid\.dateString, explicitRange\)/);
+});

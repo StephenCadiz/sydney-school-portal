@@ -9,6 +9,7 @@ import { getCurrentAcademicYear } from "../../../lib/academicYears";
 import { supabase } from "../../../lib/supabase";
 import { getTeacherClasses } from "../../../lib/teacher";
 import { compareClassesByGlobalOrder } from "../../../lib/classOrdering";
+import { getMadridDateString } from "../../../lib/academicYearRules";
 import {
   getEffectiveClassDateRange,
   isDateWithinEffectiveClassRange,
@@ -74,7 +75,7 @@ function getMadridParts(date = new Date()) {
     dateLabel: `${values.weekday || ""}, ${values.day || ""} ${
       values.month || ""
     } ${values.year || ""}`.trim(),
-    dateString: `${values.year || ""}-${values.month || ""}-${values.day || ""}`,
+    dateString: getMadridDateString(date),
     minutes: Number(values.hour || 0) * 60 + Number(values.minute || 0),
   };
 }
