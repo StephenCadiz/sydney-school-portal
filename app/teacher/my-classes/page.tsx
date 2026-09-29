@@ -417,6 +417,8 @@ export default function MyClassesPage() {
         .filter((item) => {
           if (!isScheduledOn(item.days, madrid.weekday)) return false;
           const explicitRange = getEffectiveClassDateRange({
+            academicYearStart: item.academic_year_start,
+            academicYearEnd: item.academic_year_end,
             classStart: item.start_date,
             classEnd: item.end_date,
           });

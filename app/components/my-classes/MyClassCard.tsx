@@ -88,6 +88,15 @@ function ArrowIcon() {
   );
 }
 
+function formatEffectiveDate(value: unknown) {
+  const text = String(value || "").trim();
+  if (!text) return "—";
+  const parsed = new Date(`${text}T12:00:00`);
+  return Number.isNaN(parsed.getTime())
+    ? text
+    : new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Madrid" }).format(parsed);
+}
+
 function normalizeLevelName(levelName: string | null | undefined) {
   return String(levelName || "").trim().toUpperCase();
 }
@@ -167,6 +176,16 @@ export default function MyClassCard({ item }: Props) {
             <span>Time</span>
             <strong>
               {item.start_time || "-"} - {item.end_time || "-"}
+            </strong>
+          </div>
+        </div>
+
+        <div className="teacher-my-classes-schedule-item">
+          <CalendarIcon />
+          <div>
+            <span>Effective dates</span>
+            <strong>
+              {formatEffectiveDate(item.start_date || item.academic_year_start)} – {formatEffectiveDate(item.end_date || item.academic_year_end)}
             </strong>
           </div>
         </div>

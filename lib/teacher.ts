@@ -61,8 +61,19 @@ export async function getTeacherClasses(userId: string) {
   }));
 
   const currentAcademicYear = await getCurrentAcademicYear();
+  const withEffectiveContext = classesWithLevels.map((classroom: any) => ({
+    ...classroom,
+    academic_year_start:
+      currentAcademicYear && classroom.academic_year_id === currentAcademicYear.id
+        ? currentAcademicYear.start_date
+        : null,
+    academic_year_end:
+      currentAcademicYear && classroom.academic_year_id === currentAcademicYear.id
+        ? currentAcademicYear.end_date
+        : null,
+  }));
 
   return sortClassesByGlobalOrder(
-    filterClassesForCurrentTeaching(classesWithLevels, currentAcademicYear?.id)
+    filterClassesForCurrentTeaching(withEffectiveContext, currentAcademicYear?.id)
   );
 }

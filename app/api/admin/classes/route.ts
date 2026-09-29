@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       isValidClassId(academicYearId)
         ? await supabaseAdmin
             .from("academic_years")
-            .select("id")
+            .select("id, start_date, end_date")
             .eq("id", academicYearId)
             .maybeSingle()
         : { data: null, error: null };

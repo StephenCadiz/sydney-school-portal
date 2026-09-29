@@ -16050,9 +16050,59 @@ img {
   white-space: pre-line;
 }
 
+.admin-classes-date-confirmation {
+  background: rgba(255, 248, 235, 0.94);
+  border: 1px solid #f1c27d;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  color: #4a2b10;
+  margin-bottom: 16px;
+  padding: 18px 20px;
+}
+
+.admin-classes-date-confirmation strong {
+  color: #7a3e00;
+  display: block;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.admin-classes-date-confirmation p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.admin-classes-date-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
 .admin-classes-form-card,
 .admin-classes-list-card {
   padding: 26px;
+}
+
+.admin-classes-date-overrides {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-column: 1 / -1;
+}
+
+.admin-classes-form-help {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 6px 0 0;
+}
+
+@media (max-width: 640px) {
+  .admin-classes-date-overrides {
+    grid-template-columns: 1fr;
+  }
 }
 
 .admin-classes-form-card h2,

@@ -25,6 +25,10 @@ import {
   updateClass,
 } from "../../../lib/adminClasses";
 import { validateCoursePlanningDateRange } from "../../../lib/coursePlanningDates";
+import {
+  getEffectiveClassDateRange,
+  validateClassDateOverrides,
+} from "../../../lib/classDateRange";
 import { compareClassesByGlobalOrder, getGlobalLevelRank } from "../../../lib/classOrdering";
 import { supabase } from "../../../lib/supabase";
 
@@ -677,6 +681,10 @@ export default function AdminClassesPage() {
   >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pendingDateConfirmation, setPendingDateConfirmation] = useState<{
+    classData: any;
+    affectedCount: number;
+  } | null>(null);
   const [editingClassId, setEditingClassId] = useState("");
   const [message, setMessage] = useState("");
   const [classDeleteBlocker, setClassDeleteBlocker] =
@@ -998,6 +1006,7 @@ export default function AdminClassesPage() {
   }
 
   function resetForm() {
+    setPendingDateConfirmation(null);
     setForm({
       level_id: "",
       teacher_id: "",
@@ -1046,6 +1055,7 @@ export default function AdminClassesPage() {
     const isForcedSupport = isSupportLevelId(item.level_id || "");
 
     setEditingClassId(item.id);
+    setPendingDateConfirmation(null);
     setMessage("");
     setForm({
       level_id: item.level_id || "",
@@ -1370,17 +1380,33 @@ export default function AdminClassesPage() {
       return;
     }
 
-    const courseDates = validateCoursePlanningDateRange({
-      startDate: usesAcademicYear ? null : form.start_date,
-      endDate: usesAcademicYear ? null : form.end_date,
-      required: requiresCourseDates,
-    });
+    const selectedAcademicYear = academicYears.find(
+      (year) => String(year.id) === String(form.academic_year_id)
+    );
+    const dateValidation = usesAcademicYear
+      ? validateClassDateOverrides({
+          startDate: form.start_date,
+          endDate: form.end_date,
+          academicYearStart: selectedAcademicYear?.start_date,
+          academicYearEnd: selectedAcademicYear?.end_date,
+        })
+      : validateCoursePlanningDateRange({
+          startDate: form.start_date,
+          endDate: form.end_date,
+          required: requiresCourseDates,
+        });
 
-    if (courseDates.error) {
-      setMessage(courseDates.error);
+    if (dateValidation.error) {
+      setMessage(dateValidation.error);
       setSaving(false);
       return;
     }
+    const normalizedStartDate = usesAcademicYear
+      ? (dateValidation as ReturnType<typeof validateClassDateOverrides>).value?.startDate ?? null
+      : (dateValidation as ReturnType<typeof validateCoursePlanningDateRange>).startDate;
+    const normalizedEndDate = usesAcademicYear
+      ? (dateValidation as ReturnType<typeof validateClassDateOverrides>).value?.endDate ?? null
+      : (dateValidation as ReturnType<typeof validateCoursePlanningDateRange>).endDate;
 
     const classData: any = {
       class_name: selectedLevel?.name || "",
@@ -1397,8 +1423,8 @@ export default function AdminClassesPage() {
         : isForcedCambridge
         ? true
         : form.is_cambridge,
-      start_date: usesAcademicYear ? null : courseDates.startDate,
-      end_date: usesAcademicYear ? null : courseDates.endDate,
+      start_date: normalizedStartDate,
+      end_date: normalizedEndDate,
       academic_year_id: usesAcademicYear ? form.academic_year_id : null,
     };
 
@@ -1419,7 +1445,38 @@ export default function AdminClassesPage() {
       );
     } catch (error: any) {
       console.error("Unable to save class:", error);
-      setMessage(error.message || "Unable to save class.");
+      if (error?.requiresConfirmation && editingClassId) {
+        setPendingDateConfirmation({
+          classData,
+          affectedCount: Number(error.affectedCount || 0),
+        });
+        setMessage(
+          `These date changes affect ${Number(error.affectedCount || 0)} active enrolment${Number(error.affectedCount || 0) === 1 ? "" : "s"}. Confirm to continue.`
+        );
+      } else {
+        setMessage(error.message || "Unable to save class.");
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmPendingDateChange() {
+    if (!pendingDateConfirmation || !editingClassId || saving) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      await updateClass(editingClassId, {
+        ...pendingDateConfirmation.classData,
+        confirm_date_impact: true,
+      });
+      setPendingDateConfirmation(null);
+      await loadData();
+      resetForm();
+      setEditingClassId("");
+      setMessage("Class dates and affected enrolments were updated successfully.");
+    } catch (error: any) {
+      setMessage(error.message || "Unable to update the class dates.");
     } finally {
       setSaving(false);
     }
@@ -1467,6 +1524,16 @@ export default function AdminClassesPage() {
             required: true,
           })
         : null;
+      const effectiveDates = usesAcademicYear
+        ? getEffectiveClassDateRange({
+            academicYearStart: academicYear?.start_date,
+            academicYearEnd: academicYear?.end_date,
+            classStart: item.start_date,
+            classEnd: item.end_date,
+          })
+        : courseDates?.error
+        ? null
+        : { startDate: courseDates?.startDate || "", endDate: courseDates?.endDate || "" };
       const classRegisterUnavailable = usesAcademicYear
         ? Boolean(academicYearDates?.error)
         : Boolean(courseDates?.error);
@@ -1475,12 +1542,14 @@ export default function AdminClassesPage() {
           ? "Academic Year required for Class Register"
           : "Course dates required for Class Register"
         : usesAcademicYear
-          ? academicYear?.label || "Academic year not assigned"
-          : `${formatCourseDate(courseDates?.startDate)} – ${formatCourseDate(
-              courseDates?.endDate
-            )}`;
+          ? `${academicYear?.label || "Academic year not assigned"}${effectiveDates ? ` · ${formatCourseDate(effectiveDates.startDate)} – ${formatCourseDate(effectiveDates.endDate)}` : ""}${effectiveDates ? ` · start ${item.start_date ? "Admin override" : "term default"} · end ${item.end_date ? "Admin override" : "term default"}` : ""}`
+          : `${formatCourseDate(effectiveDates?.startDate)} – ${formatCourseDate(
+              effectiveDates?.endDate
+            )}${usesAcademicYear ? ` · start ${item.start_date ? "Admin override" : "term default"} · end ${item.end_date ? "Admin override" : "term default"}` : ""}`;
       const operationalGroup = getOperationalGroup(item, level);
       const studentCount = Number(studentCountsByClassId[classId] || 0);
+      const effectiveStartDate = effectiveDates?.startDate || null;
+      const effectiveEndDate = effectiveDates?.endDate || null;
       const searchableText = [
         className,
         levelName,
@@ -1491,6 +1560,8 @@ export default function AdminClassesPage() {
         days,
         timeLabel,
         academicContextLabel,
+        effectiveStartDate,
+        effectiveEndDate,
       ].join(" ");
 
       return {
@@ -2415,7 +2486,8 @@ export default function AdminClassesPage() {
     !selectedFormIsSupport &&
     (selectedFormIsCambridge || form.is_cambridge) &&
     ["intensive", "express"].includes(form.course_type);
-  const selectedFormUsesAcademicYear = !selectedFormNeedsCourseDates;
+  const selectedFormUsesAcademicYear =
+    classUsesAcademicYear(form.course_type) && !selectedFormNeedsCourseDates;
   const currentAcademicYear =
     academicYears.find((year) => year.status === "current") || null;
   const selectedFormDays = parseClassDays(form.days);
@@ -2439,6 +2511,25 @@ export default function AdminClassesPage() {
         {message && (
           <div className="admin-classes-message">
             {message}
+          </div>
+        )}
+
+        {pendingDateConfirmation && (
+          <div className="admin-classes-date-confirmation" role="alertdialog" aria-live="polite">
+            <strong>Confirm class date change</strong>
+            <p>
+              This change will adjust {pendingDateConfirmation.affectedCount} existing enrolment
+              {pendingDateConfirmation.affectedCount === 1 ? "" : "s"} to stay within the effective class dates.
+              Historical attendance and records are preserved.
+            </p>
+            <div className="admin-classes-date-confirmation-actions">
+              <button type="button" className="admin-secondary-button" onClick={() => setPendingDateConfirmation(null)} disabled={saving}>
+                Cancel
+              </button>
+              <button type="button" className="admin-primary-button" onClick={confirmPendingDateChange} disabled={saving}>
+                {saving ? "Updating…" : "Confirm date change"}
+              </button>
+            </div>
           </div>
         )}
 
@@ -2636,6 +2727,47 @@ export default function AdminClassesPage() {
                   />
                 </div>
               </>
+            )}
+
+            {selectedFormUsesAcademicYear && (
+              <div className="admin-classes-date-overrides">
+                <div>
+                  <label style={labelStyle} htmlFor="class-start-date">
+                    Effective start date
+                  </label>
+                  <input
+                    id="class-start-date"
+                    type="date"
+                    style={inputStyle}
+                    placeholder={currentAcademicYear?.start_date || ""}
+                    value={form.start_date}
+                    onChange={(event) => updateForm("start_date", event.target.value)}
+                  />
+                  <p className="admin-classes-form-help">
+                    {form.start_date
+                      ? "Admin override"
+                      : `Term default${currentAcademicYear ? ` · ${formatCourseDate(currentAcademicYear.start_date)}` : ""}`}
+                  </p>
+                </div>
+                <div>
+                  <label style={labelStyle} htmlFor="class-end-date">
+                    Effective end date
+                  </label>
+                  <input
+                    id="class-end-date"
+                    type="date"
+                    style={inputStyle}
+                    placeholder={currentAcademicYear?.end_date || ""}
+                    value={form.end_date}
+                    onChange={(event) => updateForm("end_date", event.target.value)}
+                  />
+                  <p className="admin-classes-form-help">
+                    {form.end_date
+                      ? "Admin override"
+                      : `Term default${currentAcademicYear ? ` · ${formatCourseDate(currentAcademicYear.end_date)}` : ""}`}
+                  </p>
+                </div>
+              </div>
             )}
 
             <div className="admin-classes-day-field">

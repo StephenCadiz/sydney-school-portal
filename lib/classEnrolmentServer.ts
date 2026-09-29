@@ -24,11 +24,11 @@ export async function validateInitialEnrolment(classId: string, type: "profile" 
     academicYearStart: year.data?.start_date, academicYearEnd: year.data?.end_date,
   });
   return isDateWithinEffectiveClassRange(startsOn, range)
-    ? null : "The enrolment start must be inside the class and academic-year dates.";
+    ? null : "The enrolment start must be inside the effective class dates.";
 }
 
 export function enrolProfileStudent(actorId: string, studentId: string, classId: string, startsOn: string) {
-  return supabaseAdmin.rpc("manage_class_enrolment_period", {
+  return supabaseAdmin.rpc("manage_class_enrolment_period_effective", {
     p_actor_id: actorId, p_student_type: "profile", p_student_id: studentId,
     p_action: "enrol", p_class_id: classId, p_starts_on: startsOn,
     p_ends_before: null, p_period_id: null,

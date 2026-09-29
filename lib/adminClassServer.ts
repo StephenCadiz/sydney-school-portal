@@ -7,6 +7,7 @@ import {
   COURSE_PLANNING_COURSE_TYPES,
 } from "./coursePlanningEligibility";
 import { validateCoursePlanningDateRange } from "./coursePlanningDates";
+import { validateClassDateOverrides } from "./classDateRange";
 import { classUsesAcademicYear } from "./academicYearRules";
 
 const UUID_PATTERN =
@@ -71,7 +72,7 @@ export function isValidClassId(value: unknown) {
 export function validateAdminClassPayload(
   input: unknown,
   levelRow: { name: unknown; catagory?: unknown } | null,
-  academicYearRow: { id: unknown } | null = null
+  academicYearRow: { id: unknown; start_date?: unknown; end_date?: unknown } | null = null
 ): { value: AdminClassPayload | null; error: string | null } {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return { value: null, error: "Invalid class details." };
@@ -92,6 +93,7 @@ export function validateAdminClassPayload(
     "start_date",
     "end_date",
     "academic_year_id",
+    "confirm_date_impact",
   ]);
   if (Object.keys(body).some((key) => !allowed.has(key))) {
     return { value: null, error: "The request contains unsupported class fields." };
@@ -148,13 +150,31 @@ export function validateAdminClassPayload(
     return { value: null, error: "Choose a classroom for an in-person class." };
   }
 
-  const dateRange = validateCoursePlanningDateRange({
-    startDate: usesAcademicYear ? null : body.start_date,
-    endDate: usesAcademicYear ? null : body.end_date,
-    required:
-      isCambridge && COURSE_PLANNING_COURSE_TYPES.has(normalizedCourseType),
-  });
-  if (dateRange.error) return { value: null, error: dateRange.error };
+  let normalizedStartDate: string | null = null;
+  let normalizedEndDate: string | null = null;
+  if (usesAcademicYear) {
+    const override = validateClassDateOverrides({
+      startDate: body.start_date,
+      endDate: body.end_date,
+      academicYearStart: academicYearRow?.start_date,
+      academicYearEnd: academicYearRow?.end_date,
+    });
+    if (override.error || !override.value) {
+      return { value: null, error: override.error || "Configure valid class dates." };
+    }
+    normalizedStartDate = override.value.startDate;
+    normalizedEndDate = override.value.endDate;
+  } else {
+    const courseDates = validateCoursePlanningDateRange({
+      startDate: body.start_date,
+      endDate: body.end_date,
+      required:
+        isCambridge && COURSE_PLANNING_COURSE_TYPES.has(normalizedCourseType),
+    });
+    if (courseDates.error) return { value: null, error: courseDates.error };
+    normalizedStartDate = courseDates.startDate;
+    normalizedEndDate = courseDates.endDate;
+  }
 
   return {
     value: {
@@ -168,8 +188,8 @@ export function validateAdminClassPayload(
       end_time: endTime,
       meet_link: isOnline ? meetLink : null,
       is_cambridge: isCambridge,
-      start_date: usesAcademicYear ? null : dateRange.startDate,
-      end_date: usesAcademicYear ? null : dateRange.endDate,
+      start_date: normalizedStartDate,
+      end_date: normalizedEndDate,
       academic_year_id: usesAcademicYear ? academicYearId : null,
     },
     error: null,

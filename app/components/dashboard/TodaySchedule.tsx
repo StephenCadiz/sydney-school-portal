@@ -104,6 +104,8 @@ export default function TodaySchedule({ classes }: Props) {
     .filter((item) => {
       if (!item.days?.includes(today)) return false;
       const explicitRange = getEffectiveClassDateRange({
+        academicYearStart: item.academic_year_start,
+        academicYearEnd: item.academic_year_end,
         classStart: item.start_date,
         classEnd: item.end_date,
       });

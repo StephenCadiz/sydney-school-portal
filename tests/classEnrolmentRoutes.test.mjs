@@ -99,7 +99,7 @@ test("Admin Student Management GET returns compatible active classes with read-o
   const f = fixture();
   f.rows.profiles.push({ id: id(20), role: "teacher", first_name: "Teacher", last_name: "One" });
   f.rows.classes[0] = { ...f.rows.classes[0], academic_year_id: id(30), course_type: "regular" };
-  f.rows.academic_years = [{ id: id(30), status: "current" }];
+  f.rows.academic_years = [{ id: id(30), status: "current", start_date: "2026-09-01", end_date: "2027-06-30" }];
   const route = f.load("app/api/admin/class-enrolments/route.ts");
   const result = await route.GET(f.request(`/api/admin/class-enrolments?student_type=profile&student_id=${id(1)}`, "admin"));
   assert.equal(result.status, 200);
@@ -112,7 +112,7 @@ test("Admin Student Management GET returns compatible active classes with read-o
 test("Student Management keeps Young Learner classes whose legacy flag is null", async () => {
   const f = fixture();
   f.rows.classes[0] = { ...f.rows.classes[0], is_cambridge: null, academic_year_id: id(30), course_type: "regular" };
-  f.rows.academic_years = [{ id: id(30), status: "current" }];
+  f.rows.academic_years = [{ id: id(30), status: "current", start_date: "2026-09-01", end_date: "2027-06-30" }];
   const route = f.load("app/api/admin/class-enrolments/route.ts");
   const result = await route.GET(f.request(`/api/admin/class-enrolments?student_type=young_learner&student_id=${id(2)}`, "admin"));
   assert.equal(result.status, 200);

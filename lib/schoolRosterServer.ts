@@ -3,6 +3,7 @@ import "server-only";
 import { NextRequest } from "next/server";
 import { getMadridDateString } from "./academicYearRules";
 import { sortClassesByGlobalOrder } from "./classOrdering";
+import { getEffectiveClassDateRange, isDateWithinEffectiveClassRange } from "./classDateRange";
 import { resolveAuthenticatedProfile } from "./syllabusServer";
 import { supabaseAdmin } from "./supabaseAdmin";
 
@@ -26,6 +27,8 @@ export type SchoolRosterClass = {
   teacher: string;
   teacher_id: string | null;
   coordinator: string;
+  effective_start_date: string | null;
+  effective_end_date: string | null;
   students: SchoolRosterStudent[];
 };
 
@@ -37,18 +40,21 @@ function displayName(first: unknown, last: unknown, fallback: string) {
   return `${asText(first)} ${asText(last)}`.trim() || fallback;
 }
 
-function isDateBased(courseType: unknown) {
-  const value = asText(courseType).toLowerCase();
-  return value === "intensive" || value === "express";
-}
-
-function isActiveClass(classroom: any, today: string, currentAcademicYearId: string | null) {
-  if (isDateBased(classroom.course_type)) {
-    const start = asText(classroom.start_date);
-    const end = asText(classroom.end_date);
-    return !start || !end || (start <= today && today <= end);
+function isActiveClass(
+  classroom: any,
+  today: string,
+  currentAcademicYear: { id: string; start_date: string; end_date: string } | null
+) {
+  if (!currentAcademicYear || asText(classroom.academic_year_id) !== currentAcademicYear.id) {
+    return false;
   }
-  return Boolean(currentAcademicYearId) && asText(classroom.academic_year_id) === currentAcademicYearId;
+  const range = getEffectiveClassDateRange({
+    academicYearStart: currentAcademicYear.start_date,
+    academicYearEnd: currentAcademicYear.end_date,
+    classStart: classroom.start_date,
+    classEnd: classroom.end_date,
+  });
+  return isDateWithinEffectiveClassRange(today, range);
 }
 
 function isCurrentEnrolment(row: any, today: string) {
@@ -82,7 +88,7 @@ export async function loadSchoolRoster(viewer: { role: string; userId: string })
   const today = getMadridDateString();
   const [{ data: academicYear, error: academicYearError }, { data: classes, error: classesError }] =
     await Promise.all([
-      supabaseAdmin.from("academic_years").select("id").eq("status", "current").maybeSingle(),
+      supabaseAdmin.from("academic_years").select("id, start_date, end_date").eq("status", "current").maybeSingle(),
       supabaseAdmin
         .from("classes")
         .select("id, class_name, days, start_time, end_time, classroom_id, teacher_id, level_id, is_cambridge, course_type, start_date, end_date, academic_year_id, classrooms(id, name)")
@@ -90,11 +96,17 @@ export async function loadSchoolRoster(viewer: { role: string; userId: string })
     ]);
   if (academicYearError || classesError) throw academicYearError || classesError;
 
-  const currentAcademicYearId = academicYear?.id ? String(academicYear.id) : null;
+  const currentAcademicYear = academicYear?.id
+    ? {
+        id: String(academicYear.id),
+        start_date: String(academicYear.start_date || ""),
+        end_date: String(academicYear.end_date || ""),
+      }
+    : null;
   // The endpoint is already restricted to Admins and authenticated Teachers.
   // Teachers may browse the whole active school roster, not only their own classes.
   const visibleClasses = (classes || []).filter((classroom) =>
-    isActiveClass(classroom, today, currentAcademicYearId)
+    isActiveClass(classroom, today, currentAcademicYear)
   );
   if (!visibleClasses.length) return [] as SchoolRosterClass[];
 
@@ -161,6 +173,18 @@ export async function loadSchoolRoster(viewer: { role: string; userId: string })
     teacher: teacherById.get(String(classroom.teacher_id)) || "Teacher not assigned",
     teacher_id: classroom.teacher_id ? String(classroom.teacher_id) : null,
     coordinator: coordinatorByLevel.get(String(classroom.level_id))?.join(", ") || "Coordinator not assigned",
+    effective_start_date: getEffectiveClassDateRange({
+      academicYearStart: currentAcademicYear?.start_date,
+      academicYearEnd: currentAcademicYear?.end_date,
+      classStart: classroom.start_date,
+      classEnd: classroom.end_date,
+    })?.startDate || null,
+    effective_end_date: getEffectiveClassDateRange({
+      academicYearStart: currentAcademicYear?.start_date,
+      academicYearEnd: currentAcademicYear?.end_date,
+      classStart: classroom.start_date,
+      classEnd: classroom.end_date,
+    })?.endDate || null,
     students: (studentsByClass.get(String(classroom.id)) || []).sort((a, b) => a.name.localeCompare(b.name)),
   }));
   return sortClassesByGlobalOrder(rosterRows);

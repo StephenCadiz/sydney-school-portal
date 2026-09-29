@@ -386,7 +386,7 @@ export async function POST(request: NextRequest) {
       active: true,
     }));
 
-    const { error: insertError } = await supabaseAdmin.rpc("create_young_learner_enrolments", {
+    const { error: insertError } = await supabaseAdmin.rpc("create_young_learner_enrolments_effective", {
       p_actor_id: adminCheck.user!.id,
       p_class_id: classId,
       p_starts_on: startsOn,

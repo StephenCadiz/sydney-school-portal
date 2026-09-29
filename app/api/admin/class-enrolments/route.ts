@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireExamBankAdmin } from "../../../../lib/cambridgeExamBankServer";
 import { isEnrolmentDate, madridEnrolmentDate } from "../../../../lib/classEnrolment";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { getEffectiveClassDateRange, isDateWithinEffectiveClassRange } from "../../../../lib/classDateRange";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const response = (payload: unknown, status = 200) => NextResponse.json(payload, {
@@ -29,16 +30,17 @@ export async function GET(request: NextRequest) {
       .select("id, class_name, days, start_time, end_time, classroom_id, teacher_id, level_id, is_cambridge, course_type, academic_year_id, start_date, end_date");
     if (classes.error) throw classes.error;
     const { data: currentAcademicYear, error: academicYearError } = await supabaseAdmin
-      .from("academic_years").select("id").eq("status", "current").maybeSingle();
+      .from("academic_years").select("id, start_date, end_date").eq("status", "current").maybeSingle();
     if (academicYearError) throw academicYearError;
     const today = madridEnrolmentDate();
-    const currentAcademicYearId = currentAcademicYear?.id ? String(currentAcademicYear.id) : "";
     const isActiveClass = (row: any) => {
-      const course = String(row.course_type || "").trim().toLowerCase();
-      if (course === "intensive" || course === "express") {
-        return (!row.start_date || String(row.start_date) <= today) && (!row.end_date || today <= String(row.end_date));
-      }
-      return Boolean(currentAcademicYearId) && String(row.academic_year_id || "") === currentAcademicYearId;
+      if (!currentAcademicYear || String(row.academic_year_id || "") !== String(currentAcademicYear.id)) return false;
+      return isDateWithinEffectiveClassRange(today, getEffectiveClassDateRange({
+        academicYearStart: currentAcademicYear.start_date,
+        academicYearEnd: currentAcademicYear.end_date,
+        classStart: row.start_date,
+        classEnd: row.end_date,
+      }));
     };
     const levelIds = [...new Set((classes.data || []).map(row => row.level_id).filter(Boolean))];
     const teacherIds = [...new Set((classes.data || []).map(row => row.teacher_id).filter(Boolean))];

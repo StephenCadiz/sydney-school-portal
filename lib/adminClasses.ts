@@ -138,7 +138,21 @@ export async function updateClass(id: string, classData: any) {
     body: JSON.stringify(prepareClassData(classData)),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || "Unable to update the class.");
+  if (!response.ok) {
+    const error = new Error(result.error || "Unable to update the class.") as Error & {
+      status?: number;
+      requiresConfirmation?: boolean;
+      affectedCount?: number;
+      affectedEnrolments?: unknown[];
+    };
+    error.status = response.status;
+    error.requiresConfirmation = result.requires_confirmation === true;
+    error.affectedCount = Number(result.affected_count || 0);
+    error.affectedEnrolments = Array.isArray(result.affected_enrolments)
+      ? result.affected_enrolments
+      : [];
+    throw error;
+  }
 
   return result.class;
 }
