@@ -37,6 +37,13 @@ type PlannedDay = {
   homework_due_date: string | null;
   exam_items: CoursePlanItem[];
   resources: CoursePlanResource[];
+  closure: {
+    id: string;
+    name: string;
+    closure_type: string;
+    start_date: string;
+    end_date: string;
+  } | null;
 };
 type CoursePlanSnapshot = {
   class: {
@@ -99,6 +106,37 @@ function displayDate(value: string) {
 
 function displayTime(value: string) {
   return value.slice(0, 5);
+}
+
+function closureTypeLabel(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function ClosureLessonCard({
+  closure,
+  lessonDate,
+  startTime,
+  endTime,
+}: {
+  closure: NonNullable<PlannedDay["closure"]>;
+  lessonDate: string;
+  startTime: string;
+  endTime: string;
+}) {
+  return (
+    <section className="course-planning-closure-card" role="status" aria-label="School closed">
+      <p className="course-planning-closure-eyebrow">School closed</p>
+      <h4>{closure.name}</h4>
+      <dl>
+        <div><dt>Type</dt><dd>{closureTypeLabel(closure.closure_type)}</dd></div>
+        <div><dt>Lesson date</dt><dd>{displayDate(lessonDate)}</dd></div>
+        <div><dt>Scheduled time</dt><dd>{displayTime(startTime)} – {displayTime(endTime)}</dd></div>
+      </dl>
+      <p className="course-planning-closure-note">No planning required for this date.</p>
+    </section>
+  );
 }
 
 function formFromDay(day: PlannedDay | null, nextDay: PlannedDay | null): DayForm {
@@ -195,6 +233,7 @@ export default function CoursePlanningTab({
     [selectedDayId, snapshot]
   );
   const selectedDay = selectedDayIndex >= 0 ? snapshot?.plan?.days[selectedDayIndex] || null : null;
+  const selectedDayIsClosed = Boolean(selectedDay?.closure);
   const selectedExam = snapshot?.exams.find((exam) => exam.id === examSetId) || null;
   useEffect(() => {
     const days = snapshot?.plan?.days || [];
@@ -286,6 +325,7 @@ export default function CoursePlanningTab({
   }
 
   function openExamMenu(purpose: FormExamItem["purpose"], preferAnother = false) {
+    if (selectedDayIsClosed) return;
     if (!snapshot?.exams.length) return;
     const selectedExamIds = new Set(itemsForPurpose(purpose).map((item) => item.exam_set_id));
     const currentExamId = activeExamByPurpose[purpose];
@@ -450,6 +490,10 @@ export default function CoursePlanningTab({
   async function saveDay(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedDay) return;
+    if (selectedDay.closure) {
+      setError(`School is closed on ${selectedDay.lesson_date} for ${selectedDay.closure.name}. This lesson is read-only.`);
+      return;
+    }
     setSaving(true);
     setError("");
     setMessage("");
@@ -482,7 +526,7 @@ export default function CoursePlanningTab({
   async function uploadResource(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || !selectedDay) return;
+    if (!file || !selectedDay || selectedDay.closure) return;
     setUploading(true);
     setError("");
     try {
@@ -505,6 +549,7 @@ export default function CoursePlanningTab({
   }
 
   async function deleteResource(resourceId: string) {
+    if (selectedDayIsClosed) return;
     if (!confirm("Remove this resource from the planned lesson?")) return;
     setSaving(true);
     setError("");
@@ -546,24 +591,60 @@ export default function CoursePlanningTab({
         <div><p className="course-planning-eyebrow">Course Planning · {snapshot.class.level}</p><h2>{snapshot.class.name}</h2><p>{snapshot.plan.book_name} · {snapshot.class.teacher} · {displayDate(String(snapshot.class.start_date))} – {displayDate(String(snapshot.class.end_date))}</p><p>Last updated {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(snapshot.plan.updated_at))}</p></div>
         <div className="course-planning-header-actions">
           <span className={"course-planning-status is-" + snapshot.plan.status}>{snapshot.plan.status}</span>
-          <button type="button" className="is-secondary" onClick={() => setViewMode((current) => current === "edit" ? "final" : "edit")}>{viewMode === "edit" ? "View final plan" : "Edit plan"}</button>
-          {snapshot.plan.status === "draft" ? <button type="button" disabled={saving} onClick={() => void request("publish")}>Publish for students</button> : adminMode ? <button type="button" className="is-secondary" disabled={saving} onClick={() => void request("unpublish")}>Unpublish</button> : null}
+          {!selectedDayIsClosed && <button type="button" className="is-secondary" onClick={() => setViewMode((current) => current === "edit" ? "final" : "edit")}>{viewMode === "edit" ? "View final plan" : "Edit plan"}</button>}
+          {!selectedDayIsClosed && (snapshot.plan.status === "draft" ? <button type="button" disabled={saving} onClick={() => void request("publish")}>Publish for students</button> : adminMode ? <button type="button" className="is-secondary" disabled={saving} onClick={() => void request("unpublish")}>Unpublish</button> : null)}
         </div>
       </header>
       {message && <p className="course-planning-feedback">{message}</p>}
       {error && <p className="course-planning-feedback is-error">{error}</p>}
       {viewMode === "final" ? (
         <div className="course-planning-final-view">
-          {snapshot.plan.days.map((day, index) => <article key={day.id}><header><span>Lesson {index + 1}</span><strong>{displayDate(day.lesson_date)}</strong><small>{displayTime(day.scheduled_start_time)} – {displayTime(day.scheduled_end_time)}</small></header><div>{day.pages_to_cover && <p><b>Pages to be covered:</b> {day.pages_to_cover}</p>}{day.other_activities && <p><b>Other activities:</b> {day.other_activities}</p>}<p><b>In-class exam practice:</b> {day.exam_items.filter((item) => item.purpose === "class_practice").length ? day.exam_items.filter((item) => item.purpose === "class_practice").map((item) => examItemName(item)).join(" · ") : "None planned"}</p>{(day.homework_instructions || day.exam_items.some((item) => item.purpose === "homework")) && <p><b>Homework{day.homework_due_date ? " · Due " + displayDate(day.homework_due_date) : ""}:</b> {day.homework_instructions || "Exam Bank homework selected"}</p>}<div className="course-planning-final-links">{day.exam_items.flatMap(examMaterialLinks).map((resource) => <a key={resource.key} href={resource.url} target="_blank" rel="noreferrer">{resource.label}</a>)}{day.resources.map((resource) => resource.url && <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer">{resource.label}</a>)}</div></div></article>)}
+          {snapshot.plan.days.map((day, index) => (
+            <article key={day.id} className={day.closure ? "is-closed" : ""}>
+              <header>
+                <span>Lesson {index + 1}</span>
+                <strong>{displayDate(day.lesson_date)}</strong>
+                <small>{displayTime(day.scheduled_start_time)} – {displayTime(day.scheduled_end_time)}</small>
+                {day.closure && <em>School closed</em>}
+              </header>
+              <div>
+                {day.closure ? (
+                  <ClosureLessonCard
+                    closure={day.closure}
+                    lessonDate={day.lesson_date}
+                    startTime={day.scheduled_start_time}
+                    endTime={day.scheduled_end_time}
+                  />
+                ) : (
+                  <>
+                    {day.pages_to_cover && <p><b>Pages to be covered:</b> {day.pages_to_cover}</p>}
+                    {day.other_activities && <p><b>Other activities:</b> {day.other_activities}</p>}
+                    <p><b>In-class exam practice:</b> {day.exam_items.filter((item) => item.purpose === "class_practice").length ? day.exam_items.filter((item) => item.purpose === "class_practice").map((item) => examItemName(item)).join(" · ") : "None planned"}</p>
+                    {(day.homework_instructions || day.exam_items.some((item) => item.purpose === "homework")) && <p><b>Homework{day.homework_due_date ? " · Due " + displayDate(day.homework_due_date) : ""}:</b> {day.homework_instructions || "Exam Bank homework selected"}</p>}
+                    <div className="course-planning-final-links">{day.exam_items.flatMap(examMaterialLinks).map((resource) => <a key={resource.key} href={resource.url} target="_blank" rel="noreferrer">{resource.label}</a>)}{day.resources.map((resource) => resource.url && <a key={resource.id} href={resource.url} target="_blank" rel="noreferrer">{resource.label}</a>)}</div>
+                  </>
+                )}
+              </div>
+            </article>
+          ))}
         </div>
       ) : <div className="course-planning-layout">
         <aside className="course-planning-days" aria-label="Planned lessons">
           <h3>{snapshot.plan.days.length} planned lessons</h3>
-          {snapshot.plan.days.map((day, index) => <button type="button" key={day.id} className={day.id === selectedDay?.id ? "is-selected" : ""} onClick={() => setSelectedDayId(day.id)}><span>Lesson {index + 1}</span><strong>{displayDate(day.lesson_date)}</strong><small>{displayTime(day.scheduled_start_time)} – {displayTime(day.scheduled_end_time)}</small></button>)}
+          {snapshot.plan.days.map((day, index) => <button type="button" key={day.id} className={(day.id === selectedDay?.id ? "is-selected " : "") + (day.closure ? "is-closed" : "")} onClick={() => setSelectedDayId(day.id)}><span>Lesson {index + 1}</span><strong>{displayDate(day.lesson_date)}</strong><small>{displayTime(day.scheduled_start_time)} – {displayTime(day.scheduled_end_time)}</small>{day.closure && <em>School closed</em>}</button>)}
         </aside>
         {selectedDay && (
-          <form className="course-planning-editor" onSubmit={saveDay}>
+          <div className="course-planning-editor">
             <div className="course-planning-editor-heading"><div><p className="course-planning-eyebrow">Lesson {selectedDayIndex + 1}</p><h3>{displayDate(selectedDay.lesson_date)}</h3></div><span>{displayTime(selectedDay.scheduled_start_time)} – {displayTime(selectedDay.scheduled_end_time)}</span></div>
+            {selectedDay.closure ? (
+              <ClosureLessonCard
+                closure={selectedDay.closure}
+                lessonDate={selectedDay.lesson_date}
+                startTime={selectedDay.scheduled_start_time}
+                endTime={selectedDay.scheduled_end_time}
+              />
+            ) : (
+              <form onSubmit={saveDay}>
             <div className="course-planning-fields">
               <label className="is-wide"><span>Pages to be covered</span><input value={form.pagesToCover} onChange={(event) => setForm((current) => ({ ...current, pagesToCover: event.target.value }))} placeholder="e.g. Unit 3, pages 42–47 and Workbook page 16" /></label>
               <label className="is-wide"><span>Other activities</span><textarea value={form.otherActivities} onChange={(event) => setForm((current) => ({ ...current, otherActivities: event.target.value }))} placeholder="Speaking, revision, games or other lesson activities" /></label>
@@ -649,7 +730,9 @@ export default function CoursePlanningTab({
               <label className="course-planning-upload-control"><span>Upload PDF or audio</span><input value={uploadLabel} onChange={(event) => setUploadLabel(event.target.value)} placeholder="Optional display label" /><input type="file" accept="application/pdf,audio/*" disabled={uploading} onChange={uploadResource} /></label>
             </section>
             <div className="course-planning-save-row"><button type="submit" disabled={saving}>{saving ? "Saving..." : snapshot.plan.status === "draft" ? "Save Draft" : "Save changes"}</button></div>
-          </form>
+              </form>
+            )}
+          </div>
         )}
       </div>}
     </section>

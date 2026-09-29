@@ -18,12 +18,22 @@ import {
   type TeacherHomeworkContext,
 } from "./teacherHomeworkServer";
 import { loadTeacherCambridgeExamLibrary } from "./teacherCambridgeExamsServer";
+import {
+  findSchoolClosure,
+  type SchoolClosureSummary,
+} from "./schoolClosures";
+import { loadSchoolClosures } from "./schoolClosuresServer";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_TEXT_LENGTH = 4000;
 const MAX_RESOURCE_LABEL_LENGTH = 160;
 const COURSE_PLAN_BUCKET = "teacher-resources";
+
+type CoursePlanningClosure = Pick<
+  SchoolClosureSummary,
+  "id" | "name" | "closure_type" | "start_date" | "end_date"
+>;
 
 export const COURSE_PLANNING_CHANGED_EVENT = "teacher-course-planning-updated";
 
@@ -341,6 +351,16 @@ export async function loadCoursePlanDays(
   if (itemsResult.error) throw itemsResult.error;
   if (resourcesResult.error) throw resourcesResult.error;
 
+  const firstLessonDate = String(days?.[0]?.lesson_date || "");
+  const lastLessonDate = String(days?.[days.length - 1]?.lesson_date || "");
+  const closures =
+    firstLessonDate && lastLessonDate
+      ? await loadSchoolClosures({
+          startDate: firstLessonDate,
+          endDate: lastLessonDate,
+        })
+      : [];
+
   const items = itemsResult.data || [];
   const resources = resourcesResult.data || [];
   const examSetIds = Array.from(new Set(items.map((item) => String(item.exam_set_id))));
@@ -510,6 +530,17 @@ export async function loadCoursePlanDays(
     weekday: madridWeekdayForDate(String(day.lesson_date)),
     exam_items: (itemsByDay.get(String(day.id)) || []).sort(sortByOrder),
     resources: (resourcesByDay.get(String(day.id)) || []).sort(sortByOrder),
+    closure: (() => {
+      const match = findSchoolClosure(String(day.lesson_date), closures);
+      if (!match) return null;
+      return {
+        id: String(match.id),
+        name: String(match.name),
+        closure_type: match.closure_type,
+        start_date: String(match.start_date),
+        end_date: String(match.end_date),
+      } satisfies CoursePlanningClosure;
+    })(),
   }));
 }
 
@@ -747,6 +778,26 @@ async function getPlanDay(context: CoursePlanningContext, dayId: string) {
   return data;
 }
 
+async function getCoursePlanningClosure(lessonDate: string) {
+  const closures = await loadSchoolClosures({
+    startDate: lessonDate,
+    endDate: lessonDate,
+  });
+  return findSchoolClosure(lessonDate, closures);
+}
+
+async function rejectClosedLesson(lessonDate: string) {
+  if (!isCoursePlanningDate(lessonDate)) {
+    throw new CoursePlanningError("Unable to verify the planned lesson date.", 422);
+  }
+  const closure = await getCoursePlanningClosure(lessonDate);
+  if (!closure) return;
+  throw new CoursePlanningError(
+    `School is closed on ${lessonDate} for ${String(closure.name)}. This lesson is read-only.`,
+    422
+  );
+}
+
 async function deactivateHomeworkForDay(dayId: string) {
   const { error } = await supabaseAdmin
     .from("cambridge_exam_assignments")
@@ -761,6 +812,10 @@ async function syncHomeworkForDay(
   day: any,
   planStatus: string
 ) {
+  if (await getCoursePlanningClosure(String(day.lesson_date))) {
+    await deactivateHomeworkForDay(String(day.id));
+    return;
+  }
   const { data: homeworkItems, error: itemError } = await supabaseAdmin
     .from("course_plan_exam_items")
     .select("id, exam_set_id, exam_part_id, selection_scope")
@@ -865,6 +920,7 @@ export async function saveCoursePlanningDay(
     throw new CoursePlanningError("Invalid Course Planning request.", 400);
   }
   const day = await getPlanDay(context, String(record.day_id || ""));
+  await rejectClosedLesson(String(day.lesson_date));
   const plan = Array.isArray(day.course_plans) ? day.course_plans[0] : day.course_plans;
   const examItems = parseExamItems(record.exam_items);
   const resources = parseResources(record.resources);
@@ -1004,6 +1060,7 @@ export async function addCoursePlanUploadedResource(input: {
   fileSize: number;
 }) {
   const day = await getPlanDay(input.context, input.dayId);
+  await rejectClosedLesson(String(day.lesson_date));
   const { data: lastResource, error: lastError } = await supabaseAdmin
     .from("course_plan_resources")
     .select("sort_order")
@@ -1037,12 +1094,16 @@ export async function deleteCoursePlanResource(
   if (!validId(resourceId)) throw new CoursePlanningError("Invalid course resource.", 400);
   const { data: resource, error } = await supabaseAdmin
     .from("course_plan_resources")
-    .select("id, storage_path, course_plan_days!inner (course_plans!inner (class_id))")
+    .select("id, storage_path, course_plan_days!inner (lesson_date, course_plans!inner (class_id))")
     .eq("id", resourceId)
     .eq("course_plan_days.course_plans.class_id", context.classId)
     .maybeSingle();
   if (error) throw error;
   if (!resource) throw new CoursePlanningError("Course resource was not found.", 404);
+  const resourceDay = Array.isArray(resource.course_plan_days)
+    ? resource.course_plan_days[0]
+    : resource.course_plan_days;
+  await rejectClosedLesson(String(resourceDay?.lesson_date || ""));
   const { error: deleteError } = await supabaseAdmin
     .from("course_plan_resources")
     .delete()

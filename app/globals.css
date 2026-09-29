@@ -26448,6 +26448,17 @@ img {
 .course-planning-days button span { color: #6e83a0; font-size: 0.72rem; font-weight: 750; text-transform: uppercase; }
 .course-planning-days button strong { color: #1f436c; font-size: 0.87rem; }
 .course-planning-days button small { color: #667a93; }
+.course-planning-days button.is-closed { background: #fff8f6; border-color: #f0c4bc; }
+.course-planning-days button.is-closed strong { color: #8f312b; }
+.course-planning-days button em,
+.course-planning-final-view article > header em {
+  color: #a43a33;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 
 .course-planning-editor { min-width: 0; padding: 23px; }
 .course-planning-editor-heading,
@@ -26602,6 +26613,23 @@ img {
 .course-planning-upload-control { border: 1px dashed #b6cce2; border-radius: 9px; margin-top: 12px; padding: 11px; }
 .course-planning-upload-control input[type="file"] { border: 0; padding: 4px 0; }
 .course-planning-save-row { display: flex; justify-content: flex-end; margin-top: 23px; }
+.course-planning-closure-card {
+  background: #fff5f2;
+  border: 1px solid #efc3bb;
+  border-radius: 12px;
+  color: #7d302b;
+  display: grid;
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 18px;
+}
+.course-planning-closure-eyebrow { color: #a43a33; font-size: 0.72rem; font-weight: 850; letter-spacing: 0.08em; margin: 0; text-transform: uppercase; }
+.course-planning-closure-card h4 { color: #7d302b; font-size: 1.1rem; margin: 0; }
+.course-planning-closure-card dl { display: grid; gap: 9px 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 12px 0 2px; }
+.course-planning-closure-card dl div { min-width: 0; }
+.course-planning-closure-card dt { color: #a45a51; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; margin-bottom: 2px; text-transform: uppercase; }
+.course-planning-closure-card dd { color: #7d302b; font-size: 0.85rem; font-weight: 750; margin: 0; }
+.course-planning-closure-note { border-top: 1px solid #f0d4ce; color: #87504a; font-size: 0.82rem; line-height: 1.45; margin: 12px 0 0; padding-top: 10px; }
 .course-planning-final-view { display: grid; gap: 12px; margin-top: 18px; }
 .course-planning-final-view article {
   background: #fff;
@@ -26621,6 +26649,8 @@ img {
 .course-planning-final-view article > header span { color: #6682a1; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
 .course-planning-final-view article > header strong { color: #274f79; font-size: 0.9rem; }
 .course-planning-final-view article > header small { color: #6c819a; }
+.course-planning-final-view article.is-closed { border-color: #efc3bb; }
+.course-planning-final-view article.is-closed > header { background: #fff5f2; border-color: #efc3bb; }
 .course-planning-final-view article > div { color: #4a627e; display: grid; gap: 9px; padding: 15px 18px; }
 .course-planning-final-view article p { line-height: 1.5; margin: 0; }
 .course-planning-final-view article b { color: #2d5178; }
@@ -26652,6 +26682,7 @@ img {
   .course-planning-exam-popover-footer { align-items: stretch; flex-direction: column; }
   .course-planning-exam-popover-footer .is-secondary { width: 100%; }
   .course-planning-save-row button { width: 100%; }
+  .course-planning-closure-card dl { grid-template-columns: 1fr; }
   .course-planning-final-view article { grid-template-columns: 1fr; }
   .course-planning-final-view article > header { border-bottom: 1px solid #dce7f1; border-right: 0; }
 }
