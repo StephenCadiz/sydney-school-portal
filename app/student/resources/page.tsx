@@ -19,6 +19,38 @@ type StudentResource = {
   file_size?: number | null;
 };
 
+function formatFileSize(value?: number | null) {
+  if (!value || value <= 0) return "";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function resourceTypeLabel(resource: StudentResource) {
+  if (resource.source === "cambridge_level") return "Official resource";
+  return resource.original_filename ? "Class document" : "Class resource";
+}
+
+function formatResourceFileType(value?: string | null) {
+  const mimeType = String(value || "").toLowerCase();
+  if (!mimeType) return "";
+  if (mimeType === "application/pdf") return "PDF";
+  if (mimeType.includes("wordprocessingml") || mimeType === "application/msword") {
+    return "Word document";
+  }
+  if (mimeType.includes("spreadsheetml") || mimeType === "application/vnd.ms-excel") {
+    return "Spreadsheet";
+  }
+  if (mimeType.includes("presentationml") || mimeType === "application/vnd.ms-powerpoint") {
+    return "Presentation";
+  }
+  if (mimeType.startsWith("audio/")) return "Audio file";
+  if (mimeType.startsWith("video/")) return "Video file";
+  if (mimeType.startsWith("image/")) return "Image file";
+  if (mimeType.startsWith("text/")) return "Text file";
+  return "File";
+}
+
 export default function ResourcesPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [resources, setResources] = useState<StudentResource[]>([]);
@@ -196,45 +228,61 @@ export default function ResourcesPage() {
                 className="student-resources-item"
                 key={`${resource.source}-${resource.id}`}
               >
-                <div className="student-resources-origin">
-                  <span>{resource.source_label}</span>
-                  <small>
-                    {resource.source === "cambridge_level"
-                      ? "Sydney School"
-                      : "Your class"}
-                  </small>
+                <header className="student-resources-item-header">
+                  <div className="student-resources-origin">
+                    <span>{resource.source_label}</span>
+                    <small>
+                      {resource.source === "cambridge_level"
+                        ? "Sydney School"
+                        : "Your class"}
+                    </small>
+                  </div>
+                  <span className="student-resources-type">
+                    {resourceTypeLabel(resource)}
+                  </span>
+                </header>
+
+                <div className="student-resources-item-content">
+                  <h3>{resource.title || "Learning resource"}</h3>
+                  {resource.description && <p>{resource.description}</p>}
+                  {(formatResourceFileType(resource.mime_type) || resource.file_size) && (
+                    <div className="student-resources-metadata" aria-label="File details">
+                      {formatResourceFileType(resource.mime_type) && (
+                        <span>{formatResourceFileType(resource.mime_type)}</span>
+                      )}
+                      {formatFileSize(resource.file_size) && (
+                        <span>{formatFileSize(resource.file_size)}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <strong>{resource.title || "Learning resource"}</strong>
-                {resource.description && <p>{resource.description}</p>}
-                {(resource.original_filename || resource.mime_type || resource.file_size) && (
-                  <small>
-                    {[resource.original_filename, resource.mime_type, resource.file_size ? `${Math.round(Number(resource.file_size) / 1024)} KB` : null]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </small>
-                )}
-                {resource.resource_url && (
-                  <a
-                    className="student-resources-action"
-                    href={resource.resource_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open Resource
-                  </a>
-                )}
-                {resource.requires_signed_url && (
-                  <button
-                    type="button"
-                    className="student-resources-action"
-                    onClick={() => handleOpenPrivateResource(resource)}
-                    disabled={Boolean(openingResourceId)}
-                  >
-                    {openingResourceId === resource.id
-                      ? "Opening..."
-                      : "Open Resource"}
-                  </button>
-                )}
+
+                <div className="student-resources-item-actions">
+                  {resource.resource_url && (
+                    <a
+                      className="student-resources-action"
+                      href={resource.resource_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`Open ${resource.title || "learning resource"}`}
+                    >
+                      Open Resource
+                    </a>
+                  )}
+                  {resource.requires_signed_url && (
+                    <button
+                      type="button"
+                      className="student-resources-action"
+                      onClick={() => handleOpenPrivateResource(resource)}
+                      disabled={Boolean(openingResourceId)}
+                      aria-label={`Open ${resource.title || "learning resource"}`}
+                    >
+                      {openingResourceId === resource.id
+                        ? "Opening..."
+                        : "Open Resource"}
+                    </button>
+                  )}
+                </div>
               </article>
             ))
           )}
