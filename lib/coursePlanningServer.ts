@@ -959,6 +959,45 @@ async function deactivateHomeworkForDay(dayId: string) {
   if (error) throw error;
 }
 
+/**
+ * Older course-plan saves could leave an inactive assignment behind after the
+ * plan item was replaced. Keep that row for audit/history, but archive it when
+ * it is no longer linked to a live homework item so it cannot reserve a legacy
+ * parent-part identity during the next exact-subpart reconciliation.
+ */
+async function archiveOrphanedHomeworkAssignments(
+  assignments: Array<{ id?: string | null; active?: boolean | null }>
+) {
+  const ids = assignments
+    .map((assignment) => String(assignment.id || "").trim())
+    .filter(Boolean);
+  if (!ids.length) return new Set<string>();
+
+  const { data: mappings, error: mappingError } = await supabaseAdmin
+    .from("course_plan_homework_assignments")
+    .select("cambridge_exam_assignment_id")
+    .in("cambridge_exam_assignment_id", ids);
+  if (mappingError) throw mappingError;
+
+  const linkedIds = new Set(
+    (mappings || []).map((mapping) => String(mapping.cambridge_exam_assignment_id || ""))
+  );
+  const orphanedIds = new Set(
+    assignments
+      .filter((assignment) => assignment.id && !assignment.active && !linkedIds.has(String(assignment.id)))
+      .map((assignment) => String(assignment.id))
+  );
+  if (!orphanedIds.size) return orphanedIds;
+
+  const { error } = await supabaseAdmin
+    .from("cambridge_exam_assignments")
+    .update({ archived_at: new Date().toISOString(), active: false })
+    .in("id", Array.from(orphanedIds))
+    .is("archived_at", null);
+  if (error) throw error;
+  return orphanedIds;
+}
+
 async function syncHomeworkForDay(
   context: CoursePlanningContext,
   day: any,
@@ -983,13 +1022,15 @@ async function syncHomeworkForDay(
   // PostgREST "multiple rows" error when older rows are present.
   const { data: existingAssignments, error: existingAssignmentsError } = await supabaseAdmin
     .from("cambridge_exam_assignments")
-    .select("id, exam_part_id, exam_subpart_id")
+    .select("id, exam_part_id, exam_subpart_id, active")
     .eq("course_plan_day_id", day.id)
     .is("archived_at", null)
     .order("created_at", { ascending: true });
   if (existingAssignmentsError) throw existingAssignmentsError;
+  const orphanedAssignmentIds = await archiveOrphanedHomeworkAssignments(existingAssignments || []);
   const assignmentsByKey = new Map<string, string>();
   for (const assignment of existingAssignments || []) {
+    if (assignment.id && orphanedAssignmentIds.has(String(assignment.id))) continue;
     const key = homeworkAssignmentKey(
       String(assignment.exam_part_id || ""),
       assignment.exam_subpart_id ? String(assignment.exam_subpart_id) : null
@@ -1094,7 +1135,15 @@ async function syncHomeworkForDay(
           course_plan_exam_item_id: item.id,
           cambridge_exam_assignment_id: assignmentId,
         });
-      if (mapError) throw mapError;
+      if (mapError) {
+        if (String(mapError.code || "") === "23505") {
+          throw new CoursePlanningError(
+            "This exam part is already linked to another Homework selection on this lesson.",
+            422
+          );
+        }
+        throw mapError;
+      }
     }
   }
 }

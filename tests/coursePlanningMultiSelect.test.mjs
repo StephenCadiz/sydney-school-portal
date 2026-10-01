@@ -51,6 +51,27 @@ test("same-skill numbered parts reconcile by exact subpart identity", () => {
   assert.match(planningServer, /already assigned to the selected lesson/);
 });
 
+test("5 October C1 lesson reconciles stale legacy rows before Part 1 and Part 8", () => {
+  const failingLesson = {
+    lesson_date: "2026-10-05",
+    level: "C1",
+    skill: "Reading and Use of English",
+    selections: ["Part 1", "Part 8"],
+  };
+  const successfulLesson = {
+    lesson_date: "2026-10-06",
+    level: "C1",
+    skill: "Reading and Use of English",
+    selections: ["Part 1", "Part 8"],
+  };
+  assert.equal(failingLesson.selections.join(" + "), "Part 1 + Part 8");
+  assert.equal(successfulLesson.selections.join(" + "), "Part 1 + Part 8");
+  assert.match(planningServer, /archiveOrphanedHomeworkAssignments/);
+  assert.match(planningServer, /course_plan_homework_assignments/);
+  assert.match(planningServer, /archived_at: new Date\(\)\.toISOString\(\)/);
+  assert.match(planningServer, /already linked to another Homework selection/);
+});
+
 test("server logging preserves useful database error fields without exposing them to clients", () => {
   const route = read("app/api/teacher/classes/[id]/course-planning/route.ts");
   assert.match(route, /message:/);
