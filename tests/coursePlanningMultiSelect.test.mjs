@@ -43,6 +43,23 @@ test("server validation prevents duplicates and whole-exam/part overlap per purp
   assert.match(planningServer, /purposeExamKey/);
 });
 
+test("same-skill numbered parts reconcile by exact subpart identity", () => {
+  assert.match(planningServer, /function homeworkAssignmentKey\(examPartId: string, examSubpartId: string \| null\)/);
+  assert.match(planningServer, /homeworkAssignmentKey\(selection\.parentId, selection\.subpartId\)/);
+  assert.match(planningServer, /assignmentsByKey/);
+  assert.match(planningServer, /exam_subpart_id/);
+  assert.match(planningServer, /already assigned to the selected lesson/);
+});
+
+test("server logging preserves useful database error fields without exposing them to clients", () => {
+  const route = read("app/api/teacher/classes/[id]/course-planning/route.ts");
+  assert.match(route, /message:/);
+  assert.match(route, /code:/);
+  assert.match(route, /details:/);
+  assert.match(route, /hint:/);
+  assert.match(route, /Unable to update Course Planning\./);
+});
+
 test("the existing schema remains backward-compatible while cross-activity duplicates are validated server-side", () => {
   assert.match(migration, /unique \(course_plan_day_id, purpose, exam_set_id, exam_part_id\)/);
   assert.match(migration, /selection_scope text not null check \(selection_scope in \('full_exam', 'part'\)\)/);

@@ -14,7 +14,15 @@ function fail(message: string, status: number) {
 }
 
 function logFailure(stage: string, error: unknown) {
-  console.error("Course Planning request failed:", { stage, error });
+  const record = error && typeof error === "object" ? error as Record<string, unknown> : {};
+  console.error("Course Planning request failed:", {
+    stage,
+    name: typeof record.name === "string" ? record.name : undefined,
+    message: typeof record.message === "string" ? record.message : String(error || "Unknown error"),
+    code: typeof record.code === "string" ? record.code : undefined,
+    details: typeof record.details === "string" ? record.details : undefined,
+    hint: typeof record.hint === "string" ? record.hint : undefined,
+  });
 }
 
 export async function GET(

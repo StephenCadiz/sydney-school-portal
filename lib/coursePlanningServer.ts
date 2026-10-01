@@ -85,6 +85,10 @@ type ParsedResource = {
   sortOrder: number;
 };
 
+function homeworkAssignmentKey(examPartId: string, examSubpartId: string | null) {
+  return `${examPartId}:${examSubpartId || "parent"}`;
+}
+
 function validId(value: unknown) {
   return UUID_PATTERN.test(String(value || ""));
 }
@@ -973,6 +977,28 @@ async function syncHomeworkForDay(
   if (itemError) throw itemError;
   if (!(homeworkItems || []).length) return;
 
+  // Reconcile assignments by the complete exam-part identity. A skill can
+  // legitimately have several numbered subparts on the same lesson, so a
+  // parent-part-only lookup can incorrectly reuse one assignment or surface a
+  // PostgREST "multiple rows" error when older rows are present.
+  const { data: existingAssignments, error: existingAssignmentsError } = await supabaseAdmin
+    .from("cambridge_exam_assignments")
+    .select("id, exam_part_id, exam_subpart_id")
+    .eq("course_plan_day_id", day.id)
+    .is("archived_at", null)
+    .order("created_at", { ascending: true });
+  if (existingAssignmentsError) throw existingAssignmentsError;
+  const assignmentsByKey = new Map<string, string>();
+  for (const assignment of existingAssignments || []) {
+    const key = homeworkAssignmentKey(
+      String(assignment.exam_part_id || ""),
+      assignment.exam_subpart_id ? String(assignment.exam_subpart_id) : null
+    );
+    if (!assignmentsByKey.has(key) && assignment.id) {
+      assignmentsByKey.set(key, String(assignment.id));
+    }
+  }
+
   const dueDate = String(day.homework_due_date || "").trim();
   if (!isCoursePlanningDate(dueDate) || dueDate < String(day.lesson_date)) {
     throw new CoursePlanningError("Homework needs a valid due date on or after the lesson date.", 422);
@@ -1013,17 +1039,8 @@ async function syncHomeworkForDay(
       throw new CoursePlanningError("A homework exam selection is no longer available.", 422);
     }
     for (const selection of selections) {
-      let existingQuery = supabaseAdmin
-        .from("cambridge_exam_assignments")
-        .select("id")
-        .eq("course_plan_day_id", day.id)
-        .eq("exam_part_id", selection.parentId)
-        .is("archived_at", null);
-      existingQuery = selection.subpartId
-        ? existingQuery.eq("exam_subpart_id", selection.subpartId)
-        : existingQuery.is("exam_subpart_id", null);
-      const { data: existing, error: existingError } = await existingQuery.maybeSingle();
-      if (existingError) throw existingError;
+      const selectionKey = homeworkAssignmentKey(selection.parentId, selection.subpartId);
+      const existingAssignmentId = assignmentsByKey.get(selectionKey) || "";
       const assignmentValues = {
         course_type: context.courseType,
         release_date: day.lesson_date,
@@ -1033,13 +1050,21 @@ async function syncHomeworkForDay(
         course_plan_class_id: context.classId,
         updated_by: context.actorId,
       };
-      let assignmentId = String(existing?.id || "");
+      let assignmentId = existingAssignmentId;
       if (assignmentId) {
         const { error } = await supabaseAdmin
           .from("cambridge_exam_assignments")
           .update(assignmentValues)
           .eq("id", assignmentId);
-        if (error) throw error;
+        if (error) {
+          if (String(error.code || "") === "23505") {
+            throw new CoursePlanningError(
+              "This exam part is already assigned to the selected lesson.",
+              422
+            );
+          }
+          throw error;
+        }
       } else {
         const { data: assignment, error } = await supabaseAdmin
           .from("cambridge_exam_assignments")
@@ -1051,8 +1076,17 @@ async function syncHomeworkForDay(
           })
           .select("id")
           .single();
-        if (error || !assignment) throw error || new Error("Assignment insert failed.");
+        if (error || !assignment) {
+          if (String(error?.code || "") === "23505") {
+            throw new CoursePlanningError(
+              "This exam part is already assigned to the selected lesson.",
+              422
+            );
+          }
+          throw error || new Error("Assignment insert failed.");
+        }
         assignmentId = String(assignment.id);
+        assignmentsByKey.set(selectionKey, assignmentId);
       }
       const { error: mapError } = await supabaseAdmin
         .from("course_plan_homework_assignments")
