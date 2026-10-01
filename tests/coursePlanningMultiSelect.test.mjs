@@ -43,7 +43,7 @@ test("server validation prevents duplicates and whole-exam/part overlap per purp
   assert.match(planningServer, /purposeExamKey/);
 });
 
-test("the existing schema supports multiple parts, Whole exam, and same parts in both activities", () => {
+test("the existing schema remains backward-compatible while cross-activity duplicates are validated server-side", () => {
   assert.match(migration, /unique \(course_plan_day_id, purpose, exam_set_id, exam_part_id\)/);
   assert.match(migration, /selection_scope text not null check \(selection_scope in \('full_exam', 'part'\)\)/);
   assert.match(migration, /purpose text not null check \(purpose in \('class_practice', 'homework'\)\)/);

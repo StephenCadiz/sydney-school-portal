@@ -3,6 +3,7 @@ import "server-only";
 import { NextRequest } from "next/server";
 
 import { isValidExternalUrl, normalizeExternalUrl } from "./cambridgeExamBank";
+import { getHomeworkSkillLabel } from "./homework";
 import { isCoursePlanningDate } from "./coursePlanningDates";
 import { isCoursePlanningEligible, normalizeCoursePlanningCourseType } from "./coursePlanningEligibility";
 import {
@@ -23,6 +24,12 @@ import {
   type SchoolClosureSummary,
 } from "./schoolClosures";
 import { loadSchoolClosures } from "./schoolClosuresServer";
+import {
+  expandSelections,
+  flattenExamParts,
+  isEligibleExamPart,
+  type CoursePlanExam,
+} from "./coursePlanExamScoring";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -64,8 +71,9 @@ export type CoursePlanningContext = {
 type ParsedExamItem = {
   examSetId: string;
   examPartId: string | null;
+  examSubpartId: string | null;
   purpose: "class_practice" | "homework";
-  selectionScope: "full_exam" | "part";
+  selectionScope: "full_exam" | "skill" | "part";
   sortOrder: number;
 };
 
@@ -316,7 +324,7 @@ function sortByOrder(left: any, right: any) {
 
 export async function loadCoursePlanDays(
   planId: string,
-  options: { includeExamResources?: boolean } = {}
+  options: { includeExamResources?: boolean; studentId?: string; levelName?: string } = {}
 ) {
   const { data: days, error: dayError } = await supabaseAdmin
     .from("course_plan_days")
@@ -328,12 +336,12 @@ export async function loadCoursePlanDays(
   if (dayError) throw dayError;
 
   const dayIds = (days || []).map((day) => String(day.id));
-  const [itemsResult, resourcesResult] = await Promise.all([
+  const [itemsResult, resourcesResult, scoresResult] = await Promise.all([
     dayIds.length
       ? supabaseAdmin
           .from("course_plan_exam_items")
           .select(
-            "id, course_plan_day_id, exam_set_id, exam_part_id, purpose, selection_scope, sort_order"
+            "id, course_plan_day_id, exam_set_id, exam_part_id, exam_subpart_id, purpose, selection_scope, sort_order"
           )
           .in("course_plan_day_id", dayIds)
           .order("sort_order", { ascending: true })
@@ -347,9 +355,19 @@ export async function loadCoursePlanDays(
           .in("course_plan_day_id", dayIds)
           .order("sort_order", { ascending: true })
       : Promise.resolve({ data: [], error: null }),
+    options.studentId && dayIds.length
+      ? supabaseAdmin
+          .from("course_plan_exam_scores")
+          .select("course_plan_day_id, exam_set_id, exam_part_id, exam_subpart_id, purpose, percentage, updated_at")
+          .in("course_plan_day_id", dayIds)
+          .eq("student_id", options.studentId)
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (itemsResult.error) throw itemsResult.error;
   if (resourcesResult.error) throw resourcesResult.error;
+  if (scoresResult.error && !["42P01", "PGRST205"].includes(String(scoresResult.error.code || ""))) {
+    throw scoresResult.error;
+  }
 
   const firstLessonDate = String(days?.[0]?.lesson_date || "");
   const lastLessonDate = String(days?.[days.length - 1]?.lesson_date || "");
@@ -422,6 +440,27 @@ export async function loadCoursePlanDays(
     const examId = String(part.exam_set_id);
     partsByExam.set(examId, [...(partsByExam.get(examId) || []), part]);
   }
+  const parentPartIds = Array.from(parts.keys());
+  const subpartsResult = parentPartIds.length
+    ? await supabaseAdmin
+        .from("cambridge_exam_subparts")
+        .select("id, exam_part_id, part_number, label, sort_order")
+        .in("exam_part_id", parentPartIds)
+    : { data: [], error: null };
+  if (subpartsResult.error && !["42P01", "PGRST205"].includes(String(subpartsResult.error.code || ""))) {
+    throw subpartsResult.error;
+  }
+  const subpartsByParent = new Map<string, any[]>();
+  for (const subpart of subpartsResult.data || []) {
+    const key = String(subpart.exam_part_id);
+    subpartsByParent.set(key, [...(subpartsByParent.get(key) || []), subpart]);
+  }
+  for (const [examId, examParts] of partsByExam) {
+    partsByExam.set(examId, flattenExamParts(examParts.map((part) => ({
+      ...part,
+      subparts: subpartsByParent.get(String(part.id)) || [],
+    }))));
+  }
   const examPartIds = Array.from(parts.keys());
   const examResourcesResult =
     options.includeExamResources && examPartIds.length
@@ -453,17 +492,23 @@ export async function loadCoursePlanDays(
   const itemsByDay = new Map<string, any[]>();
   for (const item of items) {
     const exam = examSets.get(String(item.exam_set_id));
-    const part = item.exam_part_id ? parts.get(String(item.exam_part_id)) : null;
+    const part = (item as any).exam_subpart_id
+      ? (partsByExam.get(String(item.exam_set_id)) || []).find((candidate) => String(candidate.id) === String((item as any).exam_subpart_id))
+      : item.exam_part_id ? parts.get(String(item.exam_part_id)) : null;
     const selectedParts =
       item.selection_scope === "full_exam"
-        ? partsByExam.get(String(item.exam_set_id)) || []
+        ? (partsByExam.get(String(item.exam_set_id)) || []).filter(isEligibleExamPart)
+        : item.selection_scope === "skill"
+        ? (partsByExam.get(String(item.exam_set_id)) || []).filter((candidate) => String(candidate.parent_part_id || "") === String(item.exam_part_id))
         : part
-        ? [part]
+        ? isEligibleExamPart(part) ? [part] : []
         : [];
+    if (!selectedParts.length) continue;
     const value = {
       id: String(item.id),
       exam_set_id: String(item.exam_set_id),
       exam_part_id: item.exam_part_id ? String(item.exam_part_id) : null,
+      exam_subpart_id: (item as any).exam_subpart_id ? String((item as any).exam_subpart_id) : null,
       purpose: String(item.purpose),
       selection_scope: String(item.selection_scope),
       sort_order: Number(item.sort_order || 0),
@@ -475,12 +520,14 @@ export async function loadCoursePlanDays(
           }
         : null,
       part: part
-        ? { id: String(part.id), type: String(part.part_type) }
+        ? { id: String(part.id), type: String(part.part_type), label: String(part.label || getHomeworkSkillLabel(options.levelName || "", part.part_type)), part_number: (part as any).part_number || null }
         : null,
       available_parts: selectedParts.map((selectedPart) => ({
         id: String(selectedPart.id),
         type: String(selectedPart.part_type),
-        resources: (examResourcesByPart.get(String(selectedPart.id)) || [])
+        label: String(selectedPart.label || getHomeworkSkillLabel(options.levelName || "", selectedPart.part_type)),
+        part_number: (selectedPart as any).part_number || null,
+        resources: (examResourcesByPart.get(String((selectedPart as any).parent_part_id || selectedPart.id)) || [])
           .filter((resource) => isValidExternalUrl(resource.external_url))
           .map((resource) => ({
             type: String(resource.resource_type),
@@ -523,6 +570,19 @@ export async function loadCoursePlanDays(
     resourcesByDay.set(key, [...(resourcesByDay.get(key) || []), value]);
   }
 
+  const scoresByDay = new Map<string, any[]>();
+  for (const score of scoresResult.data || []) {
+    const key = String(score.course_plan_day_id);
+    scoresByDay.set(key, [...(scoresByDay.get(key) || []), {
+      exam_set_id: String(score.exam_set_id),
+      exam_part_id: String(score.exam_part_id),
+      exam_subpart_id: score.exam_subpart_id ? String(score.exam_subpart_id) : null,
+      purpose: String(score.purpose),
+      percentage: Number(score.percentage),
+      updated_at: score.updated_at || null,
+    }]);
+  }
+
   return (days || []).map((day) => ({
     ...day,
     scheduled_start_time: normalizeScheduledTime(day.scheduled_start_time),
@@ -530,6 +590,9 @@ export async function loadCoursePlanDays(
     weekday: madridWeekdayForDate(String(day.lesson_date)),
     exam_items: (itemsByDay.get(String(day.id)) || []).sort(sortByOrder),
     resources: (resourcesByDay.get(String(day.id)) || []).sort(sortByOrder),
+    scores: (scoresByDay.get(String(day.id)) || []).sort((left, right) =>
+      String(left.exam_part_id).localeCompare(String(right.exam_part_id))
+    ),
     closure: (() => {
       const match = findSchoolClosure(String(day.lesson_date), closures);
       if (!match) return null;
@@ -559,7 +622,7 @@ export async function loadCoursePlanningSnapshot(
   ]);
   if (classResources.error) throw classResources.error;
 
-  const days = plan ? await loadCoursePlanDays(String(plan.id)) : [];
+  const days = plan ? await loadCoursePlanDays(String(plan.id), { levelName: context.levelName }) : [];
   return {
     class: {
       id: context.classId,
@@ -608,6 +671,7 @@ function parseExamItems(value: unknown): ParsedExamItem[] {
     const allowed = new Set([
       "exam_set_id",
       "exam_part_id",
+      "exam_subpart_id",
       "purpose",
       "selection_scope",
     ]);
@@ -616,6 +680,7 @@ function parseExamItems(value: unknown): ParsedExamItem[] {
     }
     const examSetId = String(record.exam_set_id || "").trim();
     const examPartId = String(record.exam_part_id || "").trim() || null;
+    const examSubpartId = String(record.exam_subpart_id || "").trim() || null;
     const purpose = String(record.purpose || "");
     const selectionScope = String(record.selection_scope || "");
     if (!validId(examSetId)) {
@@ -624,14 +689,16 @@ function parseExamItems(value: unknown): ParsedExamItem[] {
     if (purpose !== "class_practice" && purpose !== "homework") {
       throw new CoursePlanningError("Choose a valid exam activity type.", 422);
     }
-    if (selectionScope !== "full_exam" && selectionScope !== "part") {
-      throw new CoursePlanningError("Choose a full exam or an exam part.", 422);
+    if (selectionScope !== "full_exam" && selectionScope !== "skill" && selectionScope !== "part") {
+      throw new CoursePlanningError("Choose a full exam, skill, or exam part.", 422);
     }
-    if ((selectionScope === "full_exam" && examPartId) || (selectionScope === "part" && !validId(examPartId))) {
+    if ((selectionScope === "full_exam" && (examPartId || examSubpartId)) ||
+      (selectionScope === "skill" && (!validId(examPartId) || examSubpartId)) ||
+      (selectionScope === "part" && (!validId(examPartId) || (examSubpartId && !validId(examSubpartId))))) {
       throw new CoursePlanningError("The selected exam activity is not valid.", 422);
     }
     const selectionKey =
-      purpose + "|" + selectionScope + "|" + examSetId + "|" + (examPartId || "");
+      purpose + "|" + selectionScope + "|" + examSetId + "|" + (examPartId || "") + "|" + (examSubpartId || "");
     if (seen.has(selectionKey)) {
       throw new CoursePlanningError("The same exam activity can only be selected once per lesson.", 422);
     }
@@ -648,10 +715,11 @@ function parseExamItems(value: unknown): ParsedExamItem[] {
       throw new CoursePlanningError("Choose Whole exam or individual parts for the same exam, not both.", 422);
     }
     seen.add(selectionKey);
-    if (selectionScope === "part") seen.add(purpose + "|part|" + examSetId);
+    if (selectionScope === "part" || selectionScope === "skill") seen.add(purpose + "|part|" + examSetId);
     return {
       examSetId,
       examPartId,
+      examSubpartId,
       purpose: purpose as ParsedExamItem["purpose"],
       selectionScope: selectionScope as ParsedExamItem["selectionScope"],
       sortOrder: index,
@@ -706,6 +774,9 @@ async function verifyExamItems(context: CoursePlanningContext, items: ParsedExam
   const partIds = Array.from(
     new Set(items.map((item) => item.examPartId).filter((item): item is string => Boolean(item)))
   );
+  const subpartIds = Array.from(
+    new Set(items.map((item) => item.examSubpartId).filter((item): item is string => Boolean(item)))
+  );
   const [examsResult, partsResult] = await Promise.all([
     examSetIds.length
       ? supabaseAdmin
@@ -719,23 +790,100 @@ async function verifyExamItems(context: CoursePlanningContext, items: ParsedExam
     partIds.length
       ? supabaseAdmin
           .from("cambridge_exam_parts")
-          .select("id, exam_set_id")
+          .select("id, exam_set_id, part_type")
           .in("id", partIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (examsResult.error) throw examsResult.error;
   if (partsResult.error) throw partsResult.error;
-  const exams = new Set((examsResult.data || []).map((exam) => String(exam.id)));
-  if (exams.size !== examSetIds.length) {
+  const subpartsResult = subpartIds.length
+    ? await supabaseAdmin
+        .from("cambridge_exam_subparts")
+        .select("id, exam_part_id, part_number, label")
+        .in("id", subpartIds)
+    : { data: [], error: null };
+  if (subpartsResult.error && !["42P01", "PGRST205"].includes(String(subpartsResult.error.code || ""))) {
+    throw subpartsResult.error;
+  }
+  const availableExamIds = new Set((examsResult.data || []).map((exam) => String(exam.id)));
+  if (availableExamIds.size !== examSetIds.length) {
     throw new CoursePlanningError("One or more selected Cambridge exams are unavailable.", 422);
   }
   const parts = new Map(
-    (partsResult.data || []).map((part) => [String(part.id), String(part.exam_set_id)])
+    (partsResult.data || []).map((part) => [String(part.id), part])
   );
   for (const item of items) {
-    if (item.examPartId && parts.get(item.examPartId) !== item.examSetId) {
+    const part = item.examPartId ? parts.get(item.examPartId) : null;
+    if (item.examPartId && String(part?.exam_set_id || "") !== item.examSetId) {
       throw new CoursePlanningError("An exam part does not belong to the selected exam.", 422);
     }
+    if (item.examPartId && !isEligibleExamPart(part || { part_type: "" })) {
+      throw new CoursePlanningError("Speaking cannot be assigned in Express or Intensive Course Planning.", 422);
+    }
+    if (item.examSubpartId) {
+      const subpart = (subpartsResult.data || []).find((row) => String(row.id) === item.examSubpartId);
+      if (!subpart || String(subpart.exam_part_id) !== String(item.examPartId)) {
+        throw new CoursePlanningError("An exam part does not belong to the selected exam skill.", 422);
+      }
+    }
+  }
+
+  const allPartRows = examSetIds.length
+    ? await supabaseAdmin
+        .from("cambridge_exam_parts")
+        .select("id, exam_set_id, part_type")
+        .in("exam_set_id", examSetIds)
+    : { data: [], error: null };
+  if (allPartRows.error) throw allPartRows.error;
+  const allParentIds = (allPartRows.data || []).map((part) => String(part.id));
+  const allSubpartsResult = allParentIds.length
+    ? await supabaseAdmin
+        .from("cambridge_exam_subparts")
+        .select("id, exam_part_id, part_number, label")
+        .in("exam_part_id", allParentIds)
+    : { data: [], error: null };
+  if (allSubpartsResult.error && !["42P01", "PGRST205"].includes(String(allSubpartsResult.error.code || ""))) throw allSubpartsResult.error;
+  const subpartsByParent = new Map<string, any[]>();
+  for (const row of allSubpartsResult.data || []) {
+    const key = String(row.exam_part_id);
+    subpartsByParent.set(key, [...(subpartsByParent.get(key) || []), row]);
+  }
+  const exams: CoursePlanExam[] = examSetIds.map((examSetId) => ({
+    id: examSetId,
+    exam_number: 0,
+    parts: flattenExamParts((allPartRows.data || [])
+      .filter((part) => String(part.exam_set_id) === examSetId)
+      .map((part) => ({
+        id: String(part.id),
+        exam_set_id: String(part.exam_set_id),
+        part_type: String(part.part_type),
+        subparts: subpartsByParent.get(String(part.id)) || [],
+      }))),
+  }));
+  const expanded = expandSelections(
+    items.map((item) => ({
+      exam_set_id: item.examSetId,
+      exam_part_id: item.examPartId,
+      exam_subpart_id: item.examSubpartId,
+      purpose: item.purpose,
+      selection_scope: item.selectionScope,
+    })),
+    exams
+  );
+  const assigned = new Map<string, string>();
+  for (const part of expanded) {
+    const key = `${part.exam_set_id}:${part.id}`;
+    const existingPurpose = assigned.get(key);
+    if (existingPurpose && existingPurpose === part.purpose) {
+      throw new CoursePlanningError("The same exam part can only be selected once per activity.", 422);
+    }
+    if (existingPurpose && existingPurpose !== part.purpose) {
+      throw new CoursePlanningError(
+        "Each exam part can be assigned to Homework or Classwork once, not both.",
+        422
+      );
+    }
+    assigned.set(key, part.purpose);
   }
 }
 
@@ -818,7 +966,7 @@ async function syncHomeworkForDay(
   }
   const { data: homeworkItems, error: itemError } = await supabaseAdmin
     .from("course_plan_exam_items")
-    .select("id, exam_set_id, exam_part_id, selection_scope")
+    .select("id, exam_set_id, exam_part_id, exam_subpart_id, selection_scope")
     .eq("course_plan_day_id", day.id)
     .eq("purpose", "homework")
     .order("sort_order", { ascending: true });
@@ -835,31 +983,46 @@ async function syncHomeworkForDay(
   );
   const { data: allParts, error: partError } = await supabaseAdmin
     .from("cambridge_exam_parts")
-    .select("id, exam_set_id")
+    .select("id, exam_set_id, part_type")
     .in("exam_set_id", examSetIds);
   if (partError) throw partError;
-  const partsByExam = new Map<string, string[]>();
-  for (const part of allParts || []) {
+  const partsByExam = new Map<string, Array<{ parentId: string; id: string; subpartId: string | null }>>();
+  const parentRows = allParts || [];
+  const subpartsForHomework = parentRows.length
+    ? await supabaseAdmin.from("cambridge_exam_subparts").select("id, exam_part_id").in("exam_part_id", parentRows.map((part) => String(part.id)))
+    : { data: [], error: null };
+  if (subpartsForHomework.error && !["42P01", "PGRST205"].includes(String(subpartsForHomework.error.code || ""))) throw subpartsForHomework.error;
+  const childrenByParent = new Map<string, string[]>();
+  for (const child of subpartsForHomework.data || []) childrenByParent.set(String(child.exam_part_id), [...(childrenByParent.get(String(child.exam_part_id)) || []), String(child.id)]);
+  for (const part of parentRows) {
+    if (!isEligibleExamPart(part)) continue;
     const examId = String(part.exam_set_id);
-    partsByExam.set(examId, [...(partsByExam.get(examId) || []), String(part.id)]);
+    const children = childrenByParent.get(String(part.id)) || [];
+    const values = children.length
+      ? children.map((childId) => ({ parentId: String(part.id), id: childId, subpartId: childId }))
+      : [{ parentId: String(part.id), id: String(part.id), subpartId: null }];
+    partsByExam.set(examId, [...(partsByExam.get(examId) || []), ...values]);
   }
 
   for (const item of homeworkItems || []) {
-    const partIds =
+    const selections =
       item.selection_scope === "full_exam"
         ? partsByExam.get(String(item.exam_set_id)) || []
-        : [String(item.exam_part_id || "")].filter(Boolean);
-    if (!partIds.length) {
+        : [{ parentId: String(item.exam_part_id || ""), id: String(item.exam_subpart_id || item.exam_part_id || ""), subpartId: item.exam_subpart_id ? String(item.exam_subpart_id) : null }].filter((entry) => Boolean(entry.id));
+    if (!selections.length) {
       throw new CoursePlanningError("A homework exam selection is no longer available.", 422);
     }
-    for (const partId of partIds) {
-      const { data: existing, error: existingError } = await supabaseAdmin
+    for (const selection of selections) {
+      let existingQuery = supabaseAdmin
         .from("cambridge_exam_assignments")
         .select("id")
         .eq("course_plan_day_id", day.id)
-        .eq("exam_part_id", partId)
-        .is("archived_at", null)
-        .maybeSingle();
+        .eq("exam_part_id", selection.parentId)
+        .is("archived_at", null);
+      existingQuery = selection.subpartId
+        ? existingQuery.eq("exam_subpart_id", selection.subpartId)
+        : existingQuery.is("exam_subpart_id", null);
+      const { data: existing, error: existingError } = await existingQuery.maybeSingle();
       if (existingError) throw existingError;
       const assignmentValues = {
         course_type: context.courseType,
@@ -882,7 +1045,8 @@ async function syncHomeworkForDay(
           .from("cambridge_exam_assignments")
           .insert({
             ...assignmentValues,
-            exam_part_id: partId,
+            exam_part_id: selection.parentId,
+            exam_subpart_id: selection.subpartId,
             created_by: context.actorId,
           })
           .select("id")
@@ -965,6 +1129,7 @@ export async function saveCoursePlanningDay(
           course_plan_day_id: day.id,
           exam_set_id: item.examSetId,
           exam_part_id: item.examPartId,
+          exam_subpart_id: item.examSubpartId,
           purpose: item.purpose,
           selection_scope: item.selectionScope,
           sort_order: item.sortOrder,

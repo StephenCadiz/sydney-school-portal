@@ -152,6 +152,11 @@ export async function loadTeacherClassHomework(
       id,
       release_date,
       due_date,
+      subpart:cambridge_exam_subparts!cambridge_exam_assignments_exam_subpart_id_fkey (
+        id,
+        part_number,
+        label
+      ),
       part:cambridge_exam_parts!cambridge_exam_assignments_exam_part_id_fkey!inner (
         id,
         part_type,
@@ -230,6 +235,7 @@ export async function loadTeacherClassHomework(
     const part = one(row.part);
     const exam = one(part?.exam);
     const partType = normalizeHomeworkSkill(part?.part_type);
+    const subpart = one(row.subpart);
     const allowedResources =
       partType === "reading"
         ? new Set(["paper", "key"])
@@ -247,9 +253,11 @@ export async function loadTeacherClassHomework(
         title: exam?.title ? String(exam.title) : null,
       },
       part: {
-        id: String(part?.id || ""),
+        id: String(subpart?.id || part?.id || ""),
         type: partType,
-        label: getHomeworkSkillLabel(context.level, partType),
+        label: subpart?.label
+          ? `${getHomeworkSkillLabel(context.level, partType)} · ${String(subpart.label)}`
+          : getHomeworkSkillLabel(context.level, partType),
       },
       release_date: row.release_date || null,
       due_date: row.due_date || null,

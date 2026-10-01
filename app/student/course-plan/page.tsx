@@ -16,13 +16,14 @@ import StudentMenu from "../StudentMenu";
 import { supabase } from "../../../lib/supabase";
 
 type PlanResource = { type: string; label: string; url: string };
-type PlanPart = { id: string; type: string; resources: PlanResource[] };
+type PlanPart = { id: string; type: string; label?: string; part_number?: number | null; resources: PlanResource[] };
+type PlanScore = { exam_set_id: string; exam_part_id: string; exam_subpart_id?: string | null; purpose: "class_practice" | "homework"; percentage: number | null };
 type PlanItem = {
   id: string;
   purpose: "class_practice" | "homework";
-  selection_scope: "full_exam" | "part";
-  exam: { exam_number: number; title: string | null } | null;
-  part: { type: string } | null;
+  selection_scope: "full_exam" | "skill" | "part";
+  exam: { id: string; exam_number: number; title: string | null } | null;
+  part: { type: string; label?: string; part_number?: number | null } | null;
   available_parts: PlanPart[];
 };
 type PlanDay = {
@@ -41,6 +42,7 @@ type PlanDay = {
     url: string | null;
     resource_type: string;
   }>;
+  scores?: PlanScore[];
 };
 type StudentPlan = {
   id: string;
@@ -140,7 +142,7 @@ function itemTitle(item: PlanItem) {
   const name = "Exam " + String(exam?.exam_number || "");
   const title = exam?.title ? " - " + exam.title : "";
   const scope =
-    item.selection_scope === "part" && item.part
+    (item.selection_scope === "part" || item.selection_scope === "skill") && item.part
       ? " - " + item.part.type.charAt(0).toUpperCase() + item.part.type.slice(1)
       : " - Full exam";
 
@@ -253,7 +255,7 @@ function getDefaultLessonIndex(days: PlanDay[], today: string) {
   return Math.max(0, days.length - 1);
 }
 
-function MaterialActions({ items }: { items: PlanItem[] }) {
+function MaterialActions({ items, scores = [] }: { items: PlanItem[]; scores?: PlanScore[] }) {
   return (
     <div className="student-course-plan-exam-list">
       {items.map((item) => {
@@ -265,7 +267,14 @@ function MaterialActions({ items }: { items: PlanItem[] }) {
 
         return (
           <div className="student-course-plan-exam-item" key={item.id}>
-            <strong>{itemTitle(item)}</strong>
+            {item.available_parts.map((part) => {
+              const score = scores.find((candidate) =>
+                candidate.exam_set_id === String(item.exam?.id || "") &&
+                (candidate.exam_subpart_id || candidate.exam_part_id) === part.id &&
+                candidate.purpose === item.purpose
+              );
+              return <strong key={item.id + "-" + part.id}>{itemTitle(item).replace(/ - (Full exam|Reading|Reading and Use of English|Listening|Writing)$/, "")} - {part.label || part.type.charAt(0).toUpperCase() + part.type.slice(1)}{score?.percentage !== null && score?.percentage !== undefined ? ` · Score ${score.percentage}%` : " · Not marked"}</strong>;
+            })}
             {resources.length > 0 && (
               <div className="student-course-plan-material-actions">
                 {resources.map(({ part, resource, index }) => {
@@ -408,7 +417,7 @@ function SelectedLessonPanel({
                   </span>
                   <h4>Class Practice</h4>
                 </div>
-                <MaterialActions items={practice} />
+                  <MaterialActions items={practice} scores={day.scores} />
               </section>
             )}
 
@@ -450,7 +459,7 @@ function SelectedLessonPanel({
                   )}
                 </div>
                 {day.homework_instructions && <p>{day.homework_instructions}</p>}
-                {homework.length > 0 && <MaterialActions items={homework} />}
+                {homework.length > 0 && <MaterialActions items={homework} scores={day.scores} />}
               </section>
             )}
           </>

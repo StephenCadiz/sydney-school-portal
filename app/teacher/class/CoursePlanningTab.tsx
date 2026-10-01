@@ -7,7 +7,11 @@ import { supabase } from "../../../lib/supabase";
 type ExamPart = {
   id: string | null;
   type: string;
+  skill?: string;
+  skill_label?: string;
   label: string;
+  part_number?: number | null;
+  subparts?: Array<{ id: string; part_number: number; label: string; sort_order?: number }>;
   resources: Array<{ type: string; label: string; url: string }>;
 };
 type Exam = { id: string; exam_number: number; title: string | null; parts: ExamPart[] };
@@ -15,8 +19,9 @@ type CoursePlanItem = {
   id: string;
   exam_set_id: string;
   exam_part_id: string | null;
+  exam_subpart_id?: string | null;
   purpose: "class_practice" | "homework";
-  selection_scope: "full_exam" | "part";
+  selection_scope: "full_exam" | "skill" | "part";
 };
 type CoursePlanResource = {
   id: string;
@@ -67,8 +72,9 @@ type CoursePlanSnapshot = {
 type FormExamItem = {
   exam_set_id: string;
   exam_part_id: string | null;
+  exam_subpart_id?: string | null;
   purpose: "class_practice" | "homework";
-  selection_scope: "full_exam" | "part";
+  selection_scope: "full_exam" | "skill" | "part";
 };
 type FormResource = {
   resource_type: "external_link" | "class_resource";
@@ -149,6 +155,7 @@ function formFromDay(day: PlannedDay | null, nextDay: PlannedDay | null): DayFor
     examItems: day.exam_items.map((item) => ({
       exam_set_id: item.exam_set_id,
       exam_part_id: item.exam_part_id,
+      exam_subpart_id: item.exam_subpart_id || null,
       purpose: item.purpose,
       selection_scope: item.selection_scope,
     })),
@@ -316,6 +323,26 @@ export default function CoursePlanningTab({
     snapshot?.class.course_type.trim().toLowerCase() || ""
   );
 
+  function examPartsFor(exam: Exam | null | undefined): ExamPart[] {
+    if (!exam) return [];
+    const numbered = exam.parts.flatMap((skill) =>
+      (skill.subparts || []).map((part) => ({
+        id: part.id,
+        type: skill.type,
+        skill: skill.skill || skill.type,
+        skill_label: skill.skill_label || skill.label,
+        label: part.label || `Part ${part.part_number}`,
+        part_number: part.part_number,
+        resources: skill.resources,
+      }))
+    );
+    return numbered.length ? numbered : exam.parts;
+  }
+
+  function parentSkillFor(exam: Exam, part: ExamPart) {
+    return exam.parts.find((skill) => (skill.subparts || []).some((subpart) => subpart.id === part.id)) || part;
+  }
+
   function itemsForPurpose(purpose: FormExamItem["purpose"]) {
     return form.examItems.filter((item) => item.purpose === purpose);
   }
@@ -347,11 +374,80 @@ export default function CoursePlanningTab({
     examPartId: string,
     purpose: FormExamItem["purpose"]
   ) {
-    return itemsForPurpose(purpose).some(
-      (item) =>
-        item.exam_set_id === examSetId &&
-        (item.selection_scope === "full_exam" || item.exam_part_id === examPartId)
+    const exam = snapshot?.exams.find((candidate) => candidate.id === examSetId);
+    const candidate = examPartsFor(exam).find((part) => part.id === examPartId);
+    const parentId = candidate ? parentSkillFor(exam as Exam, candidate).id : null;
+    return itemsForPurpose(purpose).some((item) =>
+      item.exam_set_id === examSetId &&
+      (item.selection_scope === "full_exam" || item.exam_subpart_id === examPartId || item.exam_part_id === examPartId || (item.selection_scope === "skill" && item.exam_part_id === parentId))
     );
+  }
+
+  function assignedPurposeForPart(examSetId: string, examPartId: string) {
+    const exam = snapshot?.exams.find((candidate) => candidate.id === examSetId);
+    const candidate = examPartsFor(exam).find((part) => part.id === examPartId);
+    const parentId = candidate && exam ? parentSkillFor(exam, candidate).id : null;
+    const match = form.examItems.find((item) => {
+      if (item.exam_set_id !== examSetId) return false;
+      if (item.selection_scope === "full_exam") return true;
+      return item.exam_subpart_id === examPartId || item.exam_part_id === examPartId || (item.selection_scope === "skill" && item.exam_part_id === parentId);
+    });
+    return match?.purpose || null;
+  }
+
+  function partUnavailableInPurpose(examSetId: string, examPartId: string, purpose: FormExamItem["purpose"]) {
+    const assignedPurpose = assignedPurposeForPart(examSetId, examPartId);
+    return Boolean(assignedPurpose && assignedPurpose !== purpose);
+  }
+
+  function remainingPartsForExam(examId: string, purpose: FormExamItem["purpose"]) {
+    const exam = snapshot?.exams.find((candidate) => candidate.id === examId);
+    return examPartsFor(exam).filter((part) => {
+      if (!part.id) return false;
+      return !isExamPartSelected(examId, String(part.id), purpose) &&
+        !partUnavailableInPurpose(examId, String(part.id), purpose);
+    });
+  }
+
+  function wholeExamBlockers(exam: Exam) {
+    return examPartsFor(exam)
+      .filter((part) => part.id && assignedPurposeForPart(exam.id, String(part.id)))
+      .map((part) => `${part.skill_label || part.type} ${part.label}`)
+      .slice(0, 8);
+  }
+
+  function toggleWholeSkill(examId: string, partType: string, purpose: FormExamItem["purpose"]) {
+    const selectedExamForSkill = snapshot?.exams.find((exam) => exam.id === examId);
+    const candidates = selectedExamForSkill
+      ? examPartsFor(selectedExamForSkill)
+          .filter((part) => part.id && (part.skill || part.type) === partType)
+          .map((part) => ({ exam: selectedExamForSkill, part }))
+      : [];
+    const blocked = candidates.find(({ exam, part }) => partUnavailableInPurpose(exam.id, String(part.id), purpose));
+    if (blocked) {
+      setError("One or more parts in this skill are already assigned to the other activity.");
+      return;
+    }
+    const allSelected = candidates.length > 0 && candidates.every(({ exam, part }) =>
+      isExamPartSelected(exam.id, String(part.id), purpose)
+    );
+    updateExamSelections(purpose, (items) => {
+      const candidateKeys = new Set(candidates.map(({ exam, part }) => `${exam.id}:${part.id}`));
+      const candidateParentKeys = new Set(candidates.map(({ exam, part }) => `${exam.id}:${parentSkillFor(exam, part).id}`));
+      const withoutSkill = items.filter((item) =>
+        !(item.selection_scope !== "full_exam" && (candidateKeys.has(`${item.exam_set_id}:${item.exam_subpart_id || item.exam_part_id}`) || (item.selection_scope === "skill" && candidateParentKeys.has(`${item.exam_set_id}:${item.exam_part_id}`))))
+      );
+      if (allSelected) return withoutSkill;
+      const next = [...withoutSkill];
+      for (const { exam, part } of candidates) {
+        if (!isExamPartSelected(exam.id, String(part.id), purpose)) {
+          const parent = parentSkillFor(exam, part);
+          next.push({ exam_set_id: exam.id, exam_part_id: parent.id, exam_subpart_id: part.id, purpose, selection_scope: "part" });
+        }
+      }
+      return next;
+    });
+    setOpenExamPurpose(null);
   }
 
   function updateExamSelections(
@@ -368,6 +464,13 @@ export default function CoursePlanningTab({
 
   function toggleWholeExam(exam: Exam, purpose: FormExamItem["purpose"]) {
     const currentlySelected = isWholeExamSelected(exam.id, purpose);
+    if (!currentlySelected) {
+      const blocked = examPartsFor(exam).find((part) => part.id && partUnavailableInPurpose(exam.id, String(part.id), purpose));
+      if (blocked) {
+        setError("A part in this exam is already assigned to the other activity.");
+        return;
+      }
+    }
     updateExamSelections(purpose, (items) => {
       const withoutExam = items.filter((item) => item.exam_set_id !== exam.id);
       if (currentlySelected) return withoutExam;
@@ -376,6 +479,7 @@ export default function CoursePlanningTab({
         {
           exam_set_id: exam.id,
           exam_part_id: null,
+          exam_subpart_id: null,
           purpose,
           selection_scope: "full_exam",
         },
@@ -390,31 +494,47 @@ export default function CoursePlanningTab({
     purpose: FormExamItem["purpose"]
   ) {
     if (!part.id) return;
+    if (partUnavailableInPurpose(exam.id, part.id, purpose)) {
+      setError("This part is already assigned to the other activity. Remove it there first.");
+      return;
+    }
     const wholeSelected = isWholeExamSelected(exam.id, purpose);
     const currentlySelected = isExamPartSelected(exam.id, part.id, purpose);
     updateExamSelections(purpose, (items) => {
       if (wholeSelected) {
         // Turning off one part converts the legacy whole-exam row into the
         // remaining explicit parts, keeping the selection precise.
-        return exam.parts
+        return examPartsFor(exam)
           .filter((candidate) => candidate.id && candidate.id !== part.id)
           .map((candidate) => ({
             exam_set_id: exam.id,
-            exam_part_id: candidate.id,
+            exam_part_id: parentSkillFor(exam, candidate).id,
+            exam_subpart_id: candidate.id,
             purpose,
             selection_scope: "part" as const,
           }));
       }
       if (currentlySelected) {
+        const parent = parentSkillFor(exam, part);
+        const skillSelected = items.some((item) => item.exam_set_id === exam.id && item.selection_scope === "skill" && item.exam_part_id === parent.id);
+        if (skillSelected) {
+          return [
+            ...items.filter((item) => !(item.exam_set_id === exam.id && item.selection_scope === "skill" && item.exam_part_id === parent.id)),
+            ...examPartsFor(exam)
+              .filter((candidate) => candidate.id && candidate.id !== part.id && parentSkillFor(exam, candidate).id === parent.id)
+              .map((candidate) => ({ exam_set_id: exam.id, exam_part_id: parent.id, exam_subpart_id: candidate.id, purpose, selection_scope: "part" as const })),
+          ];
+        }
         return items.filter(
-          (item) => !(item.exam_set_id === exam.id && item.exam_part_id === part.id)
+          (item) => !(item.exam_set_id === exam.id && (item.exam_subpart_id === part.id || item.exam_part_id === part.id))
         );
       }
       return [
         ...items,
         {
           exam_set_id: exam.id,
-          exam_part_id: part.id,
+          exam_part_id: parentSkillFor(exam, part).id,
+          exam_subpart_id: part.id,
           purpose,
           selection_scope: "part",
         },
@@ -425,41 +545,83 @@ export default function CoursePlanningTab({
 
   function selectedExamLabel(item: FormExamItem) {
     const exam = snapshot?.exams.find((candidate) => candidate.id === item.exam_set_id);
-    const part = exam?.parts.find((candidate) => candidate.id === item.exam_part_id);
+    const part = item.selection_scope === "skill"
+      ? exam?.parts.find((candidate) => candidate.id === item.exam_part_id)
+      : examPartsFor(exam).find((candidate) => candidate.id === (item.exam_subpart_id || item.exam_part_id));
+    const skill = part?.skill_label || part?.label || "";
+    const scope = item.selection_scope === "full_exam"
+      ? "Whole exam"
+      : item.selection_scope === "skill"
+      ? `Whole skill · ${skill}`
+      : `${skill} · ${part?.label || "Part"}`;
     return (
       "Exam " +
       (exam?.exam_number || "") +
       (exam?.title ? " · " + exam.title : "") +
-      (part ? " · " + part.label : " · Whole exam")
+      " · " + scope +
+      " · " + (item.purpose === "homework" ? "Homework" : "Classwork")
     );
+  }
+
+  function selectedChipItems(purpose: FormExamItem["purpose"]) {
+    const source = itemsForPurpose(purpose);
+    const consumed = new Set<FormExamItem>();
+    const result: Array<{ item: FormExamItem; label: string; remove: FormExamItem[] }> = [];
+    for (const item of source) {
+      if (consumed.has(item)) continue;
+      const exam = snapshot?.exams.find((candidate) => candidate.id === item.exam_set_id);
+      const part = examPartsFor(exam).find((candidate) => candidate.id === item.exam_subpart_id);
+      const parent = exam && part ? parentSkillFor(exam, part) : null;
+      const skillParts = exam && parent ? examPartsFor(exam).filter((candidate) => parentSkillFor(exam, candidate).id === parent.id) : [];
+      const skillItems = parent && skillParts.length
+        ? source.filter((candidate) => candidate.exam_set_id === item.exam_set_id && candidate.selection_scope === "part" && candidate.exam_subpart_id && skillParts.some((candidatePart) => candidatePart.id === candidate.exam_subpart_id))
+        : [];
+      if (item.selection_scope === "part" && parent && skillItems.length === skillParts.length && skillParts.length > 0) {
+        skillItems.forEach((candidate) => consumed.add(candidate));
+        result.push({
+          item,
+          remove: skillItems,
+          label: `Exam ${exam?.exam_number || ""}${exam?.title ? ` · ${exam.title}` : ""} · Whole skill · ${parent.skill_label || parent.label} · ${purpose === "homework" ? "Homework" : "Classwork"}`,
+        });
+      } else {
+        consumed.add(item);
+        result.push({ item, remove: [item], label: selectedExamLabel(item) });
+      }
+    }
+    return result;
   }
 
   function examItemName(item: FormExamItem) {
     const exam = snapshot?.exams.find((candidate) => candidate.id === item.exam_set_id);
-    const part = exam?.parts.find((candidate) => candidate.id === item.exam_part_id);
+    const part = item.selection_scope === "skill"
+      ? exam?.parts.find((candidate) => candidate.id === item.exam_part_id)
+      : examPartsFor(exam).find((candidate) => candidate.id === (item.exam_subpart_id || item.exam_part_id));
     const prefix = item.purpose === "homework" ? "Homework" : "Class practice";
-    return prefix + ": Exam " + (exam?.exam_number || "") + (exam?.title ? " · " + exam.title : "") + (part ? " — " + part.label : " — Full exam");
+    return prefix + ": Exam " + (exam?.exam_number || "") + (exam?.title ? " · " + exam.title : "") + (part ? " — " + (part.skill_label || part.label) + " · " + part.label : " — Full exam");
   }
 
   function examMaterialLinks(item: CoursePlanItem) {
-    return materialLinksFor(item.exam_set_id, item.exam_part_id, item.selection_scope, item.id);
+    return materialLinksFor(item.exam_set_id, item.exam_part_id, item.exam_subpart_id || null, item.selection_scope, item.id);
   }
 
   function materialLinksFor(
     examSet: string,
     examPart: string | null,
-    scope: "full_exam" | "part",
+    examSubpart: string | null,
+    scope: "full_exam" | "skill" | "part",
     keyPrefix: string
   ) {
     const exam = snapshot?.exams.find((candidate) => candidate.id === examSet);
     const parts =
       scope === "full_exam"
         ? exam?.parts || []
-        : (exam?.parts || []).filter((part) => part.id === examPart);
+        : scope === "skill"
+        ? (exam?.parts || []).filter((part) => part.id === examPart)
+        : examPartsFor(exam).filter((part) => part.id === (examSubpart || examPart));
     return parts.flatMap((part) =>
       part.resources.map((resource) => ({
         key: keyPrefix + "-" + part.id + "-" + resource.type,
-        label: part.label + " · " + resource.label,
+        label: (part.skill_label || part.label) + " · " + part.label + " · " + resource.label,
         url: resource.url,
       }))
     );
@@ -679,8 +841,10 @@ export default function CoursePlanningTab({
                                 {activeExam ? (
                                   <>
                                     <div className="course-planning-exam-choice-heading"><span>Exam {activeExam.exam_number}</span><strong>{activeExam.title || "Cambridge assessment"}</strong></div>
-                                    <label className="course-planning-exam-whole"><input type="checkbox" checked={isWholeExamSelected(activeExam.id, purpose)} onChange={() => toggleWholeExam(activeExam, purpose)} /><span>Whole exam</span></label>
-                                    <div className="course-planning-exam-parts"><span className="course-planning-exam-parts-label">Exam parts</span>{activeExam.parts.filter((part) => part.id).map((part) => { const selected = isExamPartSelected(activeExam.id, String(part.id), purpose); return <label className={"course-planning-exam-part" + (selected ? " is-selected" : "")} key={part.id}><input type="checkbox" checked={selected} onChange={() => toggleExamPart(activeExam, part, purpose)} /><span className="course-planning-exam-part-name">{part.label}</span><span className="course-planning-exam-part-state">{selected ? "Selected" : "Available"}</span></label>; })}</div>
+                                    <label className="course-planning-exam-whole" title={wholeExamBlockers(activeExam).length ? `Remove existing assignments (${wholeExamBlockers(activeExam).join(", ")}) before selecting Whole exam.` : undefined}><input type="checkbox" checked={isWholeExamSelected(activeExam.id, purpose)} disabled={wholeExamBlockers(activeExam).length > 0 && !isWholeExamSelected(activeExam.id, purpose)} onChange={() => toggleWholeExam(activeExam, purpose)} /><span>Whole exam</span></label>
+                                    <div className="course-planning-exam-skill-actions"><span className="course-planning-exam-parts-label">Whole skill</span>{activeExam.parts.filter((part) => part.id && (part.skill || part.type) !== "speaking").map((skillPart) => { const skill = skillPart.skill || skillPart.type; const skillParts = examPartsFor({ ...activeExam, parts: [skillPart] }); const blocked = skillParts.some((part) => part.id && assignedPurposeForPart(activeExam.id, String(part.id)) && !isWholeExamSelected(activeExam.id, purpose)); return <button type="button" key={skill} className="course-planning-skill-button" disabled={blocked} title={blocked ? "Remove existing assignments in this skill before selecting Whole skill." : undefined} onClick={() => toggleWholeSkill(activeExam.id, skill, purpose)}>{skillPart.skill_label || skillPart.label}</button>; })}</div>
+                                    <div className="course-planning-exam-parts"><span className="course-planning-exam-parts-label">Exam parts</span>{activeExam.parts.filter((part) => part.id && (part.skill || part.type) !== "speaking").map((skillPart) => <div className="course-planning-exam-skill-group" key={skillPart.id}><h6>{skillPart.skill_label || skillPart.label}</h6>{examPartsFor({ ...activeExam, parts: [skillPart] }).map((part) => { const selected = isExamPartSelected(activeExam.id, String(part.id), purpose); const assignedTo = assignedPurposeForPart(activeExam.id, String(part.id)); const unavailable = Boolean(assignedTo && assignedTo !== purpose); return <label className={"course-planning-exam-part" + (selected ? " is-selected" : "") + (unavailable ? " is-unavailable" : "")} key={part.id} title={unavailable ? `Assigned to ${assignedTo === "homework" ? "Homework" : "Classwork"}` : undefined}><input type="checkbox" checked={selected} disabled={unavailable} onChange={() => toggleExamPart(activeExam, part, purpose)} /><span className="course-planning-exam-part-name">{part.label}</span><span className="course-planning-exam-part-state">{selected ? `Assigned to ${purpose === "homework" ? "Homework" : "Classwork"}` : unavailable ? `Assigned to ${assignedTo === "homework" ? "Homework" : "Classwork"}` : "Not assigned"}</span></label>; })}</div>)}</div>
+                                    <p className="course-planning-unassigned-indicator">{remainingPartsForExam(activeExam.id, purpose).length} unassigned part{remainingPartsForExam(activeExam.id, purpose).length === 1 ? "" : "s"} remaining</p>
                                   </>
                                 ) : <p className="course-planning-exam-empty">Choose an exam to see its parts.</p>}
                               </div>
@@ -690,10 +854,10 @@ export default function CoursePlanningTab({
                         )}
                         <div className="course-planning-selected-exams" aria-label={purpose === "homework" ? "Selected homework exams" : "Selected classwork exams"}>
                           <div className="course-planning-selected-heading"><span className="course-planning-selected-label">Selected {purpose === "homework" ? "homework" : "classwork"}</span><span className="course-planning-selected-count">{purposeItems.length} {purposeItems.length === 1 ? "selection" : "selections"}</span>{purposeItems.length > 0 && <button type="button" className="course-planning-add-exam" onClick={() => openExamMenu(purpose, true)}>Add another exam</button>}</div>
-                          {purposeItems.length ? purposeItems.map((item) => (
-                            <span className="course-planning-selected-chip" key={item.exam_set_id + "-" + item.exam_part_id + "-" + item.selection_scope}>
-                              <span>{selectedExamLabel(item)}</span>
-                              <button type="button" className="course-planning-chip-remove" aria-label={"Remove " + selectedExamLabel(item)} onClick={() => updateExamSelections(purpose, (items) => items.filter((candidate) => candidate !== item))}><span aria-hidden="true">×</span></button>
+                          {purposeItems.length ? selectedChipItems(purpose).map(({ item, label, remove }) => (
+                            <span className="course-planning-selected-chip" key={item.exam_set_id + "-" + (item.exam_subpart_id || item.exam_part_id) + "-" + item.selection_scope}>
+                              <span>{label}</span>
+                              <button type="button" className="course-planning-chip-remove" aria-label={"Remove " + label} onClick={() => updateExamSelections(purpose, (items) => items.filter((candidate) => !remove.includes(candidate)))}><span aria-hidden="true">×</span></button>
                             </span>
                           )) : <span className="course-planning-selected-empty">No selections yet</span>}
                         </div>
@@ -709,7 +873,7 @@ export default function CoursePlanningTab({
                     <select value={examPurpose} onChange={(event) => setExamPurpose(event.target.value as "class_practice" | "homework")}><option value="class_practice">Class practice</option><option value="homework">Homework</option></select>
                     <button type="button" className="is-secondary" onClick={addExamItem}>Add</button>
                   </div>
-                  <ul className="course-planning-item-list">{form.examItems.map((item, index) => <li key={item.exam_set_id + "-" + item.exam_part_id + "-" + index}><div><span>{examItemName(item)}</span><div className="course-planning-item-links">{materialLinksFor(item.exam_set_id, item.exam_part_id, item.selection_scope, String(index)).map((resource) => <a key={resource.key} href={resource.url} target="_blank" rel="noreferrer">{resource.label}</a>)}</div></div><button type="button" onClick={() => setForm((current) => ({ ...current, examItems: current.examItems.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></li>)}{!form.examItems.length && <li className="is-empty">No Exam Bank activity planned for this lesson.</li>}</ul>
+                  <ul className="course-planning-item-list">{form.examItems.map((item, index) => <li key={item.exam_set_id + "-" + (item.exam_subpart_id || item.exam_part_id) + "-" + index}><div><span>{examItemName(item)}</span><div className="course-planning-item-links">{materialLinksFor(item.exam_set_id, item.exam_part_id, item.exam_subpart_id || null, item.selection_scope, String(index)).map((resource) => <a key={resource.key} href={resource.url} target="_blank" rel="noreferrer">{resource.label}</a>)}</div></div><button type="button" onClick={() => setForm((current) => ({ ...current, examItems: current.examItems.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></li>)}{!form.examItems.length && <li className="is-empty">No Exam Bank activity planned for this lesson.</li>}</ul>
                 </>
               )}
             </section>

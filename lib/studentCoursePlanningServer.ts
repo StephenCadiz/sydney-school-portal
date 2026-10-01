@@ -77,6 +77,8 @@ export async function loadStudentPublishedCoursePlans(studentId: string) {
       if (!classroom) return null;
       const days = await loadCoursePlanDays(String(plan.id), {
         includeExamResources: true,
+        studentId,
+        levelName: levelsById.get(Number(classroom.level_id)) || "",
       });
       return {
         id: String(plan.id),

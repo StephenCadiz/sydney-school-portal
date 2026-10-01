@@ -26659,6 +26659,16 @@ img {
 .course-planning-exam-part-name { min-width: 0; }
 .course-planning-exam-part-state { color: #7790a8; font-size: 0.7rem; font-weight: 700; margin-left: auto; }
 .course-planning-exam-part.is-selected .course-planning-exam-part-state { color: #1768aa; }
+.course-planning-exam-part.is-unavailable { cursor: not-allowed; opacity: 0.6; }
+.course-planning-exam-part.is-unavailable:hover { background: #fff8f6; border-color: #efd3cb; }
+.course-planning-exam-skill-group { display: grid; gap: 5px; }
+.course-planning-exam-skill-group h6 { color: #234f78; font-size: 0.76rem; margin: 5px 0 0; }
+.course-planning-exam-skill-actions { border-top: 1px solid #e4eef6; display: grid; gap: 6px; margin-top: 13px; padding-top: 11px; }
+.course-planning-skill-button { background: #fff; border: 1px solid #c8dceb; border-radius: 8px; color: #24557f; cursor: pointer; font: inherit; font-size: 0.76rem; font-weight: 750; padding: 7px 9px; text-align: left; }
+.course-planning-skill-button:hover { background: #eef8ff; border-color: #8fc4e8; }
+.course-planning-skill-button:disabled { cursor: not-allowed; opacity: 0.58; }
+.course-planning-skill-button:focus-visible { outline: 3px solid rgba(74, 150, 213, 0.24); outline-offset: 2px; }
+.course-planning-unassigned-indicator { color: #698198; font-size: 0.72rem; margin: 10px 0 0; }
 .course-planning-exam-whole:focus-within,
 .course-planning-exam-part:focus-within { outline: 3px solid rgba(74, 150, 213, 0.22); outline-offset: 2px; }
 .course-planning-selected-exams { align-items: center; display: flex; flex-wrap: wrap; gap: 7px; margin-top: 15px; }
@@ -26674,6 +26684,21 @@ img {
 .course-planning-chip-remove:hover { background: #fff0ef; border-color: #d29a97; color: #7b2424; }
 .course-planning-chip-remove:focus-visible { outline: 3px solid rgba(74, 150, 213, 0.28); outline-offset: 2px; }
 .course-planning-selected-empty { color: #77899d; font-size: 0.78rem; font-style: italic; }
+.course-plan-exam-scoring { background: #fff; border: 1px solid #e6eaf2; border-radius: 14px; padding: 22px; }
+.course-plan-exam-scoring-heading { align-items: flex-start; display: flex; gap: 16px; justify-content: space-between; }
+.course-plan-exam-scoring-heading span { color: #6a829b; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.course-plan-exam-scoring-heading h3 { color: #1f3c88; margin: 4px 0; }
+.course-plan-exam-scoring-heading p { color: #667085; margin: 0; }
+.course-plan-exam-scoring-heading button { background: #f2f7fc; border: 1px solid #cdddea; border-radius: 8px; color: #1f3c88; cursor: pointer; font-weight: 750; padding: 8px 12px; }
+.course-plan-exam-score-list { display: grid; gap: 10px; margin-top: 18px; }
+.course-plan-exam-score-row { align-items: end; border: 1px solid #e0e9f1; border-radius: 10px; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) 140px auto; padding: 12px; }
+.course-plan-exam-score-row > div { display: grid; gap: 4px; min-width: 0; }
+.course-plan-exam-score-row span { color: #667085; font-size: 0.8rem; }
+.course-plan-exam-score-row label { display: grid; gap: 4px; color: #4e6b84; font-size: 0.72rem; font-weight: 800; }
+.course-plan-exam-score-row input { border: 1px solid #cdddea; border-radius: 7px; min-width: 0; padding: 8px; }
+.course-plan-exam-score-row button { background: #1f3c88; border: 0; border-radius: 8px; color: #fff; cursor: pointer; font-weight: 750; padding: 9px 12px; white-space: nowrap; }
+.course-plan-exam-score-summaries { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px; }
+.course-plan-exam-score-summaries span { background: #eef7ff; border: 1px solid #cfe3f3; border-radius: 999px; color: #345d7e; font-size: 0.78rem; padding: 6px 10px; }
 .course-planning-item-list { display: grid; gap: 7px; list-style: none; margin: 12px 0 0; padding: 0; }
 .course-planning-item-list li,
 .course-planning-uploaded-resource {
@@ -28976,3 +29001,9 @@ img {
 .teacher-class-document-card span, .teacher-class-document-card small { color: #667085; overflow-wrap: anywhere; }
 .teacher-class-document-card p { margin: 0; color: #475467; line-height: 1.5; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .teacher-class-document-dropzone, .teacher-class-document-card { padding: 13px; } .teacher-class-document-dropzone button, .teacher-class-document-card button { width: 100%; } }
+@media (max-width: 720px) {
+  .course-plan-exam-scoring-heading,
+  .course-plan-exam-score-row { display: grid; }
+  .course-plan-exam-score-row { grid-template-columns: 1fr; }
+  .course-plan-exam-score-row button { width: 100%; }
+}

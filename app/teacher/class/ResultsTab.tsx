@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import AssignmentHomeworkResultsSection from "./AssignmentHomeworkResultsSection";
+import CoursePlanExamScoringSection from "./CoursePlanExamScoringSection";
 import StudentMockResultsSection from "./StudentMockResultsSection";
 
 const cardStyle = {
@@ -48,6 +49,7 @@ export default function ResultsTab({
   classId,
   students,
   levelName = "",
+  courseType = "",
   teacherId = "",
   initialStudentId = null,
   initialSection = null,
@@ -197,6 +199,15 @@ export default function ResultsTab({
               studentName={studentName}
             />
           </div>
+
+          {["express", "intensive"].includes(String(courseType || "").trim().toLowerCase()) &&
+            ["B1", "B2", "C1", "C2"].includes(String(levelName || "").trim().toUpperCase()) && (
+              <CoursePlanExamScoringSection
+                classId={classId}
+                studentId={selectedStudent.id}
+                studentName={studentName}
+              />
+            )}
 
           <div
             ref={mockSectionRef}
