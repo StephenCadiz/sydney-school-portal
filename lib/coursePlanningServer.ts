@@ -1218,7 +1218,20 @@ export async function saveCoursePlanningDay(
           sort_order: item.sortOrder,
         }))
       );
-    if (insertItemsError) throw insertItemsError;
+    if (insertItemsError) {
+      const errorRecord = insertItemsError as unknown as Record<string, unknown>;
+      const constraint = String(errorRecord.constraint || insertItemsError.message || "");
+      if (
+        String(insertItemsError.code || "") === "23505" &&
+        constraint.includes("course_plan_exam_items")
+      ) {
+        throw new CoursePlanningError(
+          "A selected exam part conflicts with another selection on this lesson. Numbered parts from the same skill require the updated Course Planning schema; remove the duplicate or contact an administrator.",
+          422
+        );
+      }
+      throw insertItemsError;
+    }
   }
 
   const { error: deleteResourcesError } = await supabaseAdmin

@@ -8,6 +8,8 @@ const planningServer = read("lib/coursePlanningServer.ts");
 const studentPlan = read("app/student/course-plan/page.tsx");
 const eligibility = read("lib/coursePlanningEligibility.ts");
 const migration = read("supabase/migrations/20260806195000_create_course_planning.sql");
+const subpartMigration = read("supabase/migrations/20261001130000_cambridge_exam_subparts.sql");
+const constraintFixMigration = read("supabase/migrations/20261001140000_fix_course_plan_exam_subpart_unique_constraint.sql");
 const styles = read("app/globals.css");
 
 test("Express and Intensive planning exposes separate grouped multi-part selectors", () => {
@@ -70,6 +72,28 @@ test("5 October C1 lesson reconciles stale legacy rows before Part 1 and Part 8"
   assert.match(planningServer, /course_plan_homework_assignments/);
   assert.match(planningServer, /archived_at: new Date\(\)\.toISOString\(\)/);
   assert.match(planningServer, /already linked to another Homework selection/);
+});
+
+test("same-skill Reading and Listening subparts remain distinct selections", () => {
+  const reading = ["Part 1", "Part 3"];
+  const listening = ["Part 2", "Part 3"];
+  assert.equal(new Set(reading).size, 2);
+  assert.equal(new Set(listening).size, 2);
+  assert.match(planningServer, /exam_subpart_id: item\.examSubpartId/);
+  assert.match(planningServer, /selectionKey/);
+  assert.match(planningServer, /purpose \+ "\\|" \+ selectionScope/);
+});
+
+test("exact duplicate and Homework/Classwork conflicts remain rejected", () => {
+  assert.match(planningServer, /same exam activity can only be selected once/);
+  assert.match(planningServer, /Each exam part can be assigned to Homework or Classwork once/);
+  assert.match(planningServer, /Numbered parts from the same skill require the updated Course Planning schema/);
+});
+
+test("the corrective migration removes the live parent-only constraint and restores exact subpart identity", () => {
+  assert.match(subpartMigration, /course_plan_exam_items_selection_unique_idx/);
+  assert.match(constraintFixMigration, /course_plan_exam_items_course_plan_day_id_purpose_exam_set__key/);
+  assert.match(constraintFixMigration, /coalesce\(exam_subpart_id, '00000000-0000-0000-0000-000000000000'::uuid\)/);
 });
 
 test("server logging preserves useful database error fields without exposing them to clients", () => {
