@@ -14,8 +14,10 @@ import {
 } from "../../../lib/messages";
 import {
   getCurrentTeacher,
+  getCurrentStudentClass,
   getCurrentUser,
 } from "../../../lib/user";
+import { getStudentFacingTeacherName } from "../../../lib/studentTeacherDisplay";
 import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../../lib/academicYearRules";
 import {
   cleanupMessageAttachments,
@@ -44,6 +46,7 @@ function getPreview(message: string) {
 export default function StudentMessagesPage() {
   const [studentId, setStudentId] = useState("");
   const [teacher, setTeacher] = useState<any>(null);
+  const [isCambridgeStudent, setIsCambridgeStudent] = useState(false);
   const [inboxMessages, setInboxMessages] = useState<any[]>([]);
   const [sentMessages, setSentMessages] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("inbox");
@@ -81,9 +84,11 @@ export default function StudentMessagesPage() {
       try {
         const user = await getCurrentUser();
         const currentTeacher = await getCurrentTeacher();
+        const currentClass = await getCurrentStudentClass();
 
         setStudentId(user.id);
         setTeacher(currentTeacher);
+        setIsCambridgeStudent(currentClass.is_cambridge === true);
 
         await loadMessages(user.id, currentTeacher);
       } catch (error) {
@@ -147,6 +152,10 @@ export default function StudentMessagesPage() {
     setStatusMessage("");
     setErrorMessage("");
     setActiveTab("new");
+  }
+
+  function teacherDisplayName() {
+    return getStudentFacingTeacherName(teacher, isCambridgeStudent);
   }
 
   async function handleSendMessage(event: React.FormEvent) {
@@ -321,12 +330,8 @@ export default function StudentMessagesPage() {
 
             <p className="student-messages-meta">
               {openMessageType === "inbox"
-                ? `From: ${teacher?.first_name || ""} ${
-                    teacher?.last_name || ""
-                  }`
-                : `To: ${teacher?.first_name || ""} ${
-                    teacher?.last_name || ""
-                  }`}
+                ? `From: ${teacherDisplayName()}`
+                : `To: ${teacherDisplayName()}`}
               <br />
               {formatMessageDateTime(openMessage.created_at)}
             </p>
@@ -413,9 +418,7 @@ export default function StudentMessagesPage() {
                   To:{" "}
                   <strong>
                     {teacher
-                      ? `${teacher.first_name || ""} ${
-                          teacher.last_name || ""
-                        }`.trim()
+                      ? teacherDisplayName()
                       : "Class teacher"}
                   </strong>
                 </p>

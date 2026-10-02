@@ -17,6 +17,7 @@ import { supabase } from "../../lib/supabase";
 import StudentAnnouncementBanner from "../components/student/StudentAnnouncementBanner";
 import StudentFridayTutorialReminder from "../components/student/StudentFridayTutorialReminder";
 import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../lib/academicYearRules";
+import { getStudentFacingTeacherName } from "../../lib/studentTeacherDisplay";
 
 function formatCourseType(courseType: string) {
   if (!courseType) return "-";
@@ -88,9 +89,10 @@ export default function StudentDashboard() {
               .join(" ")
         );
         setTeacherName(
-          `${teacher.first_name || ""} ${
-            teacher.last_name || ""
-          }`.trim()
+          getStudentFacingTeacherName(
+            teacher,
+            courseInfo.classroom?.is_cambridge === true
+          )
         );
         setLevel(courseInfo.level);
         setCourseType(courseInfo.courseType);

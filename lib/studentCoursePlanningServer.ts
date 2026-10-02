@@ -3,6 +3,7 @@ import "server-only";
 import { isCoursePlanningEligible } from "./coursePlanningEligibility";
 import { loadCoursePlanDays } from "./coursePlanningServer";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { getStudentFacingTeacherName } from "./studentTeacherDisplay";
 
 export async function loadStudentPublishedCoursePlans(studentId: string) {
   const { data: enrolments, error: enrolmentError } = await supabaseAdmin
@@ -49,11 +50,7 @@ export async function loadStudentPublishedCoursePlans(studentId: string) {
   if (teacherError) throw teacherError;
   const levelsById = new Map((levels || []).map((level) => [Number(level.id), String(level.name)]));
   const teachersById = new Map(
-    (teachers || []).map((teacher) => [
-      String(teacher.id),
-      (String(teacher.first_name || "") + " " + String(teacher.last_name || "")).trim() ||
-        "Teacher",
-    ])
+    (teachers || []).map((teacher) => [String(teacher.id), teacher])
   );
   const classesById = new Map(
     classrooms.map((classroom) => [String(classroom.id), classroom])
@@ -89,7 +86,10 @@ export async function loadStudentPublishedCoursePlans(studentId: string) {
             "Class",
           level: levelsById.get(Number(classroom.level_id)) || "",
           course_type: String(classroom.course_type || ""),
-          teacher: teachersById.get(String(classroom.teacher_id || "")) || "Teacher",
+          teacher: getStudentFacingTeacherName(
+            teachersById.get(String(classroom.teacher_id || "")),
+            classroom.is_cambridge === true
+          ),
           book_name: String(plan.book_name || ""),
           start_date: classroom.start_date || null,
           end_date: classroom.end_date || null,
