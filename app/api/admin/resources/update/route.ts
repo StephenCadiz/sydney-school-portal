@@ -8,6 +8,7 @@ import {
   validateTeacherResourceLevelId,
   validateTeacherResourceTitle,
 } from "../../../../../lib/teacherResourceValidation";
+import { adminPathAllowed } from "../../../../../lib/adminAccess";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -44,7 +45,7 @@ async function requireAdmin(request: NextRequest) {
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .eq("id", authData.user.id)
     .maybeSingle();
   if (profileError) {
@@ -59,6 +60,9 @@ async function requireAdmin(request: NextRequest) {
   }
   if (profile?.role !== "admin") {
     return { userId: "", response: jsonError("Admin access required.", 403) };
+  }
+  if (!adminPathAllowed(profile.id, "/admin/resources")) {
+    return { userId: "", response: jsonError("This Admin account is not authorised for this area.", 403) };
   }
 
   return { userId: authData.user.id, response: null };

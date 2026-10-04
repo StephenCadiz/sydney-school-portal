@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { adminPathAllowed } from "../../../../../lib/adminAccess";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { validateSyllabusCoordinatorLevelIds } from "../../../../../lib/syllabusServer";
 
@@ -56,7 +57,7 @@ export async function PATCH(
 
     const { data: callerProfile, error: callerError } = await supabaseAdmin
       .from("profiles")
-      .select("role")
+      .select("id, role")
       .eq("id", user.id)
       .single();
 
@@ -66,6 +67,9 @@ export async function PATCH(
 
     if (callerProfile?.role !== "admin") {
       return jsonError("Only admins can edit teachers.", 403);
+    }
+    if (!adminPathAllowed(callerProfile.id, "/admin/teachers")) {
+      return jsonError("This Admin account cannot manage teachers.", 403);
     }
 
     const { id: teacherId } = await context.params;

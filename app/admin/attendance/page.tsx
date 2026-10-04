@@ -24,6 +24,7 @@ import {
   type AttendanceStudentType,
 } from "../../../lib/adminAttendance";
 import { supabase } from "../../../lib/supabase";
+import { isAdminAttendanceOverviewOnly } from "../../../lib/adminAccess";
 import styles from "./Attendance.module.css";
 
 type AttendanceTab = "overview" | "classes" | "students";
@@ -115,6 +116,7 @@ function AlertQueue({
   updatingId,
   showFilters = true,
   showViewStudent = true,
+  showActions = true,
 }: {
   alerts: AdminAttendanceAlert[];
   filter: AlertFilter;
@@ -124,6 +126,7 @@ function AlertQueue({
   updatingId: string;
   showFilters?: boolean;
   showViewStudent?: boolean;
+  showActions?: boolean;
 }) {
   const visibleAlerts = alerts.filter(
     (alert) => filter === "all" || alert.status === filter
@@ -212,7 +215,7 @@ function AlertQueue({
                     View Student
                   </button>
                 )}
-                {alert.status === "needs_attention" && (
+                {showActions && alert.status === "needs_attention" && (
                   <button
                     type="button"
                     className={styles.primaryButton}
@@ -251,6 +254,7 @@ export default function AdminAttendancePage() {
   const [updatingAlertId, setUpdatingAlertId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [attendanceOverviewOnly, setAttendanceOverviewOnly] = useState<boolean | null>(null);
 
   async function request(url: string, init: RequestInit = {}) {
     const {
@@ -359,6 +363,18 @@ export default function AdminAttendancePage() {
     let cancelled = false;
 
     async function initialise() {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      const { data: adminProfile } = authSession?.user?.id
+        ? await supabase
+            .from("profiles")
+            .select("id, role")
+            .eq("id", authSession.user.id)
+            .maybeSingle()
+        : { data: null };
+      const overviewOnly = isAdminAttendanceOverviewOnly(adminProfile?.id);
+      setAttendanceOverviewOnly(overviewOnly);
       const params = new URLSearchParams(window.location.search);
       const yearId = String(params.get("academicYearId") || "");
       const payload = await loadOverview(yearId);
@@ -372,7 +388,7 @@ export default function AdminAttendancePage() {
           : requestedType === "young_learner"
             ? "young_learner"
             : null;
-      if (studentId && studentType) {
+      if (!overviewOnly && studentId && studentType) {
         await loadStudent(
           studentType,
           studentId,
@@ -534,7 +550,7 @@ export default function AdminAttendancePage() {
           </label>
         </header>
 
-        <nav className={styles.tabs} aria-label="Attendance Centre sections">
+        {attendanceOverviewOnly === false && <nav className={styles.tabs} aria-label="Attendance Centre sections">
           {(
             [
               ["overview", "Overview"],
@@ -552,7 +568,7 @@ export default function AdminAttendancePage() {
               {label}
             </button>
           ))}
-        </nav>
+        </nav>}
 
         {message && <div className={styles.successMessage}>{message}</div>}
         {error && <div className={styles.errorMessage} role="alert">{error}</div>}
@@ -595,9 +611,11 @@ export default function AdminAttendancePage() {
               }
               onDealtWith={(alert) => void markDealtWith(alert)}
               updatingId={updatingAlertId}
+              showViewStudent={attendanceOverviewOnly === false}
+              showActions={attendanceOverviewOnly === false}
             />
 
-            <div className={styles.overviewGrid}>
+            {attendanceOverviewOnly === false && <div className={styles.overviewGrid}>
               <section className={styles.panel}>
                 <div className={styles.panelHeading}>
                   <div>
@@ -672,7 +690,7 @@ export default function AdminAttendancePage() {
                   </div>
                 )}
               </section>
-            </div>
+            </div>}
           </div>
         ) : activeTab === "classes" ? (
           <div className={styles.sectionStack}>

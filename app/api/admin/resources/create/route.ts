@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { isEligibleCambridgeExamLevel } from "../../../../../lib/cambridgeExamBank";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { adminPathAllowed } from "../../../../../lib/adminAccess";
 import {
   isAdminManagedTeacherResourceScope,
   sanitizeTeacherResourceFilename,
@@ -86,7 +87,7 @@ async function getAuthenticatedUser(request: NextRequest) {
 async function verifyAdmin(userId: string) {
   const { data: profile, error } = await supabaseAdmin
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .eq("id", userId)
     .single();
 
@@ -102,6 +103,13 @@ async function verifyAdmin(userId: string) {
     return {
       allowed: false,
       response: jsonError("Only admins can manage official resources.", 403),
+    };
+  }
+
+  if (!adminPathAllowed(profile.id, "/admin/resources")) {
+    return {
+      allowed: false,
+      response: jsonError("This Admin account is not authorised for this area.", 403),
     };
   }
 

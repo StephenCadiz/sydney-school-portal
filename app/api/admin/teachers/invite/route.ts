@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { adminPathAllowed } from "../../../../../lib/adminAccess";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { validateSyllabusCoordinatorLevelIds } from "../../../../../lib/syllabusServer";
 
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("role")
+      .select("id, role")
       .eq("id", user.id)
       .single();
 
@@ -117,6 +118,9 @@ export async function POST(request: NextRequest) {
 
     if (profile?.role !== "admin") {
       return jsonError("Only admins can invite teachers.", 403);
+    }
+    if (!adminPathAllowed(profile.id, "/admin/teachers")) {
+      return jsonError("This Admin account cannot manage teachers.", 403);
     }
 
     const body = await request.json();

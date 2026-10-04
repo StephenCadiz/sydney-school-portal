@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { adminPathAllowed } from "../../../../../lib/adminAccess";
 
 const teacherResourcesBucket = "teacher-resources";
 
@@ -72,7 +73,7 @@ async function getAuthenticatedUser(request: NextRequest) {
 async function verifyAdmin(userId: string) {
   const { data: profile, error } = await supabaseAdmin
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .eq("id", userId)
     .single();
 
@@ -88,6 +89,12 @@ async function verifyAdmin(userId: string) {
     return {
       allowed: false,
       response: jsonError("Only admins can delete Admin resources.", 403),
+    };
+  }
+  if (!adminPathAllowed(profile.id, "/admin/resources")) {
+    return {
+      allowed: false,
+      response: jsonError("This Admin account is not authorised for this area.", 403),
     };
   }
 

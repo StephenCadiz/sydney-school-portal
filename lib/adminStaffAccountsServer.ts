@@ -8,6 +8,7 @@ import {
   type StaffTimeAdminEnrollmentEvent,
 } from "./staffTime";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { adminPathAllowed } from "./adminAccess";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -100,6 +101,14 @@ export async function authenticateAdminRequest(request: NextRequest) {
     return {
       actorId: "",
       error: { message: "Admin access required.", status: 403 },
+    };
+  }
+
+  const pagePath = request.nextUrl.pathname.replace(/^\/api/, "");
+  if (!adminPathAllowed(profile.id, pagePath)) {
+    return {
+      actorId: "",
+      error: { message: "This Admin account is not authorised for this area.", status: 403 },
     };
   }
 

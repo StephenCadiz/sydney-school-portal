@@ -15,6 +15,7 @@ import {
   normalizeExternalUrl,
 } from "./cambridgeExamBank";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { adminPathAllowed } from "./adminAccess";
 
 export function examBankJsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -47,7 +48,7 @@ export async function requireExamBankAdmin(request: NextRequest) {
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .eq("id", user.id)
     .single();
 
@@ -66,6 +67,20 @@ export async function requireExamBankAdmin(request: NextRequest) {
     return {
       userId: "",
       response: examBankJsonError("Admin access required.", 403),
+    };
+  }
+
+  // Most Admin API routes use this shared guard. Mirror the API path to its
+  // page path so targeted Admin capability restrictions also apply to direct
+  // API requests, not only to the visible sidebar.
+  const pagePath = request.nextUrl.pathname.replace(/^\/api/, "").replace(
+    /^\/admin\/print-exams(?=\/|$)/,
+    "/admin/print-class-exams"
+  );
+  if (!adminPathAllowed(profile.id, pagePath)) {
+    return {
+      userId: "",
+      response: examBankJsonError("This Admin account is not authorised for this area.", 403),
     };
   }
 

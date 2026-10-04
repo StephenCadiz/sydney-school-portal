@@ -3,6 +3,7 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "./supabaseAdmin";
+import { adminPathAllowed } from "./adminAccess";
 import {
   classCanReceiveSyllabus,
   isSyllabusCourseTypeEligible,
@@ -147,11 +148,21 @@ export async function resolveAuthenticatedProfile(request: NextRequest) {
     profile = emailProfiles?.[0] || null;
   }
 
-  return {
-    userId: String(profile?.id || authData.user.id),
-    role: String(profile?.role || "").trim().toLowerCase(),
-    error: "",
-  };
+  const resolvedId = String(profile?.id || authData.user.id);
+  const resolvedRole = String(profile?.role || "").trim().toLowerCase();
+  if (
+    resolvedRole === "admin" &&
+    request.nextUrl.pathname.startsWith("/api/admin/") &&
+    !adminPathAllowed(resolvedId, request.nextUrl.pathname.replace(/^\/api/, ""))
+  ) {
+    return {
+      userId: resolvedId,
+      role: resolvedRole,
+      error: "This Admin account is not authorised for this area.",
+    };
+  }
+
+  return { userId: resolvedId, role: resolvedRole, error: "" };
 }
 
 export async function requireSyllabusAdmin(request: NextRequest) {

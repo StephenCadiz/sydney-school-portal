@@ -3,6 +3,7 @@ import "server-only";
 import { NextRequest } from "next/server";
 import { getMadridDate } from "./staffTime";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { adminPathAllowed } from "./adminAccess";
 
 export type MonitoringStatus =
   | "awaiting_teacher_feedback"
@@ -61,6 +62,12 @@ export async function authenticateMonitoringActor(request: NextRequest) {
   if (profileError) return { actor: null, error: { message: "Unable to verify access.", status: 500 } };
   if (!profile || !["admin", "teacher"].includes(String(profile.role))) {
     return { actor: null, error: { message: "Monitoring access denied.", status: 403 } };
+  }
+  if (
+    profile.role === "admin" &&
+    !adminPathAllowed(profile.id, request.nextUrl.pathname.replace(/^\/api/, ""))
+  ) {
+    return { actor: null, error: { message: "This Admin account is not authorised for this area.", status: 403 } };
   }
   return { actor: { id: String(profile.id), role: String(profile.role), profile }, error: null };
 }

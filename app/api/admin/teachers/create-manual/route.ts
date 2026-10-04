@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { adminPathAllowed } from "../../../../../lib/adminAccess";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { validateSyllabusCoordinatorLevelIds } from "../../../../../lib/syllabusServer";
 
@@ -75,7 +76,7 @@ async function verifyAdmin(request: NextRequest) {
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .eq("id", user.id)
     .single();
 
@@ -96,6 +97,12 @@ async function verifyAdmin(request: NextRequest) {
   if (profile?.role !== "admin") {
     return {
       error: jsonError("Only admins can create teachers.", 403),
+    };
+  }
+
+  if (!adminPathAllowed(profile.id, "/admin/teachers")) {
+    return {
+      error: jsonError("This Admin account cannot manage teachers.", 403),
     };
   }
 

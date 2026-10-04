@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
 import {
   reconcileAdminProfileEmail,
 } from "../../../../../../lib/adminStaffAccountsServer";
+import { adminPathAllowed } from "../../../../../../lib/adminAccess";
 import {
   CambridgeAccessError,
   ensureStudentPortalAccountMapping,
@@ -66,7 +67,7 @@ export async function POST(
 
     const { data: actorProfile, error: actorProfileError } = await supabaseAdmin
       .from("profiles")
-      .select("role")
+      .select("id, role")
       .eq("id", actorId)
       .single();
 
@@ -77,6 +78,9 @@ export async function POST(
 
     if (actorProfile?.role !== "admin") {
       return jsonError("Admin access required.", 403);
+    }
+    if (!adminPathAllowed(actorProfile.id, "/admin/accounts/set-password")) {
+      return jsonError("This Admin account is not allowed to manage passwords.", 403);
     }
 
     targetId = (await context.params).id;

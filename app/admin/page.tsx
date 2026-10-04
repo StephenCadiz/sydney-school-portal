@@ -16,7 +16,8 @@ import {
 import { supabase } from "../../lib/supabase";
 import { getCurrentAcademicYear } from "../../lib/academicYears";
 import { resolveCurrentStudentClass } from "../../lib/academicYearRules";
-import { getNextSchoolClosure, type SchoolClosure } from "../../lib/schoolClosures";
+import { type SchoolClosure } from "../../lib/schoolClosures";
+import { isRocioRestrictedAdmin } from "../../lib/adminAccess";
 
 type IconName =
   | "classes"
@@ -417,15 +418,38 @@ export default function AdminDashboard() {
   const [overviewError, setOverviewError] = useState(false);
   const [calendarError, setCalendarError] = useState(false);
   const [schoolCalendarError, setSchoolCalendarError] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [schoolCalendarLoading, setSchoolCalendarLoading] = useState(true);
+  const [restrictedAdmin, setRestrictedAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
     async function loadDashboard() {
+      let isRestricted: boolean | null = null;
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const { data: profile } = session?.user?.id
+          ? await supabase
+              .from("profiles")
+              .select("id, role")
+              .eq("id", session.user.id)
+              .maybeSingle()
+          : { data: null };
+        if (profile?.role === "admin" && profile.id) {
+          isRestricted = isRocioRestrictedAdmin(profile.id);
+          setRestrictedAdmin(isRestricted);
+        }
+      } catch {
+        // AdminLayout performs the authoritative route check.
+      }
+
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
-        if (session?.access_token) {
+        if (session?.access_token && isRestricted === false) {
           const response = await fetch("/api/admin/mock-results?mode=count", {
             cache: "no-store",
             headers: {
@@ -464,32 +488,47 @@ export default function AdminDashboard() {
       }
 
       try {
-        const data = await getUnreviewedFollowUpsForAdmin();
-        setUnreviewedFollowUps(data);
+        if (isRestricted === false) {
+          const data = await getUnreviewedFollowUpsForAdmin();
+          setUnreviewedFollowUps(data);
+        }
       } catch (error) {
         console.error("Unable to load unreviewed follow-ups:", error);
       }
 
-      try {
-        const data = await getUpcomingTeacherCalendarEvents();
-        setCalendarEvents(data);
-      } catch (error) {
-        console.error("Unable to load teacher calendar events:", error);
+      const calendarSources = await Promise.allSettled([
+        getUpcomingTeacherCalendarEvents(),
+        getUpcomingCalendarGroups(),
+      ]);
+      const teacherEvents = calendarSources[0];
+      const groupedEvents = calendarSources[1];
+      if (teacherEvents.status === "fulfilled") {
+        setCalendarEvents(teacherEvents.value);
+      } else {
+        console.error("Unable to load teacher calendar events:", teacherEvents.reason);
+      }
+      if (groupedEvents.status === "fulfilled") {
+        setCalendarGroups(groupedEvents.value);
+      } else {
+        console.error(
+          "Unable to load Friday Tutorial and Exam Week events:",
+          groupedEvents.reason
+        );
+      }
+      if (
+        teacherEvents.status === "rejected" &&
+        groupedEvents.status === "rejected"
+      ) {
         setCalendarError(true);
       }
-
-      try {
-        setCalendarGroups(await getUpcomingCalendarGroups());
-      } catch (error) {
-        console.error("Unable to load Friday Tutorial and Exam Week events:", error);
-      }
+      setCalendarLoading(false);
 
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
         if (!session?.access_token) throw new Error("Admin session unavailable.");
-        const response = await fetch("/api/admin/school-closures", {
+        const response = await fetch("/api/admin/school-closures/summary", {
           cache: "no-store",
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
@@ -497,15 +536,17 @@ export default function AdminDashboard() {
         if (!response.ok) {
           throw new Error(payload.error || "Unable to load School Calendar.");
         }
-        const today = String(payload.today_madrid || "");
-        const closures = Array.isArray(payload.closures)
-          ? (payload.closures as SchoolClosure[])
-          : [];
-        setSchoolClosures(closures);
-        setNextSchoolClosure(getNextSchoolClosure(closures, today));
+        setSchoolClosures(
+          Array.isArray(payload.closures)
+            ? (payload.closures as SchoolClosure[])
+            : []
+        );
+        setNextSchoolClosure((payload.next_closure as SchoolClosure | null) || null);
       } catch (error) {
         console.error("Unable to load School Calendar summary:", error);
         setSchoolCalendarError(true);
+      } finally {
+        setSchoolCalendarLoading(false);
       }
 
       try {
@@ -606,7 +647,7 @@ export default function AdminDashboard() {
             </div>
           </section>
         )}
-        {mockResultsAwaitingReview > 0 && (
+        {restrictedAdmin === false && mockResultsAwaitingReview > 0 && (
           <section className="admin-dashboard-alert-card admin-dashboard-mock-review-alert">
             <div className="admin-dashboard-alert-header">
               <div>
@@ -649,7 +690,7 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {monitoringSummary.feedbackCount > 0 && (
+        {restrictedAdmin === false && monitoringSummary.feedbackCount > 0 && (
           <section className="admin-dashboard-alert-card admin-dashboard-monitoring-alert" aria-labelledby="monitoring-review-title">
             <div className="admin-dashboard-alert-header">
               <div>
@@ -672,7 +713,7 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {monitoringSummary.overdueCount > 0 && (
+        {restrictedAdmin === false && monitoringSummary.overdueCount > 0 && (
           <section className="admin-dashboard-alert-card admin-dashboard-monitoring-overdue-alert" aria-labelledby="monitoring-overdue-title">
             <div className="admin-dashboard-alert-header">
               <div>
@@ -684,12 +725,14 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        <TeacherWorkingDayPanel
-          endpoint="/api/admin/staff-time/self"
-          hideWhenUnavailable
-        />
+        {restrictedAdmin === false && (
+          <TeacherWorkingDayPanel
+            endpoint="/api/admin/staff-time/self"
+            hideWhenUnavailable
+          />
+        )}
 
-        {unreviewedFollowUps.length > 0 && (
+        {restrictedAdmin === false && unreviewedFollowUps.length > 0 && (
           <section className="admin-dashboard-alert-card">
             <div className="admin-dashboard-alert-header">
               <div>
@@ -741,16 +784,20 @@ export default function AdminDashboard() {
           )}
 
           <div className="admin-dashboard-kpi-grid">
-            <StatItem
-              label="Classes"
-              value={overview.classes}
-              icon="classes"
-            />
-            <StatItem
-              label="Teachers"
-              value={overview.teachers}
-              icon="teachers"
-            />
+            {restrictedAdmin === false && (
+              <>
+                <StatItem
+                  label="Classes"
+                  value={overview.classes}
+                  icon="classes"
+                />
+                <StatItem
+                  label="Teachers"
+                  value={overview.teachers}
+                  icon="teachers"
+                />
+              </>
+            )}
             <StatItem
               label="Cambridge Students"
               value={overview.cambridgeStudents}
@@ -798,11 +845,13 @@ export default function AdminDashboard() {
           <div className="admin-dashboard-school-calendar-copy">
             <span>Next School Closure</span>
             <h2 id="dashboard-school-calendar-title">
-              {schoolCalendarError
+              {schoolCalendarLoading
+                ? "Loading School Calendar…"
+                : schoolCalendarError
                 ? "School Calendar unavailable"
                 : nextSchoolClosure?.name || "No upcoming closures"}
             </h2>
-            {nextSchoolClosure && !schoolCalendarError && (
+            {nextSchoolClosure && !schoolCalendarLoading && !schoolCalendarError && (
               <p>
                 {nextSchoolClosure.start_date === nextSchoolClosure.end_date
                   ? formatDate(nextSchoolClosure.start_date)
@@ -810,10 +859,12 @@ export default function AdminDashboard() {
               </p>
             )}
           </div>
-          <Link href="/admin/school-calendar" className="admin-dashboard-secondary-link">
-            Manage School Calendar
-            <DashboardIcon name="chevron" size={16} />
-          </Link>
+          {restrictedAdmin === false && (
+            <Link href="/admin/school-calendar" className="admin-dashboard-secondary-link">
+              Manage School Calendar
+              <DashboardIcon name="chevron" size={16} />
+            </Link>
+          )}
         </section>
 
         <section className="admin-dashboard-main-grid">
@@ -824,16 +875,20 @@ export default function AdminDashboard() {
                 <p>Upcoming school-wide teacher events.</p>
               </div>
 
-              <Link
-                href="/admin/teacher-calendar"
-                className="admin-dashboard-secondary-link"
-              >
-                Add Events to Calendar
-                <DashboardIcon name="chevron" size={16} />
-              </Link>
+              {restrictedAdmin === false && (
+                <Link
+                  href="/admin/teacher-calendar"
+                  className="admin-dashboard-secondary-link"
+                >
+                  Add Events to Calendar
+                  <DashboardIcon name="chevron" size={16} />
+                </Link>
+              )}
             </div>
 
-            {calendarError ? (
+            {calendarLoading ? (
+              <p className="admin-dashboard-empty-text">Loading teacher calendar…</p>
+            ) : calendarError ? (
               <p className="admin-dashboard-error">
                 Unable to load teacher calendar.
               </p>
@@ -887,7 +942,7 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          <aside className="admin-dashboard-card admin-dashboard-quick-actions">
+          {restrictedAdmin === false && <aside className="admin-dashboard-card admin-dashboard-quick-actions">
             <div className="admin-dashboard-card-header">
               <div>
                 <h2>Quick Actions</h2>
@@ -916,7 +971,7 @@ export default function AdminDashboard() {
                 </Link>
               ))}
             </div>
-          </aside>
+          </aside>}
         </section>
           </div>
         );

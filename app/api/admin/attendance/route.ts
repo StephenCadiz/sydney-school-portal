@@ -13,6 +13,7 @@ import {
   searchAdminAttendanceStudents,
 } from "../../../../lib/adminAttendanceServer";
 import type { AttendanceStudentType } from "../../../../lib/adminAttendance";
+import { isRocioRestrictedAdmin } from "../../../../lib/adminAccess";
 
 function noStore(payload: unknown) {
   return NextResponse.json(payload, {
@@ -34,6 +35,9 @@ export async function GET(request: NextRequest) {
     const view = String(request.nextUrl.searchParams.get("view") || "overview")
       .trim()
       .toLowerCase();
+    if (isRocioRestrictedAdmin(admin.userId) && !["count", "overview"].includes(view)) {
+      return examBankJsonError("This Admin account can access attendance overview only.", 403);
+    }
     const academicYearId = String(
       request.nextUrl.searchParams.get("academicYearId") || ""
     ).trim();

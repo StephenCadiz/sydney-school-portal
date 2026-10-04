@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import type { TestClassPurgePreview } from "../../../../../lib/adminTestClassPurgeServer";
+import { adminPathAllowed } from "../../../../../lib/adminAccess";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 
 const uuidPattern =
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     const { data: adminProfile, error: adminProfileError } =
       await supabaseAdmin
         .from("profiles")
-        .select("role")
+        .select("id, role")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -52,6 +53,9 @@ export async function POST(request: NextRequest) {
 
     if (adminProfile?.role !== "admin") {
       return jsonError("Only admins can delete classes.", 403);
+    }
+    if (!adminPathAllowed(adminProfile.id, "/admin/classes/delete")) {
+      return jsonError("This Admin account cannot manage classes.", 403);
     }
 
     const body = await request.json().catch(() => null);

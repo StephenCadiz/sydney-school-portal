@@ -8,6 +8,7 @@ import {
   AdminAttendanceError,
   markAttendanceAlertDealtWith,
 } from "../../../../../../lib/adminAttendanceServer";
+import { isRocioRestrictedAdmin } from "../../../../../../lib/adminAccess";
 
 export async function PATCH(
   request: NextRequest,
@@ -16,6 +17,9 @@ export async function PATCH(
   try {
     const admin = await requireExamBankAdmin(request);
     if (admin.response) return admin.response;
+    if (isRocioRestrictedAdmin(admin.userId)) {
+      return examBankJsonError("This Admin account can access attendance overview only.", 403);
+    }
 
     const body = await request.json().catch(() => null);
     if (

@@ -10,6 +10,7 @@ import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
 import { getAdminOutstandingMessageCount } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
+import { filterAdminNavGroups, isRocioRestrictedAdmin } from "../../../lib/adminAccess";
 import LogoutButton from "../auth/LogoutButton";
 import TeacherLiveClock from "./TeacherLiveClock";
 
@@ -302,12 +303,12 @@ export default function AdminLayout({
 
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("role, first_name, last_name")
+          .select("id, role, first_name, last_name")
           .eq("id", session.user.id)
           .single();
 
         if (!error && profile?.role === "admin" && mountedRef.current) {
-          setAdminId(session.user.id);
+          setAdminId(profile.id);
           const firstName = String(profile.first_name || "").trim();
           const fullName = `${firstName} ${String(profile.last_name || "").trim()}`.trim();
           setAdminName({
@@ -387,6 +388,12 @@ export default function AdminLayout({
   }, []);
 
   const loadMonitoringSummary = useCallback(async () => {
+    if (isRocioRestrictedAdmin(adminId)) {
+      if (mountedRef.current) {
+        setMonitoringSummary({ feedbackCount: 0, overdueCount: 0, feedback: [] });
+      }
+      return;
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -413,7 +420,7 @@ export default function AdminLayout({
         console.error("Unable to load Admin Student Monitoring alerts:", error);
       }
     }
-  }, []);
+  }, [adminId]);
 
   useEffect(() => {
     if (!adminId) return;
@@ -537,6 +544,7 @@ export default function AdminLayout({
       ],
     },
   ];
+  const visibleMenuGroups = filterAdminNavGroups(adminId, menuGroups);
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
@@ -736,7 +744,7 @@ export default function AdminLayout({
 
   const openGroup =
     openNavGroup && openNavGroup !== "dashboard"
-      ? menuGroups.find((group) => group.key === openNavGroup)
+      ? visibleMenuGroups.find((group) => group.key === openNavGroup)
       : undefined;
   const renderGroupPanel = (group: AdminNavGroup, isFlyout: boolean) => {
     const panelId = `admin-nav-panel-${group.key}`;
@@ -911,7 +919,7 @@ export default function AdminLayout({
         }}
       >
         <nav ref={adminNavRef} className="admin-sidebar-nav" aria-label="Admin navigation">
-          {menuGroups.map((group) => {
+          {adminId ? visibleMenuGroups.map((group) => {
             const isOpen = openNavGroup === group.key;
             const attentionCount = groupAttentionCount(group);
             const isDashboard = group.key === "dashboard";
@@ -995,7 +1003,11 @@ export default function AdminLayout({
                 )}
               </section>
             );
-          })}
+          }) : (
+            <div className="admin-nav-loading" role="status" aria-live="polite">
+              Loading Admin navigation…
+            </div>
+          )}
         </nav>
         <div style={{ flex: 1 }} />
         <div className="admin-nav-logout-group">
@@ -1006,7 +1018,7 @@ export default function AdminLayout({
         </div>
       </aside>
 
-      {navigationMounted && !isMobileViewport && openGroup
+      {navigationMounted && adminId && !isMobileViewport && openGroup
         ? createPortal(renderGroupPanel(openGroup, true), document.body)
         : null}
 

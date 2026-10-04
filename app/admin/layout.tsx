@@ -1,10 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import { supabase } from "../../lib/supabase";
+import { adminPathAllowed } from "../../lib/adminAccess";
 
 export default function AdminRouteLayout({
   children,
@@ -12,6 +13,7 @@ export default function AdminRouteLayout({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
@@ -37,12 +39,20 @@ export default function AdminRouteLayout({
 
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("role")
+          .select("id, role")
           .eq("id", session.user.id)
           .single();
 
-        if (profileError || profile?.role !== "admin") {
-          redirectUnauthorized();
+        if (
+          profileError ||
+          profile?.role !== "admin" ||
+          !adminPathAllowed(profile?.id, pathname)
+        ) {
+          if (!profileError && profile?.role === "admin" && profile?.id) {
+            router.replace("/admin");
+          } else {
+            redirectUnauthorized();
+          }
           return;
         }
 
@@ -59,7 +69,7 @@ export default function AdminRouteLayout({
     return () => {
       isMounted = false;
     };
-  }, [router]);
+  }, [pathname, router]);
 
   if (!isAuthorized) {
     return (
