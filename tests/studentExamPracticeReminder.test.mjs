@@ -22,6 +22,9 @@ test("exam-practice reminders are independent of Friday Tutorial rotation", () =
   assert.match(route, /from\("friday_exam_practice_sessions"\)/);
   assert.match(route, /\.eq\("active", true\)/);
   assert.match(route, /\.eq\("session_date", window\.fridayDate\)/);
+  assert.match(route, /\.select\("\*"\)/);
+  assert.match(route, /start_time: session\.start_time/);
+  assert.match(route, /end_time: session\.end_time/);
 });
 
 test("all Cambridge levels use active enrolment level matching", () => {
@@ -51,6 +54,8 @@ test("the student dashboard renders the authenticated reminder component only", 
   assert.match(reminder, /fridayDate/);
   assert.match(reminder, /reminder\.level/);
   assert.match(reminder, /reminder\.sessions\.map/);
+  assert.match(reminder, /formatTimeRange/);
+  assert.match(reminder, /startValue && endValue/);
 });
 
 test("unrelated dashboards are not wired to the student reminder", () => {

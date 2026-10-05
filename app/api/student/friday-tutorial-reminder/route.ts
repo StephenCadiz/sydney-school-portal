@@ -11,6 +11,8 @@ type ReminderSession = {
   level: string;
   activity_type: string;
   exam_part: string | null;
+  start_time: string | null;
+  end_time: string | null;
 };
 
 type ReminderContext = {
@@ -197,7 +199,9 @@ async function resolveReminderContext(
 
   const { data: sessionRows, error: sessionError } = await supabaseAdmin
     .from("friday_exam_practice_sessions")
-    .select("id, session_date, level_name, activity_type, exam_part")
+    // Keep this compatible with deployments where optional time columns have
+    // not been added yet; only the allowlisted fields below are returned.
+    .select("*")
     .eq("active", true)
     .eq("session_date", window.fridayDate)
     .order("activity_type", { ascending: true })
@@ -218,6 +222,8 @@ async function resolveReminderContext(
       exam_part: session.exam_part
         ? String(session.exam_part).trim()
         : null,
+      start_time: session.start_time ? String(session.start_time).slice(0, 5) : null,
+      end_time: session.end_time ? String(session.end_time).slice(0, 5) : null,
     }));
 
   if (sessions.length === 0) return null;

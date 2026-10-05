@@ -11,6 +11,8 @@ type ReminderSession = {
   level: string;
   activity_type: string;
   exam_part: string | null;
+  start_time: string | null;
+  end_time: string | null;
 };
 
 type Reminder = {
@@ -39,6 +41,16 @@ function formatFridayDate(value: string) {
 
 function getSessionLabel(session: ReminderSession) {
   return [session.activity_type, session.exam_part].filter(Boolean).join(" · ");
+}
+
+function formatTimeRange(start: string | null, end: string | null) {
+  const normalize = (value: string | null) => {
+    const match = /^(\d{2}):(\d{2})/.exec(String(value || ""));
+    return match ? `${match[1]}:${match[2]}` : "";
+  };
+  const startValue = normalize(start);
+  const endValue = normalize(end);
+  return startValue && endValue ? `${startValue}–${endValue}` : "";
 }
 
 async function getAccessToken() {
@@ -132,11 +144,31 @@ export default function StudentFridayTutorialReminder() {
           <strong>{reminder.level}</strong>
           <span aria-hidden="true">·</span>
           {formatFridayDate(reminder.fridayDate)}
+          {(() => {
+            const ranges = Array.from(
+              new Set(
+                reminder.sessions
+                  .map((session) => formatTimeRange(session.start_time, session.end_time))
+                  .filter(Boolean)
+              )
+            );
+            return ranges.length === 1 ? (
+              <>
+                <span aria-hidden="true">·</span>
+                {ranges[0]}
+              </>
+            ) : null;
+          })()}
         </p>
 
         <ul className="student-friday-tutorial-reminder-sessions">
           {reminder.sessions.map((session) => (
-            <li key={session.id}>{getSessionLabel(session)}</li>
+            <li key={session.id}>
+              {getSessionLabel(session)}
+              {formatTimeRange(session.start_time, session.end_time) && (
+                <span> · {formatTimeRange(session.start_time, session.end_time)}</span>
+              )}
+            </li>
           ))}
         </ul>
 
