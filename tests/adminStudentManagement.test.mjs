@@ -64,6 +64,25 @@ test("Student Management presents spaced labels, action cards and accessible sta
   assert.match(component, /student-management-grid/);
 });
 
+test("placement and re-add dropdowns show the full class identity without changing the class value", () => {
+  assert.match(component, /function formatClassOptionLabel\(option: ClassOption\)/);
+  for (const field of ["option.classroom_name", "option.class_name", "option.level_name", "option.teacher_name", "option.days", "option.start_time", "option.end_time"]) {
+    assert.match(component, new RegExp(field.replaceAll(".", "\\.")));
+  }
+  assert.equal((component.match(/formatClassOptionLabel\(option\)/g) || []).length, 2);
+  assert.match(component, /<option key=\{option\.id\} value=\{option\.id\}>\{formatClassOptionLabel\(option\)\}<\/option>/);
+  assert.match(component, /aria-label="New class"/);
+  assert.match(component, /aria-label="Re-enrolment class"/);
+});
+
+test("duplicate level and timetable choices remain distinguishable by named class and teacher", () => {
+  assert.match(component, /option\.classroom_name \|\| option\.class_name \|\| "Class name unavailable"/);
+  assert.match(component, /option\.teacher_name \|\| "Teacher not assigned"/);
+  assert.match(component, /option\.days \|\| "Days not set"/);
+  assert.match(component, /time \|\| "Time not set"/);
+  assert.match(component, /\.join\(" · "\)/);
+});
+
 test("Student Information modal keeps a fixed header/tabs and independently scrollable body", () => {
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(css, /\.admin-student-detail-modal-panel[\s\S]*max-height: min\(91vh, calc\(100vh - 32px\)\)/);
