@@ -213,6 +213,52 @@ test("Admin Staff tab eligibility still follows Staff Time enrollment", () => {
   assert.equal(isStaffTimeTrackingEligible("admin", [], [disabled], today), false);
 });
 
+test("Rocio's audited 5 October repair is completed and does not create an open session for tomorrow", () => {
+  const teacherId = "3eb96ad4-e8f7-4e96-bc96-ad8e533cf4a2";
+  const views = buildStaffTimeReportSessionViews(
+    [],
+    [],
+    [{
+      id: "rocio-2026-10-05-repair",
+      teacher_id: teacherId,
+      work_date: "2026-10-05",
+      session_id: null,
+      requested_sign_in_at: "2026-10-05T14:00:00.000Z",
+      requested_sign_out_at: "2026-10-05T17:00:00.000Z",
+      reason: "Audited repair",
+      submitted_at: "2026-10-05T19:26:41.450Z",
+      reviewed_at: "2026-10-05T19:26:41.450Z",
+      status: "approved",
+    }],
+    "2026-10-05",
+    "2026-10-05"
+  );
+  assert.equal(views.length, 1);
+  assert.equal(views[0].teacher_id, teacherId);
+  assert.equal(views[0].effective_sign_in_at, "2026-10-05T14:00:00.000Z");
+  assert.equal(views[0].effective_sign_out_at, "2026-10-05T17:00:00.000Z");
+  assert.equal(minutesBetween(views[0].effective_sign_in_at, views[0].effective_sign_out_at), 180);
+  assert.equal(
+    isStaffTimeTrackingEligible(
+      "admin",
+      [],
+      [{
+        id: "rocio-enrollment",
+        admin_id: teacherId,
+        requires_time_registration: true,
+        effective_from: "2026-10-04",
+        changed_at: "2026-10-04T08:00:00.000Z",
+      }],
+      "2026-10-06"
+    ),
+    true
+  );
+  assert.equal(buildStaffTimeReportSessionViews([], [], [], "2026-10-06", "2026-10-06").length, 0);
+  assert.match(serverSource, /\.from\("staff_clock_sessions"\)/);
+  assert.match(serverSource, /closed_at: string \| null/);
+  assert.match(migration, /staff_time_is_participant/);
+});
+
 test("Reports include Teachers and enrolled Admin staff only", () => {
   assert.equal(isStaffTimeReportStaffEligible("teacher", false), true);
   assert.equal(isStaffTimeReportStaffEligible("teacher", true), true);
