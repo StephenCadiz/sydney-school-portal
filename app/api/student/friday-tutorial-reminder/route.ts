@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { resolveProfileIdForAuthUser } from "../../../../lib/cambridgeStudentAccessServer";
-import { resolveStudentCurrentClassServer } from "../../../../lib/academicYearsServer";
-import {
-  getFridayTutorialSessionTypeForDate,
-  isB1FridayTutorialSession,
-} from "../../../../lib/fridayTutorialRotation";
-import { loadFridayTutorialRotationContext } from "../../../../lib/fridayTutorialRotationServer";
 
 type ReminderStage = "monday" | "thursday";
 
@@ -28,7 +22,6 @@ type ReminderContext = {
 };
 
 const eligibleLevels = new Set(["B1", "B2", "C1", "C2"]);
-const eligibleCourseTypes = new Set(["regular", "intensive", "express"]);
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -52,10 +45,6 @@ function getBearerToken(request: NextRequest) {
 
 function normalizeLevel(value: unknown) {
   return String(value ?? "").trim().toUpperCase();
-}
-
-function normalizeCourseType(value: unknown) {
-  return String(value ?? "").trim().toLowerCase();
 }
 
 function getMadridCalendarParts(date = new Date()) {
@@ -164,46 +153,53 @@ async function resolveReminderContext(
   const window = getCurrentReminderWindow();
   if (!window) return null;
 
-  const rotation = await loadFridayTutorialRotationContext({
-    endDate: window.fridayDate,
-  });
-  const tutorialGroup = getFridayTutorialSessionTypeForDate(
-    rotation.settings || {},
-    window.fridayDate,
-    rotation.closures
+  // Exam-practice reminders are independent of the Friday Tutorial rotation.
+  // Resolve every active Cambridge enrolment so a student with more than one
+  // current class still receives a matching level event.
+  const { data: enrolments, error: enrolmentError } = await supabaseAdmin
+    .from("current_class_enrolments")
+    .select("class_id")
+    .eq("student_id", studentId);
+  if (enrolmentError) throw enrolmentError;
+
+  const classIds = Array.from(
+    new Set((enrolments || []).map((row) => String(row.class_id || "")).filter(Boolean))
   );
-  if (!tutorialGroup) return null;
+  if (classIds.length === 0) return null;
 
-  const classResolution = await resolveStudentCurrentClassServer(studentId);
-  if (classResolution.error || !classResolution.classroom) return null;
+  const { data: classRows, error: classError } = await supabaseAdmin
+    .from("classes")
+    .select("id, is_cambridge, level_id")
+    .in("id", classIds);
+  if (classError) throw classError;
 
-  const classRow = classResolution.classroom;
-  if (classRow.is_cambridge !== true) return null;
+  const levelIds = Array.from(
+    new Set(
+      (classRows || [])
+        .filter((row) => row.is_cambridge === true && row.level_id)
+        .map((row) => String(row.level_id))
+    )
+  );
+  if (levelIds.length === 0) return null;
 
-  const courseType = normalizeCourseType(classRow.course_type);
-  if (!eligibleCourseTypes.has(courseType)) return null;
-
-  const levelId = String(classRow.level_id || "");
-  if (!levelId) return null;
-
-  const { data: levelRow, error: levelError } = await supabaseAdmin
+  const { data: levelRows, error: levelError } = await supabaseAdmin
     .from("levels")
-    .select("name")
-    .eq("id", levelId)
-    .single();
-
+    .select("id, name")
+    .in("id", levelIds);
   if (levelError) throw levelError;
 
-  const level = normalizeLevel(levelRow?.name);
-  if (!eligibleLevels.has(level)) return null;
-  if (level === "B1" && !isB1FridayTutorialSession(tutorialGroup)) return null;
+  const studentLevels = new Set(
+    (levelRows || [])
+      .map((row) => normalizeLevel(row.name))
+      .filter((level) => eligibleLevels.has(level))
+  );
+  if (studentLevels.size === 0) return null;
 
   const { data: sessionRows, error: sessionError } = await supabaseAdmin
     .from("friday_exam_practice_sessions")
     .select("id, session_date, level_name, activity_type, exam_part")
     .eq("active", true)
     .eq("session_date", window.fridayDate)
-    .ilike("level_name", level)
     .order("activity_type", { ascending: true })
     .order("exam_part", { ascending: true });
 
@@ -212,12 +208,12 @@ async function resolveReminderContext(
   const sessions: ReminderSession[] = (sessionRows || [])
     .filter((session) =>
       eligibleLevels.has(normalizeLevel(session.level_name)) &&
-      normalizeLevel(session.level_name) === level
+      studentLevels.has(normalizeLevel(session.level_name))
     )
     .map((session) => ({
       id: String(session.id),
       session_date: String(session.session_date || ""),
-      level,
+      level: normalizeLevel(session.level_name),
       activity_type: String(session.activity_type || "").trim(),
       exam_part: session.exam_part
         ? String(session.exam_part).trim()
@@ -230,7 +226,7 @@ async function resolveReminderContext(
     studentId,
     stage: window.stage,
     fridayDate: window.fridayDate,
-    level,
+    level: Array.from(studentLevels).sort().join(", "),
     sessions,
   };
 }
@@ -269,8 +265,8 @@ export async function GET(request: NextRequest) {
         stage: context.stage,
         heading:
           context.stage === "thursday"
-            ? "Friday Tutorial tomorrow"
-            : "Friday Tutorial this week",
+            ? "Exam Practice tomorrow"
+            : "Exam Practice this week",
         fridayDate: context.fridayDate,
         level: context.level,
         sessions,
