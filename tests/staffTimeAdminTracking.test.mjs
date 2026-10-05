@@ -10,6 +10,7 @@ import {
   isStaffTimeStaffTabEligible,
   isStaffTimeTrackingEligible,
   minutesBetween,
+  normalizeDateOnly,
   staffTimeRoleLabel,
   wasAdminTimeRegistrationRequiredDuring,
 } from "../lib/staffTime.ts";
@@ -257,6 +258,18 @@ test("Rocio's audited 5 October repair is completed and does not create an open 
   assert.match(serverSource, /\.from\("staff_clock_sessions"\)/);
   assert.match(serverSource, /closed_at: string \| null/);
   assert.match(migration, /staff_time_is_participant/);
+});
+
+test("Staff Time effective dates stay Madrid-local date-only values", () => {
+  assert.equal(normalizeDateOnly("2026-10-05"), "2026-10-05");
+  assert.equal(normalizeDateOnly("2026-10-06T00:00:00.000Z"), "2026-10-06");
+  assert.equal(normalizeDateOnly("2026-10-06T23:00:00+00:00"), "2026-10-06");
+  assert.equal(normalizeDateOnly("2026-02-30"), "");
+  assert.match(serverSource, /const effectiveFrom = normalizeDateOnly\(value\.effective_from\)/g);
+  assert.match(staffTimePage, /function effectiveRecordForToday\(records: any\[\]\)/);
+  assert.match(staffTimePage, /currentSchedule = selectedTeacher\s*\n?\s*\? effectiveRecordForToday/);
+  assert.match(staffTimePage, /New record effective from/);
+  assert.match(staffTimePage, /New schedule effective from/);
 });
 
 test("Reports include Teachers and enrolled Admin staff only", () => {

@@ -518,6 +518,18 @@ export function isIsoDate(value: string) {
   );
 }
 
+/**
+ * Keep date-only database and form values independent from browser timezone
+ * conversion. Timestamp-shaped values are reduced to their calendar date;
+ * no Date object is constructed for this operation.
+ */
+export function normalizeDateOnly(value: unknown) {
+  const normalized = text(value).trim();
+  const match = normalized.match(/^(\d{4}-\d{2}-\d{2})(?:$|[T\s])/);
+  const date = match?.[1] || "";
+  return isIsoDate(date) ? date : "";
+}
+
 export function normalizeTime(value: unknown) {
   const normalized = text(value);
   const match = normalized.match(TIME_PATTERN);

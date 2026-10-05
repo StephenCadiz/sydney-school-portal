@@ -17,6 +17,7 @@ import {
   isStaffTimeTrackingEligible,
   isIsoDate,
   madridLocalToIso,
+  normalizeDateOnly,
   minutesBetween,
   normalizeTime,
   plannedIntervalLabel,
@@ -1032,7 +1033,7 @@ export async function correctHistoricalCompanySettings(actor: StaffTimeActor, bo
 export async function saveEmploymentRecord(actor: StaffTimeActor, body: unknown) {
   const value = objectBody(body);
   const teacherId = validUuid(value.teacher_id);
-  const effectiveFrom = text(value.effective_from);
+  const effectiveFrom = normalizeDateOnly(value.effective_from);
   const workingType = text(value.working_time_type) as StaffTimeWorkingType;
   const policy = text(value.clocking_location_policy) as StaffTimeLocationPolicy;
   const hoursValidation = validateContractedWeeklyHours(
@@ -1069,7 +1070,7 @@ export async function saveEmploymentRecord(actor: StaffTimeActor, body: unknown)
 export async function saveWorkSchedule(actor: StaffTimeActor, body: unknown) {
   const value = objectBody(body);
   const teacherId = validUuid(value.teacher_id);
-  const effectiveFrom = text(value.effective_from);
+  const effectiveFrom = normalizeDateOnly(value.effective_from);
   if (!teacherId || !isIsoDate(effectiveFrom)) {
     throw new StaffTimeError("Choose a staff member and valid effective date.", 422);
   }

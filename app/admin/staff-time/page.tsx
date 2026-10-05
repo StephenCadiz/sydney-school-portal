@@ -28,6 +28,7 @@ import {
   isStaffTimeReportStaffEligible,
   isStaffTimeStaffTabEligible,
   minutesBetween,
+  normalizeDateOnly,
   normalizeTime,
   plannedIntervalLabel,
   validateContractedWeeklyHours,
@@ -61,9 +62,10 @@ const sections: Array<{ id: Section; label: string; icon: typeof Clock3 }> = [
 
 function nextEffectiveDate(current: any) {
   const today = getMadridDate();
-  if (!current?.effective_from) return today;
-  return current.effective_from >= today
-    ? addCalendarDays(current.effective_from, 1)
+  const currentDate = normalizeDateOnly(current?.effective_from);
+  if (!currentDate) return today;
+  return currentDate >= today
+    ? addCalendarDays(currentDate, 1)
     : today;
 }
 
@@ -76,12 +78,26 @@ function monthDates(month: string) {
 }
 
 function displayDate(value: string) {
+  const date = normalizeDateOnly(value);
+  if (!date) return "—";
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     timeZone: "UTC",
-  }).format(new Date(`${value}T12:00:00Z`));
+  }).format(new Date(`${date}T12:00:00Z`));
+}
+
+function effectiveRecordForToday(records: any[]) {
+  const today = getMadridDate();
+  return records.find((row) => {
+    const from = normalizeDateOnly(row?.effective_from);
+    const to = normalizeDateOnly(row?.effective_to);
+    return from && from <= today && (!to || to >= today);
+  }) || records
+    .filter((row) => !normalizeDateOnly(row?.effective_to))
+    .sort((left, right) => normalizeDateOnly(right?.effective_from).localeCompare(normalizeDateOnly(left?.effective_from)))[0]
+    || null;
 }
 
 function displayDateTime(value: string | null) {
@@ -321,8 +337,12 @@ export default function StaffTimeAdminPage() {
     manualStaff?.staff_role === "admin" && manualStaff.id === currentAdminId;
   const employmentControlledByEnrollment =
     selectedTeacher?.staff_role === "admin";
-  const currentEmployment = selectedTeacher?.employment_records.find((row) => !row.effective_to) || null;
-  const currentSchedule = selectedTeacher?.schedules.find((row) => !row.effective_to) || null;
+  const currentEmployment = selectedTeacher
+    ? effectiveRecordForToday(selectedTeacher.employment_records || [])
+    : null;
+  const currentSchedule = selectedTeacher
+    ? effectiveRecordForToday(selectedTeacher.schedules || [])
+    : null;
 
   useEffect(() => {
     if (section !== "teachers" || !teacherData) return;
@@ -660,7 +680,7 @@ export default function StaffTimeAdminPage() {
                       <div className="staff-time-form-panel-heading"><UserRoundCog aria-hidden="true" size={19} /><div><h3>Employment information</h3><p>Names are sourced from the legal profile and snapshotted in each effective record.</p></div></div>
                       <div className="staff-time-readonly-name"><span>Legal name · {selectedTeacher.staff_role_label}</span><strong>{selectedTeacher.name}</strong></div>
                       <div className="staff-time-form-grid two-columns">
-                        <label>Effective from<input type="date" value={employmentForm.effective_from} onChange={(event) => setEmploymentForm({ ...employmentForm, effective_from: event.target.value })} required /></label>
+                        <label>New record effective from<input type="date" value={employmentForm.effective_from} onChange={(event) => setEmploymentForm({ ...employmentForm, effective_from: event.target.value })} required /></label>
                         <label>DNI/NIE<input value={employmentForm.dni_nie} onChange={(event) => setEmploymentForm({ ...employmentForm, dni_nie: event.target.value })} maxLength={32} required /></label>
                         <label>Job title / category<input value={employmentForm.job_title} onChange={(event) => setEmploymentForm({ ...employmentForm, job_title: event.target.value })} maxLength={160} required /></label>
                         <label>Working-time type<select value={employmentForm.working_time_type} onChange={(event) => setEmploymentForm({ ...employmentForm, working_time_type: event.target.value })}><option value="full_time">Full time</option><option value="part_time">Part time</option></select></label>
@@ -676,7 +696,7 @@ export default function StaffTimeAdminPage() {
                     <form className="staff-time-form-panel" onSubmit={saveSchedule}>
                       <div className="staff-time-form-panel-heading"><CalendarClock aria-hidden="true" size={19} /><div><h3>Expected weekly schedule</h3><p>Supports split shifts. It never creates actual clock records.</p></div></div>
                       <div className="staff-time-form-grid two-columns">
-                        <label>Effective from<input type="date" value={scheduleEffectiveFrom} onChange={(event) => setScheduleEffectiveFrom(event.target.value)} required /></label>
+                        <label>New schedule effective from<input type="date" value={scheduleEffectiveFrom} onChange={(event) => setScheduleEffectiveFrom(event.target.value)} required /></label>
                         <label>Schedule label<input value={scheduleLabel} onChange={(event) => setScheduleLabel(event.target.value)} maxLength={160} /></label>
                       </div>
                       <div className="staff-time-week-list">
