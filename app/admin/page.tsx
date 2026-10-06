@@ -637,7 +637,7 @@ export default function AdminDashboard() {
               <div>
                 <h2 id="friday-tutorial-reminder-title">Friday Tutorial list requires completion</h2>
                 <p>
-                  Complete WhatsApp, parent confirmation, and teacher material status for all {fridayTutorialReminder.total_students} student{fridayTutorialReminder.total_students === 1 ? "" : "s"} on the {fridayTutorialReminder.session_date} weekly list.
+                  Complete WhatsApp status and parent confirmation for all {fridayTutorialReminder.total_students} student{fridayTutorialReminder.total_students === 1 ? "" : "s"} on the {fridayTutorialReminder.session_date} weekly list. Teacher material is required when parents confirm.
                 </p>
               </div>
               <Link href="/admin/friday-tutorials" className="admin-dashboard-button">

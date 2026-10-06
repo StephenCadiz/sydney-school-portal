@@ -12,8 +12,8 @@ const fridayTutorials = readFileSync(
 );
 const adminPage = readFileSync(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
 
-test("Admin reminder is restricted to Monday Madrid time and the next non-empty list", () => {
-  assert.match(workflowRoute, /madridWeekday\(today\) !== 1/);
+test("Admin reminder runs Monday through Friday Madrid time and uses the next non-empty list", () => {
+  assert.match(workflowRoute, /weekday === 0 \|\| weekday === 6/);
   assert.match(workflowRoute, /calculateUpcomingFridayTutorials/);
   assert.match(workflowRoute, /entry\.session_date >= today/);
   assert.match(workflowRoute, /friday_tutorial_session_students/);
@@ -24,11 +24,25 @@ test("Admin reminder is restricted to Monday Madrid time and the next non-empty 
 
 test("Reminder remains until every required weekly status is complete", () => {
   assert.match(workflowRoute, /whatsapp_sent_status === "yes"/);
+  assert.match(workflowRoute, /parent_confirmed_status === "no"/);
   assert.match(workflowRoute, /parent_confirmed_status === "yes"/);
   assert.match(workflowRoute, /material_received_status === "yes"/);
+  assert.match(workflowRoute, /parent_confirmed_status === "no" \|\|/);
   assert.match(workflowRoute, /show: complete < list\.length/);
   assert.match(adminPage, /fridayTutorialReminder\?\.show/);
   assert.match(adminPage, /Open Friday Tutorials/);
+  assert.match(adminPage, /Teacher material is required when parents confirm/);
+});
+
+test("Parent refusal does not require teacher material", () => {
+  assert.match(
+    workflowRoute,
+    /row\.whatsapp_sent_status === "yes"[\s\S]*row\.parent_confirmed_status === "no"/
+  );
+  assert.match(
+    workflowRoute,
+    /row\.parent_confirmed_status === "yes"[\s\S]*row\.material_received_status === "yes"/
+  );
 });
 
 test("Parent confirmation notifies only the recommending Young Learner teacher", () => {

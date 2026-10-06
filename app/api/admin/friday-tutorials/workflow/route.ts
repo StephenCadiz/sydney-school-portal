@@ -40,7 +40,8 @@ function fullName(row: any) {
 
 async function getMondayReminder() {
   const today = getMadridSchoolDate();
-  if (madridWeekday(today) !== 1) {
+  const weekday = madridWeekday(today);
+  if (weekday === 0 || weekday === 6) {
     return { show: false, today_madrid: today };
   }
 
@@ -98,8 +99,9 @@ async function getMondayReminder() {
   const complete = list.filter(
     (row) =>
       row.whatsapp_sent_status === "yes" &&
-      row.parent_confirmed_status === "yes" &&
-      row.material_received_status === "yes"
+      (row.parent_confirmed_status === "no" ||
+        (row.parent_confirmed_status === "yes" &&
+          row.material_received_status === "yes"))
   ).length;
 
   return {
