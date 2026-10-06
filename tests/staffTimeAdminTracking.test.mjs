@@ -116,6 +116,10 @@ const staffTimePage = readFileSync(
   new URL("../app/admin/staff-time/page.tsx", import.meta.url),
   "utf8"
 );
+const adminDashboard = readFileSync(
+  new URL("../app/admin/page.tsx", import.meta.url),
+  "utf8"
+);
 
 const enabled = {
   id: "enabled",
@@ -401,6 +405,25 @@ test("Admin self-service reuses the shared Madrid/network/closure clocking path"
   assert.doesNotMatch(adminSelfRoute, /occurred_at\s*[:=].*body/i);
   assert.doesNotMatch(adminSelfRoute, /work_date\s*[:=].*body/i);
   assert.doesNotMatch(adminSelfRoute, /request_ip\s*[:=].*body/i);
+});
+
+test("restricted Admins see only their own Staff Time card and its working/completed states", () => {
+  assert.match(
+    adminDashboard,
+    /restrictedAdmin !== null && \(\s*<TeacherWorkingDayPanel[\s\S]*endpoint="\/api\/admin\/staff-time\/self"/
+  );
+  assert.match(adminDashboard, /hideWhenUnavailable/);
+  assert.match(adminSelfRoute, /requireStaffTimeAdmin\(request\)/);
+  assert.match(adminSelfRoute, /requireTrackedStaffTimeAdmin\(request\)/);
+  assert.doesNotMatch(adminSelfRoute, /teacher_id\s*[:=].*body/i);
+  const workingDayPanel = readFileSync(
+    new URL("../app/components/teacher/TeacherWorkingDayPanel.tsx", import.meta.url),
+    "utf8"
+  );
+  assert.match(workingDayPanel, /openSession = day\?\.sessions\.find/);
+  assert.match(workingDayPanel, /day\?\.sessions\.length \? \(/);
+  assert.match(workingDayPanel, /Recorded today/);
+  assert.match(workingDayPanel, /Sign Out/);
 });
 
 test("the existing Teacher endpoint remains Teacher-only and uses the same clocking core", () => {

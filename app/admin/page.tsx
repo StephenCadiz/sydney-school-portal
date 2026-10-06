@@ -725,7 +725,7 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {restrictedAdmin === false && (
+        {restrictedAdmin !== null && (
           <TeacherWorkingDayPanel
             endpoint="/api/admin/staff-time/self"
             hideWhenUnavailable

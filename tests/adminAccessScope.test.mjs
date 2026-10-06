@@ -47,7 +47,9 @@ test("direct Admin pages and shared Admin API guards enforce the same capability
   assert.match(routeLayout, /adminPathAllowed\(profile\?\.id, pathname\)/);
   assert.match(navLayout, /filterAdminNavGroups\(adminId, menuGroups\)/);
   assert.match(apiGuard, /request\.nextUrl\.pathname\.replace\(\/\^\\\/api\//);
-  assert.match(apiGuard, /adminPathAllowed\(profile\.id, pagePath\)/);
+  assert.match(apiGuard, /adminApiPathAllowed\(profile\.id, pagePath\)/);
+  assert.match(policy, /adminApiPathAllowed/);
+  assert.match(policy, /\/admin\/staff-time\/self/);
   assert.match(apiGuard, /not authorised for this area/);
   assert.match(navLayout, /adminId \? visibleMenuGroups\.map/);
   assert.match(navLayout, /Loading Admin navigation/);
@@ -67,7 +69,7 @@ test("restricted dashboard omits disallowed operational cards and links", () => 
   assert.match(adminPage, /restrictedAdmin === false && mockResultsAwaitingReview/);
   assert.match(adminPage, /restrictedAdmin === false && monitoringSummary\.feedbackCount/);
   assert.match(adminPage, /restrictedAdmin === false && unreviewedFollowUps\.length/);
-  assert.match(adminPage, /restrictedAdmin === false && \(\s*<TeacherWorkingDayPanel/);
+  assert.match(adminPage, /restrictedAdmin !== null && \(\s*<TeacherWorkingDayPanel/);
   assert.match(adminPage, /<section className="admin-dashboard-school-calendar"/);
   assert.match(adminPage, /restrictedAdmin === false && \(\s*<Link href="\/admin\/school-calendar"/);
   assert.match(adminPage, /<section className="admin-dashboard-main-grid"/);

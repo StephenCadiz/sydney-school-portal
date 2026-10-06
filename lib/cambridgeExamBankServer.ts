@@ -15,7 +15,7 @@ import {
   normalizeExternalUrl,
 } from "./cambridgeExamBank";
 import { supabaseAdmin } from "./supabaseAdmin";
-import { adminPathAllowed } from "./adminAccess";
+import { adminApiPathAllowed } from "./adminAccess";
 
 export function examBankJsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -77,7 +77,7 @@ export async function requireExamBankAdmin(request: NextRequest) {
     /^\/admin\/print-exams(?=\/|$)/,
     "/admin/print-class-exams"
   );
-  if (!adminPathAllowed(profile.id, pagePath)) {
+  if (!adminApiPathAllowed(profile.id, pagePath)) {
     return {
       userId: "",
       response: examBankJsonError("This Admin account is not authorised for this area.", 403),

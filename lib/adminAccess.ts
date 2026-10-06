@@ -41,6 +41,25 @@ export function adminPathAllowed(
   );
 }
 
+/**
+ * Admin API paths may include narrowly scoped self-service endpoints that do
+ * not have a visible Admin page. Keep those endpoints out of the page/menu
+ * policy while still allowing the authenticated account to use its own
+ * server-validated self-service action.
+ */
+export function adminApiPathAllowed(
+  profileId: string | null | undefined,
+  pathname: string
+) {
+  if (
+    isRocioRestrictedAdmin(profileId) &&
+    (pathname.split("?")[0].replace(/\/$/, "") || "/") === "/admin/staff-time/self"
+  ) {
+    return true;
+  }
+  return adminPathAllowed(profileId, pathname);
+}
+
 export function filterAdminNavGroups<T extends { items: Array<{ href: string }> }>(
   profileId: string | null | undefined,
   groups: T[]
