@@ -165,7 +165,7 @@ async function loadEligibleRows(context: any) {
     .eq("tutorial_group", context.expectedGroup)
     .maybeSingle();
   if (sessionError) throw sessionError;
-  if (!session) return { session: null, rows: [] };
+  if (!session) return { session: null, rows: [], complete: false };
 
   const { data: sessionRows, error: rowsError } = await supabaseAdmin
     .from("friday_tutorial_session_students")
@@ -174,7 +174,7 @@ async function loadEligibleRows(context: any) {
     .order("created_at", { ascending: true });
   if (rowsError) throw rowsError;
   const tutorialIds = (sessionRows || []).map((row) => row.tutorial_student_id).filter(Boolean);
-  if (tutorialIds.length === 0) return { session, rows: [] };
+  if (tutorialIds.length === 0) return { session, rows: [], complete: false };
 
   const { data: tutorialStudents, error: studentsError } = await supabaseAdmin
     .from("friday_tutorial_students")
@@ -231,7 +231,13 @@ async function loadEligibleRows(context: any) {
       student_attended_status: row.student_attended_status || "choose",
     }];
   });
-  return { session, rows };
+  return {
+    session,
+    rows,
+    complete:
+      rows.length > 0 &&
+      rows.every((row) => ["yes", "no"].includes(row.student_attended_status)),
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -240,7 +246,7 @@ export async function GET(request: NextRequest) {
     if (access.response || !access.context) return access.response;
     const loaded = access.context.open
       ? await loadEligibleRows(access.context)
-      : { session: null, rows: [] };
+      : { session: null, rows: [], complete: false };
     return NextResponse.json({
       attendance: {
         session_date: access.context.now.date,
@@ -261,6 +267,7 @@ export async function GET(request: NextRequest) {
         start_time: loaded.session?.start_time || "18:00",
         end_time: loaded.session?.end_time || "19:00",
         open: access.context.open,
+        complete: loaded.complete === true,
         students: loaded.rows,
       },
     });
@@ -296,8 +303,14 @@ export async function POST(request: NextRequest) {
       return jsonError("Record Yes or No for every eligible student.", 422);
     }
 
+    const existingById = new Map(
+      loaded.rows.map((row: any) => [row.session_student_id, row.student_attended_status])
+    );
+    const changed = submitted.filter(
+      (item: any) => existingById.get(item.session_student_id) !== item.student_attended_status
+    );
     const savedAt = new Date().toISOString();
-    const updates = await Promise.all(submitted.map((item: any) =>
+    const updates = await Promise.all(changed.map((item: any) =>
       supabaseAdmin
         .from("friday_tutorial_session_students")
         .update({ student_attended_status: item.student_attended_status, updated_at: savedAt })
@@ -316,6 +329,7 @@ export async function POST(request: NextRequest) {
         session_student_id: result.data?.id,
         student_attended_status: result.data?.student_attended_status,
       })),
+      complete: true,
     });
   } catch (error) {
     logAttendanceError("post", error);

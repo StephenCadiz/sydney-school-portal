@@ -109,7 +109,7 @@ export default function FridayTutorialAttendanceCard() {
     );
   }
 
-  if (!attendance) return null;
+  if (!attendance || attendance.complete) return null;
 
   const dutyLabel = Array.isArray(attendance.duty_labels)
     ? attendance.duty_labels.join(" + ")
@@ -150,7 +150,7 @@ export default function FridayTutorialAttendanceCard() {
           <div className="teacher-dashboard-attendance-table-wrap">
             <table className="teacher-dashboard-attendance-table">
               <colgroup><col className="is-student" /><col className="is-level" /><col className="is-present" /></colgroup>
-              <thead><tr><th>Student</th><th>Level</th><th>Present</th></tr></thead>
+              <thead><tr><th>Student</th><th>Level</th><th>Attendance</th></tr></thead>
               <tbody>
                 {attendance.students.map((student: any) => {
                   const studentLabelId = `friday-attendance-student-${student.session_student_id}`;
@@ -160,7 +160,7 @@ export default function FridayTutorialAttendanceCard() {
                     <td><span className="teacher-dashboard-attendance-level">{student.level_name}</span></td>
                     <td>
                       <div className="teacher-dashboard-attendance-choice" role="group" aria-labelledby={studentLabelId}>
-                        {[["yes", "Yes"], ["no", "No"]].map(([value, label]) => (
+                        {[["yes", "Present"], ["no", "Absent"]].map(([value, label]) => (
                           <button key={value} type="button" aria-pressed={values[student.session_student_id] === value} className={`${value === "yes" ? "is-yes" : "is-no"} ${values[student.session_student_id] === value ? "is-selected" : ""}`} onClick={() => setValues((current) => ({ ...current, [student.session_student_id]: value }))}>{label}</button>
                         ))}
                       </div>

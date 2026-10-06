@@ -6,6 +6,7 @@ import AdminStudentsTabs from "../../components/admin/AdminStudentsTabs";
 import AdminStudentAttendance from "../../components/admin/AdminStudentAttendance";
 import AdminStudentClassWork from "../../components/admin/AdminStudentClassWork";
 import AdminStudentManagement from "../../components/admin/AdminStudentManagement";
+import AdminStudentFridayTutorialAttendance from "../../components/admin/AdminStudentFridayTutorialAttendance";
 import StudentAccessControl from "../../components/student/StudentAccessControl";
 import { getStudentAcademicYearDisplayValue } from "../../../lib/academicYearRules";
 import { getCambridgeReadingSkillLabel } from "../../../lib/homework";
@@ -1602,6 +1603,10 @@ function StudentOverview({ student }: { student: any }) {
         studentId={student.id}
         studentType={student.student_type}
         summaryOnly
+      />
+      <AdminStudentFridayTutorialAttendance
+        studentId={student.id}
+        studentType={student.student_type}
       />
     </div>
   );

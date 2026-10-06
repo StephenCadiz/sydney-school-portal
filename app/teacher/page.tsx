@@ -10,6 +10,7 @@ import TeacherMessageNotifications from "../components/teacher/TeacherMessageNot
 import TeacherAnnouncementBanner from "../components/teacher/TeacherAnnouncementBanner";
 import FridayExamPracticeCard from "../components/teacher/FridayExamPracticeCard";
 import FridayAt6DutyCard from "../components/teacher/FridayAt6DutyCard";
+import FridayTutorialDutyReminderCard from "../components/teacher/FridayTutorialDutyReminderCard";
 import FridayTutorialAttendanceCard from "../components/teacher/FridayTutorialAttendanceCard";
 import TeacherWorkingDayPanel from "../components/teacher/TeacherWorkingDayPanel";
 import { supabase } from "../../lib/supabase";
@@ -97,6 +98,7 @@ export default function TeacherPage() {
   const [fridayExamPracticeSessions, setFridayExamPracticeSessions] =
     useState<any[]>([]);
   const [fridayAt6Duty, setFridayAt6Duty] = useState<any | null>(null);
+  const [fridayDutyReminder, setFridayDutyReminder] = useState<any | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -144,6 +146,7 @@ export default function TeacherPage() {
         );
 
         setFridayExamPracticeSessions(noticeResult.notices || []);
+        setFridayDutyReminder(noticeResult.duty_reminder || null);
         setFridayAt6Duty(
           !noticeResult.school_closed && dutyTypes.length > 0
             ? {
@@ -155,6 +158,7 @@ export default function TeacherPage() {
       } catch (error) {
         console.error("Unable to load Friday @ 6 dashboard items:", error);
         setFridayExamPracticeSessions([]);
+        setFridayDutyReminder(null);
         setFridayAt6Duty(null);
       }
     }
@@ -217,6 +221,7 @@ export default function TeacherPage() {
         <div className="teacher-dashboard-feed">
           <TeacherAnnouncementBanner teacherId={teacherId} />
           <TeacherMessageNotifications teacherId={teacherId} />
+          <FridayTutorialDutyReminderCard reminder={fridayDutyReminder} />
           <FridayAt6DutyCard duty={fridayAt6Duty} />
           <FridayTutorialAttendanceCard />
           <FridayExamPracticeCard sessions={fridayExamPracticeSessions} />

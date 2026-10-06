@@ -7,7 +7,12 @@ import {
 } from "../../../../lib/cambridgeExamBank";
 import { normalizeCambridgeLevel } from "../../../../lib/fridayTutorialResults";
 import {
+  FRIDAY_AT_6_DUTY_LABELS,
+  getFridayAt6DutyTypesForTeacher,
+} from "../../../../lib/fridayTutorials";
+import {
   getFridayTutorialSessionTypeForDate,
+  getTutorialGroupLabel,
   isB1FridayTutorialSession,
 } from "../../../../lib/fridayTutorialRotation";
 import {
@@ -56,6 +61,51 @@ function getMadridDateString(date = new Date()) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function getMadridWeekday(value: string) {
+  return new Date(`${value}T12:00:00Z`).getUTCDay();
+}
+
+async function loadDutyReminder(today: string, teacherId: string) {
+  const weekday = getMadridWeekday(today);
+  if (weekday < 3 || weekday > 5) return null;
+
+  const phase = weekday === 3 ? "wednesday" : weekday === 4 ? "thursday" : "friday";
+  const sessionDate = addDays(today, 5 - weekday);
+  const rotation = await loadFridayTutorialRotationContext({ endDate: sessionDate });
+  const tutorialGroup = getFridayTutorialSessionTypeForDate(
+    rotation.settings || {},
+    sessionDate,
+    rotation.closures
+  );
+  if (!tutorialGroup) return null;
+
+  const duty = await loadEffectiveFridayTutorialDutyForDate(sessionDate);
+  const dutyTypes = getFridayAt6DutyTypesForTeacher(
+    duty,
+    teacherId,
+    tutorialGroup
+  );
+  if (!duty || dutyTypes.length === 0) return null;
+
+  return {
+    duty_id: duty.id,
+    session_date: sessionDate,
+    phase,
+    tutorial_group: tutorialGroup,
+    tutorial_group_label: getTutorialGroupLabel(tutorialGroup),
+    duty_types: dutyTypes,
+    duty_labels: dutyTypes.map((dutyType) => FRIDAY_AT_6_DUTY_LABELS[dutyType]),
+    start_time: "18:00",
+    end_time: "19:00",
+  };
+}
+
 async function requireTeacherOrAdmin(request: NextRequest) {
   const authorization = request.headers.get("authorization");
   const token = authorization?.startsWith("Bearer ")
@@ -102,9 +152,24 @@ export async function GET(request: NextRequest) {
     if (actor.response) return actor.response;
 
     const today = getMadridDateString();
+    const dutyReminder = await loadDutyReminder(today, actor.userId);
     const closure = await getSchoolClosureForDate(today);
     if (closure) {
-      return NextResponse.json({ notices: [], duty: null, school_closed: true, closure });
+      return NextResponse.json({
+        notices: [],
+        duty: null,
+        duty_reminder: dutyReminder,
+        school_closed: true,
+        closure,
+      });
+    }
+    if (getMadridWeekday(today) !== 5) {
+      return NextResponse.json({
+        notices: [],
+        duty: null,
+        duty_reminder: dutyReminder,
+        school_closed: false,
+      });
     }
     const rotation = await loadFridayTutorialRotationContext({ endDate: today });
     const tutorialGroup = getFridayTutorialSessionTypeForDate(
@@ -113,7 +178,12 @@ export async function GET(request: NextRequest) {
       rotation.closures
     );
     if (!tutorialGroup) {
-      return NextResponse.json({ notices: [], duty: null, school_closed: false });
+      return NextResponse.json({
+        notices: [],
+        duty: null,
+        duty_reminder: dutyReminder,
+        school_closed: false,
+      });
     }
 
     const [{ data: sessions, error: sessionError }, duty] =
@@ -294,6 +364,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       notices,
       duty: duty ? { ...duty, tutorial_group: tutorialGroup } : null,
+      duty_reminder: dutyReminder,
       school_closed: false,
     });
   } catch {
