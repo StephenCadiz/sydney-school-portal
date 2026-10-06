@@ -20,7 +20,8 @@ type FridayTutorialPrintItem = {
   level_name: string;
   activity_type: string;
   exam_part: string | null;
-  pdf_url: string;
+  has_exam_part: boolean;
+  pdf_url: string | null;
 };
 
 function getCountsByLevelId(materials: any[]): Record<string, number> {
@@ -420,21 +421,36 @@ function PrintExamsContent() {
                               </p>
                             )}
                           </div>
-                          <a
-                            href={tutorial.pdf_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              background: "var(--ss-blue)",
-                              borderRadius: "8px",
-                              color: "#ffffff",
-                              fontWeight: 700,
-                              padding: "9px 12px",
-                              textDecoration: "none",
-                            }}
-                          >
-                            Open Exam
-                          </a>
+                          {tutorial.pdf_url ? (
+                            <a
+                              href={tutorial.pdf_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                background: "var(--ss-blue)",
+                                borderRadius: "8px",
+                                color: "#ffffff",
+                                fontWeight: 700,
+                                padding: "9px 12px",
+                                textDecoration: "none",
+                              }}
+                            >
+                              Open Exam
+                            </a>
+                          ) : (
+                            <p
+                              style={{
+                                color: "#6b7280",
+                                fontSize: "14px",
+                                margin: 0,
+                                maxWidth: "260px",
+                              }}
+                            >
+                              {tutorial.has_exam_part
+                                ? "No printable exam paper is configured for this exam part."
+                                : "No exam parts have been selected for this Friday Tutorial."}
+                            </p>
+                          )}
                         </article>
                       ))}
                     </div>

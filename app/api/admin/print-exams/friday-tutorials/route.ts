@@ -4,49 +4,15 @@ import {
   examBankJsonError,
   requireExamBankAdmin,
 } from "../../../../../lib/cambridgeExamBankServer";
-import { normalizeCambridgeLevel } from "../../../../../lib/fridayTutorialResults";
-import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import {
-  getFridayTutorialSessionTypeForDate,
-  isB1FridayTutorialSession,
-} from "../../../../../lib/fridayTutorialRotation";
-import { loadFridayTutorialRotationContext } from "../../../../../lib/fridayTutorialRotationServer";
+  isFridayTutorialCambridgeLevel,
+  normalizeCambridgeLevel,
+} from "../../../../../lib/fridayTutorialResults";
+import { getFridayTutorialPrintWindow } from "../../../../../lib/printFridayTutorials";
+import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 
 function one(value: any) {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function getMadridDateString(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Madrid",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-
-  const year = parts.find((part) => part.type === "year")?.value || "";
-  const month = parts.find((part) => part.type === "month")?.value || "";
-  const day = parts.find((part) => part.type === "day")?.value || "";
-
-  return `${year}-${month}-${day}`;
-}
-
-function addDays(dateString: string, days: number) {
-  const date = new Date(`${dateString}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function getTutorialWeekWindow() {
-  const today = getMadridDateString();
-  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
-
-  if (weekday === 0 || weekday === 6) {
-    return null;
-  }
-
-  const monday = addDays(today, 1 - weekday);
-  return { monday, friday: addDays(monday, 4) };
 }
 
 export async function GET(request: NextRequest) {
@@ -54,30 +20,17 @@ export async function GET(request: NextRequest) {
     const admin = await requireExamBankAdmin(request);
     if (admin.response) return admin.response;
 
-    const window = getTutorialWeekWindow();
+    const window = getFridayTutorialPrintWindow();
     if (!window) {
       return NextResponse.json({ tutorials: [] });
     }
-    const rotation = await loadFridayTutorialRotationContext({
-      endDate: window.friday,
-    });
-    const tutorialGroup = getFridayTutorialSessionTypeForDate(
-      rotation.settings || {},
-      window.friday,
-      rotation.closures
-    );
-    if (!tutorialGroup) {
-      return NextResponse.json({ tutorials: [] });
-    }
-
     const { data, error } = await supabaseAdmin
       .from("friday_exam_practice_sessions")
       .select(
         "id, session_date, level_name, activity_type, exam_part, pdf_url, cambridge_exam_part_id"
       )
       .eq("active", true)
-      .gte("session_date", window.monday)
-      .lte("session_date", window.friday)
+      .eq("session_date", window.friday)
       .order("session_date", { ascending: true })
       .order("level_name", { ascending: true })
       .order("activity_type", { ascending: true });
@@ -159,11 +112,7 @@ export async function GET(request: NextRequest) {
       ])
     );
     const tutorials = (data || [])
-      .filter(
-        (tutorial) =>
-          normalizeCambridgeLevel(tutorial.level_name) !== "B1" ||
-          isB1FridayTutorialSession(tutorialGroup)
-      )
+      .filter((tutorial) => isFridayTutorialCambridgeLevel(tutorial.level_name))
       .map((tutorial) => {
         const partId = String(tutorial.cambridge_exam_part_id || "");
         const exactLevel = validPartLevel.get(partId);
@@ -181,13 +130,10 @@ export async function GET(request: NextRequest) {
           level_name: tutorial.level_name,
           activity_type: tutorial.activity_type,
           exam_part: tutorial.exam_part,
+          has_exam_part: Boolean(tutorial.cambridge_exam_part_id),
           pdf_url: pdfUrl,
         };
-      })
-      .filter(
-        (tutorial) =>
-          typeof tutorial.pdf_url === "string" && tutorial.pdf_url.trim()
-      );
+      });
 
     return NextResponse.json({ tutorials });
   } catch {
