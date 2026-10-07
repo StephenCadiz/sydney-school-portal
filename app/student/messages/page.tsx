@@ -10,10 +10,11 @@ import {
   getInboxMessages,
   getSentMessages,
   markMessageAsRead,
-  sendMessage,
+  sendStudentMessage,
 } from "../../../lib/messages";
 import {
   getCurrentTeacher,
+  getCurrentStudentTeachers,
   getCurrentStudentClass,
   getCurrentUser,
 } from "../../../lib/user";
@@ -46,6 +47,7 @@ function getPreview(message: string) {
 export default function StudentMessagesPage() {
   const [studentId, setStudentId] = useState("");
   const [teacher, setTeacher] = useState<any>(null);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [isCambridgeStudent, setIsCambridgeStudent] = useState(false);
   const [inboxMessages, setInboxMessages] = useState<any[]>([]);
   const [sentMessages, setSentMessages] = useState<any[]>([]);
@@ -68,29 +70,38 @@ export default function StudentMessagesPage() {
     currentStudentId = studentId,
     currentTeacher = teacher
   ) {
-    if (!currentStudentId || !currentTeacher?.id) return;
+    const recipients = Array.isArray(currentTeacher)
+      ? currentTeacher
+      : currentTeacher?.id
+      ? [currentTeacher]
+      : teachers;
+    if (!currentStudentId || !recipients.length) return;
 
-    const [inbox, sent] = await Promise.all([
-      getInboxMessages(currentStudentId, currentTeacher.id),
-      getSentMessages(currentStudentId, currentTeacher.id),
+    const [inboxGroups, sentGroups] = await Promise.all([
+      Promise.all(recipients.map((recipient) => getInboxMessages(currentStudentId, recipient.id))),
+      Promise.all(recipients.map((recipient) => getSentMessages(currentStudentId, recipient.id))),
     ]);
 
-    setInboxMessages(inbox);
-    setSentMessages(sent);
+    setInboxMessages(inboxGroups.flat());
+    setSentMessages(sentGroups.flat());
   }
 
   useEffect(() => {
     async function loadInitialMessages() {
       try {
         const user = await getCurrentUser();
-        const currentTeacher = await getCurrentTeacher();
+        const [currentTeachers, currentTeacher] = await Promise.all([
+          getCurrentStudentTeachers(),
+          getCurrentTeacher(),
+        ]);
         const currentClass = await getCurrentStudentClass();
 
         setStudentId(user.id);
         setTeacher(currentTeacher);
+        setTeachers(currentTeachers.length ? currentTeachers : [currentTeacher]);
         setIsCambridgeStudent(currentClass.is_cambridge === true);
 
-        await loadMessages(user.id, currentTeacher);
+        await loadMessages(user.id, currentTeachers);
       } catch (error) {
         console.error("LOAD MESSAGES ERROR:", error);
         setErrorMessage(
@@ -184,8 +195,7 @@ export default function StudentMessagesPage() {
     try {
       if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
       uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
-      await sendMessage({
-        sender_id: studentId,
+      await sendStudentMessage({
         receiver_id: teacher.id,
         subject: subject.trim(),
         message: message.trim(),
@@ -198,12 +208,14 @@ export default function StudentMessagesPage() {
       setAttachmentLink("");
       setAttachmentFiles([]);
       setStatusMessage("Message sent successfully.");
-      await loadMessages();
+      await loadMessages(studentId, teachers.length ? teachers : teacher);
       setActiveTab("sent");
     } catch (error) {
       if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send message:", error);
-      setErrorMessage("Unable to send message.");
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to send message."
+      );
     } finally {
       setSending(false);
     }
@@ -415,13 +427,28 @@ export default function StudentMessagesPage() {
                 <h2>New Message</h2>
 
                 <p>
-                  To:{" "}
-                  <strong>
-                    {teacher
-                      ? teacherDisplayName()
-                      : "Class teacher"}
-                  </strong>
+                  To: {teachers.length > 1 ? "" : <strong>{teacher ? teacherDisplayName() : "Class teacher"}</strong>}
                 </p>
+
+                {teachers.length > 1 && (
+                  <>
+                    <label htmlFor="student-message-recipient">Teacher</label>
+                    <select
+                      id="student-message-recipient"
+                      value={teacher?.id || ""}
+                      onChange={(event) =>
+                        setTeacher(teachers.find((item) => item.id === event.target.value) || null)
+                      }
+                      style={{ ...inputStyle, margin: "6px 0 14px" }}
+                    >
+                      {teachers.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {getStudentFacingTeacherName(item, isCambridgeStudent)}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
 
                 <label>Subject</label>
                 <input

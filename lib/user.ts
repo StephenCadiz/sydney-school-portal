@@ -179,6 +179,53 @@ export async function getCurrentTeacher() {
   return teacher;
 }
 
+/**
+ * Return every teacher attached to the student's current active classes.
+ * The single-teacher helper remains available for existing pages, while
+ * messaging can offer the correct recipient when a student has more than one
+ * active enrolment.
+ */
+export async function getCurrentStudentTeachers() {
+  const user = await getCurrentUser();
+  const { data: enrolments, error: enrolmentError } = await supabase
+    .from("current_class_enrolments")
+    .select("class_id")
+    .eq("student_id", user.id);
+
+  if (enrolmentError) {
+    throw new Error(`Unable to load class enrolment: ${enrolmentError.message}`);
+  }
+
+  const classIds = Array.from(
+    new Set((enrolments || []).map((row) => String(row.class_id || "")).filter(Boolean))
+  );
+  if (!classIds.length) return [];
+
+  const { data: classes, error: classError } = await supabase
+    .from("classes")
+    .select("id, teacher_id")
+    .in("id", classIds);
+  if (classError) throw new Error(`Unable to load class teachers: ${classError.message}`);
+
+  const teacherIds = Array.from(
+    new Set((classes || []).map((row) => String(row.teacher_id || "")).filter(Boolean))
+  );
+  if (!teacherIds.length) return [];
+
+  const { data: teachers, error: teacherError } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", teacherIds)
+    .eq("role", "teacher");
+  if (teacherError) throw new Error(`Unable to load teacher profiles: ${teacherError.message}`);
+
+  return (teachers || []).sort((first, second) =>
+    `${first.first_name || ""} ${first.last_name || ""}`.localeCompare(
+      `${second.first_name || ""} ${second.last_name || ""}`
+    )
+  );
+}
+
 export async function getCurrentTeacherName() {
   const teacher = await getCurrentTeacher();
 

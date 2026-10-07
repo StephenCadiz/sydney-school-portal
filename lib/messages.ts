@@ -660,6 +660,42 @@ export async function sendMessage(message: any) {
   if (error) throw error;
 }
 
+export async function sendStudentMessage(message: {
+  receiver_id: string;
+  subject: string;
+  message: string;
+  attachment_link?: string | null;
+  attachments?: MessageAttachment[];
+}) {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error("Authentication required.");
+  }
+
+  const response = await fetch("/api/student/messages", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(message),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(payload?.error || "Unable to send message.") as Error & {
+      code?: string;
+      status?: number;
+    };
+    error.code = payload?.code;
+    error.status = response.status;
+    throw error;
+  }
+  return payload || { success: true };
+}
+
 export async function getAdminInboxMessages(adminId: string) {
   const { data, error } = await supabase
     .from("messages")
