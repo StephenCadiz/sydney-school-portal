@@ -72,6 +72,8 @@ function validateFridayExamPracticePayload(payload: any) {
   const levelName = normalizeLevelName(payload.level_name);
   const activityType = normalizeActivityType(payload.activity_type);
   const sessionDate = String(payload.session_date || "").trim();
+  const startTime = String(payload.start_time || "18:00").trim();
+  const endTime = String(payload.end_time || "19:00").trim();
   const pdfUrl = String(payload.pdf_url || "").trim();
   const audioUrl = String(payload.audio_url || "").trim();
   const keyUrl = String(payload.key_url || "").trim();
@@ -79,6 +81,12 @@ function validateFridayExamPracticePayload(payload: any) {
 
   if (!sessionDate) {
     throw new Error("Please choose a session date.");
+  }
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
+    throw new Error("Please choose valid Madrid-local start and end times.");
+  }
+  if (startTime >= endTime) {
+    throw new Error("The end time must be after the start time.");
   }
 
   if (!isFridayDate(sessionDate)) {
@@ -99,6 +107,8 @@ function validateFridayExamPracticePayload(payload: any) {
 
   return {
     session_date: sessionDate,
+    start_time: startTime,
+    end_time: endTime,
     level_name: levelName,
     activity_type: activityType,
     exam_part: examPart,
@@ -154,7 +164,7 @@ export async function getFridayExamPracticeSessionsForDate(date: string) {
   if (await isSchoolClosedClient(date)) return [];
   const { data, error } = await supabase
     .from("friday_exam_practice_sessions")
-    .select("id, session_date, level_name, activity_type, exam_part, pdf_url, audio_url, key_url, note, active")
+    .select("*")
     .eq("active", true)
     .eq("session_date", date)
     .order("level_name", { ascending: true });

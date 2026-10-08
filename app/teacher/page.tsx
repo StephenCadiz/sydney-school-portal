@@ -168,6 +168,8 @@ export default function TeacherPage() {
     }
 
     loadData();
+    const refreshTimer = window.setInterval(loadData, 60_000);
+    return () => window.clearInterval(refreshTimer);
   }, [router]);
 
   return (

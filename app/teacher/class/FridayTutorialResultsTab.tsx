@@ -15,6 +15,7 @@ type FridayTutorialResultsTabProps = {
   classId: string;
   levelName: string;
   initialStudentId?: string | null;
+  initialSessionId?: string | null;
   shortcutRequestKey?: number;
 };
 
@@ -66,6 +67,7 @@ export default function FridayTutorialResultsTab({
   classId,
   levelName,
   initialStudentId = null,
+  initialSessionId = null,
   shortcutRequestKey = 0,
 }: FridayTutorialResultsTabProps) {
   const [sessions, setSessions] = useState<FridayTutorialScheduledSessionSummary[]>(
@@ -131,6 +133,12 @@ export default function FridayTutorialResultsTab({
 
       setSessions(loadedSessions);
       setSelectedSessionId((current) => {
+        if (
+          initialSessionId &&
+          loadedSessions.some((session: any) => session.id === initialSessionId)
+        ) {
+          return initialSessionId;
+        }
         if (current && loadedSessions.some((session: any) => session.id === current)) {
           return current;
         }
@@ -156,7 +164,7 @@ export default function FridayTutorialResultsTab({
     } finally {
       setLoadingSessions(false);
     }
-  }, [classId, requestJson]);
+  }, [classId, initialSessionId, requestJson]);
 
   const loadSheet = useCallback(
     async (tutorialSessionId: string) => {

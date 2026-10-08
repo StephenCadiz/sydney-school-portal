@@ -13,7 +13,6 @@ import {
 import {
   getFridayTutorialSessionTypeForDate,
   getTutorialGroupLabel,
-  isB1FridayTutorialSession,
 } from "../../../../lib/fridayTutorialRotation";
 import {
   loadEffectiveFridayTutorialDutyForDate,
@@ -69,6 +68,39 @@ function addDays(value: string, days: number) {
 
 function getMadridWeekday(value: string) {
   return new Date(`${value}T12:00:00Z`).getUTCDay();
+}
+
+function getMadridClock(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    minutes:
+      Number(values.hour || 0) * 60 +
+      Number(values.minute || 0),
+  };
+}
+
+function timeToMinutes(value: unknown, fallback: number) {
+  const match = String(value || "").match(/^(\d{2}):(\d{2})/);
+  if (!match) return fallback;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function isExamPracticeActiveNow(
+  session: { start_time?: string | null; end_time?: string | null },
+  now = new Date()
+) {
+  const start = timeToMinutes(session.start_time, 18 * 60);
+  const end = timeToMinutes(session.end_time, 19 * 60);
+  if (end <= start) return false;
+  const clock = getMadridClock(now);
+  return clock.minutes >= start && clock.minutes < end;
 }
 
 async function loadDutyReminder(today: string, teacherId: string) {
@@ -190,6 +222,35 @@ async function loadTeacherMaterialReminders(today: string, teacherId: string) {
   });
 }
 
+async function loadTeacherScoringLinks(teacherId: string, levelNames: string[]) {
+  const levels = Array.from(new Set(levelNames.map(normalizeCambridgeLevel).filter(Boolean)));
+  if (!teacherId || levels.length === 0) return new Map<string, any[]>();
+  const { data: classes, error: classError } = await supabaseAdmin
+    .from("classes")
+    .select("id, class_name, level_id, teacher_id, is_cambridge")
+    .eq("teacher_id", teacherId)
+    .eq("is_cambridge", true);
+  if (classError) throw classError;
+  const levelIds = Array.from(new Set((classes || []).map((row) => row.level_id).filter(Boolean)));
+  const { data: levelRows, error: levelError } = levelIds.length
+    ? await supabaseAdmin.from("levels").select("id, name").in("id", levelIds)
+    : { data: [], error: null };
+  if (levelError) throw levelError;
+  const levelById = new Map((levelRows || []).map((row) => [String(row.id), normalizeCambridgeLevel(row.name)]));
+  const result = new Map<string, any[]>();
+  for (const classRow of classes || []) {
+    const level = levelById.get(String(classRow.level_id));
+    if (!level || !levels.includes(level)) continue;
+    const link = {
+      class_id: String(classRow.id),
+      class_name: classRow.class_name || "Assigned class",
+      href: `/teacher/class?id=${encodeURIComponent(String(classRow.id))}&tab=friday-tutorial-results`,
+    };
+    result.set(level, [...(result.get(level) || []), link]);
+  }
+  return result;
+}
+
 async function requireTeacherOrAdmin(request: NextRequest) {
   const authorization = request.headers.get("authorization");
   const token = authorization?.startsWith("Bearer ")
@@ -266,23 +327,14 @@ export async function GET(request: NextRequest) {
       today,
       rotation.closures
     );
-    if (!tutorialGroup) {
-      return NextResponse.json({
-        notices: [],
-        duty: null,
-        duty_reminder: dutyReminder,
-        teacher_material_reminders: teacherMaterialReminders,
-        school_closed: false,
-      });
-    }
 
     const [{ data: sessions, error: sessionError }, duty] =
       await Promise.all([
         supabaseAdmin
           .from("friday_exam_practice_sessions")
-          .select(
-            "id, session_date, level_name, activity_type, exam_part, note, active, cambridge_exam_part_id, pdf_url, audio_url, key_url"
-          )
+          // Keep this compatible with pre-times deployments; the migration
+          // adds start_time/end_time while legacy rows remain readable.
+          .select("*")
           .eq("active", true)
           .eq("session_date", today)
           .order("level_name", { ascending: true })
@@ -293,10 +345,14 @@ export async function GET(request: NextRequest) {
     if (sessionError) {
       return jsonError("Unable to load Friday Tutorial notices.", 500);
     }
-    const visibleSessions = (sessions || []).filter(
-      (session) =>
-        normalizeCambridgeLevel(session.level_name) !== "B1" ||
-        isB1FridayTutorialSession(tutorialGroup)
+    // Exam Practice is an independent event source. It is not restricted by
+    // the Friday Tutorial A/B rotation or by the Friday duty teacher.
+    const visibleSessions = (sessions || []).filter((session) =>
+      isExamPracticeActiveNow(session)
+    );
+    const scoringLinksByLevel = await loadTeacherScoringLinks(
+      actor.userId,
+      visibleSessions.map((session) => session.level_name)
     );
 
     const partIds = Array.from(
@@ -375,44 +431,43 @@ export async function GET(request: NextRequest) {
         Boolean(part && exam && allowed) && sessionLevel === examLevel;
 
       if (!exactLinkValid || !partType || !allowed) {
+        const isListening = /listening/i.test(String(session.activity_type || ""));
         const legacyResources = session.cambridge_exam_part_id
-          ? []
+          ? [
+              { resource_type: "paper", label: "Question Paper", url: null },
+              ...(isListening
+                ? [{ resource_type: "audio", label: "Audio", url: null }]
+                : []),
+            ]
           : [
-              session.pdf_url
-                ? {
-                    resource_type: "paper",
-                    label: "Question Paper",
-                    url: session.pdf_url,
-                  }
-                : null,
-              session.audio_url
-                ? {
-                    resource_type: "audio",
-                    label: "Audio",
-                    url: session.audio_url,
-                  }
-                : null,
-              session.key_url
-                ? {
-                    resource_type: "key",
-                    label:
-                      normalizeCambridgeLevel(session.activity_type) ===
-                      "LISTENING"
-                        ? "Key & Transcript"
-                        : "Key",
-                    url: session.key_url,
-                  }
-                : null,
-            ].filter(Boolean);
+              { resource_type: "paper", label: "Question Paper", url: session.pdf_url || null },
+              ...(isListening
+                ? [{ resource_type: "audio", label: "Audio", url: session.audio_url || null }]
+                : []),
+              {
+                resource_type: "key",
+                label: isListening ? "Key & Transcript" : "Key",
+                url: session.key_url || null,
+              },
+            ];
 
         return {
           id: session.id,
           session_date: session.session_date,
+          start_time: session.start_time || "18:00:00",
+          end_time: session.end_time || "19:00:00",
           level_name: sessionLevel,
           activity_type: session.activity_type,
           exam_part: session.exam_part || null,
           note: session.note || null,
           exam_bank: null,
+          scoring_links: (
+            scoringLinksByLevel.get(normalizeCambridgeLevel(session.level_name)) ||
+            []
+          ).map((link) => ({
+            ...link,
+            href: `${link.href}&friday_session_id=${encodeURIComponent(String(session.id))}`,
+          })),
           resources: legacyResources,
           resources_linked: false,
         };
@@ -436,6 +491,8 @@ export async function GET(request: NextRequest) {
       return {
         id: session.id,
         session_date: session.session_date,
+        start_time: session.start_time || "18:00:00",
+        end_time: session.end_time || "19:00:00",
         level_name: sessionLevel,
         activity_type: session.activity_type,
         exam_part: session.exam_part || null,
@@ -446,6 +503,10 @@ export async function GET(request: NextRequest) {
           part_type: partType,
           part_label: getExamPartLabel(sessionLevel, partType),
         },
+        scoring_links: (scoringLinksByLevel.get(sessionLevel) || []).map((link) => ({
+          ...link,
+          href: `${link.href}&friday_session_id=${encodeURIComponent(String(session.id))}`,
+        })),
         resources,
         resources_linked: true,
       };

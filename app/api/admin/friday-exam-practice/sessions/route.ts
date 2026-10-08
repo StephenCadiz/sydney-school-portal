@@ -27,6 +27,8 @@ function serializeSession(row: any) {
   return {
     id: row.id,
     session_date: row.session_date,
+    start_time: row.start_time,
+    end_time: row.end_time,
     level_name: row.level_name,
     activity_type: row.activity_type,
     exam_part: row.exam_part,
@@ -51,6 +53,8 @@ function serializeSession(row: any) {
 const sessionSelect = `
   id,
   session_date,
+  start_time,
+  end_time,
   level_name,
   activity_type,
   exam_part,
@@ -85,6 +89,8 @@ async function validatePayload(input: unknown) {
   const body = input as Record<string, unknown>;
   const allowed = new Set([
     "session_date",
+    "start_time",
+    "end_time",
     "level_name",
     "activity_type",
     "exam_part",
@@ -101,6 +107,8 @@ async function validatePayload(input: unknown) {
   }
 
   const sessionDate = String(body.session_date || "").trim();
+  const startTime = String(body.start_time || "18:00").trim();
+  const endTime = String(body.end_time || "19:00").trim();
   const levelName = String(body.level_name || "").trim().toUpperCase();
   const activityType = String(body.activity_type || "").trim();
   const examPart = String(body.exam_part || "").trim();
@@ -112,6 +120,12 @@ async function validatePayload(input: unknown) {
 
   if (!isDateOnly(sessionDate)) {
     return { value: null, error: "Choose a valid session date." };
+  }
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
+    return { value: null, error: "Choose valid Madrid-local start and end times." };
+  }
+  if (startTime >= endTime) {
+    return { value: null, error: "The end time must be after the start time." };
   }
   const sessionDay = new Date(`${sessionDate}T00:00:00Z`).getUTCDay();
   if (sessionDay !== 5) {
@@ -186,6 +200,8 @@ async function validatePayload(input: unknown) {
   return {
     value: {
       session_date: sessionDate,
+      start_time: startTime,
+      end_time: endTime,
       level_name: levelName,
       activity_type: activityType,
       exam_part: examPart,

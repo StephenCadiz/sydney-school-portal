@@ -71,6 +71,8 @@ const primaryButtonStyle = {
 function emptyExamForm() {
   return {
     session_date: "",
+    start_time: "18:00",
+    end_time: "19:00",
     level_name: "B1",
     activity_type: "Reading",
     exam_part: "",
@@ -323,6 +325,8 @@ export default function FridayAt6Page() {
     setEditingExamId(item.id);
     setExamForm({
       session_date: item.session_date || "",
+      start_time: item.start_time || "18:00",
+      end_time: item.end_time || "19:00",
       level_name: item.level_name || "B1",
       activity_type: item.activity_type || "Reading",
       exam_part: item.exam_part || "",
@@ -865,6 +869,28 @@ export default function FridayAt6Page() {
                 onChange={(event) =>
                   updateExamForm("session_date", event.target.value)
                 }
+                style={inputStyle}
+                required
+              />
+            </label>
+
+            <label>
+              <span style={labelStyle}>Madrid start time</span>
+              <input
+                type="time"
+                value={examForm.start_time}
+                onChange={(event) => updateExamForm("start_time", event.target.value)}
+                style={inputStyle}
+                required
+              />
+            </label>
+
+            <label>
+              <span style={labelStyle}>Madrid end time</span>
+              <input
+                type="time"
+                value={examForm.end_time}
+                onChange={(event) => updateExamForm("end_time", event.target.value)}
                 style={inputStyle}
                 required
               />

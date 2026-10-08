@@ -21,6 +21,24 @@ function ResourceButton({
   );
 }
 
+function formatSessionDate(value: string | null | undefined) {
+  if (!value) return "Friday date unavailable";
+  const [year, month, day] = String(value).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  if (Number.isNaN(date.getTime())) return "Friday date unavailable";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatTime(value: string | null | undefined) {
+  return value ? String(value).slice(0, 5) : "";
+}
+
 export default function FridayExamPracticeCard({
   sessions,
 }: {
@@ -31,11 +49,15 @@ export default function FridayExamPracticeCard({
   }
 
   return (
-    <section className="teacher-dashboard-section teacher-dashboard-friday teacher-dashboard-friday-priority">
+    <section
+      className="teacher-dashboard-section teacher-dashboard-friday teacher-dashboard-friday-priority teacher-dashboard-exam-practice-workspace"
+      aria-label="Active Friday Exam Practice workspace"
+    >
       <div className="teacher-dashboard-section-title">
         <div>
-          <h2>Friday Tutorial</h2>
-          <p>Today · 18:00–19:00</p>
+          <p className="teacher-dashboard-eyebrow">ACTIVE TEACHER WORKSPACE</p>
+          <h2>Friday Exam Practice</h2>
+          <p>Open the configured papers, audio, and scoring workflow for this session.</p>
         </div>
       </div>
 
@@ -44,15 +66,21 @@ export default function FridayExamPracticeCard({
           <article key={session.id}>
             <div className="teacher-dashboard-friday-row">
               <div>
+                <p className="teacher-dashboard-exam-practice-session-time">
+                  {formatSessionDate(session.session_date)} · {formatTime(session.start_time)}–{formatTime(session.end_time)}
+                </p>
                 <h3>
-                  {session.level_name} —{" "}
-                  {session.exam_bank?.part_label || session.activity_type}
+                  {session.level_name} — {session.activity_type} —{" "}
+                  {session.exam_part || session.exam_bank?.part_label || "Exam part"}
                 </h3>
                 {session.exam_bank && (
                   <p>
                     Exam {session.exam_bank.exam_number}
                     {session.exam_bank.exam_title
                       ? ` — ${session.exam_bank.exam_title}`
+                      : ""}
+                    {session.exam_bank.part_label
+                      ? ` · ${session.exam_bank.part_label}`
                       : ""}
                   </p>
                 )}
@@ -61,6 +89,22 @@ export default function FridayExamPracticeCard({
                 )}
                 {!session.resources_linked && (
                   <p>Exam Bank resources not linked</p>
+                )}
+                {session.scoring_links?.length ? (
+                  <div className="teacher-dashboard-exam-practice-scoring">
+                    <strong>Correction and scoring</strong>
+                    <div>
+                      {session.scoring_links.map((link: any) => (
+                        <a key={link.class_id} href={link.href} className="teacher-dashboard-resource-link">
+                          Open scoring · {link.class_name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="teacher-dashboard-exam-practice-readonly">
+                    Scoring opens from the authorised Friday Tutorial Results tab for your class.
+                  </p>
                 )}
               </div>
 

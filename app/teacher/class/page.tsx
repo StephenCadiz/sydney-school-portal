@@ -1136,6 +1136,7 @@ if (classResult.data) {
     classId={classData.id}
     levelName={levelName}
     initialStudentId={fridayTutorialShortcut?.studentId || null}
+    initialSessionId={searchParams.get("friday_session_id") || null}
     shortcutRequestKey={fridayTutorialShortcut?.key || 0}
   />
 )}
