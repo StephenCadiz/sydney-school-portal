@@ -106,6 +106,90 @@ async function loadDutyReminder(today: string, teacherId: string) {
   };
 }
 
+async function loadTeacherMaterialReminders(today: string, teacherId: string) {
+  const { data: sessions, error: sessionsError } = await supabaseAdmin
+    .from("friday_tutorial_sessions")
+    .select("id, session_date, start_time, end_time")
+    .gte("session_date", today)
+    .lte("session_date", addDays(today, 7))
+    .order("session_date", { ascending: true });
+  if (sessionsError) throw sessionsError;
+  if (!sessions?.length) return [];
+
+  const sessionById = new Map(sessions.map((session) => [String(session.id), session]));
+  const { data: rows, error: rowsError } = await supabaseAdmin
+    .from("friday_tutorial_session_students")
+    .select("id, session_id, tutorial_student_id, parent_confirmed_status, material_received_status")
+    .in("session_id", sessions.map((session) => session.id))
+    .eq("parent_confirmed_status", "yes");
+  if (rowsError) throw rowsError;
+
+  const pendingRows = (rows || []).filter((row) => row.material_received_status !== "yes");
+  if (!pendingRows.length) return [];
+  const tutorialIds = Array.from(new Set(pendingRows.map((row) => row.tutorial_student_id).filter(Boolean)));
+  const { data: tutorialStudents, error: tutorialError } = await supabaseAdmin
+    .from("friday_tutorial_students")
+    .select("id, student_type, young_learner_id, teacher_id, class_id, active")
+    .in("id", tutorialIds)
+    .eq("student_type", "young_learner")
+    .eq("active", true)
+    .eq("teacher_id", teacherId);
+  if (tutorialError) throw tutorialError;
+  if (!tutorialStudents?.length) return [];
+
+  const youngLearnerIds = tutorialStudents.map((student) => student.young_learner_id).filter(Boolean);
+  const classIds = tutorialStudents.map((student) => student.class_id).filter(Boolean);
+  const [{ data: learners, error: learnerError }, { data: classes, error: classError }] = await Promise.all([
+    youngLearnerIds.length
+      ? supabaseAdmin.from("young_learners").select("id, first_name, last_name").in("id", youngLearnerIds)
+      : Promise.resolve({ data: [], error: null }),
+    classIds.length
+      ? supabaseAdmin.from("classes").select("id, class_name, level_id").in("id", classIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (learnerError) throw learnerError;
+  if (classError) throw classError;
+  const levelIds = Array.from(new Set((classes || []).map((classRow) => classRow.level_id).filter(Boolean)));
+  const { data: levels, error: levelError } = levelIds.length
+    ? await supabaseAdmin.from("levels").select("id, name").in("id", levelIds)
+    : { data: [], error: null };
+  if (levelError) throw levelError;
+
+  const markerRows = await supabaseAdmin
+    .from("messages")
+    .select("message")
+    .eq("receiver_id", teacherId)
+    .eq("subject", "Friday Tutorial: prepare activities")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (markerRows.error) throw markerRows.error;
+  const messages = markerRows.data || [];
+  const learnerById = new Map((learners || []).map((learner) => [String(learner.id), learner]));
+  const classById = new Map((classes || []).map((classRow) => [String(classRow.id), classRow]));
+  const levelById = new Map((levels || []).map((level) => [String(level.id), level]));
+  const tutorialById = new Map(tutorialStudents.map((student) => [String(student.id), student]));
+
+  return pendingRows.flatMap((row) => {
+    const tutorialStudent = tutorialById.get(String(row.tutorial_student_id));
+    const session = sessionById.get(String(row.session_id));
+    if (!tutorialStudent || !session) return [];
+    const marker = `[friday-tutorial-parent-confirmed:${row.id}]`;
+    if (messages.some((item) => String(item.message || "").includes(marker))) return [];
+    const learner = learnerById.get(String(tutorialStudent.young_learner_id));
+    const classRow = classById.get(String(tutorialStudent.class_id));
+    const level = levelById.get(String(classRow?.level_id));
+    return [{
+      id: String(row.id),
+      student_name: `${learner?.first_name || ""} ${learner?.last_name || ""}`.trim() || "Young Learner",
+      session_date: session.session_date,
+      start_time: session.start_time || null,
+      end_time: session.end_time || null,
+      level_name: level?.name || "Young Learner",
+      class_name: classRow?.class_name || "",
+    }];
+  });
+}
+
 async function requireTeacherOrAdmin(request: NextRequest) {
   const authorization = request.headers.get("authorization");
   const token = authorization?.startsWith("Bearer ")
@@ -153,12 +237,16 @@ export async function GET(request: NextRequest) {
 
     const today = getMadridDateString();
     const dutyReminder = await loadDutyReminder(today, actor.userId);
+    const teacherMaterialReminders = actor.userId
+      ? await loadTeacherMaterialReminders(today, actor.userId)
+      : [];
     const closure = await getSchoolClosureForDate(today);
     if (closure) {
       return NextResponse.json({
         notices: [],
         duty: null,
         duty_reminder: dutyReminder,
+        teacher_material_reminders: teacherMaterialReminders,
         school_closed: true,
         closure,
       });
@@ -168,6 +256,7 @@ export async function GET(request: NextRequest) {
         notices: [],
         duty: null,
         duty_reminder: dutyReminder,
+        teacher_material_reminders: teacherMaterialReminders,
         school_closed: false,
       });
     }
@@ -182,6 +271,7 @@ export async function GET(request: NextRequest) {
         notices: [],
         duty: null,
         duty_reminder: dutyReminder,
+        teacher_material_reminders: teacherMaterialReminders,
         school_closed: false,
       });
     }
@@ -365,6 +455,7 @@ export async function GET(request: NextRequest) {
       notices,
       duty: duty ? { ...duty, tutorial_group: tutorialGroup } : null,
       duty_reminder: dutyReminder,
+      teacher_material_reminders: teacherMaterialReminders,
       school_closed: false,
     });
   } catch {

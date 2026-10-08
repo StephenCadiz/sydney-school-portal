@@ -10287,6 +10287,53 @@ img {
   background: linear-gradient(135deg, rgba(239, 248, 255, 0.96), rgba(255, 255, 255, 0.98));
 }
 
+.teacher-dashboard-friday-material {
+  border-color: #b9d8f0;
+  background: linear-gradient(135deg, rgba(239, 248, 255, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.teacher-dashboard-friday-material-list {
+  display: grid;
+  gap: 12px;
+}
+
+.teacher-dashboard-friday-material-row {
+  align-items: center;
+  border: 1px solid #dceaf5;
+  border-radius: 12px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.teacher-dashboard-friday-material-row strong {
+  color: #172b55;
+  display: block;
+}
+
+.teacher-dashboard-friday-material-row p {
+  color: #46566f;
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
+.teacher-dashboard-friday-material-row button {
+  background: #fff;
+  border: 1px solid #9fc6e7;
+  border-radius: 9px;
+  color: var(--ss-blue-dark);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-weight: 700;
+  padding: 9px 13px;
+}
+
+.teacher-dashboard-friday-material-row button:focus-visible {
+  outline: 3px solid rgba(34, 124, 190, 0.25);
+  outline-offset: 2px;
+}
+
 .teacher-dashboard-duty-reminder-eyebrow {
   color: var(--ss-blue);
   font-size: 11px;
@@ -10725,7 +10772,8 @@ img {
 
   .teacher-dashboard-section-title,
   .teacher-dashboard-announcement-content,
-  .teacher-dashboard-friday-row {
+  .teacher-dashboard-friday-row,
+  .teacher-dashboard-friday-material-row {
     align-items: stretch;
     flex-direction: column;
   }

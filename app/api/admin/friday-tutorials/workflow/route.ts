@@ -136,7 +136,7 @@ async function notifyYoungLearnerTeacher(
         .maybeSingle(),
       supabaseAdmin
         .from("classes")
-        .select("id, name, days, start_time, end_time, level_id")
+        .select("id, class_name, days, start_time, end_time, level_id")
         .eq("id", tutorialStudent.class_id)
         .maybeSingle(),
     ]);
@@ -155,7 +155,7 @@ async function notifyYoungLearnerTeacher(
   const studentName = fullName(student);
   const marker = `[friday-tutorial-parent-confirmed:${sessionStudent.id}]`;
   const details = [
-    `${studentName} (${level?.name || "Young Learner"}${classRow?.name ? `, ${classRow.name}` : ""})`,
+    `${studentName} (${level?.name || "Young Learner"}${classRow?.class_name ? `, ${classRow.class_name}` : ""})`,
     `Friday ${session.session_date} ${String(session.start_time || "18:00").slice(0, 5)}–${String(session.end_time || "19:00").slice(0, 5)}`,
     "Instruction: prepare activities for the student and send them to Admin as soon as possible.",
     marker,

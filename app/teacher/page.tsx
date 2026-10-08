@@ -12,6 +12,7 @@ import FridayExamPracticeCard from "../components/teacher/FridayExamPracticeCard
 import FridayAt6DutyCard from "../components/teacher/FridayAt6DutyCard";
 import FridayTutorialDutyReminderCard from "../components/teacher/FridayTutorialDutyReminderCard";
 import FridayTutorialAttendanceCard from "../components/teacher/FridayTutorialAttendanceCard";
+import FridayTutorialTeacherMaterialReminderCard from "../components/teacher/FridayTutorialTeacherMaterialReminderCard";
 import TeacherWorkingDayPanel from "../components/teacher/TeacherWorkingDayPanel";
 import { supabase } from "../../lib/supabase";
 import {
@@ -99,6 +100,7 @@ export default function TeacherPage() {
     useState<any[]>([]);
   const [fridayAt6Duty, setFridayAt6Duty] = useState<any | null>(null);
   const [fridayDutyReminder, setFridayDutyReminder] = useState<any | null>(null);
+  const [teacherMaterialReminders, setTeacherMaterialReminders] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadData() {
@@ -147,6 +149,7 @@ export default function TeacherPage() {
 
         setFridayExamPracticeSessions(noticeResult.notices || []);
         setFridayDutyReminder(noticeResult.duty_reminder || null);
+        setTeacherMaterialReminders(noticeResult.teacher_material_reminders || []);
         setFridayAt6Duty(
           !noticeResult.school_closed && dutyTypes.length > 0
             ? {
@@ -159,6 +162,7 @@ export default function TeacherPage() {
         console.error("Unable to load Friday @ 6 dashboard items:", error);
         setFridayExamPracticeSessions([]);
         setFridayDutyReminder(null);
+        setTeacherMaterialReminders([]);
         setFridayAt6Duty(null);
       }
     }
@@ -221,6 +225,7 @@ export default function TeacherPage() {
         <div className="teacher-dashboard-feed">
           <TeacherAnnouncementBanner teacherId={teacherId} />
           <TeacherMessageNotifications teacherId={teacherId} />
+          <FridayTutorialTeacherMaterialReminderCard reminders={teacherMaterialReminders} />
           <FridayTutorialDutyReminderCard reminder={fridayDutyReminder} />
           <FridayAt6DutyCard duty={fridayAt6Duty} />
           <FridayTutorialAttendanceCard />

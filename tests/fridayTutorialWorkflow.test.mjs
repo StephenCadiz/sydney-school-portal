@@ -52,6 +52,8 @@ test("Parent confirmation notifies only the recommending Young Learner teacher",
   assert.match(workflowRoute, /parent_confirmed_status\.is\.null/);
   assert.match(workflowRoute, /prepare activities for the student and send them to Admin as soon as possible\./);
   assert.match(workflowRoute, /friday-tutorial-parent-confirmed/);
+  assert.match(workflowRoute, /select\("id, class_name, days, start_time, end_time, level_id"\)/);
+  assert.match(workflowRoute, /classRow\?\.class_name/);
 });
 
 test("Notification retries are idempotent and do not create duplicates", () => {
