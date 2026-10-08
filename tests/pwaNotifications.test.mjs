@@ -33,6 +33,10 @@ test("install and push controls are opt-in and do not repeatedly show dismissed 
   assert.match(client, /Notification\.requestPermission\(\)/);
   assert.match(client, /userVisibleOnly: true/);
   assert.match(client, /Enable notifications/);
+  assert.match(client, /pushManager\.getSubscription\(\)/);
+  assert.match(client, /subscriptionMatchesKey/);
+  assert.match(client, /subscription\.unsubscribe\(\)/);
+  assert.match(client, /could not register for push notifications/);
 });
 
 test("subscriptions are authenticated, role-scoped, removable, and deduplicated", () => {
@@ -49,6 +53,14 @@ test("server push delivery is idempotent and removes expired subscriptions", () 
   assert.match(server, /event_key/);
   assert.match(server, /statusCode === 404 \|\| error\?\.statusCode === 410/);
   assert.match(server, /sendNotification/);
+});
+
+test("Admin message push responses retain a safe unavailability reason", () => {
+  const adminRoute = read("app/api/admin/messages/send/route.ts");
+  assert.match(adminRoute, /pushReason/);
+  assert.match(adminRoute, /reason: pushReason/);
+  assert.match(adminRoute, /logFailure\("push-dispatch"/);
+  assert.doesNotMatch(adminRoute, /console\.log\([^\n]*(endpoint|p256dh|auth|message)/i);
 });
 
 test("direct messages and Young Learner material reminders use the shared push service", () => {

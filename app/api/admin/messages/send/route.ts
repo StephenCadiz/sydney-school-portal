@@ -5,10 +5,27 @@ import { requireExamBankAdmin } from "../../../../../lib/cambridgeExamBankServer
 import { sendPortalPush } from "../../../../../lib/pushNotificationsServer";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+// RFC 4122 UUIDs are 8-4-4-4-12.  The variant group contains one
+// constrained nibble followed by three more hex characters (not twelve).
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function errorResponse(error: string, status = 400) {
   return NextResponse.json({ success: false, error }, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+function pushUnavailableMessage(reason: string | null) {
+  switch (reason) {
+    case "vapid_not_configured":
+      return "Message sent; push notifications are not configured on this server.";
+    case "no_subscriptions":
+      return "Message sent; the recipient has no active push subscription.";
+    case "subscription_store_unavailable":
+      return "Message sent; push subscription storage is unavailable.";
+    case "delivery_failed":
+      return "Message sent; the push provider did not accept delivery.";
+    default:
+      return "Message sent; push notification unavailable.";
+  }
 }
 
 function validAttachments(value: unknown) {
@@ -36,13 +53,77 @@ function recipientIdValues(body: any) {
   return values;
 }
 
-function recipientIdValue(value: unknown) {
-  if (typeof value === "string") return value.trim();
+function recipientKeysPresent(body: any) {
+  return ["teacherIds", "teacherId", "teacher_id", "recipientId", "recipient_id"].filter(
+    (key) => body?.[key] !== undefined && body?.[key] !== null
+  );
+}
+
+function recipientIdValue(value: unknown, depth = 0): string {
+  if (depth > 2) return "";
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    // Accept the documented profile:<uuid> alias and JSON-encoded legacy
+    // values emitted by older form serializers, while still validating the
+    // final value against the UUID allow-list below.
+    const profileAlias = trimmed.match(/^profile:(.+)$/i)?.[1]?.trim();
+    if (profileAlias) return recipientIdValue(profileAlias, depth + 1);
+
+    if (
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
+      const unquoted = trimmed.slice(1, -1).trim();
+      return recipientIdValue(unquoted, depth + 1);
+    }
+
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        return recipientIdValue(JSON.parse(trimmed), depth + 1);
+      } catch {
+        return trimmed;
+      }
+    }
+
+    return trimmed;
+  }
+
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
-    return String(record.id || record.profileId || record.teacherId || record.value || "").trim();
+    return recipientIdValue(
+      record.id || record.profileId || record.teacherId || record.value || "",
+      depth + 1
+    );
   }
+
   return "";
+}
+
+function recipientValueShapes(values: unknown[]) {
+  return values.map((value) => {
+    const normalized = recipientIdValue(value);
+    const raw = typeof value === "string" ? value.trim() : "";
+    const category = UUID.test(normalized)
+      ? "uuid"
+      : raw.startsWith("profile:")
+        ? "profile-wrapper"
+        : raw.startsWith("{") || raw.startsWith("[")
+          ? "json-wrapper"
+          : /\s/.test(normalized)
+            ? "text-or-whitespace"
+            : /^[0-9a-f-]{36}$/i.test(normalized)
+              ? "uuid-shape-invalid"
+              : "other";
+    return {
+      type: Array.isArray(value) ? "array" : value === null ? "null" : typeof value,
+      length: normalized.length,
+      category,
+      uuidLike: UUID.test(normalized),
+    };
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -62,7 +143,13 @@ export async function POST(request: NextRequest) {
   if (!teacherIds.length) {
     const hasRecipientValue = normalizedRecipientValues.some(Boolean);
     const reason = hasRecipientValue ? "invalid-recipient-format" : "missing-recipient";
-    logFailure("validation", null, { reason, recipientKeyCount: rawRecipientValues.length, correlationId });
+    logFailure("validation", null, {
+      reason,
+      recipientKeyCount: rawRecipientValues.length,
+      recipientKeys: recipientKeysPresent(body),
+      recipientValueShapes: recipientValueShapes(rawRecipientValues),
+      correlationId,
+    });
     return errorResponse(
       hasRecipientValue
         ? "The selected teacher recipient is invalid. Please choose a teacher again."
@@ -96,9 +183,13 @@ export async function POST(request: NextRequest) {
     logFailure("teacher-lookup", teacherError, { recipientCount: teacherIds.length, correlationId });
     return errorResponse("Unable to verify the teacher recipient.", 500);
   }
-  if ((teachers || []).length !== teacherIds.length || (teachers || []).some((teacher) => teacher.role !== "teacher")) {
+  if ((teachers || []).length !== teacherIds.length) {
+    logFailure("validation", null, { reason: "teacher-not-found", recipientCount: teacherIds.length, correlationId });
+    return errorResponse("The selected teacher recipient could not be found.", 404);
+  }
+  if ((teachers || []).some((teacher) => String(teacher.role || "").trim().toLowerCase() !== "teacher")) {
     logFailure("validation", null, { reason: "invalid-teacher-recipient", recipientCount: teacherIds.length, correlationId });
-    return errorResponse("The selected teacher recipient is not authorized.", 403);
+    return errorResponse("The selected recipient is not an authorized teacher.", 403);
   }
 
   const sharedAdminIdentity = isRosa && senderIdentity === "admin";
@@ -126,13 +217,19 @@ export async function POST(request: NextRequest) {
   }
   let pushSent = 0;
   let pushUnavailable = false;
+  let pushReason: string | null = null;
   for (const row of inserted || []) {
     try {
       const result = await sendPortalPush([String(row.receiver_id)], { eventKey: `message:${row.id}`, title: "New message from Admin", body: "You have a new message from Admin.", url: "/teacher/messages", tag: `message:${row.id}` });
       pushSent += result.sent;
       pushUnavailable ||= result.skipped;
+      if (result.skipped) {
+        pushReason = result.reason || "unavailable";
+        logFailure("push-dispatch", null, { reason: pushReason, recipientCount: 1, correlationId });
+      }
     } catch (error: any) {
       pushUnavailable = true;
+      pushReason = "delivery_failed";
       logFailure("push-dispatch", error, { recipientCount: 1, correlationId });
     }
   }
@@ -140,7 +237,7 @@ export async function POST(request: NextRequest) {
     success: true,
     count: rows.length,
     ids: (inserted || []).map((row) => row.id),
-    push: { sent: pushSent, unavailable: pushUnavailable },
-    ...(pushUnavailable ? { message: "Message sent; push notification unavailable." } : {}),
+    push: { sent: pushSent, unavailable: pushUnavailable, reason: pushReason },
+    ...(pushUnavailable ? { message: pushUnavailableMessage(pushReason) } : {}),
   }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -19,3 +19,12 @@ create subscriptions or send notifications by itself.
 Push permission is requested only after a user action. iOS/iPadOS requires the
 portal to be installed on the Home Screen before Web Push is available. Users
 can disable a device subscription from the same portal control.
+
+## Local development
+
+Localhost is a separate origin from production. A production PWA subscription
+must not be assumed to work from `http://localhost:3000`: the local server needs
+the same VAPID public/private pair and subject to deliver to it. If those values
+are absent locally, message insertion still succeeds but push is reported as
+unavailable. Use local-only VAPID values in an ignored `.env.local` file for
+local testing; never copy production private keys into the repository or logs.

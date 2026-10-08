@@ -16,6 +16,20 @@ function base64ToBytes(value: string) {
   return Uint8Array.from(raw, (char) => char.charCodeAt(0));
 }
 
+function bytesToBase64Url(value: ArrayBuffer | ArrayBufferView | null | undefined) {
+  if (!value) return "";
+  const bytes = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function subscriptionMatchesKey(subscription: PushSubscription, publicKey: string) {
+  const registeredKey = subscription.options?.applicationServerKey;
+  if (registeredKey) return bytesToBase64Url(registeredKey) === publicKey;
+  try { return localStorage.getItem("sydney-school-push-vapid-key") === publicKey; } catch { return false; }
+}
+
 export default function PwaInstallAndNotifications() {
   const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
   const [showInstall, setShowInstall] = useState(false);
@@ -40,7 +54,13 @@ export default function PwaInstallAndNotifications() {
     const dismissed = (() => { try { return localStorage.getItem("sydney-school-pwa-install-dismissed") === "1"; } catch { return false; } })();
     if (!dismissed && /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.matchMedia("(display-mode: standalone)").matches) setShowInstall(true);
     if (!("Notification" in window) || !("PushManager" in window)) setPushState("unavailable");
-    else void navigator.serviceWorker.ready.then((registration) => registration.pushManager.getSubscription()).then((subscription) => { if (subscription) setPushState("enabled"); }).catch(() => undefined);
+    else void navigator.serviceWorker.ready.then(async (registration) => {
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) return;
+      const keyResponse = await fetch("/api/push/public-key", { cache: "no-store" });
+      const keyPayload = await keyResponse.json().catch(() => ({}));
+      if (keyResponse.ok && keyPayload.publicKey && subscriptionMatchesKey(subscription, keyPayload.publicKey)) setPushState("enabled");
+    }).catch(() => undefined);
     return () => window.removeEventListener("beforeinstallprompt", onInstall);
   }, []);
 
@@ -60,18 +80,29 @@ export default function PwaInstallAndNotifications() {
   async function enablePush() {
     if (!("serviceWorker" in navigator) || !("Notification" in window) || !("PushManager" in window)) { setPushState("unavailable"); return; }
     setPushState("saving"); setMessage("");
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") { setPushState("denied"); setMessage("Notifications are disabled. You can enable them in your browser settings."); return; }
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) { setPushState("denied"); setMessage("Your session has expired. Sign in again to enable notifications."); return; }
-    const keyResponse = await fetch("/api/push/public-key", { cache: "no-store" });
-    const keyPayload = await keyResponse.json().catch(() => ({}));
-    if (!keyResponse.ok || !keyPayload.publicKey) { setPushState("unavailable"); setMessage("Push notifications are not configured on this device yet."); return; }
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64ToBytes(keyPayload.publicKey) });
-    const response = await fetch("/api/push/subscription", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ subscription: subscription.toJSON() }) });
-    if (!response.ok) { setPushState("denied"); setMessage((await response.json().catch(() => ({}))).error || "Unable to save notification settings."); return; }
-    setPushState("enabled"); setMessage("Push notifications are enabled on this device.");
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { setPushState("denied"); setMessage("Notifications are disabled. You can enable them in your browser settings."); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) { setPushState("denied"); setMessage("Your session has expired. Sign in again to enable notifications."); return; }
+      const keyResponse = await fetch("/api/push/public-key", { cache: "no-store" });
+      const keyPayload = await keyResponse.json().catch(() => ({}));
+      if (!keyResponse.ok || !keyPayload.publicKey) { setPushState("unavailable"); setMessage("Push notifications are not configured on this device yet."); return; }
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (subscription && !subscriptionMatchesKey(subscription, keyPayload.publicKey)) {
+        await subscription.unsubscribe();
+        subscription = null;
+      }
+      if (!subscription) subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64ToBytes(keyPayload.publicKey) });
+      const response = await fetch("/api/push/subscription", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ subscription: subscription.toJSON() }) });
+      if (!response.ok) { setPushState("denied"); setMessage((await response.json().catch(() => ({}))).error || "Unable to save notification settings."); return; }
+      try { localStorage.setItem("sydney-school-push-vapid-key", keyPayload.publicKey); } catch { /* best effort */ }
+      setPushState("enabled"); setMessage("Push notifications are enabled on this device.");
+    } catch {
+      setPushState("unavailable");
+      setMessage("This installed app could not register for push notifications. Try enabling notifications again from the app.");
+    }
   }
 
   async function disablePush() {

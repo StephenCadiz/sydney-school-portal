@@ -18,7 +18,7 @@ test("Admin-to-Teacher messages dispatch one push per inserted recipient without
 });
 
 test("Admin send route validates teacher recipients and preserves private message targeting", () => {
-  assert.match(route, /teacher\.role !== "teacher"/);
+  assert.match(route, /teacher\.role \|\| ""\)\.trim\(\)\.toLowerCase\(\) !== "teacher"/);
   assert.match(route, /recipient_group: sharedAdminIdentity \? "admin" : null/);
   assert.match(route, /senderIdentity === "rosa"/);
 });
@@ -45,7 +45,9 @@ test("push failure is best effort and does not replace the in-app message", () =
 test("missing push configuration or push storage cannot block an inserted Admin message", () => {
   assert.match(push, /reason: "vapid_not_configured"/);
   assert.match(push, /reason: "subscription_store_unavailable"/);
-  assert.match(route, /success: true,[\s\S]*push: \{ sent: pushSent, unavailable: pushUnavailable \}/);
+  assert.match(route, /success: true,[\s\S]*push: \{ sent: pushSent, unavailable: pushUnavailable, reason: pushReason \}/);
+  assert.match(route, /pushUnavailableMessage/);
+  assert.match(route, /push notifications are not configured on this server/);
 });
 
 test("recent exact sends are idempotent for individual and broadcast recipients", () => {
@@ -58,6 +60,10 @@ test("recent exact sends are idempotent for individual and broadcast recipients"
 test("recipient parsing accepts the deployed client field and safe legacy aliases", () => {
   assert.match(route, /\["teacherIds", "teacherId", "teacher_id", "recipientId", "recipient_id"\]/);
   assert.match(route, /record\.id \|\| record\.profileId \|\| record\.teacherId/);
+  assert.match(route, /profile:\(\.\+\)\$/i);
+  assert.match(route, /JSON\.parse\(trimmed\)/);
+  assert.match(route, /recipientKeys: recipientKeysPresent\(body\)/);
+  assert.match(route, /recipientValueShapes/);
   assert.match(route, /correlationId/);
 });
 
@@ -76,7 +82,7 @@ test("switching away from individual mode clears the teacher selection", () => {
 test("validation errors remain specific while database and push failures stay generic", () => {
   assert.match(route, /Please select a teacher recipient\./);
   assert.match(route, /selected teacher recipient is invalid/);
-  assert.match(route, /selected teacher recipient is not authorized/);
+  assert.match(route, /selected recipient is not an authorized teacher/);
   assert.match(route, /Unable to send message\./);
   assert.match(adminPage, /error instanceof Error && error\.message \? error\.message : "Unable to send message\."/);
 });
@@ -89,4 +95,32 @@ test("individual recipient authorization is server authoritative", () => {
   assert.match(messages, /fetch\("\/api\/admin\/messages\/send"/);
   assert.doesNotMatch(individualSender, /receiverProfile\?\.role !== "teacher"/);
   assert.match(route, /\.from\("profiles"\)\.select\("id, role"\)\.in\("id", teacherIds\)/);
+  assert.match(route, /teacher-not-found/);
+  assert.match(route, /selected recipient is not an authorized teacher/);
+});
+
+test("Stephen's canonical profile UUID is accepted without name or Auth-ID substitution", () => {
+  assert.match(adminPage, /value=\{teacher\.id\}/);
+  assert.match(messages, /body: JSON\.stringify\(\{ teacherId, subject, message/);
+  assert.match(route, /const UUID = \/\^\[0-9a-f\]\{8\}-\[0-9a-f\]\{4\}-\[1-5\]\[0-9a-f\]\{3\}-\[89ab\]\[0-9a-f\]\{3\}-\[0-9a-f\]\{12\}\$\/i/);
+  assert.doesNotMatch(route, /-\[89ab\]\[0-9a-f\]\{12\}\$\/i/);
+  assert.match(route, /UUID\.test\(normalized\)/);
+  assert.match(route, /String\(teacher\.role \|\| \"\"\)\.trim\(\)\.toLowerCase\(\) !== \"teacher\"/);
+});
+
+test("the real Stephen profile UUID survives the form-to-route contract", () => {
+  const stephenProfileId = "4dc8e050-349e-4354-a25c-aed1c804a0f7";
+  assert.match(adminPage, /teacherSelectRef\.current\?\.value \|\| teacherId/);
+  assert.match(adminPage, /teacherId: selectedTeacherId/);
+  assert.match(messages, /body: JSON\.stringify\(\{ teacherId, subject, message/);
+  assert.match(stephenProfileId, /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  assert.match(route, /\.from\("profiles"\)\.select\("id, role"\)\.in\("id", teacherIds\)/);
+});
+
+test("recipient validation fails closed for empty, malformed, missing, and non-teacher values", () => {
+  assert.match(route, /const hasRecipientValue = normalizedRecipientValues\.some\(Boolean\)/);
+  assert.match(route, /hasRecipientValue \? "invalid-recipient-format" : "missing-recipient"/);
+  assert.match(route, /The selected teacher recipient could not be found\./);
+  assert.match(route, /The selected recipient is not an authorized teacher\./);
+  assert.match(route, /\.trim\(\)\.toLowerCase\(\) !== "teacher"/);
 });
