@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 
 import { requireExamBankAdmin } from "../../../../../lib/cambridgeExamBankServer";
 import { sendPortalPush } from "../../../../../lib/pushNotificationsServer";
@@ -25,12 +26,32 @@ function logFailure(stage: string, error: any, extra: Record<string, unknown> = 
   });
 }
 
+function recipientIdValues(body: any) {
+  const values: unknown[] = [];
+  for (const key of ["teacherIds", "teacherId", "teacher_id", "recipientId", "recipient_id"]) {
+    const value = body?.[key];
+    if (Array.isArray(value)) values.push(...value);
+    else if (value !== undefined && value !== null) values.push(value);
+  }
+  return values;
+}
+
+function recipientIdValue(value: unknown) {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return String(record.id || record.profileId || record.teacherId || record.value || "").trim();
+  }
+  return "";
+}
+
 export async function POST(request: NextRequest) {
+  const correlationId = request.headers.get("x-correlation-id")?.trim().slice(0, 80) || randomUUID();
   const admin = await requireExamBankAdmin(request);
   if (admin.response) return admin.response;
   const body = await request.json().catch(() => null);
-  const candidateTeacherIds = (Array.isArray(body?.teacherIds) ? body.teacherIds : [body?.teacherId])
-    .map((value: unknown) => String(value || "").trim())
+  const candidateTeacherIds = recipientIdValues(body)
+    .map(recipientIdValue)
     .filter((value: string) => UUID.test(value));
   const teacherIds: string[] = Array.from(new Set<string>(candidateTeacherIds));
   const subject = String(body?.subject || "").trim();
@@ -39,25 +60,25 @@ export async function POST(request: NextRequest) {
   const attachmentLink = typeof body?.attachment_link === "string" ? body.attachment_link.trim() || null : null;
   const attachments = body?.attachments === undefined || body?.attachments === null ? [] : body.attachments;
   if (!teacherIds.length) {
-    logFailure("validation", null, { reason: "missing-recipient" });
+    logFailure("validation", null, { reason: "missing-recipient", correlationId });
     return errorResponse("Please select a teacher recipient.");
   }
   if (!subject) {
-    logFailure("validation", null, { reason: "missing-subject" });
+    logFailure("validation", null, { reason: "missing-subject", correlationId });
     return errorResponse("Subject is required.");
   }
   if (!message) {
-    logFailure("validation", null, { reason: "missing-message" });
+    logFailure("validation", null, { reason: "missing-message", correlationId });
     return errorResponse("Message is required.");
   }
   if (!validAttachments(attachments)) {
-    logFailure("validation", null, { reason: "invalid-attachments" });
+    logFailure("validation", null, { reason: "invalid-attachments", correlationId });
     return errorResponse("One or more attachments are invalid.");
   }
 
   const { data: sender, error: senderError } = await supabaseAdmin.from("profiles").select("id, first_name, last_name, role").eq("id", admin.userId).single();
   if (senderError) {
-    logFailure("sender-lookup", senderError, { actorId: admin.userId });
+    logFailure("sender-lookup", senderError, { actorId: admin.userId, correlationId });
     return errorResponse("Unable to verify Admin access.", 500);
   }
   if (sender?.role !== "admin") return errorResponse("Admin access required.", 403);
@@ -66,11 +87,11 @@ export async function POST(request: NextRequest) {
 
   const { data: teachers, error: teacherError } = await supabaseAdmin.from("profiles").select("id, role").in("id", teacherIds);
   if (teacherError) {
-    logFailure("teacher-lookup", teacherError, { recipientCount: teacherIds.length });
+    logFailure("teacher-lookup", teacherError, { recipientCount: teacherIds.length, correlationId });
     return errorResponse("Unable to verify the teacher recipient.", 500);
   }
   if ((teachers || []).length !== teacherIds.length || (teachers || []).some((teacher) => teacher.role !== "teacher")) {
-    logFailure("validation", null, { reason: "invalid-teacher-recipient", recipientCount: teacherIds.length });
+    logFailure("validation", null, { reason: "invalid-teacher-recipient", recipientCount: teacherIds.length, correlationId });
     return errorResponse("Please select a teacher recipient.", 400);
   }
 
@@ -84,7 +105,7 @@ export async function POST(request: NextRequest) {
     .eq("subject", subject)
     .eq("message", message)
     .gte("created_at", recentCutoff);
-  if (recentError) logFailure("duplicate-check", recentError, { recipientCount: teacherIds.length });
+  if (recentError) logFailure("duplicate-check", recentError, { recipientCount: teacherIds.length, correlationId });
   const alreadySentTo = new Set<string>((recentMessages || []).map((row) => String(row.receiver_id)));
   const rows = teacherIds
     .filter((teacherId) => !alreadySentTo.has(teacherId))
@@ -94,7 +115,7 @@ export async function POST(request: NextRequest) {
   }
   const { data: inserted, error: insertError } = await supabaseAdmin.from("messages").insert(rows).select("id, receiver_id");
   if (insertError) {
-    logFailure("message-insert", insertError, { recipientCount: rows.length });
+    logFailure("message-insert", insertError, { recipientCount: rows.length, correlationId });
     return errorResponse("Unable to send message.", 500);
   }
   let pushSent = 0;
@@ -106,7 +127,7 @@ export async function POST(request: NextRequest) {
       pushUnavailable ||= result.skipped;
     } catch (error: any) {
       pushUnavailable = true;
-      logFailure("push-dispatch", error, { recipientCount: 1 });
+      logFailure("push-dispatch", error, { recipientCount: 1, correlationId });
     }
   }
   return NextResponse.json({

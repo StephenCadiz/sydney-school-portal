@@ -6,6 +6,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf
 const route = read("app/api/admin/messages/send/route.ts");
 const messages = read("lib/messages.ts");
 const push = read("lib/pushNotificationsServer.ts");
+const adminPage = read("app/admin/messages/page.tsx");
 
 test("Admin-to-Teacher messages dispatch one push per inserted recipient without changing in-app insertion", () => {
   assert.match(route, /from\("messages"\)\.insert\(rows\)/);
@@ -52,4 +53,16 @@ test("recent exact sends are idempotent for individual and broadcast recipients"
   assert.match(route, /\.eq\("sender_id", admin\.userId\)/);
   assert.match(route, /alreadySentTo/);
   assert.match(route, /duplicate: true/);
+});
+
+test("recipient parsing accepts the deployed client field and safe legacy aliases", () => {
+  assert.match(route, /\["teacherIds", "teacherId", "teacher_id", "recipientId", "recipient_id"\]/);
+  assert.match(route, /record\.id \|\| record\.profileId \|\| record\.teacherId/);
+  assert.match(route, /correlationId/);
+});
+
+test("validation errors remain specific while database and push failures stay generic", () => {
+  assert.match(route, /Please select a teacher recipient\./);
+  assert.match(route, /Unable to send message\./);
+  assert.match(adminPage, /error instanceof Error && error\.message \? error\.message : "Unable to send message\."/);
 });

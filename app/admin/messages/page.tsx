@@ -458,7 +458,7 @@ export default function AdminMessagesPage() {
     } catch (error) {
       if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send admin message:", error);
-      setErrorMessage("Unable to send message.");
+      setErrorMessage(error instanceof Error && error.message ? error.message : "Unable to send message.");
     } finally {
       setSending(false);
     }
