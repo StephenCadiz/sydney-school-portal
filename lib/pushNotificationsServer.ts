@@ -109,6 +109,8 @@ export async function sendPortalPush(recipientProfileIds: string[], notification
       await webpush.sendNotification({ endpoint: subscription.endpoint, expirationTime: subscription.expiration_time, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, JSON.stringify({
         title: notification.title,
         body: notification.body,
+        icon: "/LOGO.png",
+        badge: "/LOGO.png",
         url: notification.url || "/",
         tag: notification.tag || notification.eventKey,
       }));

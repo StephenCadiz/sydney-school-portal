@@ -830,9 +830,15 @@ export async function sendAdminMessageToTeacher({
   }
   if (attachments?.length) payload.attachments = attachments;
 
-  const { error } = await supabase.from("messages").insert([payload]);
-
-  if (error) throw error;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Your session has expired. Please sign in again.");
+  const response = await fetch("/api/admin/messages/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ teacherId, subject, message, attachment_link, attachments, senderIdentity }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Unable to send message.");
 }
 
 export async function sendAdminMessageToAllTeachers({
@@ -894,11 +900,16 @@ export async function sendAdminMessageToAllTeachers({
     throw new Error("No valid teachers found.");
   }
 
-  const { error } = await supabase.from("messages").insert(rows);
-
-  if (error) throw error;
-
-  return rows.length;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Your session has expired. Please sign in again.");
+  const response = await fetch("/api/admin/messages/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ teacherIds: rows.map((row) => row.receiver_id), subject, message, attachment_link, attachments, senderIdentity }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Unable to send message.");
+  return Number(result.count || rows.length);
 }
 
 export async function getInboxMessages(

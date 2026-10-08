@@ -61,6 +61,7 @@ test("direct messages and Young Learner material reminders use the shared push s
   assert.match(read("app/api/student/friday-tutorial-reminder/route.ts"), /sendPortalPush/);
   assert.match(read("app/api/student/homework/route.ts"), /sendPortalPush/);
   assert.match(read("app/api/teacher/friday-tutorial-notices/route.ts"), /sendPortalPush/);
+  assert.match(read("app/api/admin/messages/send/route.ts"), /sendPortalPush/);
   assert.match(read("app/api/push/self/route.ts"), /authenticatePortalActor/);
   assert.match(read("app/components/student/StudentAnnouncementBanner.tsx"), /notifySelf/);
   assert.match(read("app/components/teacher/TeacherAnnouncementBanner.tsx"), /notifySelf/);
