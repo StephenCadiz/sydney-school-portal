@@ -10031,6 +10031,18 @@ img {
   gap: 18px;
 }
 
+.teacher-dashboard-notification-feed {
+  margin-bottom: 22px;
+}
+
+.teacher-dashboard-notification-feed > .teacher-dashboard-section {
+  border-left: 4px solid #dc2626;
+}
+
+.teacher-dashboard-notification-feed > .teacher-dashboard-section h2 {
+  font-weight: 800;
+}
+
 .teacher-dashboard-section,
 .teacher-dashboard-tools {
   background: #ffffff;

@@ -174,6 +174,20 @@ export default function TeacherPage() {
     <TeacherLayout>
       {() => (
       <main className="teacher-dashboard-page">
+        <div
+          className="teacher-dashboard-feed teacher-dashboard-notification-feed"
+          role="region"
+          aria-label="Teacher notifications"
+        >
+          <TeacherAnnouncementBanner teacherId={teacherId} />
+          <TeacherMessageNotifications teacherId={teacherId} />
+          <FridayTutorialTeacherMaterialReminderCard reminders={teacherMaterialReminders} />
+          <FridayTutorialDutyReminderCard reminder={fridayDutyReminder} />
+          <FridayAt6DutyCard duty={fridayAt6Duty} />
+          <FridayTutorialAttendanceCard />
+          <FridayExamPracticeCard sessions={fridayExamPracticeSessions} />
+        </div>
+
         <div className="teacher-dashboard-primary-grid">
           <TeacherWorkingDayPanel />
           <TeacherCalendarAgenda />
@@ -222,15 +236,6 @@ export default function TeacherPage() {
           </div>
         </section>
 
-        <div className="teacher-dashboard-feed">
-          <TeacherAnnouncementBanner teacherId={teacherId} />
-          <TeacherMessageNotifications teacherId={teacherId} />
-          <FridayTutorialTeacherMaterialReminderCard reminders={teacherMaterialReminders} />
-          <FridayTutorialDutyReminderCard reminder={fridayDutyReminder} />
-          <FridayAt6DutyCard duty={fridayAt6Duty} />
-          <FridayTutorialAttendanceCard />
-          <FridayExamPracticeCard sessions={fridayExamPracticeSessions} />
-        </div>
       </main>
       )}
     </TeacherLayout>
