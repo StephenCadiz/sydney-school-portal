@@ -173,6 +173,7 @@ export default function AdminMessagesPage() {
   const [pendingDeleteTarget, setPendingDeleteTarget] =
     useState<AdminMessageDeleteTarget | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState("");
+  const teacherSelectRef = useRef<HTMLSelectElement | null>(null);
   const mountedRef = useRef(false);
   const messagesRequestRef = useRef(0);
   const selectedMessageRef = useRef<any | null>(null);
@@ -386,6 +387,13 @@ export default function AdminMessagesPage() {
     setStatusMessage("");
     setErrorMessage("");
 
+    // Read the live select value at submit time as a guard against browser
+    // restore/autofill state getting ahead of React's controlled value.
+    const selectedTeacherId =
+      recipientMode === "individual"
+        ? (teacherSelectRef.current?.value || teacherId).trim()
+        : "";
+
     if (!adminId) {
       setErrorMessage("Unable to identify the logged-in admin.");
       return;
@@ -401,7 +409,7 @@ export default function AdminMessagesPage() {
       return;
     }
 
-    if (recipientMode === "individual" && !teacherId) {
+    if (recipientMode === "individual" && !selectedTeacherId) {
       setErrorMessage("Please select a teacher.");
       return;
     }
@@ -422,7 +430,7 @@ export default function AdminMessagesPage() {
       if (recipientMode === "individual") {
         const result = await sendAdminMessageToTeacher({
           adminId,
-          teacherId,
+          teacherId: selectedTeacherId,
           subject: subject.trim(),
           message: message.trim(),
           attachment_link: attachment,
@@ -1235,7 +1243,11 @@ export default function AdminMessagesPage() {
                 </label>
                 <select
                   value={recipientMode}
-                  onChange={(event) => setRecipientMode(event.target.value)}
+                  onChange={(event) => {
+                    const nextMode = event.target.value;
+                    setRecipientMode(nextMode);
+                    if (nextMode !== "individual") setTeacherId("");
+                  }}
                   style={{ ...inputStyle, marginTop: "6px" }}
                 >
                   <option value="all">All Teachers</option>
@@ -1249,6 +1261,7 @@ export default function AdminMessagesPage() {
                     Teacher
                   </label>
                   <select
+                    ref={teacherSelectRef}
                     value={teacherId}
                     onChange={(event) => setTeacherId(event.target.value)}
                     style={{ ...inputStyle, marginTop: "6px" }}

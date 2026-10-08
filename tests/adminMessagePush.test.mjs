@@ -61,6 +61,18 @@ test("recipient parsing accepts the deployed client field and safe legacy aliase
   assert.match(route, /correlationId/);
 });
 
+test("individual teacher submission uses the live profile UUID from the selected option", () => {
+  assert.match(adminPage, /ref=\{teacherSelectRef\}/);
+  assert.match(adminPage, /teacherSelectRef\.current\?\.value \|\| teacherId/);
+  assert.match(adminPage, /teacherId: selectedTeacherId/);
+  assert.match(adminPage, /value=\{teacher\.id\}/);
+  assert.match(messages, /body: JSON\.stringify\(\{ teacherId, subject, message/);
+});
+
+test("switching away from individual mode clears the teacher selection", () => {
+  assert.match(adminPage, /if \(nextMode !== "individual"\) setTeacherId\(""\)/);
+});
+
 test("validation errors remain specific while database and push failures stay generic", () => {
   assert.match(route, /Please select a teacher recipient\./);
   assert.match(route, /Unable to send message\./);
