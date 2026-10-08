@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { sendPortalPush } from "../../../../lib/pushNotificationsServer";
 import {
   authenticateTeacherMessageRequest,
   loadTeacherAuthorisedStudentClassInfo,
@@ -210,6 +211,14 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (insertError) throw insertError;
     if (!reply) return jsonError("Unable to send reply.", 500);
+
+    await sendPortalPush([studentId], {
+      eventKey: `message:${reply.id}`,
+      title: "New message",
+      body: "You have a new message from your teacher.",
+      url: "/student/messages",
+      tag: `message:${reply.id}`,
+    });
 
     return NextResponse.json({
       reply: {

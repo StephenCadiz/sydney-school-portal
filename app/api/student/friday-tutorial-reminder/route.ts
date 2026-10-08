@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { resolveProfileIdForAuthUser } from "../../../../lib/cambridgeStudentAccessServer";
+import { sendPortalPush } from "../../../../lib/pushNotificationsServer";
 
 type ReminderStage = "monday" | "thursday";
 
@@ -265,6 +266,14 @@ export async function GET(request: NextRequest) {
     if (sessions.length === 0) {
       return NextResponse.json({ reminder: null });
     }
+
+    await sendPortalPush([context.studentId], {
+      eventKey: `exam-practice-reminder:${context.fridayDate}:${context.stage}:${sessions.map((session) => session.id).sort().join(",")}`,
+      title: context.stage === "thursday" ? "Exam Practice tomorrow" : "Exam Practice this week",
+      body: `${context.level} Exam Practice on Friday ${context.fridayDate}.`,
+      url: "/student",
+      tag: `exam-practice:${context.fridayDate}:${context.stage}`,
+    });
 
     return NextResponse.json({
       reminder: {

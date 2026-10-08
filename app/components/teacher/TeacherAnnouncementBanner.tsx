@@ -6,6 +6,7 @@ import {
   getUnreadTeacherAnnouncements,
   markAnnouncementAsRead,
 } from "../../../lib/announcements";
+import { notifySelf } from "../../../lib/pushNotifications";
 
 type Props = {
   teacherId: string;
@@ -44,6 +45,7 @@ export default function TeacherAnnouncementBanner({ teacherId }: Props) {
       try {
         const data = await getUnreadTeacherAnnouncements(teacherId);
         setAnnouncements(data);
+        if (data.length > 0) void notifySelf("announcement", data.map((item) => String(item.id)).sort().join(","), "/teacher");
       } catch (error) {
         console.error("Unable to load staff announcements:", error);
       } finally {

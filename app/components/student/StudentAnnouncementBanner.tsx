@@ -7,6 +7,7 @@ import {
   getUnreadStudentAnnouncements,
   markAnnouncementAsRead,
 } from "../../../lib/announcements";
+import { notifySelf } from "../../../lib/pushNotifications";
 
 type Props = {
   userId: string;
@@ -55,6 +56,7 @@ export default function StudentAnnouncementBanner({
           classId
         );
         setAnnouncements(data);
+        if (data.length > 0) void notifySelf("announcement", data.map((item) => String(item.id)).sort().join(","), "/student/announcements");
       } catch (error) {
         console.error("Unable to load unread announcements:", error);
       } finally {

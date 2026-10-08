@@ -18,6 +18,7 @@ import { supabase } from "../../../lib/supabase";
 import TeacherClassProgressReminder from "../teacher/TeacherClassProgressReminder";
 import TeacherOutstandingTaskCards from "../teacher/TeacherOutstandingTaskCards";
 import TeacherStudentMonitoringTasks from "../teacher/TeacherStudentMonitoringTasks";
+import PwaInstallAndNotifications from "../pwa/PwaInstallAndNotifications";
 
 interface TeacherLayoutProps {
   children: ReactNode | ((unreadMessageCount: number) => ReactNode);
@@ -263,6 +264,8 @@ export default function TeacherLayout({
           unreadMessageCount={unreadMessageCount}
           onMenuOpen={() => setMenuOpen(true)}
         />
+
+        <PwaInstallAndNotifications />
 
         <Suspense fallback={null}>
           <TeacherOutstandingTaskCards />

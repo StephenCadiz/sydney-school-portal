@@ -15,6 +15,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Sydney School",
   description: "Sydney School Student and Teacher Portal",
+  icons: {
+    icon: "/LOGO.png",
+    apple: "/LOGO.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Sydney School",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({

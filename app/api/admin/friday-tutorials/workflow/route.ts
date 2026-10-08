@@ -11,6 +11,7 @@ import {
   requireExamBankAdmin,
 } from "../../../../../lib/cambridgeExamBankServer";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { sendPortalPush } from "../../../../../lib/pushNotificationsServer";
 
 const STATUS_FIELDS = [
   "reason",
@@ -181,6 +182,13 @@ async function notifyYoungLearnerTeacher(
     message: details,
   });
   if (insertError) throw insertError;
+  await sendPortalPush([tutorialStudent.teacher_id], {
+    eventKey: `friday-tutorial-material:${sessionStudent.id}`,
+    title: "Friday Tutorial material reminder",
+    body: "Prepare activities for the student and send them to Admin as soon as possible.",
+    url: "/teacher",
+    tag: `friday-tutorial-material:${sessionStudent.id}`,
+  });
   return true;
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { resolveProfileIdForAuthUser } from "../../../../lib/cambridgeStudentAccessServer";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { sendPortalPush } from "../../../../lib/pushNotificationsServer";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -143,6 +144,14 @@ export async function POST(request: NextRequest) {
       .select("id, created_at")
       .single();
     if (insertError) throw insertError;
+
+    await sendPortalPush([receiverId], {
+      eventKey: `message:${inserted.id}`,
+      title: "New message",
+      body: "You have a new message from a student.",
+      url: "/teacher/messages",
+      tag: `message:${inserted.id}`,
+    });
 
     return NextResponse.json({ success: true, id: inserted.id, created_at: inserted.created_at });
   } catch (error: any) {

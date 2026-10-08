@@ -16,6 +16,7 @@ import {
   type TeacherCalendarAgendaItem,
   type TeacherCalendarEvent,
 } from "../../../lib/teacherCalendar";
+import { notifySelf } from "../../../lib/pushNotifications";
 
 function getDateParts(date: string) {
   const value = new Date(`${date}T00:00:00`);
@@ -120,6 +121,7 @@ export default function TeacherCalendarAgenda() {
         setCalendarEvents(data);
         setClosures(closures);
         setCalendarGroups(groups);
+        if (groups.length > 0) void notifySelf("calendar", groups.map((group) => String(group.id)).sort().join(","), "/teacher/calendar");
       } catch (loadError) {
         console.error("Unable to load teacher calendar:", loadError);
         setError(true);

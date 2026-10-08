@@ -4,10 +4,24 @@ import {
   ClassProgressError,
   loadClassProgressReminders,
 } from "../../../../../lib/classProgressServer";
+import { authenticatePortalActor, sendPortalPush, tokenFromRequest } from "../../../../../lib/pushNotificationsServer";
 
 export async function GET(request: NextRequest) {
   try {
-    return NextResponse.json(await loadClassProgressReminders(request), {
+    const payload = await loadClassProgressReminders(request);
+    const actor = await authenticatePortalActor(tokenFromRequest(request));
+    if (actor?.role === "teacher") {
+      for (const reminder of payload?.reminders || []) {
+        await sendPortalPush([actor.profileId], {
+          eventKey: `class-progress-reminder:${reminder.class_id}:${reminder.lesson_date}`,
+          title: "Class progress reminder",
+          body: "Class progress needs your attention.",
+          url: "/teacher",
+          tag: `class-progress-reminder:${reminder.class_id}:${reminder.lesson_date}`,
+        });
+      }
+    }
+    return NextResponse.json(payload, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

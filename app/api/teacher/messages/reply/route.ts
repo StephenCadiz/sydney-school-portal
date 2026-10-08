@@ -6,6 +6,7 @@ import {
 } from "../../../../../lib/messageAttachmentConfig";
 import { authenticateTeacherMessageRequest } from "../../../../../lib/teacherStudentMessagesServer";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { sendPortalPush } from "../../../../../lib/pushNotificationsServer";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json(
@@ -110,6 +111,14 @@ export async function POST(request: NextRequest) {
     console.error("Teacher staff reply insert failed:", insertError);
     return jsonError("Unable to send reply.", 500);
   }
+
+  await sendPortalPush([String(inserted.receiver_id)], {
+    eventKey: `message:${inserted.id}`,
+    title: "New message",
+    body: "You have a new message from your teacher.",
+    url: "/student/messages",
+    tag: `message:${inserted.id}`,
+  });
 
   return NextResponse.json(
     { success: true, message: inserted },

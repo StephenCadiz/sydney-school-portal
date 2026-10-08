@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import LogoutButton from "../components/auth/LogoutButton";
 import { supabase } from "../../lib/supabase";
+import PwaInstallAndNotifications from "../components/pwa/PwaInstallAndNotifications";
 
 type StudentMenuProps = {
   mobileMode?: boolean;
@@ -140,6 +141,8 @@ export default function StudentMenu({
         <span>Student Portal</span>
         <strong>Sydney School</strong>
       </div>
+
+      {!mobileMode && <PwaInstallAndNotifications />}
     </nav>
   );
 }

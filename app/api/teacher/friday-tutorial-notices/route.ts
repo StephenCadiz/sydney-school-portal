@@ -20,6 +20,7 @@ import {
 } from "../../../../lib/fridayTutorialRotationServer";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { getSchoolClosureForDate } from "../../../../lib/schoolClosuresServer";
+import { sendPortalPush } from "../../../../lib/pushNotificationsServer";
 
 const RESOURCE_ORDER: Record<
   CambridgeExamPartType,
@@ -288,7 +289,7 @@ async function requireTeacherOrAdmin(request: NextRequest) {
     };
   }
 
-  return { userId: user.id, response: null };
+  return { userId: user.id, role: profile.role, response: null };
 }
 
 export async function GET(request: NextRequest) {
@@ -350,6 +351,26 @@ export async function GET(request: NextRequest) {
     const visibleSessions = (sessions || []).filter((session) =>
       isExamPracticeActiveNow(session)
     );
+    if (actor.role === "teacher") {
+      for (const session of visibleSessions) {
+        await sendPortalPush([actor.userId], {
+          eventKey: `teacher-exam-practice:${session.id}`,
+          title: "Friday Exam Practice is active",
+          body: `${normalizeCambridgeLevel(session.level_name)} · ${session.activity_type || "Exam practice"} · open your Teacher Dashboard workspace.`,
+          url: "/teacher",
+          tag: `teacher-exam-practice:${session.id}`,
+        });
+      }
+      for (const reminder of teacherMaterialReminders) {
+        await sendPortalPush([actor.userId], {
+          eventKey: `teacher-material-reminder:${reminder.id}`,
+          title: "Friday Tutorial material reminder",
+          body: "Prepare activities for the student and send them to Admin as soon as possible.",
+          url: "/teacher",
+          tag: `teacher-material-reminder:${reminder.id}`,
+        });
+      }
+    }
     const scoringLinksByLevel = await loadTeacherScoringLinks(
       actor.userId,
       visibleSessions.map((session) => session.level_name)

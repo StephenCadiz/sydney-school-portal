@@ -2884,6 +2884,67 @@
   }
 }
 
+/* Teacher/Student PWA install and notification controls. These controls are
+   intentionally compact so they do not alter the existing portal layout. */
+.pwa-install-card,
+.pwa-notification-control {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(100%, 760px);
+  margin: 12px auto;
+  padding: 14px 16px;
+  border: 1px solid rgba(83, 135, 204, 0.28);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 10px 28px rgba(31, 60, 136, 0.08);
+  backdrop-filter: blur(16px);
+  color: #172b55;
+}
+.pwa-install-card p,
+.pwa-notification-control span,
+.pwa-notification-control p {
+  margin: 3px 0 0;
+  color: #526581;
+  font-size: 0.82rem;
+}
+.pwa-install-actions,
+.pwa-notification-control {
+  justify-content: space-between;
+}
+.pwa-install-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.pwa-install-card button,
+.pwa-notification-control button {
+  min-height: 38px;
+  border: 1px solid #1f559a;
+  border-radius: 10px;
+  padding: 8px 13px;
+  background: #1f559a;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pwa-install-card button.is-secondary { background: rgba(255,255,255,.85); color: #1f559a; }
+.pwa-notification-control button.is-secondary { background: rgba(255,255,255,.85); color: #1f559a; }
+.pwa-install-card button:focus-visible,
+.pwa-notification-control button:focus-visible { outline: 3px solid rgba(42, 120, 208, .35); outline-offset: 2px; }
+.pwa-install-help { max-width: 240px; text-align: right; }
+.pwa-notification-control { flex-wrap: wrap; }
+.pwa-notification-control > div { display: grid; gap: 2px; }
+.pwa-notification-status { color: #16704a !important; font-weight: 700; }
+.student-sidebar-nav .pwa-install-card,
+.student-sidebar-nav .pwa-notification-control { display: grid; width: auto; margin: 12px 0 0; padding: 12px; font-size: .82rem; }
+.student-sidebar-nav .pwa-install-actions { margin-left: 0; flex-wrap: wrap; }
+.student-sidebar-nav .pwa-install-help { text-align: left; }
+@media (max-width: 640px) {
+  .pwa-install-card,
+  .pwa-notification-control { align-items: stretch; flex-direction: column; }
+  .pwa-install-actions { align-items: stretch; width: 100%; margin-left: 0; }
+  .pwa-install-actions button,
+  .pwa-notification-control button { flex: 1; }
+  .pwa-install-help { max-width: none; text-align: left; }
+}
+
 /* Admin account password management */
 .account-password-dialog-backdrop {
   align-items: center;
