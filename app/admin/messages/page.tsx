@@ -420,7 +420,7 @@ export default function AdminMessagesPage() {
       uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
 
       if (recipientMode === "individual") {
-        await sendAdminMessageToTeacher({
+        const result = await sendAdminMessageToTeacher({
           adminId,
           teacherId,
           subject: subject.trim(),
@@ -430,9 +430,9 @@ export default function AdminMessagesPage() {
           senderIdentity: isRosaAdmin ? senderIdentity : "admin",
         });
 
-        setStatusMessage("Message sent successfully.");
+        setStatusMessage(result?.message || "Message sent successfully.");
       } else {
-        const count = await sendAdminMessageToAllTeachers({
+        const result = await sendAdminMessageToAllTeachers({
           adminId,
           teachers,
           subject: subject.trim(),
@@ -442,7 +442,7 @@ export default function AdminMessagesPage() {
           senderIdentity: isRosaAdmin ? senderIdentity : "admin",
         });
 
-        setStatusMessage(`Message sent to ${count} teachers.`);
+        setStatusMessage(result?.message || `Message sent to ${Number(result?.count || teachers.length)} teachers.`);
       }
 
       setSubject("");

@@ -839,6 +839,7 @@ export async function sendAdminMessageToTeacher({
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || "Unable to send message.");
+  return result || { success: true };
 }
 
 export async function sendAdminMessageToAllTeachers({
@@ -909,7 +910,7 @@ export async function sendAdminMessageToAllTeachers({
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || "Unable to send message.");
-  return Number(result.count || rows.length);
+  return result || { success: true, count: rows.length };
 }
 
 export async function getInboxMessages(
