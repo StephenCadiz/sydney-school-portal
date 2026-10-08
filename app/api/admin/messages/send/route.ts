@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
   const admin = await requireExamBankAdmin(request);
   if (admin.response) return admin.response;
   const body = await request.json().catch(() => null);
-  const candidateTeacherIds = recipientIdValues(body)
-    .map(recipientIdValue)
-    .filter((value: string) => UUID.test(value));
+  const rawRecipientValues = recipientIdValues(body);
+  const normalizedRecipientValues = rawRecipientValues.map(recipientIdValue);
+  const candidateTeacherIds = normalizedRecipientValues.filter((value: string) => UUID.test(value));
   const teacherIds: string[] = Array.from(new Set<string>(candidateTeacherIds));
   const subject = String(body?.subject || "").trim();
   const message = String(body?.message || "").trim();
@@ -60,8 +60,14 @@ export async function POST(request: NextRequest) {
   const attachmentLink = typeof body?.attachment_link === "string" ? body.attachment_link.trim() || null : null;
   const attachments = body?.attachments === undefined || body?.attachments === null ? [] : body.attachments;
   if (!teacherIds.length) {
-    logFailure("validation", null, { reason: "missing-recipient", correlationId });
-    return errorResponse("Please select a teacher recipient.");
+    const hasRecipientValue = normalizedRecipientValues.some(Boolean);
+    const reason = hasRecipientValue ? "invalid-recipient-format" : "missing-recipient";
+    logFailure("validation", null, { reason, recipientKeyCount: rawRecipientValues.length, correlationId });
+    return errorResponse(
+      hasRecipientValue
+        ? "The selected teacher recipient is invalid. Please choose a teacher again."
+        : "Please select a teacher recipient."
+    );
   }
   if (!subject) {
     logFailure("validation", null, { reason: "missing-subject", correlationId });
@@ -92,7 +98,7 @@ export async function POST(request: NextRequest) {
   }
   if ((teachers || []).length !== teacherIds.length || (teachers || []).some((teacher) => teacher.role !== "teacher")) {
     logFailure("validation", null, { reason: "invalid-teacher-recipient", recipientCount: teacherIds.length, correlationId });
-    return errorResponse("Please select a teacher recipient.", 400);
+    return errorResponse("The selected teacher recipient is not authorized.", 403);
   }
 
   const sharedAdminIdentity = isRosa && senderIdentity === "admin";

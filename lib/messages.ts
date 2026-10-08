@@ -802,18 +802,6 @@ export async function sendAdminMessageToTeacher({
     throw new Error("Only Rosa Vara can send messages as Rosa Vara.");
   }
 
-  const { data: receiverProfile, error: receiverError } = await supabase
-    .from("profiles")
-    .select("id, role")
-    .eq("id", teacherId)
-    .single();
-
-  if (receiverError) throw receiverError;
-
-  if (receiverProfile?.role !== "teacher") {
-    throw new Error("Please select a teacher recipient.");
-  }
-
   const payload: any = {
     sender_id: adminId,
     receiver_id: teacherId,

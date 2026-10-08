@@ -75,6 +75,18 @@ test("switching away from individual mode clears the teacher selection", () => {
 
 test("validation errors remain specific while database and push failures stay generic", () => {
   assert.match(route, /Please select a teacher recipient\./);
+  assert.match(route, /selected teacher recipient is invalid/);
+  assert.match(route, /selected teacher recipient is not authorized/);
   assert.match(route, /Unable to send message\./);
   assert.match(adminPage, /error instanceof Error && error\.message \? error\.message : "Unable to send message\."/);
+});
+
+test("individual recipient authorization is server authoritative", () => {
+  const individualSender = messages.slice(
+    messages.indexOf("export async function sendAdminMessageToTeacher"),
+    messages.indexOf("export async function sendAdminMessageToAllTeachers")
+  );
+  assert.match(messages, /fetch\("\/api\/admin\/messages\/send"/);
+  assert.doesNotMatch(individualSender, /receiverProfile\?\.role !== "teacher"/);
+  assert.match(route, /\.from\("profiles"\)\.select\("id, role"\)\.in\("id", teacherIds\)/);
 });
