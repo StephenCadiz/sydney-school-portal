@@ -28,6 +28,11 @@ test("Teacher and Admin PWA surfaces can register a passkey while signed in", ()
   assert.match(adminShell, /PasskeyEnrollment/);
 });
 
+test("Teacher install and biometric controls are PWA-only", () => {
+  assert.match(teacherLayout, /installedPwa && !isInstalledChatPwa && <PwaInstallAndNotifications \/>/);
+  assert.match(teacherLayout, /installedPwa && !isInstalledChatPwa && <PasskeyEnrollment \/>/);
+});
+
 test("passkey controls require platform WebAuthn support", () => {
   assert.match(login, /PublicKeyCredential/);
   assert.match(enrollment, /PublicKeyCredential/);

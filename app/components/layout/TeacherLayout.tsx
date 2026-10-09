@@ -283,8 +283,8 @@ export default function TeacherLayout({
           />
         )}
 
-        {!isInstalledChatPwa && <PwaInstallAndNotifications />}
-        {!isInstalledChatPwa && installedPwa && <PasskeyEnrollment />}
+        {installedPwa && !isInstalledChatPwa && <PwaInstallAndNotifications />}
+        {installedPwa && !isInstalledChatPwa && <PasskeyEnrollment />}
 
         {!isInstalledChatPwa && (
           <Suspense fallback={null}>
