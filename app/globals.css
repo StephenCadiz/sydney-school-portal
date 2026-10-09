@@ -19226,6 +19226,73 @@ img {
   .staff-chat-pwa-message { max-width: 91%; }
 }
 
+/* Sydney School mobile chat treatment. This intentionally applies only to
+   the installed-PWA branch; the desktop/browser Staff Chat remains intact. */
+.staff-chat-pwa-page {
+  --ss-chat-navy: #123f73;
+  --ss-chat-blue: #197fba;
+  --ss-chat-cyan: #00a4dc;
+  --ss-chat-ink: #173b6b;
+  background: #f1f6fa;
+  border: 1px solid #d6e4ee;
+  border-radius: 22px;
+  box-shadow: 0 18px 48px rgba(18, 63, 115, .14);
+  min-height: min(780px, calc(100dvh - 132px));
+}
+.staff-chat-pwa-header {
+  background: linear-gradient(135deg, var(--ss-chat-navy) 0%, var(--ss-chat-blue) 72%, var(--ss-chat-cyan) 100%);
+  border-bottom: 0;
+  color: #fff;
+  min-height: 78px;
+  padding: 16px 18px 14px;
+}
+.staff-chat-pwa-header .staff-chat-eyebrow { color: rgba(255,255,255,.72); font-size: .63rem; letter-spacing: .16em; }
+.staff-chat-pwa-header h1 { color: #fff; font-size: 1.42rem; font-weight: 850; letter-spacing: -.02em; margin: 3px 0 0; }
+.staff-chat-pwa-page:not(:has(.staff-chat-pwa-thread)) .staff-chat-pwa-header h1 { font-size: 0; }
+.staff-chat-pwa-page:not(:has(.staff-chat-pwa-thread)) .staff-chat-pwa-header h1::after { content: "Chats"; font-size: 1.42rem; }
+.staff-chat-pwa-new { background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35); color: #fff; height: 42px; width: 42px; }
+.staff-chat-pwa-new:hover { background: rgba(255,255,255,.28); }
+.staff-chat-pwa-list { background: #fff; }
+.staff-chat-pwa-search { background: #f1f6fa; border: 1px solid #d7e5ee; border-radius: 999px; box-shadow: none; margin: 14px 14px 10px; padding: 10px 15px; }
+.staff-chat-pwa-search:focus-within { background: #fff; border-color: var(--ss-chat-cyan); box-shadow: 0 0 0 3px rgba(0,164,220,.13); }
+.staff-chat-pwa-search input { color: var(--ss-chat-ink); font-size: .92rem; }
+.staff-chat-pwa-contact { background: #fff; border-bottom: 1px solid #edf2f6; gap: 12px; grid-template-columns: 48px minmax(0,1fr) auto; min-height: 76px; padding: 12px 16px; transition: background .16s ease; }
+.staff-chat-pwa-contact:hover, .staff-chat-pwa-contact.is-selected { background: #f2f8fc; }
+.staff-chat-pwa-contact-copy { gap: 5px; }
+.staff-chat-pwa-contact-copy strong { color: var(--ss-chat-ink); font-size: .95rem; font-weight: 800; }
+.staff-chat-pwa-contact-copy small { color: #6e8092; font-size: .8rem; }
+.staff-chat-pwa-contact-meta { color: #8091a1; font-size: .7rem; gap: 7px; padding-top: 2px; }
+.staff-chat-pwa-contact-meta b { background: var(--ss-chat-cyan); box-shadow: 0 2px 6px rgba(0,164,220,.22); }
+.staff-chat-pwa-page .staff-chat-avatar { background: linear-gradient(145deg, #d8f2fb, #9fd7ed); border: 2px solid #fff; box-shadow: 0 2px 8px rgba(18,63,115,.16); color: var(--ss-chat-navy); height: 48px; width: 48px; }
+.staff-chat-pwa-thread { background: #eaf3f8; }
+.staff-chat-pwa-back { background: #fff; border-bottom: 1px solid #d8e6ef; color: var(--ss-chat-blue); font-size: .86rem; justify-content: flex-start; padding: 10px 14px; width: 100%; }
+.staff-chat-pwa-group { background: #fff; border: 1px solid #d3e4ee; border-radius: 999px; color: var(--ss-chat-blue); font-size: .76rem; padding: 7px 10px; right: 10px; top: 5px; }
+.staff-chat-pwa-messages {
+  background-color: #eaf3f8;
+  background-image: radial-gradient(rgba(25,127,186,.07) .7px, transparent .7px), radial-gradient(rgba(0,164,220,.05) .7px, transparent .7px);
+  background-position: 0 0, 13px 13px;
+  background-size: 26px 26px;
+  gap: 6px;
+  padding: 8px 13px 16px;
+}
+.staff-chat-pwa-date { background: rgba(255,255,255,.9); border: 1px solid #d4e5ee; box-shadow: 0 2px 5px rgba(18,63,115,.06); color: #5c7185; font-size: .68rem; font-weight: 700; margin: 9px 0; padding: 5px 11px; }
+.staff-chat-pwa-message { background: #fff; border: 1px solid #e1ebf1; border-radius: 5px 16px 16px 16px; box-shadow: 0 2px 6px rgba(18,63,115,.08); max-width: 84%; padding: 9px 11px 7px; }
+.staff-chat-pwa-message.is-own { background: #cfeefa; border-color: #b3dfef; border-radius: 16px 5px 16px 16px; }
+.staff-chat-pwa-message p { color: #1e3f61; font-size: .9rem; line-height: 1.4; }
+.staff-chat-pwa-message footer { color: #7790a2; font-size: .66rem; }
+.staff-chat-pwa-message.is-own footer { color: #237eae; }
+.staff-chat-pwa-composer { background: #fff; border-top: 1px solid #d6e5ee; gap: 8px; padding: 9px 11px calc(9px + env(safe-area-inset-bottom)); }
+.staff-chat-pwa-composer textarea { background: #f4f8fb; border: 1px solid #d2e1eb; border-radius: 22px; font-size: .9rem; min-height: 42px; padding: 10px 14px; }
+.staff-chat-pwa-composer textarea:focus { background: #fff; border-color: var(--ss-chat-cyan); box-shadow: 0 0 0 3px rgba(0,164,220,.12); }
+.staff-chat-pwa-attach { color: var(--ss-chat-blue); font-size: 1.5rem; }
+.staff-chat-pwa-composer button { background: linear-gradient(145deg, var(--ss-chat-blue), var(--ss-chat-navy)); box-shadow: 0 4px 10px rgba(18,63,115,.2); height: 42px; width: 42px; }
+.staff-chat-pwa-older { background: rgba(255,255,255,.88); border-color: #cfe1eb; color: var(--ss-chat-blue); font-size: .75rem; }
+@media (max-width: 430px) {
+  .staff-chat-pwa-page { box-shadow: none; }
+  .staff-chat-pwa-header { min-height: 70px; padding-left: 15px; padding-right: 15px; }
+  .staff-chat-pwa-contact { min-height: 72px; padding-left: 14px; padding-right: 14px; }
+}
+
 .teacher-class-resource-tab {
   color: #243044;
   display: grid;
