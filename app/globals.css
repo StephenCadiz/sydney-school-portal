@@ -24131,6 +24131,24 @@ img {
   height: 100%;
   min-height: 0;
 }
+
+/* The fixed PWA navigation remains visible while Chat is open. Keep the
+   chat surface above it so the last contact/message is never hidden behind
+   the bar, and let iOS provide its normal momentum scrolling. */
+.teacher-layout-shell.is-installed-pwa-chat .staff-chat-pwa-page {
+  height: calc(100dvh - 66px - env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 66px - env(safe-area-inset-bottom));
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+.teacher-layout-shell.is-installed-pwa-chat .staff-chat-pwa-list,
+.teacher-layout-shell.is-installed-pwa-chat .staff-chat-pwa-messages {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+}
 @media (min-width: 701px) {
   .admin-pwa-main { padding-top: 40px; }
 }

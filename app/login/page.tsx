@@ -6,6 +6,7 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import { Fingerprint } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
+import { passkeyErrorMessage } from "../../lib/passkeyErrors";
 
 function LoginForm() {
   const router = useRouter();
@@ -99,11 +100,7 @@ function LoginForm() {
     try {
       const { data, error } = await supabase.auth.signInWithPasskey();
       if (error || !data?.user) {
-        setErrorMessage(
-          error?.message?.includes("passkey_disabled")
-            ? "Biometric sign-in is not enabled yet. Use your password instead."
-            : "Face ID or fingerprint sign-in was not completed. Use your password instead."
-        );
+        setErrorMessage(passkeyErrorMessage(error, "sign-in"));
         return;
       }
       const route = await routeAfterAuthentication(data.user.id);
@@ -113,8 +110,8 @@ function LoginForm() {
         return;
       }
       router.push(route);
-    } catch {
-      setErrorMessage("Face ID or fingerprint sign-in was not completed. Use your password instead.");
+    } catch (error) {
+      setErrorMessage(passkeyErrorMessage(error, "sign-in"));
     } finally {
       setSigningIn(false);
     }

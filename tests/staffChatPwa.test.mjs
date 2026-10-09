@@ -68,6 +68,14 @@ test("installed PWA chat uses a WhatsApp-style contact/thread surface without ch
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
 });
 
+test("Teacher PWA chat reserves the fixed nav area and keeps contacts scrollable", () => {
+  assert.match(styles, /is-installed-pwa-chat \.staff-chat-pwa-page/);
+  assert.match(styles, /height: calc\(100dvh - 66px - env\(safe-area-inset-bottom\)\)/);
+  assert.match(styles, /-webkit-overflow-scrolling: touch/);
+  assert.match(styles, /scroll-behavior: smooth/);
+  assert.match(styles, /overscroll-behavior-y: contain/);
+});
+
 test("PWA chat cache is account-scoped IndexedDB and never a service-worker HTTP cache", () => {
   assert.match(cache, /indexedDB/);
   assert.match(cache, /accountId/);

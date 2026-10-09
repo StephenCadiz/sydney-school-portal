@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { Fingerprint } from "lucide-react";
 
 import { supabase } from "../../../lib/supabase";
+import { isPasskeyDisabled, passkeyErrorMessage } from "../../../lib/passkeyErrors";
 
-type PasskeyState = "checking" | "ready" | "enabled" | "unavailable" | "saving";
+type PasskeyState = "checking" | "ready" | "enabled" | "disabled" | "unavailable" | "saving";
 
 function supportsPasskeys() {
   return (
@@ -29,7 +30,12 @@ export default function PasskeyEnrollment() {
     void supabase.auth.passkey.list().then(({ data, error }) => {
       if (!active) return;
       if (error) {
-        setState(error.message.includes("passkey_disabled") ? "unavailable" : "ready");
+        if (isPasskeyDisabled(error)) {
+          setState("disabled");
+          setMessage(passkeyErrorMessage(error, "registration"));
+          return;
+        }
+        setState("ready");
         return;
       }
       setState(data?.length ? "enabled" : "ready");
@@ -47,18 +53,14 @@ export default function PasskeyEnrollment() {
       const { error } = await supabase.auth.registerPasskey();
       if (error) {
         setState("ready");
-        setMessage(
-          error.message.includes("passkey_disabled")
-            ? "Biometric sign-in is not enabled for this portal yet."
-            : "Face ID or fingerprint registration was not completed."
-        );
+        setMessage(passkeyErrorMessage(error, "registration"));
         return;
       }
       setState("enabled");
       setMessage("This device can now sign you in with Face ID or fingerprint after logout or session expiry.");
-    } catch {
+    } catch (error) {
       setState("ready");
-      setMessage("Face ID or fingerprint registration was not completed.");
+      setMessage(passkeyErrorMessage(error, "registration"));
     }
   }
 
@@ -70,7 +72,9 @@ export default function PasskeyEnrollment() {
         <strong>Secure app sign-in</strong>
         <span>Use Face ID or fingerprint after logout or session expiry.</span>
       </div>
-      {state === "enabled" ? (
+      {state === "disabled" ? (
+        <span className="pwa-passkey-status" role="status">Not enabled</span>
+      ) : state === "enabled" ? (
         <span className="pwa-passkey-status" role="status">Enabled</span>
       ) : (
         <button type="button" onClick={() => void register()} disabled={state === "saving"}>
