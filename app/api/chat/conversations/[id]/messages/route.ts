@@ -6,7 +6,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   if (!actor) return NextResponse.json({ error: "Staff chat access required." }, { status: 403 });
   const { id } = await context.params;
   try {
-    const messages = await listChatMessages(actor, id, Number(request.nextUrl.searchParams.get("limit") || 50), request.nextUrl.searchParams.get("before") || undefined);
+    const messages = await listChatMessages(actor, id, Number(request.nextUrl.searchParams.get("limit") || 50), request.nextUrl.searchParams.get("before") || undefined, request.nextUrl.searchParams.get("after") || undefined);
     return NextResponse.json({ messages }, { headers: { "Cache-Control": "no-store" } });
   } catch (error: any) {
     const status = error?.message === "You do not have access to this conversation." ? 403 : 500;

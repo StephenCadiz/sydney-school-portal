@@ -1,30 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageCircle, Plus, Search, Send, Users, X } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, MessageCircle, Plus, Search, Send, Users, X } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
+import { clearStaffChatCache, getCachedConversations, getCachedMessages, saveCachedConversations, saveCachedMessages } from "../../../lib/staffChatCache";
 
-type Conversation = {
-  id: string;
-  kind: "direct" | "group";
-  name?: string | null;
-  display_name: string;
-  unread_count: number;
-  last_message?: { body: string; created_at: string } | null;
-  participants?: Array<{ id: string; name: string; role: string }>;
-};
-type ChatMessage = { id: string; sender_id: string; sender_name: string; body: string; created_at: string; attachments?: Array<{ id: string; file_name: string; mime_type: string; byte_size: number }> };
+type Conversation = { id: string; kind: "direct" | "group"; name?: string | null; display_name: string; unread_count: number; last_message?: { body: string; created_at: string } | null; participants?: Array<{ id: string; name: string; role: string }> };
+type ChatMessage = { id: string; conversation_id?: string; sender_id: string; sender_name: string; body: string; created_at: string; read?: boolean; attachments?: Array<{ id: string; file_name: string; mime_type: string; byte_size: number }> };
 type Recipient = { id: string; name: string; role: string };
 
-function displayTime(value?: string) {
-  if (!value) return "";
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
-}
-
-async function authHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token ? { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" } : null;
-}
+function displayTime(value?: string) { if (!value) return ""; return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)); }
+function displayDate(value: string) { return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(value)); }
+function dateKey(value: string) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value)); }
+async function authHeaders() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ? { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" } : null; }
 
 export default function StaffChatView() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -34,6 +22,7 @@ export default function StaffChatView() {
   const [search, setSearch] = useState("");
   const [recipientSearch, setRecipientSearch] = useState("");
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [contacts, setContacts] = useState<Recipient[]>([]);
   const [selectedRecipients, setSelectedRecipients] = useState<Recipient[]>([]);
   const [groupName, setGroupName] = useState("");
   const [newChatOpen, setNewChatOpen] = useState(false);
@@ -46,143 +35,72 @@ export default function StaffChatView() {
   const [sending, setSending] = useState(false);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [offline, setOffline] = useState(false);
+  const [installedPwa, setInstalledPwa] = useState(false);
+  const [pwaThreadOpen, setPwaThreadOpen] = useState(false);
+
+  useEffect(() => { const update = () => setInstalledPwa(window.matchMedia("(display-mode: standalone)").matches || Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone)); update(); window.addEventListener("resize", update); return () => window.removeEventListener("resize", update); }, []);
+  useEffect(() => { setOffline(!navigator.onLine); const online = () => setOffline(false); const offlineEvent = () => setOffline(true); window.addEventListener("online", online); window.addEventListener("offline", offlineEvent); return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offlineEvent); }; }, []);
+  useEffect(() => { const { data: listener } = supabase.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") { setAccountId(""); setConversations([]); setMessages([]); void clearStaffChatCache(); try { window.sessionStorage.removeItem("staff-chat-account"); } catch { /* storage unavailable */ } } }); return () => listener.subscription.unsubscribe(); }, []);
 
   const loadConversations = useCallback(async () => {
-    const headers = await authHeaders();
-    if (!headers) return;
-    const response = await fetch("/api/chat/conversations", { headers, cache: "no-store" });
-    const payload = await response.json().catch(() => ({}));
+    let knownAccount = accountId;
+    if (!knownAccount) { try { knownAccount = window.sessionStorage.getItem("staff-chat-account") || ""; } catch { /* storage unavailable */ } }
+    if (!navigator.onLine) { if (knownAccount) { setAccountId(knownAccount); setConversations((await getCachedConversations(knownAccount)) as Conversation[]); } setLoading(false); return; }
+    const headers = await authHeaders(); if (!headers) return;
+    const response = await fetch("/api/chat/conversations", { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Unable to load chat.");
-    setConversations(payload.conversations || []);
-    if (!selectedId && payload.conversations?.[0]?.id) setSelectedId(payload.conversations[0].id);
-  }, [selectedId]);
+    const resolvedAccount = String(payload.viewer_profile_id || ""); if (!resolvedAccount) throw new Error("Unable to resolve your staff account.");
+    if (knownAccount && knownAccount !== resolvedAccount) await clearStaffChatCache();
+    setAccountId(resolvedAccount); try { window.sessionStorage.setItem("staff-chat-account", resolvedAccount); } catch { /* storage unavailable */ }
+    const nextConversations = (payload.conversations || []) as Conversation[]; setConversations(nextConversations); await saveCachedConversations(resolvedAccount, nextConversations); if (!selectedId && nextConversations[0]?.id) setSelectedId(nextConversations[0].id);
+  }, [accountId, selectedId]);
+
+  const loadContacts = useCallback(async () => { if (!installedPwa || !navigator.onLine) return; const headers = await authHeaders(); if (!headers) return; const response = await fetch("/api/chat/recipients?all=1", { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (response.ok) setContacts(payload.recipients || []); }, [installedPwa]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     if (!conversationId) return;
-    const headers = await authHeaders();
-    if (!headers) return;
-    setLoadingMessages(true);
+    const cached = accountId ? ((await getCachedMessages(accountId, conversationId)) as ChatMessage[]) : []; if (cached.length) setMessages(cached);
+    if (!navigator.onLine) { setLoadingMessages(false); return; }
+    const headers = await authHeaders(); if (!headers) return; setLoadingMessages(true);
     try {
-      const response = await fetch(`/api/chat/conversations/${conversationId}/messages`, { headers, cache: "no-store" });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Unable to load chat history.");
-      setMessages(payload.messages || []);
-      await fetch(`/api/chat/conversations/${conversationId}/read`, { method: "POST", headers });
-      setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, unread_count: 0 } : conversation));
-    } catch (loadError: any) {
-      setError(loadError?.message || "Unable to load chat history.");
-    } finally {
-      setLoadingMessages(false);
-    }
-  }, []);
+      const latest = cached[cached.length - 1]?.created_at; const query = latest ? `?after=${encodeURIComponent(latest)}&limit=100` : "?limit=50";
+      const response = await fetch(`/api/chat/conversations/${conversationId}/messages${query}`, { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.error || "Unable to load chat history.");
+      const incoming = (payload.messages || []) as ChatMessage[]; const merged = Array.from(new Map([...cached, ...incoming].map((message) => [message.id, message])).values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()); setMessages(merged); if (accountId) await saveCachedMessages(accountId, conversationId, merged);
+      await fetch(`/api/chat/conversations/${conversationId}/read`, { method: "POST", headers }); setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, unread_count: 0 } : conversation)); window.dispatchEvent(new Event("staff-chat-unread-changed"));
+    } catch (loadError: any) { setError(loadError?.message || "Unable to load chat history."); } finally { setLoadingMessages(false); }
+  }, [accountId]);
 
-  useEffect(() => {
-    setLoading(true);
-    void loadConversations().catch((loadError: any) => setError(loadError?.message || "Unable to load chat." )).finally(() => setLoading(false));
-    const interval = window.setInterval(() => void loadConversations().catch(() => undefined), 30_000);
-    return () => window.clearInterval(interval);
-  }, [loadConversations]);
+  const loadOlderMessages = useCallback(async () => {
+    if (!selectedId || !messages.length || !navigator.onLine) return; const headers = await authHeaders(); if (!headers) return; const before = messages[0]?.created_at;
+    const response = await fetch(`/api/chat/conversations/${selectedId}/messages?before=${encodeURIComponent(before)}&limit=50`, { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (!response.ok) { setError(payload.error || "Unable to load older messages."); return; }
+    const older = (payload.messages || []) as ChatMessage[]; const merged = Array.from(new Map([...older, ...messages].map((message) => [message.id, message])).values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()); setMessages(merged); if (accountId) await saveCachedMessages(accountId, selectedId, merged);
+  }, [accountId, messages, selectedId]);
 
+  useEffect(() => { setLoading(true); void loadConversations().catch((loadError: any) => setError(loadError?.message || "Unable to load chat.")).finally(() => setLoading(false)); void loadContacts(); const interval = window.setInterval(() => void loadConversations().catch(() => undefined), 30_000); return () => window.clearInterval(interval); }, [loadConversations, loadContacts]);
   useEffect(() => { void loadMessages(selectedId); }, [loadMessages, selectedId]);
-
-  useEffect(() => {
-    if (recipientSearch.trim().length < 2) { setRecipients([]); return; }
-    const timer = window.setTimeout(async () => {
-      const headers = await authHeaders();
-      if (!headers) return;
-      const response = await fetch(`/api/chat/recipients?q=${encodeURIComponent(recipientSearch)}`, { headers, cache: "no-store" });
-      const payload = await response.json().catch(() => ({}));
-      if (response.ok) setRecipients(payload.recipients || []);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [recipientSearch]);
-
-  useEffect(() => {
-    if (!manageOpen || manageSearch.trim().length < 2) { setManageRecipients([]); return; }
-    const timer = window.setTimeout(async () => {
-      const headers = await authHeaders();
-      if (!headers) return;
-      const response = await fetch(`/api/chat/recipients?q=${encodeURIComponent(manageSearch)}`, { headers, cache: "no-store" });
-      const payload = await response.json().catch(() => ({}));
-      if (response.ok) setManageRecipients(payload.recipients || []);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [manageOpen, manageSearch]);
+  useEffect(() => { if (recipientSearch.trim().length < 2) { setRecipients([]); return; } const timer = window.setTimeout(async () => { const headers = await authHeaders(); if (!headers) return; const response = await fetch(`/api/chat/recipients?q=${encodeURIComponent(recipientSearch)}`, { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (response.ok) setRecipients(payload.recipients || []); }, 250); return () => window.clearTimeout(timer); }, [recipientSearch]);
+  useEffect(() => { if (!manageOpen || manageSearch.trim().length < 2) { setManageRecipients([]); return; } const timer = window.setTimeout(async () => { const headers = await authHeaders(); if (!headers) return; const response = await fetch(`/api/chat/recipients?q=${encodeURIComponent(manageSearch)}`, { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (response.ok) setManageRecipients(payload.recipients || []); }, 250); return () => window.clearTimeout(timer); }, [manageOpen, manageSearch]);
 
   const visibleConversations = useMemo(() => conversations.filter((conversation) => conversation.display_name.toLocaleLowerCase().includes(search.toLocaleLowerCase())), [conversations, search]);
+  const pwaRows = useMemo(() => { const rows = visibleConversations.map((conversation) => ({ conversation, contact: null as Recipient | null })); const knownContactIds = new Set(conversations.flatMap((conversation) => conversation.kind === "direct" ? (conversation.participants || []).map((participant) => participant.id) : [])); for (const contact of contacts) if (!knownContactIds.has(contact.id) && contact.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) rows.push({ conversation: { id: `contact:${contact.id}`, kind: "direct", display_name: contact.name, unread_count: 0, participants: [{ id: contact.id, name: contact.name, role: contact.role }] }, contact }); return rows; }, [contacts, conversations, search, visibleConversations]);
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedId);
 
-  async function createConversation() {
-    const headers = await authHeaders();
-    if (!headers || !selectedRecipients.length) return;
-    setError("");
-    const response = await fetch("/api/chat/conversations", { method: "POST", headers, body: JSON.stringify({ kind: newChatKind, name: groupName, participantIds: selectedRecipients.map((recipient) => recipient.id) }) });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) { setError(payload.error || "Unable to create chat."); return; }
-    setNewChatOpen(false); setSelectedRecipients([]); setRecipientSearch(""); setGroupName("");
-    await loadConversations();
-    setSelectedId(payload.conversationId);
-  }
+  async function createConversation() { const headers = await authHeaders(); if (!headers || !selectedRecipients.length) return; setError(""); const response = await fetch("/api/chat/conversations", { method: "POST", headers, body: JSON.stringify({ kind: newChatKind, name: groupName, participantIds: selectedRecipients.map((recipient) => recipient.id) }) }); const payload = await response.json().catch(() => ({})); if (!response.ok) { setError(payload.error || "Unable to create chat."); return; } setNewChatOpen(false); setSelectedRecipients([]); setRecipientSearch(""); setGroupName(""); await loadConversations(); setSelectedId(payload.conversationId); setPwaThreadOpen(true); }
+  async function openPwaRow(row: { conversation: Conversation; contact: Recipient | null }) { if (!row.contact) { setSelectedId(row.conversation.id); setPwaThreadOpen(true); return; } const headers = await authHeaders(); if (!headers) return; const response = await fetch("/api/chat/conversations", { method: "POST", headers, body: JSON.stringify({ kind: "direct", participantIds: [row.contact.id] }) }); const payload = await response.json().catch(() => ({})); if (!response.ok) { setError(payload.error || "Unable to open conversation."); return; } await loadConversations(); setSelectedId(payload.conversationId); setPwaThreadOpen(true); }
+  async function sendMessage() { if (!selectedId || !composer.trim() || sending || offline) return; const headers = await authHeaders(); if (!headers) return; setSending(true); setError(""); try { const formData = new FormData(); formData.set("body", composer); formData.set("idempotencyKey", crypto.randomUUID()); attachmentFiles.forEach((file) => formData.append("files", file)); const response = await fetch(`/api/chat/conversations/${selectedId}/messages`, { method: "POST", headers: { Authorization: headers.Authorization }, body: formData }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.error || "Unable to send chat message."); setComposer(""); setAttachmentFiles([]); await loadMessages(selectedId); await loadConversations(); } catch (sendError: any) { setError(sendError?.message || "Unable to send chat message."); } finally { setSending(false); } }
+  async function changeParticipant(participantId: string, action: "add" | "remove") { if (!selectedId) return; const headers = await authHeaders(); if (!headers) return; const response = await fetch(`/api/chat/conversations/${selectedId}/participants${action === "remove" ? `?participantId=${encodeURIComponent(participantId)}` : ""}`, { method: action === "remove" ? "DELETE" : "POST", headers, ...(action === "add" ? { body: JSON.stringify({ participantId }) } : {}) }); const payload = await response.json().catch(() => ({})); if (!response.ok) { setError(payload.error || "Unable to update participants."); return; } setManageSearch(""); setManageRecipients([]); await loadConversations(); }
 
-  async function sendMessage() {
-    if (!selectedId || !composer.trim() || sending) return;
-    const headers = await authHeaders();
-    if (!headers) return;
-    setSending(true); setError("");
-    try {
-      const formData = new FormData();
-      formData.set("body", composer);
-      formData.set("idempotencyKey", crypto.randomUUID());
-      attachmentFiles.forEach((file) => formData.append("files", file));
-      const response = await fetch(`/api/chat/conversations/${selectedId}/messages`, { method: "POST", headers: { Authorization: headers.Authorization }, body: formData });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Unable to send chat message.");
-      setComposer("");
-      setAttachmentFiles([]);
-      await loadMessages(selectedId);
-      await loadConversations();
-    } catch (sendError: any) { setError(sendError?.message || "Unable to send chat message."); }
-    finally { setSending(false); }
-  }
+  const renderAttachment = (attachment: NonNullable<ChatMessage["attachments"]>[number]) => <button type="button" key={attachment.id} onClick={async () => { const headers = await authHeaders(); if (!headers) return; const response = await fetch(`/api/chat/attachments/${attachment.id}`, { headers }); const payload = await response.json().catch(() => ({})); if (response.ok && payload.url) window.open(payload.url, "_blank", "noopener,noreferrer"); }} aria-label={`Open attachment ${attachment.file_name}`}>{attachment.file_name}</button>;
+  const renderDialogs = () => <>
+    {newChatOpen && <div className="staff-chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setNewChatOpen(false); }}><section className="staff-chat-dialog" role="dialog" aria-modal="true" aria-labelledby="new-chat-title"><button type="button" className="staff-chat-dialog-close" aria-label="Close new chat" onClick={() => setNewChatOpen(false)}><X size={18} /></button><h2 id="new-chat-title">New chat</h2><div className="staff-chat-mode-buttons"><button type="button" className={newChatKind === "direct" ? "is-active" : ""} onClick={() => setNewChatKind("direct")}>Direct</button><button type="button" className={newChatKind === "group" ? "is-active" : ""} onClick={() => setNewChatKind("group")}><Users size={15} /> Group</button></div>{newChatKind === "group" && <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Group name" aria-label="Group name" />}{selectedRecipients.length > 0 && <div className="staff-chat-recipient-chips">{selectedRecipients.map((recipient) => <button type="button" key={recipient.id} onClick={() => setSelectedRecipients((current) => current.filter((item) => item.id !== recipient.id))}>{recipient.name} ×</button>)}</div>}<input value={recipientSearch} onChange={(event) => setRecipientSearch(event.target.value)} placeholder="Search Teachers and Admin staff" aria-label="Search Teachers and Admin staff" />{recipients.length > 0 && <div className="staff-chat-recipient-results">{recipients.map((recipient) => <button type="button" key={recipient.id} onClick={() => { if (newChatKind === "direct") setSelectedRecipients([recipient]); else setSelectedRecipients((current) => current.some((item) => item.id === recipient.id) ? current : [...current, recipient]); setRecipients([]); setRecipientSearch(""); }}>{recipient.name}<small>{recipient.role}</small></button>)}</div>}<button type="button" className="staff-chat-primary" disabled={!selectedRecipients.length || (newChatKind === "group" && !groupName.trim())} onClick={() => void createConversation()}>Create conversation</button></section></div>}
+    {manageOpen && selectedConversation?.kind === "group" && <div className="staff-chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setManageOpen(false); }}><section className="staff-chat-dialog" role="dialog" aria-modal="true" aria-labelledby="manage-chat-title"><button type="button" className="staff-chat-dialog-close" aria-label="Close participant manager" onClick={() => setManageOpen(false)}><X size={18} /></button><h2 id="manage-chat-title">Manage participants</h2><div className="staff-chat-participant-list">{selectedConversation.participants?.map((participant) => <div key={participant.id}><span>{participant.name}<small>{participant.role}</small></span><button type="button" onClick={() => void changeParticipant(participant.id, "remove")}>Remove</button></div>)}</div><input value={manageSearch} onChange={(event) => setManageSearch(event.target.value)} placeholder="Search staff to add" aria-label="Search staff to add" />{manageRecipients.length > 0 && <div className="staff-chat-recipient-results">{manageRecipients.map((recipient) => <button type="button" key={recipient.id} onClick={() => void changeParticipant(recipient.id, "add")}>{recipient.name}<small>{recipient.role}</small></button>)}</div>}</section></div>}
+  </>;
 
-  async function changeParticipant(participantId: string, action: "add" | "remove") {
-    if (!selectedId) return;
-    const headers = await authHeaders();
-    if (!headers) return;
-    const response = await fetch(`/api/chat/conversations/${selectedId}/participants${action === "remove" ? `?participantId=${encodeURIComponent(participantId)}` : ""}`, { method: action === "remove" ? "DELETE" : "POST", headers, ...(action === "add" ? { body: JSON.stringify({ participantId }) } : {}) });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) { setError(payload.error || "Unable to update participants."); return; }
-    setManageSearch(""); setManageRecipients([]); await loadConversations();
-  }
+  const renderDesktop = () => <section className="staff-chat-page" aria-label="Staff chat"><header className="staff-chat-header"><div><span className="staff-chat-eyebrow">STAFF COMMUNICATION</span><h1>Chat</h1><p>Private conversations for Teachers and Admin staff.</p></div><button type="button" className="staff-chat-primary" onClick={() => setNewChatOpen(true)}><Plus size={17} aria-hidden="true" /> New chat</button></header>{error && <p className="staff-chat-error" role="alert">{error}</p>}<div className="staff-chat-shell"><aside className="staff-chat-conversations" aria-label="Conversations"><label className="staff-chat-search"><Search size={17} aria-hidden="true" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search conversations" aria-label="Search conversations" /></label>{loading ? <p className="staff-chat-empty">Loading conversations…</p> : visibleConversations.length === 0 ? <p className="staff-chat-empty"><MessageCircle size={24} aria-hidden="true" />No conversations yet.</p> : visibleConversations.map((conversation) => <button type="button" key={conversation.id} className={`staff-chat-conversation${conversation.id === selectedId ? " is-selected" : ""}`} onClick={() => setSelectedId(conversation.id)}><span className="staff-chat-avatar" aria-hidden="true">{conversation.display_name.slice(0, 1).toUpperCase()}</span><span className="staff-chat-conversation-copy"><strong>{conversation.display_name}</strong><small>{conversation.last_message?.body || "No messages yet"}</small></span><span className="staff-chat-conversation-meta"><time>{displayTime(conversation.last_message?.created_at)}</time>{conversation.unread_count > 0 && <b>{conversation.unread_count}</b>}</span></button>)}</aside><section className="staff-chat-thread" aria-label={selectedConversation?.display_name || "Chat conversation"}>{!selectedConversation ? <div className="staff-chat-thread-empty"><MessageCircle size={34} aria-hidden="true" /><h2>Select a conversation</h2><p>Choose a chat or start a new one.</p></div> : <><header className="staff-chat-thread-header"><span className="staff-chat-avatar" aria-hidden="true">{selectedConversation.display_name.slice(0, 1).toUpperCase()}</span><div><h2>{selectedConversation.display_name}</h2><small>{selectedConversation.kind === "group" ? "Group conversation" : "Direct conversation"}</small></div>{selectedConversation.kind === "group" && <button type="button" className="staff-chat-manage" onClick={() => setManageOpen(true)}>Manage participants</button>}</header><div className="staff-chat-messages" aria-live="polite">{loadingMessages ? <p className="staff-chat-empty">Loading messages…</p> : messages.length === 0 ? <p className="staff-chat-empty">No messages yet. Start the conversation.</p> : messages.map((message) => <article className="staff-chat-message" key={message.id}><div className="staff-chat-message-meta"><strong>{message.sender_name}</strong><time>{displayTime(message.created_at)}</time></div><p>{message.body}</p>{message.attachments?.length ? <div className="staff-chat-message-attachments">{message.attachments.map(renderAttachment)}</div> : null}</article>)}</div><form className="staff-chat-composer" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}><textarea value={composer} onChange={(event) => setComposer(event.target.value)} placeholder="Write a message…" aria-label="Chat message" rows={2} /><div className="staff-chat-composer-controls"><label className="staff-chat-attach"><input type="file" multiple onChange={(event) => setAttachmentFiles(Array.from(event.target.files || []))} />Attach files</label>{attachmentFiles.length > 0 && <small>{attachmentFiles.map((file) => file.name).join(", ")}</small>}<button type="submit" className="staff-chat-primary" disabled={sending || (!composer.trim() && attachmentFiles.length === 0)}><Send size={17} aria-hidden="true" />{sending ? "Sending…" : "Send"}</button></div></form></>}</section></div>{renderDialogs()}</section>;
 
-  return (
-    <section className="staff-chat-page" aria-label="Staff chat">
-      <header className="staff-chat-header">
-        <div><span className="staff-chat-eyebrow">STAFF COMMUNICATION</span><h1>Chat</h1><p>Private conversations for Teachers and Admin staff.</p></div>
-        <button type="button" className="staff-chat-primary" onClick={() => setNewChatOpen(true)}><Plus size={17} aria-hidden="true" /> New chat</button>
-      </header>
-      {error && <p className="staff-chat-error" role="alert">{error}</p>}
-      <div className="staff-chat-shell">
-        <aside className="staff-chat-conversations" aria-label="Conversations">
-          <label className="staff-chat-search"><Search size={17} aria-hidden="true" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search conversations" aria-label="Search conversations" /></label>
-          {loading ? <p className="staff-chat-empty">Loading conversations…</p> : visibleConversations.length === 0 ? <p className="staff-chat-empty"><MessageCircle size={24} aria-hidden="true" />No conversations yet.</p> : visibleConversations.map((conversation) => (
-            <button type="button" key={conversation.id} className={`staff-chat-conversation${conversation.id === selectedId ? " is-selected" : ""}`} onClick={() => setSelectedId(conversation.id)}>
-              <span className="staff-chat-avatar" aria-hidden="true">{conversation.display_name.slice(0, 1).toUpperCase()}</span>
-              <span className="staff-chat-conversation-copy"><strong>{conversation.display_name}</strong><small>{conversation.last_message?.body || "No messages yet"}</small></span>
-              <span className="staff-chat-conversation-meta"><time>{displayTime(conversation.last_message?.created_at)}</time>{conversation.unread_count > 0 && <b>{conversation.unread_count}</b>}</span>
-            </button>
-          ))}
-        </aside>
-        <section className="staff-chat-thread" aria-label={selectedConversation?.display_name || "Chat conversation"}>
-          {!selectedConversation ? <div className="staff-chat-thread-empty"><MessageCircle size={34} aria-hidden="true" /><h2>Select a conversation</h2><p>Choose a chat or start a new one.</p></div> : <>
-            <header className="staff-chat-thread-header"><span className="staff-chat-avatar" aria-hidden="true">{selectedConversation.display_name.slice(0, 1).toUpperCase()}</span><div><h2>{selectedConversation.display_name}</h2><small>{selectedConversation.kind === "group" ? "Group conversation" : "Direct conversation"}</small></div>{selectedConversation.kind === "group" && <button type="button" className="staff-chat-manage" onClick={() => setManageOpen(true)}>Manage participants</button>}</header>
-            <div className="staff-chat-messages" aria-live="polite">{loadingMessages ? <p className="staff-chat-empty">Loading messages…</p> : messages.length === 0 ? <p className="staff-chat-empty">No messages yet. Start the conversation.</p> : messages.map((message) => <article className="staff-chat-message" key={message.id}><div className="staff-chat-message-meta"><strong>{message.sender_name}</strong><time>{displayTime(message.created_at)}</time></div><p>{message.body}</p>{message.attachments?.length ? <div className="staff-chat-message-attachments">{message.attachments.map((attachment) => <button type="button" key={attachment.id} onClick={async () => { const headers = await authHeaders(); if (!headers) return; const response = await fetch(`/api/chat/attachments/${attachment.id}`, { headers }); const payload = await response.json().catch(() => ({})); if (response.ok && payload.url) window.open(payload.url, "_blank", "noopener,noreferrer"); }} aria-label={`Open attachment ${attachment.file_name}`}>{attachment.file_name}</button>)}</div> : null}</article>)}</div>
-            <form className="staff-chat-composer" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}><textarea value={composer} onChange={(event) => setComposer(event.target.value)} placeholder="Write a message…" aria-label="Chat message" rows={2} /><div className="staff-chat-composer-controls"><label className="staff-chat-attach"><input type="file" multiple onChange={(event) => setAttachmentFiles(Array.from(event.target.files || []))} />Attach files</label>{attachmentFiles.length > 0 && <small>{attachmentFiles.map((file) => file.name).join(", ")}</small>}<button type="submit" className="staff-chat-primary" disabled={sending || (!composer.trim() && attachmentFiles.length === 0)}><Send size={17} aria-hidden="true" />{sending ? "Sending…" : "Send"}</button></div></form>
-          </>}
-        </section>
-      </div>
-      {newChatOpen && <div className="staff-chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setNewChatOpen(false); }}><section className="staff-chat-dialog" role="dialog" aria-modal="true" aria-labelledby="new-chat-title"><button type="button" className="staff-chat-dialog-close" aria-label="Close new chat" onClick={() => setNewChatOpen(false)}><X size={18} /></button><h2 id="new-chat-title">New chat</h2><div className="staff-chat-mode-buttons"><button type="button" className={newChatKind === "direct" ? "is-active" : ""} onClick={() => setNewChatKind("direct")}>Direct</button><button type="button" className={newChatKind === "group" ? "is-active" : ""} onClick={() => setNewChatKind("group")}><Users size={15} /> Group</button></div>{newChatKind === "group" && <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Group name" aria-label="Group name" />}{selectedRecipients.length > 0 && <div className="staff-chat-recipient-chips">{selectedRecipients.map((recipient) => <button type="button" key={recipient.id} onClick={() => setSelectedRecipients((current) => current.filter((item) => item.id !== recipient.id))}>{recipient.name} ×</button>)}</div>}<input value={recipientSearch} onChange={(event) => setRecipientSearch(event.target.value)} placeholder="Search Teachers and Admin staff" aria-label="Search Teachers and Admin staff" />{recipients.length > 0 && <div className="staff-chat-recipient-results">{recipients.map((recipient) => <button type="button" key={recipient.id} onClick={() => { if (newChatKind === "direct") setSelectedRecipients([recipient]); else setSelectedRecipients((current) => current.some((item) => item.id === recipient.id) ? current : [...current, recipient]); setRecipients([]); setRecipientSearch(""); }}>{recipient.name}<small>{recipient.role}</small></button>)}</div>}<button type="button" className="staff-chat-primary" disabled={!selectedRecipients.length || (newChatKind === "group" && !groupName.trim())} onClick={() => void createConversation()}>Create conversation</button></section></div>}
-      {manageOpen && selectedConversation?.kind === "group" && <div className="staff-chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setManageOpen(false); }}><section className="staff-chat-dialog" role="dialog" aria-modal="true" aria-labelledby="manage-chat-title"><button type="button" className="staff-chat-dialog-close" aria-label="Close participant manager" onClick={() => setManageOpen(false)}><X size={18} /></button><h2 id="manage-chat-title">Manage participants</h2><div className="staff-chat-participant-list">{selectedConversation.participants?.map((participant) => <div key={participant.id}><span>{participant.name}<small>{participant.role}</small></span><button type="button" onClick={() => void changeParticipant(participant.id, "remove")}>Remove</button></div>)}</div><input value={manageSearch} onChange={(event) => setManageSearch(event.target.value)} placeholder="Search staff to add" aria-label="Search staff to add" />{manageRecipients.length > 0 && <div className="staff-chat-recipient-results">{manageRecipients.map((recipient) => <button type="button" key={recipient.id} onClick={() => void changeParticipant(recipient.id, "add")}>{recipient.name}<small>{recipient.role}</small></button>)}</div>}</section></div>}
-    </section>
-  );
+    const renderPwa = () => { let previousDate = ""; const renderedMessages = messages.map((message) => { const currentDate = dateKey(message.created_at); const showDate = currentDate !== previousDate; previousDate = currentDate; const own = message.sender_id === accountId; return <div key={message.id} className="staff-chat-pwa-message-wrap">{showDate && <div className="staff-chat-pwa-date" role="separator">{displayDate(message.created_at)}</div>}<article className={`staff-chat-pwa-message${own ? " is-own" : ""}`}><p>{message.body}</p>{message.attachments?.length ? <div className="staff-chat-pwa-attachments">{message.attachments.map(renderAttachment)}</div> : null}<footer><time>{displayTime(message.created_at).split(", ").pop()}</time>{own && (message.read ? <span aria-label="Read"><CheckCheck size={14} aria-hidden="true" /></span> : <span aria-label="Sent"><Check size={14} aria-hidden="true" /></span>)}</footer></article></div>; }); return <section className="staff-chat-pwa-page" aria-label="Staff chat"><header className="staff-chat-pwa-header"><div><span className="staff-chat-eyebrow">STAFF CHAT</span><h1>{selectedConversation?.display_name || "Messages"}</h1></div><button type="button" className="staff-chat-pwa-new" onClick={() => setNewChatOpen(true)} aria-label="Start a new chat"><Plus size={20} aria-hidden="true" /></button></header>{offline && <div className="staff-chat-pwa-offline" role="status">Offline · read-only. Previously loaded messages are available.</div>}{error && <p className="staff-chat-error" role="alert">{error}</p>}{!pwaThreadOpen ? <div className="staff-chat-pwa-list"><label className="staff-chat-pwa-search"><Search size={18} aria-hidden="true" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search staff and conversations" aria-label="Search staff and conversations" /></label>{loading ? <p className="staff-chat-empty">Loading conversations…</p> : pwaRows.length === 0 ? <p className="staff-chat-empty">No staff conversations yet.</p> : pwaRows.map((row) => <button type="button" key={row.conversation.id} className={`staff-chat-pwa-contact${row.conversation.id === selectedId ? " is-selected" : ""}`} onClick={() => void openPwaRow(row)}><span className="staff-chat-avatar" aria-hidden="true">{row.conversation.display_name.slice(0, 1).toUpperCase()}</span><span className="staff-chat-pwa-contact-copy"><strong>{row.conversation.display_name}</strong><small>{row.conversation.last_message?.body || "Start a conversation"}</small></span><span className="staff-chat-pwa-contact-meta"><time>{displayTime(row.conversation.last_message?.created_at)}</time>{row.conversation.unread_count > 0 && <b>{row.conversation.unread_count}</b>}</span></button>)}</div> : <div className="staff-chat-pwa-thread"><button type="button" className="staff-chat-pwa-back" onClick={() => setPwaThreadOpen(false)}><ArrowLeft size={18} aria-hidden="true" /> All messages</button>{selectedConversation?.kind === "group" && <button type="button" className="staff-chat-pwa-group" onClick={() => setManageOpen(true)}>Participants</button>}<div className="staff-chat-pwa-messages" aria-live="polite">{messages.length > 0 && <button type="button" className="staff-chat-pwa-older" onClick={() => void loadOlderMessages()} disabled={offline}>Load older messages</button>}{loadingMessages && !messages.length ? <p className="staff-chat-empty">Loading messages…</p> : messages.length ? renderedMessages : <p className="staff-chat-empty">No messages yet. Start the conversation.</p>}</div><form className="staff-chat-pwa-composer" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}><textarea value={composer} onChange={(event) => setComposer(event.target.value)} placeholder={offline ? "Offline · sending unavailable" : "Message"} aria-label="Chat message" rows={1} disabled={offline || sending} /><label className="staff-chat-pwa-attach"><input type="file" multiple disabled={offline || sending} onChange={(event) => setAttachmentFiles(Array.from(event.target.files || []))} /><span aria-hidden="true">＋</span><span className="sr-only">Attach files</span></label><button type="submit" disabled={offline || sending || !composer.trim()} aria-label="Send message"><Send size={19} aria-hidden="true" /></button></form></div>}{renderDialogs()}</section>; };
+
+  return installedPwa ? renderPwa() : renderDesktop();
 }

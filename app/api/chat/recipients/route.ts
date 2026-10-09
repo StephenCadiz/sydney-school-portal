@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const actor = await authenticateChatActor(request);
   if (!actor) return NextResponse.json({ error: "Staff chat access required." }, { status: 403 });
   try {
-    const recipients = await searchChatRecipients(actor, request.nextUrl.searchParams.get("q") || "");
+    const recipients = await searchChatRecipients(actor, request.nextUrl.searchParams.get("q") || "", request.nextUrl.searchParams.get("all") === "1");
     return NextResponse.json({ recipients }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Chat recipient search failed:", error);

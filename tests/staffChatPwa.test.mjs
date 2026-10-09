@@ -9,6 +9,9 @@ const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
 const bottomNav = read("app/components/pwa/TeacherPwaBottomNav.tsx");
 const migration = read("supabase/migrations/20261009120000_create_staff_chat.sql");
 const styles = read("app/globals.css");
+const cache = read("lib/staffChatCache.ts");
+const messagesRoute = read("app/api/chat/conversations/[id]/messages/route.ts");
+const recipientsRoute = read("app/api/chat/recipients/route.ts");
 
 test("installed Teacher PWA exposes only the safe-area bottom navigation", () => {
   assert.match(teacherLayout, /display-mode: standalone/);
@@ -50,4 +53,36 @@ test("chat push uses generic private-safe notification payload and deep link", (
   assert.match(chatServer, /New chat message/);
   assert.match(chatServer, /conversation=/);
   assert.match(chatServer, /recipient\.role === "admin" \? "\/admin\/chat" : "\/teacher\/chat"/);
+});
+
+test("installed PWA chat uses a WhatsApp-style contact/thread surface without changing desktop markup", () => {
+  assert.match(chatView, /installedPwa/);
+  assert.match(chatView, /staff-chat-pwa-list/);
+  assert.match(chatView, /staff-chat-pwa-contact/);
+  assert.match(chatView, /staff-chat-pwa-message is-own|staff-chat-pwa-message\$\{/);
+  assert.match(chatView, /staff-chat-pwa-date/);
+  assert.match(chatView, /Offline · read-only/);
+  assert.match(chatView, /staff-chat-pwa-composer/);
+  assert.match(chatView, /staff-chat-shell/);
+  assert.match(styles, /staff-chat-pwa-message\.is-own/);
+  assert.match(styles, /env\(safe-area-inset-bottom\)/);
+});
+
+test("PWA chat cache is account-scoped IndexedDB and never a service-worker HTTP cache", () => {
+  assert.match(cache, /indexedDB/);
+  assert.match(cache, /accountId/);
+  assert.match(cache, /conversationId/);
+  assert.match(cache, /clearStaffChatCache/);
+  assert.match(chatView, /saveCachedMessages/);
+  assert.match(chatView, /saveCachedConversations/);
+  assert.match(chatView, /Cache-Control|cache: "no-store"/);
+});
+
+test("chat supports contact discovery, delta sync, pagination, and profile-scoped identity", () => {
+  assert.match(recipientsRoute, /get\("all"\)/);
+  assert.match(chatView, /recipients\?all=1/);
+  assert.match(chatView, /viewer_profile_id/);
+  assert.match(messagesRoute, /after/);
+  assert.match(chatView, /loadOlderMessages/);
+  assert.match(chatView, /staff-chat-account/);
 });

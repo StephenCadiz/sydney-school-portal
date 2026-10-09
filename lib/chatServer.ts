@@ -46,19 +46,20 @@ function profileName(profile: any) {
   return `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() || "Staff member";
 }
 
-export async function searchChatRecipients(actor: ChatActor, query: string) {
+export async function searchChatRecipients(actor: ChatActor, query: string, includeAll = false) {
   const trimmed = query.trim();
-  if (trimmed.length < 2) return [];
+  if (!includeAll && trimmed.length < 2) return [];
   const pattern = `%${trimmed.replace(/[%_,]/g, " ")}%`;
-  const { data, error } = await supabaseAdmin
+  let queryBuilder = supabaseAdmin
     .from("profiles")
     .select("id, first_name, last_name, role, active")
     .in("role", ["admin", "teacher"])
     .or("active.is.null,active.eq.true")
     .neq("id", actor.profileId)
-    .or(`first_name.ilike.${pattern},last_name.ilike.${pattern}`)
     .order("first_name")
-    .limit(20);
+    .limit(includeAll && !trimmed ? 100 : 20);
+  if (trimmed) queryBuilder = queryBuilder.or(`first_name.ilike.${pattern},last_name.ilike.${pattern}`);
+  const { data, error } = await queryBuilder;
   if (error) throw error;
   return (data || []).filter((profile) => profile.active !== false).map((profile) => ({ id: profile.id, name: profileName(profile), role: profile.role }));
 }
@@ -178,10 +179,11 @@ export async function updateChatParticipants(actor: ChatActor, conversationId: s
   }
 }
 
-export async function listChatMessages(actor: ChatActor, conversationId: string, limit = 50, before?: string) {
+export async function listChatMessages(actor: ChatActor, conversationId: string, limit = 50, before?: string, after?: string) {
   if (!(await assertParticipant(actor, conversationId))) throw new Error("You do not have access to this conversation.");
-  let query = supabaseAdmin.from("chat_messages").select("id, conversation_id, sender_id, body, created_at").eq("conversation_id", conversationId).order("created_at", { ascending: false }).limit(Math.min(Math.max(limit, 1), 100));
+  let query = supabaseAdmin.from("chat_messages").select("id, conversation_id, sender_id, body, created_at").eq("conversation_id", conversationId).order("created_at", { ascending: !after }).limit(Math.min(Math.max(limit, 1), 100));
   if (before) query = query.lt("created_at", before);
+  if (after) query = query.gt("created_at", after);
   const { data, error } = await query;
   if (error) throw error;
   const messageIds = (data || []).map((message) => String(message.id));
@@ -195,7 +197,13 @@ export async function listChatMessages(actor: ChatActor, conversationId: string,
   const profiles = senderIds.length ? await supabaseAdmin.from("profiles").select("id, first_name, last_name, role").in("id", senderIds) : { data: [], error: null };
   if (profiles.error) throw profiles.error;
   const profileById = new Map((profiles.data || []).map((profile) => [String(profile.id), profile]));
-  return (data || []).reverse().map((message) => ({ ...message, sender_name: profileName(profileById.get(String(message.sender_id))), sender_role: profileById.get(String(message.sender_id))?.role || "", attachments: attachmentsByMessage.get(String(message.id)) || [] }));
+  const readResult = messageIds.length
+    ? await supabaseAdmin.from("chat_message_reads").select("message_id, reader_id, read_at").in("message_id", messageIds).neq("reader_id", actor.profileId)
+    : { data: [], error: null };
+  if (readResult.error) throw readResult.error;
+  const readIds = new Set((readResult.data || []).map((row) => String(row.message_id)));
+  const ordered = after ? data || [] : (data || []).reverse();
+  return ordered.map((message) => ({ ...message, sender_name: profileName(profileById.get(String(message.sender_id))), sender_role: profileById.get(String(message.sender_id))?.role || "", read: readIds.has(String(message.id)), attachments: attachmentsByMessage.get(String(message.id)) || [] }));
 }
 
 export async function sendChatMessage(actor: ChatActor, conversationId: string, body: string, idempotencyKey: string, attachments: ChatAttachmentInput[] = []) {

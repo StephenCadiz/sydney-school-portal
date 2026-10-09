@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   if (!actor) return NextResponse.json(chatError("Staff chat access required.", 403), { status: 403 });
   try {
     const conversations = await listChatConversations(actor);
-    return NextResponse.json({ conversations }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ conversations, viewer_profile_id: actor.profileId }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Chat conversation list failed:", error);
     return NextResponse.json(chatError("Unable to load chat conversations.", 500), { status: 500 });
