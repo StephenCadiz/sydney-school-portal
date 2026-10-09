@@ -2932,6 +2932,61 @@
 .pwa-notification-control { flex-wrap: wrap; }
 .pwa-notification-control > div { display: grid; gap: 2px; }
 .pwa-notification-status { color: #16704a !important; font-weight: 700; }
+.pwa-passkey-control {
+  align-items: center;
+  background: rgba(255,255,255,.78);
+  border: 1px solid rgba(83,135,204,.28);
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(31,60,136,.08);
+  color: #172b55;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin: 12px auto;
+  padding: 14px 16px;
+  width: min(100%, 760px);
+}
+.pwa-passkey-control > div { display: grid; gap: 3px; }
+.pwa-passkey-control > div span { color: #526581; font-size: .82rem; }
+.pwa-passkey-control button {
+  align-items: center;
+  background: #1f559a;
+  border: 1px solid #1f559a;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 13px;
+  white-space: nowrap;
+}
+.pwa-passkey-control button:disabled { cursor: wait; opacity: .65; }
+.pwa-passkey-status { color: #16704a; font-weight: 800; }
+.pwa-passkey-control p { color: #9a3412; font-size: .8rem; margin: 0; width: 100%; }
+.pwa-passkey-control button:focus-visible { outline: 3px solid rgba(42,120,208,.35); outline-offset: 2px; }
+.auth-passkey-button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #1f559a;
+  border-radius: 9px;
+  color: #1f559a;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+  min-height: 46px;
+  padding: 10px 14px;
+  width: 100%;
+}
+.auth-passkey-button:hover:not(:disabled) { background: #eef7ff; }
+.auth-passkey-button:disabled { cursor: wait; opacity: .64; }
+.auth-passkey-button:focus-visible { outline: 3px solid rgba(22,143,217,.28); outline-offset: 2px; }
 .student-sidebar-nav .pwa-install-card,
 .student-sidebar-nav .pwa-notification-control { display: grid; width: auto; margin: 12px 0 0; padding: 12px; font-size: .82rem; }
 .student-sidebar-nav .pwa-install-actions { margin-left: 0; flex-wrap: wrap; }
@@ -2943,6 +2998,8 @@
   .pwa-install-actions button,
   .pwa-notification-control button { flex: 1; }
   .pwa-install-help { max-width: none; text-align: left; }
+  .pwa-passkey-control { align-items: stretch; flex-direction: column; }
+  .pwa-passkey-control button { justify-content: center; width: 100%; }
 }
 
 /* Admin account password management */

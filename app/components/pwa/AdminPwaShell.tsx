@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { supabase } from "../../../lib/supabase";
+import PasskeyEnrollment from "./PasskeyEnrollment";
 
 type AdminPwaShellProps = {
   children?: ReactNode;
@@ -95,6 +96,7 @@ export default function AdminPwaShell({
               <MessageCircle size={22} aria-hidden="true" />
               <span>Open Staff Chat</span>
             </Link>
+            <PasskeyEnrollment />
           </section>
         )}
       </main>

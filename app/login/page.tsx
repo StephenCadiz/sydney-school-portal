@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
+import { Fingerprint } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
 
@@ -13,8 +14,45 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [signingIn, setSigningIn] = useState(false);
+  const [passkeySupported, setPasskeySupported] = useState(false);
   const passwordResetSucceeded =
     searchParams.get("password_reset") === "success";
+
+  useEffect(() => {
+    setPasskeySupported(
+      typeof window !== "undefined" &&
+        "PublicKeyCredential" in window &&
+        "credentials" in navigator
+    );
+  }, []);
+
+  async function routeAfterAuthentication(userId: string) {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (profileError || !profile?.role) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const mappedSessionResponse = await fetch("/api/student/session", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        });
+        const mappedSession = await mappedSessionResponse.json().catch(() => ({}));
+        if (mappedSessionResponse.ok && typeof mappedSession?.id === "string") {
+          return "/student";
+        }
+      }
+      return null;
+    }
+
+    if (profile.role === "admin") return "/admin";
+    if (profile.role === "teacher") return "/teacher";
+    if (profile.role === "student") return "/student";
+    return null;
+  }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,61 +76,45 @@ function LoginForm() {
 
       setPassword("");
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-
-      if (profileError || !profile?.role) {
-        // Legacy Cambridge students can have a profile ID that differs from
-        // their Auth ID. Reuse the server-side mapping-aware session route
-        // instead of duplicating account-resolution logic in the client.
-        const accessToken = data.session?.access_token;
-        if (accessToken) {
-          const mappedSessionResponse = await fetch("/api/student/session", {
-            headers: { Authorization: `Bearer ${accessToken}` },
-            cache: "no-store",
-          });
-          const mappedSession = await mappedSessionResponse
-            .json()
-            .catch(() => ({}));
-          const resolvedProfileId =
-            typeof mappedSession?.id === "string" ? mappedSession.id : "";
-          // A successful response is Student-role-authorized by the endpoint;
-          // keep the resolved profile ID available for the routed session.
-          if (mappedSessionResponse.ok && resolvedProfileId) {
-            router.push("/student");
-            return;
-          }
-        }
-
+      const route = await routeAfterAuthentication(data.user.id);
+      if (!route) {
         await supabase.auth.signOut();
         setErrorMessage("Unable to access your portal account. Please try again.");
         return;
       }
-
-      if (profile.role === "admin") {
-        router.push("/admin");
-        return;
-      }
-
-      if (profile.role === "teacher") {
-        router.push("/teacher");
-        return;
-      }
-
-      if (profile.role === "student") {
-        router.push("/student");
-        return;
-      }
-
-      await supabase.auth.signOut();
-      setErrorMessage("Unable to access your portal account. Please try again.");
+      router.push(route);
     } catch {
       setErrorMessage(
         "Unable to sign in. Check your email and password and try again."
       );
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  async function handlePasskeySignIn() {
+    if (signingIn || !passkeySupported) return;
+    setErrorMessage("");
+    setSigningIn(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPasskey();
+      if (error || !data?.user) {
+        setErrorMessage(
+          error?.message?.includes("passkey_disabled")
+            ? "Biometric sign-in is not enabled yet. Use your password instead."
+            : "Face ID or fingerprint sign-in was not completed. Use your password instead."
+        );
+        return;
+      }
+      const route = await routeAfterAuthentication(data.user.id);
+      if (!route) {
+        await supabase.auth.signOut();
+        setErrorMessage("Unable to access your portal account. Please use your password instead.");
+        return;
+      }
+      router.push(route);
+    } catch {
+      setErrorMessage("Face ID or fingerprint sign-in was not completed. Use your password instead.");
     } finally {
       setSigningIn(false);
     }
@@ -151,6 +173,18 @@ function LoginForm() {
             {signingIn ? "Signing in…" : "Sign In"}
           </button>
         </form>
+
+        {passkeySupported && (
+          <button
+            type="button"
+            className="auth-passkey-button"
+            onClick={() => void handlePasskeySignIn()}
+            disabled={signingIn}
+          >
+            <Fingerprint size={19} aria-hidden="true" />
+            Sign in with Face ID / fingerprint
+          </button>
+        )}
       </section>
     </main>
   );

@@ -20,6 +20,7 @@ import TeacherOutstandingTaskCards from "../teacher/TeacherOutstandingTaskCards"
 import TeacherStudentMonitoringTasks from "../teacher/TeacherStudentMonitoringTasks";
 import PwaInstallAndNotifications from "../pwa/PwaInstallAndNotifications";
 import TeacherPwaBottomNav from "../pwa/TeacherPwaBottomNav";
+import PasskeyEnrollment from "../pwa/PasskeyEnrollment";
 
 interface TeacherLayoutProps {
   children: ReactNode | ((unreadMessageCount: number) => ReactNode);
@@ -283,6 +284,7 @@ export default function TeacherLayout({
         )}
 
         {!isInstalledChatPwa && <PwaInstallAndNotifications />}
+        {!isInstalledChatPwa && installedPwa && <PasskeyEnrollment />}
 
         {!isInstalledChatPwa && (
           <Suspense fallback={null}>
