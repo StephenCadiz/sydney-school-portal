@@ -23760,6 +23760,118 @@ img {
 .teacher-layout-shell.is-installed-pwa .teacher-main-content {
   padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
 }
+
+/* Installed Admin PWA shell. The regular Admin layout is intentionally left
+   unchanged in browser/desktop mode. Private chat data is loaded online by
+   the existing participant-authorized Chat view only. */
+.admin-pwa-shell {
+  background: var(--ss-page-bg, #f5f8fc);
+  color: #173b6b;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-bottom: calc(82px + env(safe-area-inset-bottom));
+}
+.admin-pwa-header {
+  align-items: center;
+  background: rgba(255,255,255,.9);
+  border-bottom: 1px solid rgba(120,167,204,.25);
+  box-shadow: 0 8px 22px rgba(31,60,136,.08);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: max(14px, env(safe-area-inset-top)) 18px 14px;
+}
+.admin-pwa-logo { height: auto; max-width: min(48vw, 190px); width: auto; }
+.admin-pwa-identity { display: grid; gap: 3px; min-width: 0; text-align: right; }
+.admin-pwa-identity strong { color: #173b6b; font-size: .96rem; overflow-wrap: anywhere; }
+.admin-pwa-eyebrow { color: #2f7db8; font-size: .68rem; font-weight: 850; letter-spacing: .13em; }
+.admin-pwa-main { flex: 1; margin: 0 auto; max-width: 760px; padding: 24px 16px 28px; width: 100%; }
+.admin-pwa-landing, .admin-pwa-status {
+  background: rgba(255,255,255,.78);
+  border: 1px solid rgba(146,184,215,.42);
+  border-radius: 20px;
+  box-shadow: 0 18px 42px rgba(31,60,136,.1);
+  padding: clamp(24px, 7vw, 42px);
+}
+.admin-pwa-landing h1 { color: #173b6b; font-size: clamp(1.5rem, 6vw, 2.2rem); line-height: 1.15; margin: 10px 0; }
+.admin-pwa-landing p { color: #5d6f86; line-height: 1.55; margin: 0 0 24px; }
+.admin-pwa-chat-entry {
+  align-items: center;
+  background: #2f7db8;
+  border-radius: 12px;
+  box-shadow: 0 9px 20px rgba(47,125,184,.22);
+  color: #fff;
+  display: inline-flex;
+  font-weight: 800;
+  gap: 9px;
+  min-height: 48px;
+  padding: 12px 16px;
+  text-decoration: none;
+}
+.admin-pwa-chat-entry:focus-visible { outline: 3px solid #65a9da; outline-offset: 3px; }
+.admin-pwa-bottom-nav {
+  align-items: stretch;
+  background: rgba(255,255,255,.95);
+  border-top: 1px solid rgba(120,167,204,.32);
+  bottom: 0;
+  box-shadow: 0 -10px 28px rgba(31,60,136,.14);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  left: 0;
+  padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
+  position: fixed;
+  right: 0;
+  z-index: 100;
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
+}
+.admin-pwa-bottom-nav a {
+  align-items: center;
+  border-radius: 12px;
+  color: #50627a;
+  display: inline-flex;
+  flex-direction: column;
+  font-size: 11px;
+  font-weight: 750;
+  gap: 3px;
+  justify-content: center;
+  min-height: 50px;
+  padding: 5px 8px;
+  text-decoration: none;
+}
+.admin-pwa-bottom-nav a.is-active { background: #e8f3ff; color: #1f5f9f; }
+.admin-pwa-bottom-nav a:focus-visible { outline: 3px solid #65a9da; outline-offset: -2px; }
+.admin-pwa-nav-icon-wrap { display: inline-flex; position: relative; }
+.admin-pwa-unread-badge {
+  align-items: center;
+  background: #d92d20;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 850;
+  justify-content: center;
+  line-height: 1;
+  min-height: 18px;
+  min-width: 18px;
+  padding: 2px 4px;
+  position: absolute;
+  right: -12px;
+  top: -8px;
+}
+@media (min-width: 701px) {
+  .admin-pwa-main { padding-top: 40px; }
+}
+@media (max-width: 360px) {
+  .admin-pwa-header { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  .admin-pwa-logo { max-width: 43vw; }
+  .admin-pwa-identity strong { font-size: .86rem; }
+  .admin-pwa-main { padding-left: 12px; padding-right: 12px; }
+}
 .staff-chat-page { margin: 0 auto; max-width: 1480px; min-width: 0; }
 .staff-chat-header { align-items: flex-start; display: flex; gap: 18px; justify-content: space-between; margin-bottom: 20px; }
 .staff-chat-header h1 { color: #173b6b; font-size: clamp(1.7rem, 3vw, 2.35rem); margin: 4px 0; }

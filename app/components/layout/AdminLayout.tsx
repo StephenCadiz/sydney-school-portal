@@ -13,6 +13,7 @@ import { supabase } from "../../../lib/supabase";
 import { filterAdminNavGroups, isRocioRestrictedAdmin } from "../../../lib/adminAccess";
 import LogoutButton from "../auth/LogoutButton";
 import TeacherLiveClock from "./TeacherLiveClock";
+import AdminPwaShell from "../pwa/AdminPwaShell";
 
 type AdminNavIconName =
   | "home"
@@ -238,6 +239,14 @@ function getDisplayDate(date = new Date()) {
   });
 }
 
+function isInstalledPwaEnvironment() {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone)
+  );
+}
+
 function UnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null;
 
@@ -280,6 +289,9 @@ export default function AdminLayout({
   const [menuOpen, setMenuOpen] = useState(false);
   const [adminId, setAdminId] = useState("");
   const [adminName, setAdminName] = useState({ firstName: "", fullName: "" });
+  const [adminAccessResolved, setAdminAccessResolved] = useState(false);
+  const [installedPwa, setInstalledPwa] = useState(false);
+  const [pwaDetectionComplete, setPwaDetectionComplete] = useState(false);
   const [outstandingAdminMessages, setOutstandingAdminMessages] = useState(0);
   const [attendanceAlertCount, setAttendanceAlertCount] = useState(0);
   const [monitoringSummary, setMonitoringSummary] = useState<AdminMonitoringSummary>({ feedbackCount: 0, overdueCount: 0, feedback: [] });
@@ -326,6 +338,8 @@ export default function AdminLayout({
         }
       } catch {
         // The layout remains usable if notification initialization fails.
+      } finally {
+        if (mountedRef.current) setAdminAccessResolved(true);
       }
     }
 
@@ -334,6 +348,14 @@ export default function AdminLayout({
     return () => {
       mountedRef.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const updateInstalledState = () => setInstalledPwa(isInstalledPwaEnvironment());
+    updateInstalledState();
+    setPwaDetectionComplete(true);
+    window.addEventListener("resize", updateInstalledState);
+    return () => window.removeEventListener("resize", updateInstalledState);
   }, []);
 
   const loadOutstandingMessageCount = useCallback(async () => {
@@ -431,7 +453,7 @@ export default function AdminLayout({
   }, [adminId]);
 
   useEffect(() => {
-    if (!adminId) return;
+    if (!adminId || installedPwa) return;
 
     const refresh = () => void loadAttendanceAlertCount();
     refresh();
@@ -442,10 +464,10 @@ export default function AdminLayout({
       window.clearInterval(intervalId);
       window.removeEventListener("admin-attendance-alerts-changed", refresh);
     };
-  }, [adminId, loadAttendanceAlertCount]);
+  }, [adminId, installedPwa, loadAttendanceAlertCount]);
 
   useEffect(() => {
-    if (!adminId) return;
+    if (!adminId || installedPwa) return;
     const refresh = () => void loadMonitoringSummary();
     refresh();
     const intervalId = window.setInterval(refresh, 60000);
@@ -454,11 +476,11 @@ export default function AdminLayout({
       window.clearInterval(intervalId);
       window.removeEventListener("admin-student-monitoring-changed", refresh);
     };
-  }, [adminId, loadMonitoringSummary]);
+  }, [adminId, installedPwa, loadMonitoringSummary]);
 
   useMessageRealtimeRefresh({
     onRefresh: loadOutstandingMessageCount,
-    enabled: Boolean(adminId),
+    enabled: Boolean(adminId) && !installedPwa,
     intervalMs: 60000,
     customEventName: "admin-unread-messages-changed",
     channelName: "admin-layout-messages",
@@ -467,7 +489,7 @@ export default function AdminLayout({
   useStaffMessageNotifications({
     userId: adminId,
     role: "admin",
-    enabled: Boolean(adminId),
+    enabled: Boolean(adminId) && !installedPwa,
     refreshEventName: "admin-unread-messages-changed",
   });
 
@@ -829,6 +851,23 @@ export default function AdminLayout({
       </div>
     );
   };
+
+  if (!pwaDetectionComplete) {
+    return <AdminPwaShell loading />;
+  }
+
+  if (installedPwa) {
+    return (
+      <AdminPwaShell
+        fullName={adminName.fullName}
+        loading={!adminAccessResolved}
+      >
+        {adminAccessResolved && adminId && pathname === "/admin/chat" && typeof children !== "function"
+          ? children
+          : null}
+      </AdminPwaShell>
+    );
+  }
 
   return (
     <div
