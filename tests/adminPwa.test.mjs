@@ -43,6 +43,16 @@ test("Admin PWA bottom navigation supports iOS safe areas and mobile focus", () 
   assert.match(styles, /backdrop-filter: blur\(18px\)/);
 });
 
+test("Teacher and Admin PWA bottom navigation stays fixed to the viewport", () => {
+  assert.match(styles, /teacher-layout-shell\.is-installed-pwa \.teacher-pwa-bottom-nav,[\s\S]*admin-pwa-shell \.admin-pwa-bottom-nav/);
+  assert.match(styles, /position: fixed !important/);
+  assert.match(styles, /inset-block-end: 0/);
+  assert.match(styles, /block-size: calc\(66px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(styles, /translate3d\(0, 0, 0\)/);
+  assert.match(styles, /teacher-layout-shell\.is-installed-pwa \.teacher-main-content[\s\S]*padding-bottom: calc\(82px \+ env\(safe-area-inset-bottom\)/);
+  assert.match(styles, /\.admin-pwa-shell[\s\S]*padding-bottom: calc\(82px \+ env\(safe-area-inset-bottom\)/);
+});
+
 test("Admin PWA does not introduce an offline private-data cache", () => {
   assert.doesNotMatch(shell, /caches\.open|localStorage|sessionStorage/);
   assert.match(shell, /cache: "no-store"/);

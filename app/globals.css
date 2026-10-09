@@ -24001,6 +24001,33 @@ img {
   right: -12px;
   top: -8px;
 }
+
+/* Keep installed-PWA navigation attached to the viewport instead of the
+   scrolling content. Explicit sizing prevents safe-area recalculation from
+   making the bar visibly jump on iOS. */
+.teacher-layout-shell.is-installed-pwa .teacher-pwa-bottom-nav,
+.admin-pwa-shell .admin-pwa-bottom-nav {
+  position: fixed !important;
+  inset-block-end: 0;
+  inset-inline: 0;
+  box-sizing: border-box;
+  block-size: calc(66px + env(safe-area-inset-bottom));
+  min-block-size: calc(66px + env(safe-area-inset-bottom));
+  padding-block-end: env(safe-area-inset-bottom);
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: layout paint style;
+  isolation: isolate;
+  z-index: 1000;
+}
+.teacher-layout-shell.is-installed-pwa .teacher-main-content {
+  padding-bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+}
+.admin-pwa-shell {
+  padding-bottom: calc(82px + env(safe-area-inset-bottom));
+}
 @media (min-width: 701px) {
   .admin-pwa-main { padding-top: 40px; }
 }
