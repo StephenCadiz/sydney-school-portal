@@ -30,6 +30,7 @@ type AdminNavIconName =
   | "clock"
   | "folder"
   | "envelope"
+  | "messageCircle"
   | "attendance"
   | "megaphone";
 
@@ -201,6 +202,13 @@ function AdminNavIcon({
         <svg {...commonProps}>
           <rect width="20" height="16" x="2" y="4" rx="2" />
           <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+        </svg>
+      );
+    case "messageCircle":
+      return (
+        <svg {...commonProps}>
+          <path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.4 8.4 0 0 1-3.4-.7L4 20l1.7-3.7A7.4 7.4 0 0 1 4 11.5 7.5 7.5 0 0 1 12 4a7.5 7.5 0 0 1 8 7.5Z" />
+          <path d="M8 11h.01M12 11h.01M16 11h.01" />
         </svg>
       );
     case "megaphone":
@@ -531,6 +539,7 @@ export default function AdminLayout({
       icon: "envelope",
       items: [
         { name: "Messages", href: "/admin/messages", icon: "envelope" },
+        { name: "Chat", href: "/admin/chat", icon: "messageCircle" },
         { name: "Announcements", href: "/admin/announcements", icon: "megaphone" },
       ],
     },

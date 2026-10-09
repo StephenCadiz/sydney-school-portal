@@ -19,6 +19,7 @@ import TeacherClassProgressReminder from "../teacher/TeacherClassProgressReminde
 import TeacherOutstandingTaskCards from "../teacher/TeacherOutstandingTaskCards";
 import TeacherStudentMonitoringTasks from "../teacher/TeacherStudentMonitoringTasks";
 import PwaInstallAndNotifications from "../pwa/PwaInstallAndNotifications";
+import TeacherPwaBottomNav from "../pwa/TeacherPwaBottomNav";
 
 interface TeacherLayoutProps {
   children: ReactNode | ((unreadMessageCount: number) => ReactNode);
@@ -37,9 +38,17 @@ export default function TeacherLayout({
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [studentMonitoringCount, setStudentMonitoringCount] = useState(0);
   const [studentMonitoringOpen, setStudentMonitoringOpen] = useState(false);
+  const [installedPwa, setInstalledPwa] = useState(false);
   const mountedRef = useRef(false);
   const unreadCountErrorLoggedRef = useRef(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    const updateInstalledState = () => setInstalledPwa(window.matchMedia("(display-mode: standalone)").matches || Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone));
+    updateInstalledState();
+    window.addEventListener("resize", updateInstalledState);
+    return () => window.removeEventListener("resize", updateInstalledState);
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -225,7 +234,7 @@ export default function TeacherLayout({
 
   return (
     <div
-      className="teacher-layout-shell"
+      className={`teacher-layout-shell${installedPwa ? " is-installed-pwa" : ""}`}
       style={{
         display: "flex",
         minHeight: "100vh",
@@ -282,6 +291,7 @@ export default function TeacherLayout({
         </div>
       </main>
       <TeacherClassProgressReminder />
+      {installedPwa && <TeacherPwaBottomNav />}
     </div>
   );
 }

@@ -117,6 +117,14 @@ export default function TeacherSidebar({
       />
 
       <SidebarItem
+        href="/teacher/chat"
+        icon={<MessageSquare size={20} />}
+        title="Chat"
+        active={isActive("/teacher/chat")}
+        onClick={onClose}
+      />
+
+      <SidebarItem
         href="/teacher/admin"
         icon={<Settings size={20} />}
         title="Admin Tasks"
