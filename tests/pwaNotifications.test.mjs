@@ -22,6 +22,7 @@ test("service worker has network-only fetch behavior and never caches private AP
   assert.match(worker, /event\.respondWith\(fetch\(request\)\)/);
   assert.doesNotMatch(worker, /caches\.open|cache\.put|cacheFirst|staleWhileRevalidate/);
   assert.match(worker, /push/);
+  assert.match(worker, /event\.data\.text\(\)/);
   assert.match(worker, /notificationclick/);
 });
 
@@ -36,6 +37,7 @@ test("install and push controls are opt-in and do not repeatedly show dismissed 
   assert.match(client, /pushManager\.getSubscription\(\)/);
   assert.match(client, /subscriptionMatchesKey/);
   assert.match(client, /subscription\.unsubscribe\(\)/);
+  assert.match(client, /registration\.update\(\)/);
   assert.match(client, /could not register for push notifications/);
 });
 

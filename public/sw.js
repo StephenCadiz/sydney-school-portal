@@ -17,7 +17,11 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   let payload = {};
-  try { payload = event.data ? event.data.json() : {}; } catch { payload = {}; }
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    try { payload = event.data ? JSON.parse(event.data.text()) : {}; } catch { payload = {}; }
+  }
   const title = payload.title || "Sydney School";
   const options = {
     body: payload.body || "You have a new portal notification.",

@@ -44,7 +44,9 @@ export default function PwaInstallAndNotifications() {
       link.href = "/manifest.webmanifest";
       document.head.appendChild(link);
     }
-    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    if ("serviceWorker" in navigator) {
+      void navigator.serviceWorker.register("/sw.js", { scope: "/" }).then((registration) => registration.update()).catch(() => undefined);
+    }
     const onInstall = (event: Event) => {
       event.preventDefault();
       setInstallEvent(event as InstallPromptEvent);
