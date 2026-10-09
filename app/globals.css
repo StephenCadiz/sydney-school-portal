@@ -24028,6 +24028,52 @@ img {
 .admin-pwa-shell {
   padding-bottom: calc(82px + env(safe-area-inset-bottom));
 }
+.teacher-layout-shell.is-installed-pwa-chat {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 100dvh !important;
+  overflow: hidden;
+}
+.teacher-layout-shell.is-installed-pwa-chat .teacher-main-content.is-installed-pwa-chat-main {
+  box-sizing: border-box;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.teacher-layout-shell.is-installed-pwa-chat .teacher-main-content-body {
+  box-sizing: border-box;
+  height: 100%;
+  max-width: none;
+  overflow: hidden;
+  width: 100%;
+}
+.admin-pwa-shell.is-admin-chat-pwa {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+.admin-pwa-shell.is-admin-chat-pwa .admin-pwa-header {
+  display: none;
+}
+.admin-pwa-shell.is-admin-chat-pwa .admin-pwa-main.admin-pwa-chat-main {
+  box-sizing: border-box;
+  height: 100dvh;
+  max-width: none;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 0 calc(82px + env(safe-area-inset-bottom));
+}
+.teacher-layout-shell.is-installed-pwa-chat .staff-chat-pwa-page,
+.admin-pwa-shell.is-admin-chat-pwa .staff-chat-pwa-page {
+  border-radius: 0;
+  box-shadow: none;
+  height: 100%;
+  min-height: 0;
+}
 @media (min-width: 701px) {
   .admin-pwa-main { padding-top: 40px; }
 }

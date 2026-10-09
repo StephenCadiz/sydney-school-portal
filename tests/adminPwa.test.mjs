@@ -4,6 +4,7 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const layout = read("app/components/layout/AdminLayout.tsx");
+const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
 const shell = read("app/components/pwa/AdminPwaShell.tsx");
 const routeLayout = read("app/admin/layout.tsx");
 const styles = read("app/globals.css");
@@ -56,4 +57,16 @@ test("Teacher and Admin PWA bottom navigation stays fixed to the viewport", () =
 test("Admin PWA does not introduce an offline private-data cache", () => {
   assert.doesNotMatch(shell, /caches\.open|localStorage|sessionStorage/);
   assert.match(shell, /cache: "no-store"/);
+});
+
+test("Teacher and Admin chat PWAs use a dedicated full-screen surface", () => {
+  assert.match(teacherLayout, /isInstalledChatPwa = installedPwa && pathname === "\/teacher\/chat"/);
+  assert.match(teacherLayout, /is-installed-pwa-chat/);
+  assert.match(teacherLayout, /!isInstalledChatPwa && \([\s\S]*<PortalHeader/);
+  assert.match(teacherLayout, /!isInstalledChatPwa && <PwaInstallAndNotifications/);
+  assert.match(shell, /is-admin-chat-pwa/);
+  assert.match(shell, /!isChat && <header className="admin-pwa-header">/);
+  assert.match(styles, /\.is-admin-chat-pwa \.admin-pwa-header\s*\{[\s\S]*display: none/);
+  assert.match(styles, /\.is-installed-pwa-chat \.teacher-main-content/);
+  assert.match(styles, /\.admin-pwa-chat-main/);
 });

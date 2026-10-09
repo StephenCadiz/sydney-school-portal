@@ -232,57 +232,67 @@ export default function TeacherLayout({
     refreshEventName: TEACHER_MESSAGES_CHANGED_EVENT,
   });
 
+  const isInstalledChatPwa = installedPwa && pathname === "/teacher/chat";
+
   return (
     <div
-      className={`teacher-layout-shell${installedPwa ? " is-installed-pwa" : ""}`}
+      className={`teacher-layout-shell${installedPwa ? " is-installed-pwa" : ""}${isInstalledChatPwa ? " is-installed-pwa-chat" : ""}`}
       style={{
         display: "flex",
         minHeight: "100vh",
         background: "var(--ss-page-bg)",
       }}
     >
-      <button
-        type="button"
-        aria-label="Close teacher menu"
-        className={`mobile-sidebar-overlay ${menuOpen ? "is-open" : ""}`}
-        onClick={() => setMenuOpen(false)}
-      />
+      {!isInstalledChatPwa && (
+        <button
+          type="button"
+          aria-label="Close teacher menu"
+          className={`mobile-sidebar-overlay ${menuOpen ? "is-open" : ""}`}
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
 
-      <TeacherSidebar
-        isMobileOpen={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        unreadMessageCount={unreadMessageCount}
-        studentMonitoringCount={studentMonitoringCount}
-        showSyllabuses={isSyllabusCoordinator}
-        onStudentMonitoringOpen={() => setStudentMonitoringOpen(true)}
-      />
+      {!isInstalledChatPwa && (
+        <TeacherSidebar
+          isMobileOpen={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          unreadMessageCount={unreadMessageCount}
+          studentMonitoringCount={studentMonitoringCount}
+          showSyllabuses={isSyllabusCoordinator}
+          onStudentMonitoringOpen={() => setStudentMonitoringOpen(true)}
+        />
+      )}
 
       <main
-        className="teacher-main-content"
+        className={`teacher-main-content${isInstalledChatPwa ? " is-installed-pwa-chat-main" : ""}`}
         style={{
           flex: 1,
-          padding: "40px",
-          overflowY: "auto",
+          padding: isInstalledChatPwa ? 0 : "40px",
+          overflowY: isInstalledChatPwa ? "hidden" : "auto",
           background: "var(--ss-page-bg)",
         }}
       >
-        <PortalHeader
-          title="Teacher Portal"
-          firstName={teacherFirstName}
-          showWelcome={showWelcome}
-          unreadMessageCount={unreadMessageCount}
-          onMenuOpen={() => setMenuOpen(true)}
-        />
-
-        <PwaInstallAndNotifications />
-
-        <Suspense fallback={null}>
-          <TeacherOutstandingTaskCards />
-          <TeacherStudentMonitoringTasks
-            openRequested={studentMonitoringOpen}
-            onOpenRequestHandled={() => setStudentMonitoringOpen(false)}
+        {!isInstalledChatPwa && (
+          <PortalHeader
+            title="Teacher Portal"
+            firstName={teacherFirstName}
+            showWelcome={showWelcome}
+            unreadMessageCount={unreadMessageCount}
+            onMenuOpen={() => setMenuOpen(true)}
           />
-        </Suspense>
+        )}
+
+        {!isInstalledChatPwa && <PwaInstallAndNotifications />}
+
+        {!isInstalledChatPwa && (
+          <Suspense fallback={null}>
+            <TeacherOutstandingTaskCards />
+            <TeacherStudentMonitoringTasks
+              openRequested={studentMonitoringOpen}
+              onOpenRequestHandled={() => setStudentMonitoringOpen(false)}
+            />
+          </Suspense>
+        )}
 
         <div className="teacher-main-content-body">
           {typeof children === "function"
@@ -290,7 +300,7 @@ export default function TeacherLayout({
             : children}
         </div>
       </main>
-      <TeacherClassProgressReminder />
+      {!isInstalledChatPwa && <TeacherClassProgressReminder />}
       {installedPwa && <TeacherPwaBottomNav />}
     </div>
   );

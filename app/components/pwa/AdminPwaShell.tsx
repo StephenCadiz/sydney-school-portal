@@ -63,8 +63,8 @@ export default function AdminPwaShell({
   const displayName = fullName.trim() || "Admin staff";
 
   return (
-    <div className="admin-pwa-shell">
-      <header className="admin-pwa-header">
+    <div className={`admin-pwa-shell${isChat ? " is-admin-chat-pwa" : ""}`}>
+      {!isChat && <header className="admin-pwa-header">
         <Image
           src="/LOGO and NAME.png"
           alt="Sydney School"
@@ -77,9 +77,9 @@ export default function AdminPwaShell({
           <span className="admin-pwa-eyebrow">ADMIN PORTAL</span>
           <strong>{loading ? "Loading your workspace…" : displayName}</strong>
         </div>
-      </header>
+      </header>}
 
-      <main className="admin-pwa-main">
+      <main className={`admin-pwa-main${isChat ? " admin-pwa-chat-main" : ""}`}>
         {loading ? (
           <section className="admin-pwa-status" role="status" aria-live="polite">
             Checking your Admin access…
