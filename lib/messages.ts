@@ -696,6 +696,65 @@ export async function sendStudentMessage(message: {
   return payload || { success: true };
 }
 
+export async function getStudentMessages() {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error("Authentication required.");
+  }
+
+  const response = await fetch("/api/student/messages", {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(payload?.error || "Unable to load messages.") as Error & {
+      code?: string;
+      status?: number;
+    };
+    error.code = payload?.code;
+    error.status = response.status;
+    throw error;
+  }
+  return {
+    inbox: Array.isArray(payload?.inbox) ? payload.inbox : [],
+    sent: Array.isArray(payload?.sent) ? payload.sent : [],
+  };
+}
+
+export async function markStudentMessageAsRead(messageId: string) {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error("Authentication required.");
+  }
+
+  const response = await fetch("/api/student/messages", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ message_id: messageId }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(payload?.error || "Unable to mark message as read.") as Error & {
+      code?: string;
+      status?: number;
+    };
+    error.code = payload?.code;
+    error.status = response.status;
+    throw error;
+  }
+  return payload || { success: true };
+}
+
 export async function getAdminInboxMessages(adminId: string) {
   const { data, error } = await supabase
     .from("messages")

@@ -32,6 +32,153 @@ function allowedKeys(record: Record<string, unknown>) {
   );
 }
 
+function madridDateOnly() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+async function authenticateStudent(request: NextRequest) {
+  const token = tokenFrom(request);
+  if (!token) throw Object.assign(new Error("Authentication required."), { status: 401 });
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !authData.user) {
+    logFailure("authentication", authError);
+    throw Object.assign(new Error("Authentication required."), { status: 401 });
+  }
+
+  const studentId = await resolveProfileIdForAuthUser(authData.user.id);
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, role, active")
+    .eq("id", studentId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile || profile.role !== "student" || profile.active === false) {
+    throw Object.assign(new Error("Student access is required."), { status: 403 });
+  }
+
+  return studentId;
+}
+
+async function loadAssignedTeacherIds(studentId: string) {
+  const { data: enrolments, error: enrolmentError } = await supabaseAdmin
+    .from("current_class_enrolments")
+    .select("class_id, classes!inner(id, teacher_id)")
+    .eq("student_id", studentId);
+  if (enrolmentError) throw enrolmentError;
+
+  const teacherIds = new Set<string>();
+  for (const row of enrolments || []) {
+    const classroom = Array.isArray(row?.classes) ? row.classes[0] : row?.classes;
+    const teacherId = classroom?.teacher_id;
+    if (typeof teacherId === "string" && UUID.test(teacherId)) teacherIds.add(teacherId);
+  }
+
+  // Keep the server authorization usable for a legacy enrolment while the
+  // current-enrolment view catches up. The date filter prevents ended/future
+  // class assignments from becoming message recipients.
+  if (teacherIds.size === 0) {
+    const today = madridDateOnly();
+    const { data: periods, error: periodError } = await supabaseAdmin
+      .from("class_enrolment_periods")
+      .select("class_id, starts_on, ends_before, cancelled_at, classes!inner(teacher_id)")
+      .eq("student_type", "profile")
+      .eq("profile_student_id", studentId)
+      .is("cancelled_at", null);
+    if (periodError) throw periodError;
+    for (const row of periods || []) {
+      const startsOn = String(row?.starts_on || "");
+      const endsBefore = row?.ends_before ? String(row.ends_before) : "";
+      const classroom = Array.isArray(row?.classes) ? row.classes[0] : row?.classes;
+      const teacherId = classroom?.teacher_id;
+      if (
+        startsOn <= today &&
+        (!endsBefore || endsBefore > today) &&
+        typeof teacherId === "string" &&
+        UUID.test(teacherId)
+      ) {
+        teacherIds.add(teacherId);
+      }
+    }
+  }
+
+  return Array.from(teacherIds);
+}
+
+async function handleStudentRouteError(error: any) {
+  logFailure("student-route", error);
+  const status = Number(error?.status) || (error?.code === "42501" ? 403 : 500);
+  const message = error?.code === "42501"
+    ? "You are not authorized to access these messages."
+    : error?.message || "Unable to access messages.";
+  return errorResponse(message, status, error?.code);
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const studentId = await authenticateStudent(request);
+    const teacherIds = await loadAssignedTeacherIds(studentId);
+    if (teacherIds.length === 0) {
+      return NextResponse.json(
+        { inbox: [], sent: [] },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const [inboxResult, sentResult] = await Promise.all([
+      supabaseAdmin
+        .from("messages")
+        .select("*")
+        .eq("receiver_id", studentId)
+        .in("sender_id", teacherIds)
+        .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("messages")
+        .select("*")
+        .eq("sender_id", studentId)
+        .in("receiver_id", teacherIds)
+        .order("created_at", { ascending: false }),
+    ]);
+    if (inboxResult.error) throw inboxResult.error;
+    if (sentResult.error) throw sentResult.error;
+
+    return NextResponse.json(
+      { inbox: inboxResult.data || [], sent: sentResult.data || [] },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error: any) {
+    return handleStudentRouteError(error);
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const studentId = await authenticateStudent(request);
+    const body = await request.json().catch(() => null);
+    const messageId = String(body?.message_id || "").trim();
+    if (!UUID.test(messageId)) return errorResponse("A valid message is required.", 400);
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", messageId)
+      .eq("receiver_id", studentId)
+      .is("read_at", null)
+      .select("id, read_at")
+      .maybeSingle();
+    if (updateError) throw updateError;
+    if (!updated) return errorResponse("Message not found.", 404);
+    return NextResponse.json({ success: true, ...updated });
+  } catch (error: any) {
+    return handleStudentRouteError(error);
+  }
+}
+
 export async function POST(request: NextRequest) {
   const token = tokenFrom(request);
   if (!token) return errorResponse("Authentication required.", 401);
@@ -76,19 +223,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Attachments must be an array.", 400);
     }
 
-    const { data: enrolments, error: enrolmentError } = await supabaseAdmin
-      .from("current_class_enrolments")
-      .select("class_id, classes!inner(id, teacher_id)")
-      .eq("student_id", studentId);
-    if (enrolmentError) throw enrolmentError;
-
-    const teacherIds = Array.from(
-      new Set(
-        (enrolments || [])
-          .map((row: any) => row?.classes?.teacher_id)
-          .filter((value: unknown): value is string => typeof value === "string" && UUID.test(value))
-      )
-    );
+    const teacherIds = await loadAssignedTeacherIds(studentId);
     if (!teacherIds.includes(receiverId)) {
       return errorResponse(
         "You can only message a teacher assigned to your current class.",

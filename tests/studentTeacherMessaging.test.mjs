@@ -15,6 +15,30 @@ test("Student sends through the mapping-aware server route", () => {
   assert.doesNotMatch(page, /sendMessage\(/);
 });
 
+test("Student message reads and read status use the authenticated server boundary", () => {
+  assert.match(route, /export async function GET/);
+  assert.match(route, /export async function PATCH/);
+  assert.match(route, /loadAssignedTeacherIds\(studentId\)/);
+  assert.match(route, /supabaseAdmin\s*\.from\("messages"\)/);
+  assert.match(messages, /getStudentMessages/);
+  assert.match(messages, /markStudentMessageAsRead/);
+  assert.match(page, /await getStudentMessages\(\)/);
+  assert.match(page, /await markStudentMessageAsRead\(item\.id\)/);
+  assert.doesNotMatch(page, /getInboxMessages\(/);
+  assert.doesNotMatch(page, /getSentMessages\(/);
+});
+
+test("A successful send is not replaced by a background refresh error", () => {
+  assert.match(page, /Message sent successfully\./);
+  assert.match(page, /Unable to refresh student messages after send/);
+  assert.match(page, /setSentMessages\(\(current\) =>/);
+});
+
+test("The composer always selects a teacher returned by the current-teacher list", () => {
+  assert.match(page, /availableTeachers\.find\(\(item\) => item\.id === currentTeacher\?\.id\)/);
+  assert.match(page, /availableTeachers\[0\]\s*\|\|\s*null/);
+});
+
 test("Express and Intensive students may message only a current class teacher", () => {
   assert.match(route, /current_class_enrolments/);
   assert.match(route, /classes!inner\(id, teacher_id\)/);

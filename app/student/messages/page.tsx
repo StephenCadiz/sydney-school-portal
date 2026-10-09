@@ -7,9 +7,8 @@ import MessageAttachmentPicker from "../../components/messages/MessageAttachment
 import MessageAttachments from "../../components/messages/MessageAttachments";
 import {
   formatMessageDateTime,
-  getInboxMessages,
-  getSentMessages,
-  markMessageAsRead,
+  getStudentMessages,
+  markStudentMessageAsRead,
   sendStudentMessage,
 } from "../../../lib/messages";
 import {
@@ -66,24 +65,10 @@ export default function StudentMessagesPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
-  async function loadMessages(
-    currentStudentId = studentId,
-    currentTeacher = teacher
-  ) {
-    const recipients = Array.isArray(currentTeacher)
-      ? currentTeacher
-      : currentTeacher?.id
-      ? [currentTeacher]
-      : teachers;
-    if (!currentStudentId || !recipients.length) return;
-
-    const [inboxGroups, sentGroups] = await Promise.all([
-      Promise.all(recipients.map((recipient) => getInboxMessages(currentStudentId, recipient.id))),
-      Promise.all(recipients.map((recipient) => getSentMessages(currentStudentId, recipient.id))),
-    ]);
-
-    setInboxMessages(inboxGroups.flat());
-    setSentMessages(sentGroups.flat());
+  async function loadMessages() {
+    const { inbox, sent } = await getStudentMessages();
+    setInboxMessages(inbox);
+    setSentMessages(sent);
   }
 
   useEffect(() => {
@@ -95,13 +80,22 @@ export default function StudentMessagesPage() {
           getCurrentTeacher(),
         ]);
         const currentClass = await getCurrentStudentClass();
+        const availableTeachers = currentTeachers.length
+          ? currentTeachers
+          : currentTeacher
+          ? [currentTeacher]
+          : [];
+        const initialTeacher =
+          availableTeachers.find((item) => item.id === currentTeacher?.id) ||
+          availableTeachers[0] ||
+          null;
 
         setStudentId(user.id);
-        setTeacher(currentTeacher);
-        setTeachers(currentTeachers.length ? currentTeachers : [currentTeacher]);
+        setTeacher(initialTeacher);
+        setTeachers(availableTeachers);
         setIsCambridgeStudent(currentClass.is_cambridge === true);
 
-        await loadMessages(user.id, currentTeachers);
+        await loadMessages();
       } catch (error) {
         console.error("LOAD MESSAGES ERROR:", error);
         setErrorMessage(
@@ -124,7 +118,7 @@ export default function StudentMessagesPage() {
 
     if (!item.read_at && studentId) {
       try {
-        await markMessageAsRead(item.id, studentId);
+        await markStudentMessageAsRead(item.id);
         setInboxMessages((current) =>
           current.map((messageItem) =>
             messageItem.id === item.id
@@ -192,10 +186,11 @@ export default function StudentMessagesPage() {
     setSending(true);
 
     let uploadedAttachments: MessageAttachment[] = [];
+    let sentMessage: { id?: string; created_at?: string } | null = null;
     try {
       if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
       uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
-      await sendStudentMessage({
+      sentMessage = await sendStudentMessage({
         receiver_id: teacher.id,
         subject: subject.trim(),
         message: message.trim(),
@@ -203,19 +198,45 @@ export default function StudentMessagesPage() {
         attachments: uploadedAttachments,
       });
 
-      setSubject("");
-      setMessage("");
-      setAttachmentLink("");
-      setAttachmentFiles([]);
-      setStatusMessage("Message sent successfully.");
-      await loadMessages(studentId, teachers.length ? teachers : teacher);
-      setActiveTab("sent");
     } catch (error) {
       if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send message:", error);
       setErrorMessage(
         error instanceof Error ? error.message : "Unable to send message."
       );
+      setSending(false);
+      return;
+    }
+
+    setSubject("");
+    setMessage("");
+    setAttachmentLink("");
+    setAttachmentFiles([]);
+    setStatusMessage("Message sent successfully.");
+    setActiveTab("sent");
+
+    // A successful send must not be turned into an error just because a
+    // background refresh is unavailable. The server has already accepted the
+    // message; refresh is best effort and will retry on the next page load.
+    try {
+      await loadMessages();
+    } catch (refreshError) {
+      console.error("Unable to refresh student messages after send:", refreshError);
+      if (sentMessage?.id) {
+        setSentMessages((current) => [
+          {
+            id: sentMessage?.id,
+            sender_id: studentId,
+            receiver_id: teacher.id,
+            subject: subject.trim(),
+            message: message.trim(),
+            created_at: sentMessage?.created_at || new Date().toISOString(),
+            attachments: uploadedAttachments,
+            attachment_link: attachmentLink.trim() || null,
+          },
+          ...current.filter((item) => item.id !== sentMessage?.id),
+        ]);
+      }
     } finally {
       setSending(false);
     }
