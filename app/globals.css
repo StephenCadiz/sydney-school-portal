@@ -23958,7 +23958,7 @@ img {
 
 /* Installed Student PWA navigation. Browser Student pages keep their
    existing sidebar and mobile menu; only the standalone app gets this fixed
-   four-item navigation with the same safe-area treatment as Teacher PWA. */
+   five-item navigation with the same safe-area treatment as Teacher PWA. */
 .student-pwa-bottom-nav {
   display: none;
 }
@@ -23968,7 +23968,7 @@ img {
   border-top: 1px solid rgba(120, 167, 204, 0.32);
   box-shadow: 0 -10px 28px rgba(31, 60, 136, 0.14);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   inset-block-end: 0 !important;
   inset-block-start: auto !important;
   inset-inline: 0 !important;
@@ -24015,6 +24015,142 @@ img {
 }
 .student-pwa-route-shell.is-installed-pwa .student-main-content {
   padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
+.student-pwa-settings-page {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: 760px;
+  min-height: 100dvh;
+  padding: 22px 14px calc(104px + env(safe-area-inset-bottom));
+  width: 100%;
+}
+
+.student-pwa-settings-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(229, 243, 253, 0.68));
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  box-shadow: 0 18px 42px rgba(31, 60, 136, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.94);
+  padding: 20px;
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
+}
+
+.student-pwa-settings-heading {
+  align-items: center;
+  color: var(--ss-blue-dark);
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.student-pwa-settings-heading span {
+  color: #4c78a0;
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.student-pwa-settings-heading h1 {
+  color: #173b6b;
+  font-size: 1.35rem;
+  margin: 2px 0 0;
+}
+
+.student-pwa-settings-list {
+  display: grid;
+  gap: 10px;
+}
+
+.student-pwa-setting-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(151, 194, 225, 0.3);
+  border-radius: 16px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 68px;
+  padding: 12px 14px;
+}
+
+.student-pwa-setting-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.student-pwa-setting-copy strong {
+  align-items: center;
+  color: #173b6b;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.student-pwa-setting-copy > span,
+.student-pwa-setting-copy small {
+  color: #5b718a;
+  font-size: 0.77rem;
+  line-height: 1.35;
+}
+
+.student-pwa-setting-copy small {
+  color: #9a3412;
+}
+
+.student-pwa-setting-toggle {
+  align-items: center;
+  background: #d9e4ef;
+  border: 0;
+  border-radius: 999px;
+  color: #50627a;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  justify-content: flex-start;
+  min-height: 34px;
+  min-width: 72px;
+  padding: 4px 8px 4px 5px;
+}
+
+.student-pwa-setting-toggle > span:first-child {
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(31, 60, 136, 0.22);
+  display: block;
+  height: 24px;
+  width: 24px;
+}
+
+.student-pwa-setting-toggle-label {
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.student-pwa-setting-toggle.is-on {
+  background: #2f7db8;
+  color: #fff;
+  justify-content: flex-end;
+  padding: 4px 5px 4px 8px;
+}
+
+.student-pwa-setting-toggle:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.student-pwa-setting-toggle:focus-visible {
+  outline: 3px solid rgba(42, 120, 208, 0.35);
+  outline-offset: 3px;
+}
+
+.student-pwa-settings-browser-message {
+  color: #5b718a;
+  padding-top: 40px;
+  text-align: center;
 }
 
 /* Installed Admin PWA shell. The regular Admin layout is intentionally left

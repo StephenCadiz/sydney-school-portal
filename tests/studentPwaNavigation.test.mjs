@@ -8,11 +8,12 @@ const nav = read("app/components/pwa/StudentPwaBottomNav.tsx");
 const viewportLock = read("app/components/pwa/PwaViewportLock.tsx");
 const styles = read("app/globals.css");
 
-test("Student PWA has the requested four navigation destinations", () => {
+test("Student PWA has the requested navigation destinations", () => {
   assert.match(nav, /href: "\/student", label: "Dashboard"/);
   assert.match(nav, /href: "\/student\/homework", label: "Homework"/);
   assert.match(nav, /href: "\/student\/resources", label: "Resources"/);
   assert.match(nav, /href: "\/student\/progress", label: "Progress"/);
+  assert.match(nav, /href: "\/student\/settings", label: "Settings"/);
   assert.match(nav, /aria-label="Student PWA navigation"/);
   assert.match(nav, /createPortal/);
 });

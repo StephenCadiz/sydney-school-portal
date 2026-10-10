@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, FolderOpen, Home, TrendingUp } from "lucide-react";
+import { BookOpen, FolderOpen, Home, Settings, TrendingUp } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
@@ -11,6 +11,7 @@ const items = [
   { href: "/student/homework", label: "Homework", icon: BookOpen },
   { href: "/student/resources", label: "Resources", icon: FolderOpen },
   { href: "/student/progress", label: "Progress", icon: TrendingUp },
+  { href: "/student/settings", label: "Settings", icon: Settings },
 ];
 
 export default function StudentPwaBottomNav() {
