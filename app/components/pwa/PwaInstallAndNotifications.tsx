@@ -7,7 +7,7 @@ type InstallPromptEvent = Event & { prompt?: () => Promise<void>; userChoice?: P
 
 function isPortalPath() {
   if (typeof window === "undefined") return false;
-  return window.location.pathname === "/teacher" || window.location.pathname.startsWith("/teacher/") || window.location.pathname === "/student" || window.location.pathname.startsWith("/student/");
+  return window.location.pathname === "/teacher" || window.location.pathname.startsWith("/teacher/") || window.location.pathname === "/student" || window.location.pathname.startsWith("/student/") || window.location.pathname === "/admin" || window.location.pathname.startsWith("/admin/");
 }
 
 function base64ToBytes(value: string) {

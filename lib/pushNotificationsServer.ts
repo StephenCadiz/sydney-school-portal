@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { resolveProfileIdForAuthUser } from "./cambridgeStudentAccessServer";
 import { supabaseAdmin } from "./supabaseAdmin";
 
-export type PortalRole = "teacher" | "student";
+export type PortalRole = "teacher" | "student" | "admin";
 export type PushSubscriptionRecord = {
   endpoint: string;
   expirationTime?: number | null;
@@ -63,7 +63,7 @@ export async function authenticatePortalActor(token: string) {
   if (profile?.role === "student") {
     try { profileId = await resolveProfileIdForAuthUser(authUser.id); } catch { return null; }
   }
-  if (!profile || (profile.role !== "teacher" && profile.role !== "student") || profile.active === false) return null;
+  if (!profile || (profile.role !== "teacher" && profile.role !== "student" && profile.role !== "admin") || profile.active === false) return null;
   return { authUserId: authUser.id, profileId, role: profile.role as PortalRole };
 }
 

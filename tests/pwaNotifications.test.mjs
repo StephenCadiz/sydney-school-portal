@@ -9,6 +9,7 @@ const client = read("app/components/pwa/PwaInstallAndNotifications.tsx");
 const server = read("lib/pushNotificationsServer.ts");
 const subscriptionRoute = read("app/api/push/subscription/route.ts");
 const migration = read("supabase/migrations/20261008150000_add_portal_push_subscriptions.sql");
+const adminMigration = read("supabase/migrations/20261010120000_allow_admin_push_subscriptions.sql");
 
 test("Teacher and Student manifest is standalone with Sydney branding and install icons", () => {
   assert.match(manifest, /short_name: "Sydney School"/);
@@ -29,6 +30,7 @@ test("service worker has network-only fetch behavior and never caches private AP
 test("install and push controls are opt-in and do not repeatedly show dismissed prompts", () => {
   assert.match(client, /window\.location\.pathname === "\/teacher"/);
   assert.match(client, /window\.location\.pathname === "\/student"/);
+  assert.match(client, /window\.location\.pathname === "\/admin"/);
   assert.match(client, /beforeinstallprompt/);
   assert.match(client, /sydney-school-pwa-install-dismissed/);
   assert.match(client, /Notification\.requestPermission\(\)/);
@@ -48,6 +50,8 @@ test("subscriptions are authenticated, role-scoped, removable, and deduplicated"
   assert.match(server, /onConflict: "user_id,endpoint"/);
   assert.match(migration, /unique \(user_id, endpoint\)/);
   assert.match(migration, /revoke all .* from anon, authenticated/);
+  assert.match(server, /PortalRole = "teacher" \| "student" \| "admin"/);
+  assert.match(adminMigration, /role in \('teacher', 'student', 'admin'\)/);
 });
 
 test("server push delivery is idempotent and removes expired subscriptions", () => {

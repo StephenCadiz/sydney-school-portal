@@ -6,6 +6,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf
 const layout = read("app/components/layout/AdminLayout.tsx");
 const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
 const shell = read("app/components/pwa/AdminPwaShell.tsx");
+const notifications = read("app/components/pwa/PwaInstallAndNotifications.tsx");
 const routeLayout = read("app/admin/layout.tsx");
 const styles = read("app/globals.css");
 const chatRoute = read("app/admin/chat/page.tsx");
@@ -19,6 +20,8 @@ test("Admin installed PWA uses a separate one-item shell without changing browse
   assert.match(shell, /aria-label=\"Admin PWA navigation\"/);
   assert.match(shell, /<span>Messages<\/span>/);
   assert.match(shell, /Open Staff Chat/);
+  assert.match(shell, /<PwaInstallAndNotifications \/>/);
+  assert.match(notifications, /window\.location\.pathname === "\/admin"/);
   assert.doesNotMatch(shell, /People & Classes|Calendar & Scheduling|Staff Time/);
 });
 

@@ -5,7 +5,7 @@ const categories = new Set(["announcement", "calendar", "classwork"]);
 
 export async function POST(request: NextRequest) {
   const actor = await authenticatePortalActor(tokenFromRequest(request));
-  if (!actor) return NextResponse.json({ error: "Teacher or Student authentication is required." }, { status: 401 });
+  if (!actor) return NextResponse.json({ error: "Teacher, Student, or Admin authentication is required." }, { status: 401 });
   const body = await request.json().catch(() => null);
   const category = String(body?.category || "");
   const eventKey = String(body?.eventKey || "").trim();

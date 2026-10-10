@@ -5,7 +5,7 @@ function fail(message: string, status = 400) { return NextResponse.json({ error:
 
 export async function POST(request: NextRequest) {
   const actor = await authenticatePortalActor(tokenFromRequest(request));
-  if (!actor) return fail("Teacher or Student authentication is required.", 401);
+  if (!actor) return fail("Teacher, Student, or Admin authentication is required.", 401);
   const body = await request.json().catch(() => null);
   try {
     await savePushSubscription(actor, body?.subscription, request.headers.get("user-agent"));
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const actor = await authenticatePortalActor(tokenFromRequest(request));
-  if (!actor) return fail("Teacher or Student authentication is required.", 401);
+  if (!actor) return fail("Teacher, Student, or Admin authentication is required.", 401);
   const body = await request.json().catch(() => null);
   const endpoint = String(body?.endpoint || "").trim();
   if (!endpoint) return fail("A subscription endpoint is required.");

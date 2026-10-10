@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { supabase } from "../../../lib/supabase";
+import PwaInstallAndNotifications from "./PwaInstallAndNotifications";
 import PasskeyEnrollment from "./PasskeyEnrollment";
 import PwaViewportLock from "./PwaViewportLock";
 
@@ -99,6 +100,7 @@ export default function AdminPwaShell({
               <span>Open Staff Chat</span>
             </Link>
             <PasskeyEnrollment />
+            <PwaInstallAndNotifications />
           </section>
         )}
       </main>
