@@ -16,7 +16,8 @@ test("Student identity comes from the mapping-resolved profile", () => {
   assert.match(userHelper, /first_name: payload\.first_name/);
   assert.match(userHelper, /display_name: payload\.display_name/);
   assert.match(dashboard, /user\.display_name \|\|/);
-  assert.match(dashboard, /Welcome back, \$\{studentName\}/);
+  assert.match(dashboard, /const dashboardStudentName = installedPwa/);
+  assert.match(dashboard, /Welcome back, \$\{dashboardStudentName\}/);
   assert.doesNotMatch(dashboard, /\.from\("profiles"\)/);
 });
 

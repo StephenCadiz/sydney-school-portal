@@ -244,6 +244,7 @@ function DashboardProgressCard({
 
 export default function StudentDashboard() {
   const [studentName, setStudentName] = useState("");
+  const [installedPwa, setInstalledPwa] = useState(false);
   const [teacherName, setTeacherName] = useState("-");
   const [level, setLevel] = useState("-");
   const [courseType, setCourseType] = useState("-");
@@ -264,6 +265,13 @@ export default function StudentDashboard() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const standalonePwa =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      Boolean(
+        (window.navigator as Navigator & { standalone?: boolean }).standalone
+      );
+    setInstalledPwa(standalonePwa);
+
     async function loadDashboard() {
       try {
         const user = await getCurrentUser();
@@ -332,13 +340,7 @@ export default function StudentDashboard() {
             .slice(0, 4)
         );
 
-        const installedPwa =
-          window.matchMedia("(display-mode: standalone)").matches ||
-          Boolean(
-            (window.navigator as Navigator & { standalone?: boolean }).standalone
-          );
-
-        if (installedPwa) {
+        if (standalonePwa) {
           const [progressData, fridayTutorialProgress] = await Promise.all([
             getStudentProgressData().catch((progressError) => {
               console.error("Unable to load dashboard progress:", progressError);
@@ -392,6 +394,9 @@ export default function StudentDashboard() {
   const isOnlineCourse =
     String(courseType ?? "").trim().toLowerCase() === "online";
   const hasCurrentHomework = currentHomework.length > 0;
+  const dashboardStudentName = installedPwa
+    ? String(studentName).trim().split(/\s+/)[0] || studentName
+    : studentName;
 
   return (
     <div
@@ -450,7 +455,11 @@ export default function StudentDashboard() {
             />
 
             <h1>
-              {studentName ? `Welcome back, ${studentName}` : loading ? "Loading your profile…" : "Welcome back"}
+              {dashboardStudentName
+                ? `Welcome back, ${dashboardStudentName}`
+                : loading
+                  ? "Loading your profile…"
+                  : "Welcome back"}
             </h1>
 
             <p>

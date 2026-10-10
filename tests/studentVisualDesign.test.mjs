@@ -77,7 +77,10 @@ test("Student installed PWA dashboard keeps course context compact and hides dup
   assert.match(styles, /\.student-pwa-dashboard-course-summary\s*\{/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero-inner[\s\S]*flex-direction: column/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-logo[\s\S]*max-width: 170px/);
-  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero h1[\s\S]*font-size: 1\.15rem/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero h1[\s\S]*font-size: 1\.02rem/);
+  assert.match(studentPage, /const dashboardStudentName = installedPwa/);
+  assert.match(studentPage, /split\(\/\\s\+\//);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-up-to-date[\s\S]*justify-content: center/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-homework-view[\s\S]*width: auto !important/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-homework-status[\s\S]*display: none/);
   assert.match(studentPage, /className="student-homework-status is-current student-dashboard-homework-status"/);

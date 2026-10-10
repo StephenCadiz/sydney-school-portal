@@ -29988,7 +29988,7 @@ html[data-pwa-viewport-locked] body {
 }
 
 .student-pwa-route-shell.is-installed-pwa .student-dashboard-hero h1 {
-  font-size: 1.15rem;
+  font-size: 1.02rem;
   line-height: 1.12;
   margin: 0;
   max-width: 100%;
@@ -30025,10 +30025,14 @@ html[data-pwa-viewport-locked] body {
 }
 
 .student-pwa-route-shell.is-installed-pwa .student-dashboard-up-to-date {
+  justify-content: center;
   font-size: 0.74rem;
+  margin-left: auto;
+  margin-right: auto;
   margin-top: 14px;
   min-height: 30px;
   padding: 6px 10px;
+  width: fit-content;
 }
 
 .student-pwa-route-shell.is-installed-pwa .student-course-card,
