@@ -54,6 +54,19 @@ function formatSchedule(value: string) {
   return value.replace(" - ", " · ");
 }
 
+function formatClockTime(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim();
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(normalized);
+
+  if (!match) return normalized;
+
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+
+function formatTeacherFirstName(value: string) {
+  return String(value || "-").trim().split(/\s+/)[0] || "-";
+}
+
 export default function StudentDashboard() {
   const [studentName, setStudentName] = useState("");
   const [teacherName, setTeacherName] = useState("-");
@@ -104,7 +117,7 @@ export default function StudentDashboard() {
           "online";
         const timeSlot =
           classroom.start_time && classroom.end_time
-            ? `${classroom.start_time}-${classroom.end_time}`
+            ? `${formatClockTime(classroom.start_time)}–${formatClockTime(classroom.end_time)}`
             : "";
 
         setClassName(classroom.class_name || courseInfo.level || "-");
@@ -232,6 +245,17 @@ export default function StudentDashboard() {
             <p>
               Your {level} course at a glance.
             </p>
+
+            <div
+              className="student-pwa-dashboard-course-summary"
+              aria-label="Current course summary"
+            >
+              <span>{level !== "-" ? `${level} Course` : "Course"}</span>
+              <span>Teacher: {formatTeacherFirstName(teacherName)}</span>
+              {classSchedule !== "-" && (
+                <span>{formatSchedule(classSchedule)}</span>
+              )}
+            </div>
           </div>
 
           {!loading && unreadHomeworkCount === 0 && unreadMessageCount === 0 && (
@@ -399,11 +423,15 @@ export default function StudentDashboard() {
           )}
         </section>
 
-        <section className="student-course-access-section">
+        <section
+          className={`student-course-access-section${
+            isOnlineCourse ? "" : " student-dashboard-materials-only"
+          }`}
+        >
           <div className="student-dashboard-access-list">
             <Link
               href="/student/resources"
-              className="student-dashboard-access-card"
+              className="student-dashboard-access-card student-dashboard-course-materials-card"
             >
               <div>
                 <h3>Course Materials</h3>

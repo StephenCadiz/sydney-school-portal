@@ -29768,6 +29768,177 @@ img {
   display: none;
 }
 
+/* Student installed-PWA dashboard: keep the course context in one compact
+   liquid-glass header and leave detailed resources to the Resources tab. */
+.student-pwa-route-shell.is-installed-pwa {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.92), transparent 38%),
+    linear-gradient(160deg, #eef7ff 0%, #f7f9fc 52%, #edf4fb 100%);
+  min-height: 100dvh;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-layout-shell {
+  background: transparent !important;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-main-content {
+  padding: 16px 14px calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-hero,
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-notification-row,
+.student-pwa-route-shell.is-installed-pwa .student-current-homework-card {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(232, 244, 253, 0.6));
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    0 18px 42px rgba(31, 60, 136, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    inset 0 -1px 0 rgba(47, 125, 184, 0.08);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-hero {
+  align-items: center;
+  border-radius: 26px;
+  display: block;
+  margin-bottom: 14px;
+  padding: 18px;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-hero-inner {
+  align-items: center;
+  display: grid;
+  gap: 3px 13px;
+  grid-template-columns: 92px minmax(0, 1fr);
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-logo {
+  grid-row: 1 / span 4;
+  margin: 0;
+  max-width: 92px;
+  width: 92px;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-hero h1 {
+  font-size: 1.45rem;
+  line-height: 1.12;
+  margin: 0;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-hero p {
+  display: none;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin: 2px 0 0;
+}
+
+.student-pwa-dashboard-course-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  grid-column: 2;
+  margin-top: 7px;
+}
+
+.student-pwa-dashboard-course-summary span {
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(151, 194, 225, 0.38);
+  border-radius: 999px;
+  color: #355476;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1.2;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-up-to-date {
+  font-size: 0.74rem;
+  margin-top: 14px;
+  min-height: 30px;
+  padding: 6px 10px;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-course-card,
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-course-materials-card,
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-materials-only {
+  display: none;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-current-homework-card {
+  border-radius: 24px;
+  margin-bottom: 14px;
+  padding: 18px;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-section-heading span {
+  font-size: 1.05rem;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-homework-list {
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-homework-row {
+  align-items: center !important;
+  background: rgba(255, 255, 255, 0.48);
+  border: 1px solid rgba(151, 194, 225, 0.25);
+  border-radius: 16px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  padding: 13px;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-homework-row strong {
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-homework-meta {
+  font-size: 0.74rem;
+  gap: 5px 8px;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-homework-view {
+  justify-self: end;
+  min-height: 34px;
+  padding: 7px 11px;
+  width: auto !important;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-access-card {
+  background: rgba(255, 255, 255, 0.64);
+  border-color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 12px 28px rgba(31, 60, 136, 0.09);
+}
+
+@media (max-width: 360px) {
+  .student-pwa-route-shell.is-installed-pwa .student-dashboard-hero-inner {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .student-pwa-route-shell.is-installed-pwa .student-dashboard-logo {
+    max-width: 76px;
+    width: 76px;
+  }
+
+  .student-pwa-route-shell.is-installed-pwa .student-dashboard-hero h1 {
+    font-size: 1.25rem;
+  }
+
+  .student-pwa-route-shell.is-installed-pwa .student-dashboard-homework-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .student-pwa-route-shell.is-installed-pwa .student-dashboard-homework-view {
+    justify-self: start;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .student-sidebar-link {
     transition: none;

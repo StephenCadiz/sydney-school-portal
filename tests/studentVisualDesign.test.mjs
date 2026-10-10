@@ -65,3 +65,16 @@ test("Student responsive layout is constrained without changing Teacher or Admin
   assert.match(adminLayout, /className="admin-portal-header"/);
   assert.doesNotMatch(styles, /\.student-portal-header[^}]*\.teacher-portal-header/);
 });
+
+test("Student installed PWA dashboard keeps course context compact and hides duplicate cards", () => {
+  assert.match(studentPage, /student-pwa-dashboard-course-summary/);
+  assert.match(studentPage, /formatTeacherFirstName\(teacherName\)/);
+  assert.match(studentPage, /formatClockTime\(classroom\.start_time\)/);
+  assert.match(studentPage, /student-dashboard-materials-only/);
+  assert.match(studentPage, /student-dashboard-course-materials-card/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-course-card,[\s\S]*display: none/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-course-materials-card,[\s\S]*display: none/);
+  assert.match(styles, /\.student-pwa-dashboard-course-summary\s*\{/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-homework-view[\s\S]*width: auto !important/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero[\s\S]*backdrop-filter: blur\(18px\)/);
+});
