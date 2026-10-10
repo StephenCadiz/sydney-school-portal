@@ -24,19 +24,31 @@ export default function StudentPwaBottomNav() {
     const updateKeyboardState = () => {
       const heightDifference = window.innerHeight - (viewport?.height || window.innerHeight);
       // Pinch/viewport resizing also changes visualViewport.height. Only treat
-      // a large height loss at the normal scale as the on-screen keyboard.
+      // a large height loss while an editable control is focused as the
+      // on-screen keyboard. Scrolling and dynamic viewport changes must never
+      // hide the navigation bar.
       const isNormalScale = !viewport || viewport.scale <= 1.05;
-      setKeyboardOpen(heightDifference > 120 && isNormalScale);
+      const activeElement = document.activeElement;
+      const isEditable =
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        activeElement instanceof HTMLSelectElement ||
+        activeElement?.getAttribute("contenteditable") === "true";
+      setKeyboardOpen(heightDifference > 120 && isNormalScale && isEditable);
     };
 
     updateKeyboardState();
     viewport?.addEventListener("resize", updateKeyboardState);
     viewport?.addEventListener("scroll", updateKeyboardState);
     window.addEventListener("resize", updateKeyboardState);
+    document.addEventListener("focusin", updateKeyboardState);
+    document.addEventListener("focusout", updateKeyboardState);
     return () => {
       viewport?.removeEventListener("resize", updateKeyboardState);
       viewport?.removeEventListener("scroll", updateKeyboardState);
       window.removeEventListener("resize", updateKeyboardState);
+      document.removeEventListener("focusin", updateKeyboardState);
+      document.removeEventListener("focusout", updateKeyboardState);
     };
   }, []);
 

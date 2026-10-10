@@ -32,5 +32,7 @@ test("Student PWA navigation is fixed and reserves the safe-area content space",
   assert.match(nav, /visualViewport/);
   assert.match(nav, /viewport\.scale <= 1\.05/);
   assert.match(nav, /addEventListener\("scroll", updateKeyboardState\)/);
+  assert.match(nav, /document\.activeElement/);
+  assert.match(nav, /addEventListener\("focusin", updateKeyboardState\)/);
   assert.match(nav, /keyboardOpen/);
 });

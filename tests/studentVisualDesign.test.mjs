@@ -75,6 +75,19 @@ test("Student installed PWA dashboard keeps course context compact and hides dup
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-course-card,[\s\S]*display: none/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-course-materials-card,[\s\S]*display: none/);
   assert.match(styles, /\.student-pwa-dashboard-course-summary\s*\{/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero-inner[\s\S]*flex-direction: column/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-logo[\s\S]*max-width: 170px/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero h1[\s\S]*font-size: 1\.15rem/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-homework-view[\s\S]*width: auto !important/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero[\s\S]*backdrop-filter: blur\(18px\)/);
+});
+
+test("Student PWA dashboard includes the combined skill progress graph", () => {
+  assert.match(studentPage, /DashboardProgressCard/);
+  assert.match(studentPage, /getStudentProgressData/);
+  assert.match(studentPage, /getStudentFridayTutorialProgress/);
+  assert.match(studentPage, /student-pwa-progress-graph/);
+  assert.match(studentPage, /aria-label=\{`\$\{skill\.label\} progress`\}/);
+  assert.match(styles, /\.student-pwa-progress-card\s*\{\s*display: none/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-pwa-progress-card[\s\S]*display: block/);
 });

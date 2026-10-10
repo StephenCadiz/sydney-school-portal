@@ -18,6 +18,15 @@ import StudentAnnouncementBanner from "../components/student/StudentAnnouncement
 import StudentFridayTutorialReminder from "../components/student/StudentFridayTutorialReminder";
 import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../lib/academicYearRules";
 import { getStudentFacingTeacherName } from "../../lib/studentTeacherDisplay";
+import { normalizeHomeworkSkill } from "../../lib/homework";
+import {
+  getEligibleProgressHomeworkResults,
+  getEmptyFridayTutorialProgressSummary,
+  getStudentFridayTutorialProgress,
+  getStudentProgressData,
+  toResultNumber,
+} from "../../lib/progress";
+import type { FridayTutorialProgressSummary } from "../../lib/fridayTutorialResults";
 
 function formatCourseType(courseType: string) {
   if (!courseType) return "-";
@@ -67,6 +76,172 @@ function formatTeacherFirstName(value: string) {
   return String(value || "-").trim().split(/\s+/)[0] || "-";
 }
 
+type DashboardProgressSkill = {
+  key: string;
+  label: string;
+  average: number | null;
+  count: number;
+};
+
+type DashboardProgress = {
+  overall: number | null;
+  totalCount: number;
+  skills: DashboardProgressSkill[];
+};
+
+function buildDashboardProgress(
+  progressData: Awaited<ReturnType<typeof getStudentProgressData>>,
+  fridayTutorialProgress: FridayTutorialProgressSummary,
+  level: string
+): DashboardProgress {
+  const valuesBySkill = new Map<string, number[]>();
+  const addValue = (skill: string, value: number | null, count = 1) => {
+    if (value === null || !Number.isFinite(value)) return;
+
+    const values = valuesBySkill.get(skill) || [];
+    for (let index = 0; index < count; index += 1) {
+      values.push(value);
+    }
+    valuesBySkill.set(skill, values);
+  };
+
+  getEligibleProgressHomeworkResults(
+    progressData.results || [],
+    progressData.homework_release_metadata || []
+  ).forEach((result) => {
+    addValue(
+      normalizeHomeworkSkill(result.skill),
+      toResultNumber(result.percentage)
+    );
+  });
+
+  fridayTutorialProgress.averages.forEach((item) => {
+    addValue(
+      normalizeHomeworkSkill(item.practice_label),
+      toResultNumber(item.average),
+      Number(item.count) || 1
+    );
+  });
+
+  const readingLabel = level.toUpperCase() === "B1"
+    ? "Reading"
+    : "Reading and Use of English";
+  const skillDefinitions = [
+    { key: "reading", label: readingLabel },
+    { key: "listening", label: "Listening" },
+    { key: "writing", label: "Writing" },
+    { key: "speaking", label: "Speaking" },
+  ];
+  const skills = skillDefinitions
+    .filter(({ key }) => key !== "speaking" || valuesBySkill.has(key))
+    .map(({ key, label }) => {
+      const values = valuesBySkill.get(key) || [];
+      return {
+        key,
+        label,
+        average:
+          values.length > 0
+            ? values.reduce((total, value) => total + value, 0) / values.length
+            : null,
+        count: values.length,
+      };
+    });
+  const allValues = Array.from(valuesBySkill.values()).flat();
+
+  return {
+    overall:
+      allValues.length > 0
+        ? allValues.reduce((total, value) => total + value, 0) / allValues.length
+        : null,
+    totalCount: allValues.length,
+    skills,
+  };
+}
+
+function DashboardProgressCard({
+  progress,
+  loading,
+}: {
+  progress: DashboardProgress | null;
+  loading: boolean;
+}) {
+  return (
+    <section
+      className="student-pwa-progress-card"
+      aria-labelledby="student-pwa-progress-title"
+    >
+      <div className="student-pwa-progress-card-heading">
+        <div>
+          <span>Progress</span>
+          <h2 id="student-pwa-progress-title">Your exam progress</h2>
+          <p>Homework and Friday Tutorial results together.</p>
+        </div>
+        <div className="student-pwa-progress-overall" aria-label="Overall progress">
+          <span>Overall</span>
+          <strong>
+            {progress?.overall === null || progress?.overall === undefined
+              ? "—"
+              : `${Math.round(progress.overall)}%`}
+          </strong>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="student-pwa-progress-empty">Loading progress…</p>
+      ) : !progress || progress.totalCount === 0 ? (
+        <p className="student-pwa-progress-empty">
+          Your graph will appear after your first graded result.
+        </p>
+      ) : (
+        <div
+          className="student-pwa-progress-graph"
+          role="list"
+          aria-label="Progress by skill"
+        >
+          {progress.skills.map((skill) => {
+            const value =
+              skill.average === null
+                ? 0
+                : Math.max(0, Math.min(100, skill.average));
+
+            return (
+              <div
+                className="student-pwa-progress-graph-row"
+                key={skill.key}
+                role="listitem"
+              >
+                <div className="student-pwa-progress-graph-label">
+                  <span>{skill.label}</span>
+                  <strong>
+                    {skill.average === null
+                      ? "—"
+                      : `${Math.round(skill.average)}%`}
+                  </strong>
+                </div>
+                <div
+                  className="student-pwa-progress-graph-track"
+                  role="meter"
+                  aria-label={`${skill.label} progress`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={
+                    skill.average === null ? 0 : Math.round(skill.average)
+                  }
+                >
+                  <span style={{ width: `${value}%` }} />
+                </div>
+                <small>
+                  {skill.count} result{skill.count === 1 ? "" : "s"}
+                </small>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function StudentDashboard() {
   const [studentName, setStudentName] = useState("");
   const [teacherName, setTeacherName] = useState("-");
@@ -80,6 +255,8 @@ export default function StudentDashboard() {
   const [classroomLogo, setClassroomLogo] = useState("/Emu Logo.png");
   const [meetLink, setMeetLink] = useState("");
   const [currentHomework, setCurrentHomework] = useState<any[]>([]);
+  const [dashboardProgress, setDashboardProgress] = useState<DashboardProgress | null>(null);
+  const [dashboardProgressLoading, setDashboardProgressLoading] = useState(true);
   const [unreadHomeworkCount, setUnreadHomeworkCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -155,6 +332,39 @@ export default function StudentDashboard() {
             .slice(0, 4)
         );
 
+        const installedPwa =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          Boolean(
+            (window.navigator as Navigator & { standalone?: boolean }).standalone
+          );
+
+        if (installedPwa) {
+          const [progressData, fridayTutorialProgress] = await Promise.all([
+            getStudentProgressData().catch((progressError) => {
+              console.error("Unable to load dashboard progress:", progressError);
+              return null;
+            }),
+            getStudentFridayTutorialProgress().catch((tutorialError) => {
+              console.error(
+                "Unable to load dashboard Friday Tutorial progress:",
+                tutorialError
+              );
+              return getEmptyFridayTutorialProgressSummary();
+            }),
+          ]);
+
+          if (progressData) {
+            setDashboardProgress(
+              buildDashboardProgress(
+                progressData,
+                fridayTutorialProgress,
+                courseInfo.level
+              )
+            );
+          }
+        }
+        setDashboardProgressLoading(false);
+
         const unreadMessages = await getUnreadMessagesForStudent(
           user.id,
           teacher.id
@@ -171,6 +381,7 @@ export default function StudentDashboard() {
             : "Unable to load all dashboard information."
         );
       } finally {
+        setDashboardProgressLoading(false);
         setLoading(false);
       }
     }
@@ -422,6 +633,11 @@ export default function StudentDashboard() {
             </div>
           )}
         </section>
+
+        <DashboardProgressCard
+          progress={dashboardProgress}
+          loading={dashboardProgressLoading}
+        />
 
         <section
           className={`student-course-access-section${
