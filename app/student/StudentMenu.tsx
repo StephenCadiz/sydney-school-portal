@@ -90,7 +90,7 @@ export default function StudentMenu({
       <div className="student-sidebar-brand">
         <Image
           className="student-sidebar-brand-mark"
-          src="/LOGO.png"
+          src="/Logo.png"
           alt="Sydney School logo"
           width={42}
           height={42}

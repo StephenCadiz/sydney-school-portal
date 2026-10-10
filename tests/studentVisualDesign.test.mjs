@@ -29,6 +29,7 @@ test("Student header receives liquid-glass styling without affecting the logo", 
 });
 
 test("Student navigation keeps labels, routes, active state, and logout", () => {
+  assert.match(studentMenu, /src="\/Logo\.png"/);
   for (const [href, label] of [
     ["/student", "Dashboard"],
     ["/student/homework", "Homework"],
