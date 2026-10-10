@@ -14,8 +14,12 @@ function isStandalonePwa() {
 
 export default function PwaViewportLock() {
   useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
     let viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
     const created = !viewport;
+    const originalRootLock = root.getAttribute("data-pwa-viewport-locked");
+    const originalBodyLock = body.getAttribute("data-pwa-viewport-locked");
 
     if (!viewport) {
       viewport = document.createElement("meta");
@@ -24,13 +28,27 @@ export default function PwaViewportLock() {
     }
 
     const originalContent = viewport.getAttribute("content");
+    const restoreAttribute = (element: HTMLElement, original: string | null) => {
+      if (original === null) {
+        element.removeAttribute("data-pwa-viewport-locked");
+      } else {
+        element.setAttribute("data-pwa-viewport-locked", original);
+      }
+    };
+
     const updateViewport = () => {
       if (isStandalonePwa()) {
         viewport?.setAttribute("content", PWA_VIEWPORT);
-      } else if (originalContent) {
-        viewport?.setAttribute("content", originalContent);
-      } else if (created) {
-        viewport?.remove();
+        root.setAttribute("data-pwa-viewport-locked", "true");
+        body.setAttribute("data-pwa-viewport-locked", "true");
+      } else {
+        if (originalContent) {
+          viewport?.setAttribute("content", originalContent);
+        } else if (created) {
+          viewport?.remove();
+        }
+        restoreAttribute(root, originalRootLock);
+        restoreAttribute(body, originalBodyLock);
       }
     };
 
@@ -44,6 +62,8 @@ export default function PwaViewportLock() {
       } else if (created) {
         viewport?.remove();
       }
+      restoreAttribute(root, originalRootLock);
+      restoreAttribute(body, originalBodyLock);
     };
   }, []);
 

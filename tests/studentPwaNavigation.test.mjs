@@ -28,6 +28,7 @@ test("all installed PWAs lock the mobile viewport without changing browser mode"
   assert.match(viewportLock, /maximum-scale=1/);
   assert.match(viewportLock, /user-scalable=no/);
   assert.match(viewportLock, /viewport-fit=cover/);
+  assert.match(viewportLock, /data-pwa-viewport-locked/);
   assert.match(layout, /<PwaViewportLock \/>/);
   assert.match(read("app/components/layout/TeacherLayout.tsx"), /<PwaViewportLock \/>/);
   assert.match(read("app/components/pwa/AdminPwaShell.tsx"), /<PwaViewportLock \/>/);
@@ -47,5 +48,6 @@ test("Student PWA navigation is fixed and reserves the safe-area content space",
   assert.match(nav, /addEventListener\("focusin", updateKeyboardState\)/);
   assert.match(nav, /keyboardOpen/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa\s*\{[\s\S]*touch-action: pan-y/);
+  assert.match(styles, /html\[data-pwa-viewport-locked\][\s\S]*touch-action: pan-y/);
   assert.match(styles, /\.teacher-layout-shell\.is-installed-pwa,[\s\S]*\.admin-pwa-shell[\s\S]*touch-action: pan-y/);
 });

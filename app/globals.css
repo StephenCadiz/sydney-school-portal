@@ -29779,6 +29779,15 @@ img {
   touch-action: pan-y;
 }
 
+/* The viewport lock is applied at document level so every installed-PWA
+   route (not only the dashboard) rejects pinch-zoom and horizontal viewport
+   resizing on touch devices. */
+html[data-pwa-viewport-locked],
+html[data-pwa-viewport-locked] body {
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+
 .teacher-layout-shell.is-installed-pwa,
 .admin-pwa-shell {
   overscroll-behavior-x: none;
