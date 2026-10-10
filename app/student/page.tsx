@@ -614,7 +614,7 @@ export default function StudentDashboard() {
                           {formatDateOnly(item.due_date)}
                         </span>
                         <span
-                          className="student-homework-status is-current"
+                          className="student-homework-status is-current student-dashboard-homework-status"
                         >
                           Current
                         </span>
@@ -625,7 +625,7 @@ export default function StudentDashboard() {
                       className="student-dashboard-subtle-link student-dashboard-homework-view"
                       href="/student/homework"
                     >
-                      Open →
+                      Open
                     </Link>
                   </div>
                 );

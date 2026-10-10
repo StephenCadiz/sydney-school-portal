@@ -29775,6 +29775,14 @@ img {
     radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.92), transparent 38%),
     linear-gradient(160deg, #eef7ff 0%, #f7f9fc 52%, #edf4fb 100%);
   min-height: 100dvh;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+
+.teacher-layout-shell.is-installed-pwa,
+.admin-pwa-shell {
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 
 .student-pwa-route-shell.is-installed-pwa .student-layout-shell {
@@ -29825,6 +29833,10 @@ img {
   font-size: 1.15rem;
   line-height: 1.12;
   margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .student-pwa-route-shell.is-installed-pwa .student-dashboard-hero p {
@@ -29904,10 +29916,20 @@ img {
 }
 
 .student-pwa-route-shell.is-installed-pwa .student-dashboard-homework-view {
+  background: #eaf5fc;
+  border: 1px solid #cfe2f3;
+  border-radius: 10px;
+  color: var(--ss-blue-dark);
+  font-size: 0.76rem;
+  font-weight: 900;
   justify-self: end;
   min-height: 34px;
   padding: 7px 11px;
   width: auto !important;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-dashboard-homework-status {
+  display: none;
 }
 
 .student-pwa-route-shell.is-installed-pwa .student-dashboard-access-card {

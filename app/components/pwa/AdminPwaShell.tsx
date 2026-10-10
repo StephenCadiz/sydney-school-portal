@@ -8,6 +8,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { supabase } from "../../../lib/supabase";
 import PasskeyEnrollment from "./PasskeyEnrollment";
+import PwaViewportLock from "./PwaViewportLock";
 
 type AdminPwaShellProps = {
   children?: ReactNode;
@@ -65,6 +66,7 @@ export default function AdminPwaShell({
 
   return (
     <div className={`admin-pwa-shell${isChat ? " is-admin-chat-pwa" : ""}`}>
+      <PwaViewportLock />
       {!isChat && <header className="admin-pwa-header">
         <Image
           src="/LOGO and NAME.png"

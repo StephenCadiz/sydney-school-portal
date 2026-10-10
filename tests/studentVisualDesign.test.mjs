@@ -79,6 +79,10 @@ test("Student installed PWA dashboard keeps course context compact and hides dup
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-logo[\s\S]*max-width: 170px/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero h1[\s\S]*font-size: 1\.15rem/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-homework-view[\s\S]*width: auto !important/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-homework-status[\s\S]*display: none/);
+  assert.match(studentPage, /className="student-homework-status is-current student-dashboard-homework-status"/);
+  assert.match(studentPage, />\s*Open\s*</);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero h1[\s\S]*white-space: nowrap/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-hero[\s\S]*backdrop-filter: blur\(18px\)/);
 });
 

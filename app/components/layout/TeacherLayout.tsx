@@ -21,6 +21,7 @@ import TeacherStudentMonitoringTasks from "../teacher/TeacherStudentMonitoringTa
 import PwaInstallAndNotifications from "../pwa/PwaInstallAndNotifications";
 import TeacherPwaBottomNav from "../pwa/TeacherPwaBottomNav";
 import PasskeyEnrollment from "../pwa/PasskeyEnrollment";
+import PwaViewportLock from "../pwa/PwaViewportLock";
 
 interface TeacherLayoutProps {
   children: ReactNode | ((unreadMessageCount: number) => ReactNode);
@@ -244,6 +245,7 @@ export default function TeacherLayout({
         background: "var(--ss-page-bg)",
       }}
     >
+      <PwaViewportLock />
       {!isInstalledChatPwa && (
         <button
           type="button"
