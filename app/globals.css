@@ -23962,34 +23962,35 @@ img {
 .student-pwa-bottom-nav {
   display: none;
 }
-.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav {
+.student-pwa-bottom-nav.is-standalone {
   align-items: stretch;
   background: rgba(255, 255, 255, 0.94);
   border-top: 1px solid rgba(120, 167, 204, 0.32);
   box-shadow: 0 -10px 28px rgba(31, 60, 136, 0.14);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  inset-block-end: 0;
-  inset-inline: 0;
+  inset-block-end: 0 !important;
+  inset-block-start: auto !important;
+  inset-inline: 0 !important;
+  max-width: 100vw;
+  min-width: 100vw;
   padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
-  position: fixed;
+  position: fixed !important;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   z-index: 1000;
   -webkit-backdrop-filter: blur(18px) saturate(130%);
   backdrop-filter: blur(18px) saturate(130%);
 }
-.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav {
+.student-pwa-bottom-nav.is-standalone {
   box-sizing: border-box;
   block-size: calc(66px + env(safe-area-inset-bottom));
   min-block-size: calc(66px + env(safe-area-inset-bottom));
   padding-block-end: env(safe-area-inset-bottom);
-  transform: translate3d(0, 0, 0);
-  -webkit-transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  contain: layout paint style;
-  isolation: isolate;
+  overflow: hidden;
 }
-.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav a {
+.student-pwa-bottom-nav.is-standalone a {
   align-items: center;
   border-radius: 12px;
   color: #50627a;
@@ -24004,11 +24005,11 @@ img {
   padding: 5px 3px;
   text-decoration: none;
 }
-.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav a.is-active {
+.student-pwa-bottom-nav.is-standalone a.is-active {
   background: #e8f3ff;
   color: #1f5f9f;
 }
-.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav a:focus-visible {
+.student-pwa-bottom-nav.is-standalone a:focus-visible {
   outline: 3px solid #65a9da;
   outline-offset: -2px;
 }

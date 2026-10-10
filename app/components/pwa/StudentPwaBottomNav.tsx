@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { BookOpen, FolderOpen, Home, TrendingUp } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 
 const items = [
   { href: "/student", label: "Dashboard", icon: Home },
@@ -13,9 +15,35 @@ const items = [
 
 export default function StudentPwaBottomNav() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
-  return (
-    <nav className="student-pwa-bottom-nav" aria-label="Student PWA navigation">
+  useEffect(() => {
+    setMounted(true);
+    const viewport = window.visualViewport;
+    const updateKeyboardState = () => {
+      const heightDifference = window.innerHeight - (viewport?.height || window.innerHeight);
+      // Pinch/viewport resizing also changes visualViewport.height. Only treat
+      // a large height loss at the normal scale as the on-screen keyboard.
+      const isNormalScale = !viewport || viewport.scale <= 1.05;
+      setKeyboardOpen(heightDifference > 120 && isNormalScale);
+    };
+
+    updateKeyboardState();
+    viewport?.addEventListener("resize", updateKeyboardState);
+    viewport?.addEventListener("scroll", updateKeyboardState);
+    window.addEventListener("resize", updateKeyboardState);
+    return () => {
+      viewport?.removeEventListener("resize", updateKeyboardState);
+      viewport?.removeEventListener("scroll", updateKeyboardState);
+      window.removeEventListener("resize", updateKeyboardState);
+    };
+  }, []);
+
+  if (!mounted || keyboardOpen) return null;
+
+  return createPortal(
+    <nav className="student-pwa-bottom-nav is-standalone" aria-label="Student PWA navigation">
       {items.map(({ href, label, icon: Icon }) => {
         const active = href === "/student"
           ? pathname === href
@@ -33,6 +61,7 @@ export default function StudentPwaBottomNav() {
           </Link>
         );
       })}
-    </nav>
+    </nav>,
+    document.body
   );
 }

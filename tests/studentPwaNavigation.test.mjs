@@ -13,6 +13,7 @@ test("Student PWA has the requested four navigation destinations", () => {
   assert.match(nav, /href: "\/student\/resources", label: "Resources"/);
   assert.match(nav, /href: "\/student\/progress", label: "Progress"/);
   assert.match(nav, /aria-label="Student PWA navigation"/);
+  assert.match(nav, /createPortal/);
 });
 
 test("Student navigation is rendered only in standalone PWA mode", () => {
@@ -22,8 +23,14 @@ test("Student navigation is rendered only in standalone PWA mode", () => {
 });
 
 test("Student PWA navigation is fixed and reserves the safe-area content space", () => {
-  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-pwa-bottom-nav[\s\S]*position: fixed/);
-  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-pwa-bottom-nav[\s\S]*inset-block-end: 0/);
-  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-pwa-bottom-nav[\s\S]*block-size: calc\(66px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(styles, /\.student-pwa-bottom-nav\.is-standalone[\s\S]*position: fixed !important/);
+  assert.match(styles, /\.student-pwa-bottom-nav\.is-standalone[\s\S]*inset-block-end: 0 !important/);
+  assert.match(styles, /\.student-pwa-bottom-nav\.is-standalone[\s\S]*inset-block-start: auto !important/);
+  assert.match(styles, /\.student-pwa-bottom-nav\.is-standalone[\s\S]*touch-action: none/);
+  assert.match(styles, /\.student-pwa-bottom-nav\.is-standalone[\s\S]*block-size: calc\(66px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-main-content[\s\S]*padding-bottom: calc\(96px \+ env\(safe-area-inset-bottom\)/);
+  assert.match(nav, /visualViewport/);
+  assert.match(nav, /viewport\.scale <= 1\.05/);
+  assert.match(nav, /addEventListener\("scroll", updateKeyboardState\)/);
+  assert.match(nav, /keyboardOpen/);
 });
