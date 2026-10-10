@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -18,8 +18,13 @@ test("Teacher and Student manifest is standalone with Sydney branding and instal
   assert.match(manifest, /short_name: "Sydney School"/);
   assert.match(manifest, /display: "standalone"/);
   assert.match(manifest, /scope: "\/"/);
-  assert.match(manifest, /LOGO\.png/);
+  assert.match(manifest, /icons\/icon-192\.png/);
+  assert.match(manifest, /icons\/icon-512\.png/);
+  assert.match(manifest, /purpose: "maskable"/);
   assert.match(manifest, /theme_color/);
+  for (const iconPath of ["public/icons/icon-180.png", "public/icons/icon-192.png", "public/icons/icon-512.png"]) {
+    assert.equal(existsSync(new URL(`../${iconPath}`, import.meta.url)), true, `${iconPath} should exist`);
+  }
 });
 
 test("service worker has network-only fetch behavior and never caches private API data", () => {

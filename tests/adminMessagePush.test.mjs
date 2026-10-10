@@ -27,8 +27,8 @@ test("push delivery supports multiple devices, duplicate protection, expired cle
   assert.match(push, /for \(const subscription of subscriptionsToDeliver\)/);
   assert.match(push, /unique|23505/);
   assert.match(push, /statusCode === 404 \|\| error\?\.statusCode === 410/);
-  assert.match(push, /icon: "\/LOGO\.png"/);
-  assert.match(push, /badge: "\/LOGO\.png"/);
+  assert.match(push, /icon: "\/icons\/icon-192\.png"/);
+  assert.match(push, /badge: "\/icons\/icon-192\.png"/);
   assert.match(push, /url: notification\.url/);
 });
 

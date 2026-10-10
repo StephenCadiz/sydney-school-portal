@@ -25,8 +25,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "Sydney School";
   const options = {
     body: payload.body || "You have a new portal notification.",
-    icon: payload.icon || "/LOGO.png",
-    badge: payload.badge || "/LOGO.png",
+    icon: payload.icon || "/icons/icon-192.png",
+    badge: payload.badge || "/icons/icon-192.png",
     data: { url: payload.url || "/" },
     tag: payload.tag || "sydney-school-notification",
     renotify: false,

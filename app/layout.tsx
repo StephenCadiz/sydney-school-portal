@@ -16,8 +16,11 @@ export const metadata: Metadata = {
   title: "Sydney School",
   description: "Sydney School Student and Teacher Portal",
   icons: {
-    icon: "/LOGO.png",
-    apple: "/LOGO.png",
+    icon: [
+      { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icons/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: "/icons/icon-180.png",
   },
   appleWebApp: {
     capable: true,

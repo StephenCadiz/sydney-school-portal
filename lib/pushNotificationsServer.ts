@@ -289,8 +289,8 @@ async function deliverPortalPushNow(
         await webpush.sendNotification({ endpoint: subscription.endpoint, expirationTime: subscription.expiration_time, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, JSON.stringify({
           title: notification.title,
           body: notification.body,
-          icon: "/LOGO.png",
-          badge: "/LOGO.png",
+          icon: "/icons/icon-192.png",
+          badge: "/icons/icon-192.png",
           url: notification.url || "/",
           tag: notification.tag || notification.eventKey,
         }));
