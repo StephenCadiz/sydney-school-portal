@@ -29796,10 +29796,23 @@ html[data-pwa-viewport-locked] body {
 
 .student-pwa-route-shell.is-installed-pwa .student-layout-shell {
   background: transparent !important;
+  touch-action: pan-y;
+}
+
+.student-pwa-route-shell.is-installed-pwa .student-main-content {
+  touch-action: pan-y;
 }
 
 .student-pwa-route-shell.is-installed-pwa .student-main-content {
   padding: 16px 14px calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
+  }
 }
 
 .student-pwa-route-shell.is-installed-pwa .student-dashboard-hero,

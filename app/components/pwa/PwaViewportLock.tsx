@@ -20,6 +20,7 @@ export default function PwaViewportLock() {
     const created = !viewport;
     const originalRootLock = root.getAttribute("data-pwa-viewport-locked");
     const originalBodyLock = body.getAttribute("data-pwa-viewport-locked");
+    let pinchListenersEnabled = false;
 
     if (!viewport) {
       viewport = document.createElement("meta");
@@ -36,7 +37,30 @@ export default function PwaViewportLock() {
       }
     };
 
+    const preventGestureZoom = (event: Event) => event.preventDefault();
+    const preventMultiTouchZoom = (event: TouchEvent) => {
+      if (event.touches.length > 1) event.preventDefault();
+    };
+
+    const updatePinchProtection = () => {
+      const shouldProtect = isStandalonePwa();
+      if (shouldProtect && !pinchListenersEnabled) {
+        document.addEventListener("gesturestart", preventGestureZoom, { passive: false });
+        document.addEventListener("gesturechange", preventGestureZoom, { passive: false });
+        document.addEventListener("gestureend", preventGestureZoom, { passive: false });
+        document.addEventListener("touchmove", preventMultiTouchZoom, { passive: false });
+        pinchListenersEnabled = true;
+      } else if (!shouldProtect && pinchListenersEnabled) {
+        document.removeEventListener("gesturestart", preventGestureZoom);
+        document.removeEventListener("gesturechange", preventGestureZoom);
+        document.removeEventListener("gestureend", preventGestureZoom);
+        document.removeEventListener("touchmove", preventMultiTouchZoom);
+        pinchListenersEnabled = false;
+      }
+    };
+
     const updateViewport = () => {
+      updatePinchProtection();
       if (isStandalonePwa()) {
         viewport?.setAttribute("content", PWA_VIEWPORT);
         root.setAttribute("data-pwa-viewport-locked", "true");
@@ -57,6 +81,12 @@ export default function PwaViewportLock() {
 
     return () => {
       window.removeEventListener("resize", updateViewport);
+      if (pinchListenersEnabled) {
+        document.removeEventListener("gesturestart", preventGestureZoom);
+        document.removeEventListener("gesturechange", preventGestureZoom);
+        document.removeEventListener("gestureend", preventGestureZoom);
+        document.removeEventListener("touchmove", preventMultiTouchZoom);
+      }
       if (originalContent) {
         viewport?.setAttribute("content", originalContent);
       } else if (created) {
