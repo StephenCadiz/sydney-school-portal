@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/student-push-queue",
-      "schedule": "* * * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }

@@ -106,6 +106,7 @@ test("automated Student PWA pushes queue overnight while direct messages bypass 
   assert.match(studentPushQueueRoute, /CRON_SECRET/);
   assert.match(studentPushQueueRoute, /flushQueuedAutomatedStudentPushes/);
   assert.match(vercelConfig, /student-push-queue/);
+  assert.match(vercelConfig, /schedule": "0 9 \* \* \*"/);
   assert.match(read("app/api/teacher/student-messages/route.ts"), /deliveryPolicy: "direct_message"/);
   assert.match(read("app/api/admin/messages/send/route.ts"), /deliveryPolicy: "direct_message"/);
 });
