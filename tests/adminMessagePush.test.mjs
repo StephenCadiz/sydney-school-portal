@@ -24,7 +24,7 @@ test("Admin send route validates teacher recipients and preserves private messag
 });
 
 test("push delivery supports multiple devices, duplicate protection, expired cleanup, and iOS payload fields", () => {
-  assert.match(push, /for \(const subscription of subscriptions \|\| \[\]\)/);
+  assert.match(push, /for \(const subscription of subscriptionsToDeliver\)/);
   assert.match(push, /unique|23505/);
   assert.match(push, /statusCode === 404 \|\| error\?\.statusCode === 410/);
   assert.match(push, /icon: "\/LOGO\.png"/);

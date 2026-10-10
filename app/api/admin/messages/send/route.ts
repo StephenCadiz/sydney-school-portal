@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
   let pushReason: string | null = null;
   for (const row of inserted || []) {
     try {
-      const result = await sendPortalPush([String(row.receiver_id)], { eventKey: `message:${row.id}`, title: "New message from Admin", body: "You have a new message from Admin.", url: "/teacher/messages", tag: `message:${row.id}` });
+      const result = await sendPortalPush([String(row.receiver_id)], { eventKey: `message:${row.id}`, title: "New message from Admin", body: "You have a new message from Admin.", url: "/teacher/messages", tag: `message:${row.id}`, deliveryPolicy: "direct_message" });
       pushSent += result.sent;
       pushUnavailable ||= result.skipped;
       if (result.skipped) {

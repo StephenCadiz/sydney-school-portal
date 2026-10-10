@@ -10,6 +10,9 @@ const server = read("lib/pushNotificationsServer.ts");
 const subscriptionRoute = read("app/api/push/subscription/route.ts");
 const migration = read("supabase/migrations/20261008150000_add_portal_push_subscriptions.sql");
 const adminMigration = read("supabase/migrations/20261010120000_allow_admin_push_subscriptions.sql");
+const studentPushQueueMigration = read("supabase/migrations/20261010130000_queue_student_push_notifications.sql");
+const studentPushQueueRoute = read("app/api/cron/student-push-queue/route.ts");
+const vercelConfig = read("vercel.json");
 
 test("Teacher and Student manifest is standalone with Sydney branding and install icons", () => {
   assert.match(manifest, /short_name: "Sydney School"/);
@@ -84,4 +87,20 @@ test("direct messages and Young Learner material reminders use the shared push s
   assert.match(read("app/components/student/StudentAnnouncementBanner.tsx"), /notifySelf/);
   assert.match(read("app/components/teacher/TeacherAnnouncementBanner.tsx"), /notifySelf/);
   assert.match(read("app/components/teacher/TeacherCalendarAgenda.tsx"), /notifySelf/);
+});
+
+test("automated Student PWA pushes queue overnight while direct messages bypass quiet hours", () => {
+  assert.match(server, /Europe\/Madrid/);
+  assert.match(server, /totalMinutes >= 10 \* 60 && totalMinutes < 22 \* 60/);
+  assert.match(server, /push_notification_queue/);
+  assert.match(server, /deliveryPolicy !== "direct_message"/);
+  assert.match(server, /bypassAutomatedQuietHours/);
+  assert.match(server, /flushQueuedAutomatedStudentPushes/);
+  assert.match(studentPushQueueMigration, /unique \(user_id, event_key\)/);
+  assert.match(studentPushQueueMigration, /sent_at/);
+  assert.match(studentPushQueueRoute, /CRON_SECRET/);
+  assert.match(studentPushQueueRoute, /flushQueuedAutomatedStudentPushes/);
+  assert.match(vercelConfig, /student-push-queue/);
+  assert.match(read("app/api/teacher/student-messages/route.ts"), /deliveryPolicy: "direct_message"/);
+  assert.match(read("app/api/admin/messages/send/route.ts"), /deliveryPolicy: "direct_message"/);
 });

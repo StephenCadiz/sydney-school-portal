@@ -218,6 +218,7 @@ export async function POST(request: NextRequest) {
       body: "You have a new message from your teacher.",
       url: "/student/messages",
       tag: `message:${reply.id}`,
+      deliveryPolicy: "direct_message",
     });
 
     return NextResponse.json({
