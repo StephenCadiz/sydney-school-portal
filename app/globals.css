@@ -23956,6 +23956,66 @@ img {
   padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
 }
 
+/* Installed Student PWA navigation. Browser Student pages keep their
+   existing sidebar and mobile menu; only the standalone app gets this fixed
+   four-item navigation with the same safe-area treatment as Teacher PWA. */
+.student-pwa-bottom-nav {
+  display: none;
+}
+.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav {
+  align-items: stretch;
+  background: rgba(255, 255, 255, 0.94);
+  border-top: 1px solid rgba(120, 167, 204, 0.32);
+  box-shadow: 0 -10px 28px rgba(31, 60, 136, 0.14);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  inset-block-end: 0;
+  inset-inline: 0;
+  padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+  position: fixed;
+  z-index: 1000;
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
+}
+.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav {
+  box-sizing: border-box;
+  block-size: calc(66px + env(safe-area-inset-bottom));
+  min-block-size: calc(66px + env(safe-area-inset-bottom));
+  padding-block-end: env(safe-area-inset-bottom);
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: layout paint style;
+  isolation: isolate;
+}
+.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav a {
+  align-items: center;
+  border-radius: 12px;
+  color: #50627a;
+  display: inline-flex;
+  flex-direction: column;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 4px;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 0;
+  padding: 5px 3px;
+  text-decoration: none;
+}
+.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav a.is-active {
+  background: #e8f3ff;
+  color: #1f5f9f;
+}
+.student-pwa-route-shell.is-installed-pwa .student-pwa-bottom-nav a:focus-visible {
+  outline: 3px solid #65a9da;
+  outline-offset: -2px;
+}
+.student-pwa-route-shell.is-installed-pwa .student-main-content {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
 /* Installed Admin PWA shell. The regular Admin layout is intentionally left
    unchanged in browser/desktop mode. Private chat data is loaded online by
    the existing participant-authorized Chat view only. */
