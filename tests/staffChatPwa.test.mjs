@@ -104,3 +104,11 @@ test("staff chat uses a teacher's primary class icon and the school icon for adm
   assert.match(chatView, /icons\/icon-192\.png/);
   assert.match(styles, /staff-chat-avatar img/);
 });
+
+test("Staff Chat collapses duplicate staff identities while email-style Messages remain separate", () => {
+  assert.match(chatServer, /collapseStaffProfiles/);
+  assert.match(chatServer, /identity_key/);
+  assert.match(chatServer, /profile\.role === "teacher"/);
+  assert.match(chatView, /identityIndex/);
+  assert.match(chatView, /nextTarget\?\.role === "teacher"/);
+});

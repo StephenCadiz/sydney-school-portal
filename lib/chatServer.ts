@@ -8,7 +8,7 @@ import { MESSAGE_ATTACHMENT_MAX_COUNT, validateMessageFile } from "./messageAtta
 import { getMadridDateString, classUsesAcademicYear } from "./academicYearRules";
 import { sortClassesByGlobalOrder } from "./classOrdering";
 
-export type ChatActor = { authUserId: string; profileId: string; role: "admin" | "teacher" };
+export type ChatActor = { authUserId: string; profileId: string; role: "admin" | "teacher"; email?: string | null };
 export type ChatAttachmentInput = { storagePath: string; fileName: string; mimeType: string; byteSize: number };
 
 const SCHOOL_CHAT_AVATAR = "/icons/icon-192.png";
@@ -39,7 +39,7 @@ export async function authenticateChatActor(request: NextRequest): Promise<ChatA
     if (!byEmail.error && byEmail.data?.length === 1) profile = byEmail.data[0];
   }
   if (!profile || !["admin", "teacher"].includes(String(profile.role)) || profile.active === false) return null;
-  return { authUserId: authUser.id, profileId: String(profile.id), role: profile.role as ChatActor["role"] };
+  return { authUserId: authUser.id, profileId: String(profile.id), role: profile.role as ChatActor["role"], email: profile.email || authUser.email || null };
 }
 
 export function chatError(message: string, status = 400) {
@@ -48,6 +48,23 @@ export function chatError(message: string, status = 400) {
 
 function profileName(profile: any) {
   return `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() || "Staff member";
+}
+
+function staffIdentityKey(profile: any) {
+  const email = String(profile?.email || "").trim().toLowerCase();
+  if (email) return `email:${email}`;
+  const name = profileName(profile).trim().toLowerCase().replace(/\s+/g, " ");
+  return name ? `name:${name}` : `profile:${String(profile?.id || "")}`;
+}
+
+function collapseStaffProfiles(profiles: any[]) {
+  const byIdentity = new Map<string, any>();
+  for (const profile of profiles) {
+    const key = staffIdentityKey(profile);
+    const current = byIdentity.get(key);
+    if (!current || (current.role !== "teacher" && profile.role === "teacher")) byIdentity.set(key, profile);
+  }
+  return Array.from(byIdentity.values());
 }
 
 function classIsCurrent(classroom: any, currentAcademicYearId: string | null, madridDate: string) {
@@ -120,20 +137,20 @@ export async function searchChatRecipients(actor: ChatActor, query: string, incl
   const pattern = `%${trimmed.replace(/[%_,]/g, " ")}%`;
   let queryBuilder = supabaseAdmin
     .from("profiles")
-    .select("id, first_name, last_name, role, active")
+    .select("id, first_name, last_name, role, active, email")
     .in("role", ["admin", "teacher"])
     .or("active.is.null,active.eq.true")
-    .neq("id", actor.profileId)
     .order("first_name")
     .limit(includeAll && !trimmed ? 100 : 20);
   if (trimmed) queryBuilder = queryBuilder.or(`first_name.ilike.${pattern},last_name.ilike.${pattern}`);
   const { data, error } = await queryBuilder;
   if (error) throw error;
-  const activeProfiles = (data || []).filter((profile) => profile.active !== false);
+  const activeProfiles = collapseStaffProfiles((data || []).filter((profile) => profile.active !== false))
+    .filter((profile) => profile.id !== actor.profileId && staffIdentityKey(profile) !== (actor.email ? `email:${actor.email.trim().toLowerCase()}` : ""));
   const avatarById = await addStaffAvatars(activeProfiles);
   return activeProfiles.map((profile) => {
     const enriched = withAvatar(profile, avatarById);
-    return { id: enriched.id, name: profileName(enriched), role: enriched.role, avatar_url: enriched.avatar_url };
+    return { id: enriched.id, name: profileName(enriched), role: enriched.role, avatar_url: enriched.avatar_url, identity_key: staffIdentityKey(enriched) };
   });
 }
 
@@ -178,7 +195,7 @@ export async function listChatConversations(actor: ChatActor) {
   if (participantError) throw participantError;
   const profileIds = Array.from(new Set((participants || []).map((row) => String(row.profile_id))));
   const { data: profiles, error: profileError } = profileIds.length
-    ? await supabaseAdmin.from("profiles").select("id, first_name, last_name, role").in("id", profileIds)
+    ? await supabaseAdmin.from("profiles").select("id, first_name, last_name, role, email").in("id", profileIds)
     : { data: [], error: null };
   if (profileError) throw profileError;
   const avatarById = await addStaffAvatars(profiles || []);
@@ -201,7 +218,7 @@ export async function listChatConversations(actor: ChatActor) {
     const latest = latestByConversation.get(String(conversation.id));
     const lastReadAt = membershipByConversation.get(String(conversation.id))?.last_read_at;
     const unreadCount = (messages || []).filter((message) => String(message.conversation_id) === String(conversation.id) && message.sender_id !== actor.profileId && (!lastReadAt || new Date(message.created_at).getTime() > new Date(lastReadAt).getTime())).length;
-    const participantRows = memberIds.map((id) => ({ id, name: profileName(profileById.get(id)), role: profileById.get(id)?.role || "", avatar_url: profileById.get(id)?.avatar_url || SCHOOL_CHAT_AVATAR }));
+    const participantRows = memberIds.map((id) => ({ id, name: profileName(profileById.get(id)), role: profileById.get(id)?.role || "", avatar_url: profileById.get(id)?.avatar_url || SCHOOL_CHAT_AVATAR, identity_key: staffIdentityKey(profileById.get(id)) }));
     const conversationAvatar = memberIds.some((id) => profileById.get(id)?.role === "admin")
       ? SCHOOL_CHAT_AVATAR
       : participantRows.find((participant) => participant.role === "teacher")?.avatar_url || SCHOOL_CHAT_AVATAR;
