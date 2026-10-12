@@ -182,6 +182,7 @@ export default function AdminFridayTutorialsPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [selectedSessionKey, setSelectedSessionKey] = useState("");
+  const [requestedSessionKey, setRequestedSessionKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -284,23 +285,45 @@ export default function AdminFridayTutorialsPage() {
   }
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionDate = String(params.get("session_date") || "").trim();
+    const tutorialGroup = String(params.get("tutorial_group") || "").trim();
+
+    if (sessionDate && tutorialGroup) {
+      setRequestedSessionKey(`${sessionDate}|${tutorialGroup}`);
+    }
+  }, []);
+
+  useEffect(() => {
     loadMasterData();
   }, []);
 
   useEffect(() => {
     if (!settings || upcomingTutorials.length === 0) return;
 
+    const requestedExists = requestedSessionKey
+      ? upcomingTutorials.some(
+          (tutorial) =>
+            `${tutorial.session_date}|${tutorial.tutorial_group}` ===
+            requestedSessionKey
+        )
+      : false;
     const firstSession = upcomingTutorials[0];
-    const nextKey = `${firstSession.session_date}|${firstSession.tutorial_group}`;
-    setSelectedSessionKey((current) =>
-      upcomingTutorials.some(
+    const nextKey = requestedExists
+      ? requestedSessionKey
+      : `${firstSession.session_date}|${firstSession.tutorial_group}`;
+
+    setSelectedSessionKey((current) => {
+      if (requestedExists) return nextKey;
+
+      return upcomingTutorials.some(
         (tutorial) =>
           `${tutorial.session_date}|${tutorial.tutorial_group}` === current
       )
         ? current
-        : nextKey
-    );
-  }, [settings, upcomingTutorials]);
+        : nextKey;
+    });
+  }, [requestedSessionKey, settings, upcomingTutorials]);
 
   useEffect(() => {
     if (!selectedTutorial) return;

@@ -640,7 +640,18 @@ export default function AdminDashboard() {
                   Complete WhatsApp status and parent confirmation for all {fridayTutorialReminder.total_students} student{fridayTutorialReminder.total_students === 1 ? "" : "s"} on the {fridayTutorialReminder.session_date} weekly list. Teacher material is required when parents confirm.
                 </p>
               </div>
-              <Link href="/admin/friday-tutorials" className="admin-dashboard-button">
+              <Link
+                href={
+                  fridayTutorialReminder.session_date
+                    ? `/admin/friday-tutorials?session_date=${encodeURIComponent(
+                        String(fridayTutorialReminder.session_date)
+                      )}&tutorial_group=${encodeURIComponent(
+                        String(fridayTutorialReminder.tutorial_group || "")
+                      )}`
+                    : "/admin/friday-tutorials"
+                }
+                className="admin-dashboard-button"
+              >
                 Open Friday Tutorials
                 <DashboardIcon name="chevron" size={16} />
               </Link>

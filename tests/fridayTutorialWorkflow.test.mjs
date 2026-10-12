@@ -34,6 +34,19 @@ test("Reminder remains until every required weekly status is complete", () => {
   assert.match(adminPage, /Teacher material is required when parents confirm/);
 });
 
+test("Admin completion card opens the specific incomplete Friday Tutorial list", () => {
+  assert.match(adminPage, /session_date=\$\{encodeURIComponent\(/);
+  assert.match(adminPage, /tutorial_group=\$\{encodeURIComponent\(/);
+  const fridayTutorialPage = readFileSync(
+    new URL("../app/admin/friday-tutorials/page.tsx", import.meta.url),
+    "utf8"
+  );
+  assert.match(fridayTutorialPage, /params\.get\("session_date"\)/);
+  assert.match(fridayTutorialPage, /params\.get\("tutorial_group"\)/);
+  assert.match(fridayTutorialPage, /if \(requestedExists\) return nextKey/);
+  assert.match(fridayTutorialPage, /\[requestedSessionKey, settings, upcomingTutorials\]/);
+});
+
 test("Parent refusal does not require teacher material", () => {
   assert.match(
     workflowRoute,
