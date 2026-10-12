@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MessageCircle } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { MessageCircle, Settings, UserRound } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { supabase } from "../../../lib/supabase";
-import PwaInstallAndNotifications from "./PwaInstallAndNotifications";
-import PasskeyEnrollment from "./PasskeyEnrollment";
+import AdminPwaDashboard from "./AdminPwaDashboard";
+import AdminPwaSettings from "./AdminPwaSettings";
+import AdminPwaStudentInformation from "./AdminPwaStudentInformation";
 import PwaViewportLock from "./PwaViewportLock";
 
 type AdminPwaShellProps = {
@@ -23,6 +24,7 @@ export default function AdminPwaShell({
   loading = false,
 }: AdminPwaShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -62,7 +64,11 @@ export default function AdminPwaShell({
     };
   }, [loading]);
 
+  const pwaView = searchParams.get("tab") || "dashboard";
   const isChat = pathname === "/admin/chat";
+  const isStudentInformation = pathname === "/admin" && pwaView === "student-information";
+  const isSettings = pathname === "/admin" && pwaView === "settings";
+  const isDashboard = pathname === "/admin" && !isStudentInformation && !isSettings;
   const displayName = fullName.trim() || "Admin staff";
 
   return (
@@ -90,18 +96,14 @@ export default function AdminPwaShell({
           </section>
         ) : isChat ? (
           children
+        ) : isStudentInformation ? (
+          <AdminPwaStudentInformation />
+        ) : isSettings ? (
+          <AdminPwaSettings />
+        ) : isDashboard ? (
+          <AdminPwaDashboard />
         ) : (
-          <section className="admin-pwa-landing" aria-labelledby="admin-pwa-title">
-            <span className="admin-pwa-eyebrow">STAFF COMMUNICATION</span>
-            <h1 id="admin-pwa-title">Stay connected with your team</h1>
-            <p>Open Staff Chat to message authorised Teachers and Admin staff.</p>
-            <Link className="admin-pwa-chat-entry" href="/admin/chat">
-              <MessageCircle size={22} aria-hidden="true" />
-              <span>Open Staff Chat</span>
-            </Link>
-            <PasskeyEnrollment />
-            <PwaInstallAndNotifications />
-          </section>
+          null
         )}
       </main>
 
@@ -121,6 +123,24 @@ export default function AdminPwaShell({
             )}
           </span>
           <span>Messages</span>
+        </Link>
+        <Link
+          href="/admin?tab=student-information"
+          className={isStudentInformation ? "is-active" : ""}
+          aria-current={isStudentInformation ? "page" : undefined}
+          aria-label="Student Information"
+        >
+          <UserRound size={22} aria-hidden="true" />
+          <span>Student Information</span>
+        </Link>
+        <Link
+          href="/admin?tab=settings"
+          className={isSettings ? "is-active" : ""}
+          aria-current={isSettings ? "page" : undefined}
+          aria-label="Settings"
+        >
+          <Settings size={22} aria-hidden="true" />
+          <span>Settings</span>
         </Link>
       </nav>
     </div>

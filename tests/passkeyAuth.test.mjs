@@ -8,6 +8,8 @@ const login = read("app/login/page.tsx");
 const enrollment = read("app/components/pwa/PasskeyEnrollment.tsx");
 const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
 const adminShell = read("app/components/pwa/AdminPwaShell.tsx");
+const adminSettings = read("app/components/pwa/AdminPwaSettings.tsx");
+const pwaBiometricToggle = read("app/components/pwa/PwaBiometricToggle.tsx");
 const errors = read("lib/passkeyErrors.ts");
 
 test("Supabase client opts into passkey authentication", () => {
@@ -24,8 +26,11 @@ test("login provides password fallback and passkey sign-in after session loss", 
 test("Teacher and Admin PWA surfaces can register a passkey while signed in", () => {
   assert.match(enrollment, /registerPasskey/);
   assert.match(enrollment, /Use Face ID or fingerprint after logout or session expiry/);
+  assert.match(pwaBiometricToggle, /registerPasskey/);
+  assert.match(pwaBiometricToggle, /Use Face ID or fingerprint after logout or session expiry/);
   assert.match(teacherLayout, /PasskeyEnrollment/);
-  assert.match(adminShell, /PasskeyEnrollment/);
+  assert.match(adminSettings, /PwaBiometricToggle/);
+  assert.match(adminShell, /AdminPwaSettings/);
 });
 
 test("Teacher install and biometric controls are PWA-only", () => {

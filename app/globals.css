@@ -24211,7 +24211,7 @@ img {
   bottom: 0;
   box-shadow: 0 -10px 28px rgba(31,60,136,.14);
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   left: 0;
   padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
   position: fixed;
@@ -24255,6 +24255,109 @@ img {
   right: -12px;
   top: -8px;
 }
+
+.admin-pwa-dashboard,
+.admin-pwa-student-page {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+}
+.admin-pwa-calendar-card,
+.admin-pwa-student-search-card {
+  background: linear-gradient(145deg, rgba(255,255,255,.92), rgba(231,244,253,.72));
+  border: 1px solid rgba(255,255,255,.92);
+  border-radius: 22px;
+  box-shadow: 0 18px 42px rgba(31,60,136,.11), inset 0 1px 0 rgba(255,255,255,.94);
+  padding: 18px;
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
+}
+.admin-pwa-calendar-heading,
+.admin-pwa-student-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.admin-pwa-calendar-heading h1,
+.admin-pwa-student-heading h1 {
+  color: #173b6b;
+  font-size: 1.22rem;
+  margin: 2px 0 0;
+}
+.admin-pwa-calendar-icon {
+  align-items: center;
+  background: #e6f4fc;
+  border: 1px solid #c7e3f2;
+  border-radius: 13px;
+  color: #1f6b9d;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+.admin-pwa-calendar-list,
+.admin-pwa-student-results {
+  display: grid;
+  gap: 12px;
+}
+.admin-pwa-calendar-day {
+  display: grid;
+  gap: 7px;
+}
+.admin-pwa-calendar-day h2 {
+  color: #5f7891;
+  font-size: .74rem;
+  letter-spacing: .08em;
+  margin: 2px 3px 0;
+  text-transform: uppercase;
+}
+.admin-pwa-calendar-event {
+  align-items: flex-start;
+  background: rgba(255,255,255,.7);
+  border: 1px solid #d8e8f2;
+  border-radius: 15px;
+  color: #173b6b;
+  display: flex;
+  gap: 9px;
+  justify-content: space-between;
+  padding: 12px 13px;
+}
+.admin-pwa-calendar-event > svg { color: #7e9bb2; flex: 0 0 auto; margin-top: 2px; }
+.admin-pwa-calendar-event-main { display: grid; gap: 3px; min-width: 0; }
+.admin-pwa-calendar-event-main strong { overflow-wrap: anywhere; }
+.admin-pwa-calendar-event-main span { color: #2f7db8; font-size: .76rem; font-weight: 800; }
+.admin-pwa-calendar-event-main p,
+.admin-pwa-calendar-event-main li { color: #667c91; font-size: .78rem; line-height: 1.4; margin: 2px 0 0; overflow-wrap: anywhere; }
+.admin-pwa-calendar-event-main ul { display: grid; gap: 2px; margin: 3px 0 0; padding-left: 18px; }
+.admin-pwa-calendar-state,
+.admin-pwa-student-state { color: #60758a; font-size: .88rem; line-height: 1.45; margin: 5px 0 0; }
+.admin-pwa-calendar-state.is-error,
+.admin-pwa-student-state.is-error { color: #a32929; }
+.admin-pwa-student-search { align-items: center; background: rgba(255,255,255,.84); border: 1px solid #cddfea; border-radius: 999px; color: #6f8496; display: flex; gap: 8px; padding: 11px 13px; }
+.admin-pwa-student-search:focus-within { border-color: #2f9dca; box-shadow: 0 0 0 3px rgba(0,164,220,.13); }
+.admin-pwa-student-search input { background: transparent; border: 0; color: #173b6b; font: inherit; min-width: 0; outline: 0; width: 100%; }
+.admin-pwa-student-result { align-items: center; background: rgba(255,255,255,.76); border: 1px solid #d8e8f2; border-radius: 15px; color: #173b6b; cursor: pointer; display: grid; gap: 10px; grid-template-columns: 40px minmax(0, 1fr) auto; padding: 11px; text-align: left; width: 100%; }
+.admin-pwa-student-result:hover,
+.admin-pwa-student-result:focus-visible { background: #fff; border-color: #8ac9e4; outline: 0; }
+.admin-pwa-student-avatar { align-items: center; background: linear-gradient(145deg, #d4f2fb, #9bd7ec); border-radius: 50%; color: #134f79; display: inline-flex; font-weight: 850; height: 40px; justify-content: center; width: 40px; }
+.admin-pwa-student-result-copy { display: grid; gap: 3px; min-width: 0; }
+.admin-pwa-student-result-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-pwa-student-result-copy small { color: #6b8195; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-pwa-student-type { color: #2f7db8; font-size: .68rem; font-weight: 800; white-space: nowrap; }
+.admin-pwa-student-overlay { inset: 0; position: fixed; z-index: 1100; }
+.admin-pwa-student-overlay-backdrop { background: rgba(18,55,88,.36); border: 0; inset: 0; position: absolute; width: 100%; }
+.admin-pwa-student-panel { background: linear-gradient(160deg, #fff, #eef8fd); border: 1px solid #d6e8f1; border-radius: 24px 24px 0 0; bottom: 0; box-shadow: 0 -16px 42px rgba(18,63,115,.2); left: 0; max-height: min(82dvh, 680px); overflow-y: auto; padding: 20px 16px calc(24px + env(safe-area-inset-bottom)); position: absolute; right: 0; }
+.admin-pwa-student-panel > header { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }
+.admin-pwa-student-panel h2 { color: #173b6b; font-size: 1.3rem; margin: 3px 0 2px; overflow-wrap: anywhere; }
+.admin-pwa-student-panel header p { color: #60758a; font-size: .82rem; margin: 0; }
+.admin-pwa-student-close { align-items: center; background: #e8f3fa; border: 1px solid #c6deeb; border-radius: 50%; color: #1f5f9f; cursor: pointer; display: inline-flex; height: 38px; justify-content: center; width: 38px; }
+.admin-pwa-student-facts { display: grid; gap: 8px; margin-top: 17px; }
+.admin-pwa-student-facts > div { background: rgba(255,255,255,.72); border: 1px solid #dbeaf2; border-radius: 13px; display: grid; gap: 3px; padding: 10px 12px; }
+.admin-pwa-student-facts span { color: #6c8194; font-size: .69rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.admin-pwa-student-facts strong { color: #173b6b; font-size: .9rem; overflow-wrap: anywhere; }
+.admin-pwa-settings-page { max-width: none; min-height: 0; padding: 0; }
 
 /* Keep installed-PWA navigation attached to the viewport instead of the
    scrolling content. Explicit sizing prevents safe-area recalculation from

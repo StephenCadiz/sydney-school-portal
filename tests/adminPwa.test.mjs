@@ -6,12 +6,16 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf
 const layout = read("app/components/layout/AdminLayout.tsx");
 const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
 const shell = read("app/components/pwa/AdminPwaShell.tsx");
+const dashboard = read("app/components/pwa/AdminPwaDashboard.tsx");
+const studentInformation = read("app/components/pwa/AdminPwaStudentInformation.tsx");
+const settings = read("app/components/pwa/AdminPwaSettings.tsx");
+const biometricToggle = read("app/components/pwa/PwaBiometricToggle.tsx");
 const notifications = read("app/components/pwa/PwaInstallAndNotifications.tsx");
 const routeLayout = read("app/admin/layout.tsx");
 const styles = read("app/globals.css");
 const chatRoute = read("app/admin/chat/page.tsx");
 
-test("Admin installed PWA uses a separate one-item shell without changing browser navigation", () => {
+test("Admin installed PWA uses a separate three-tab shell without changing browser navigation", () => {
   assert.match(layout, /display-mode: standalone/);
   assert.match(layout, /<AdminPwaShell/);
   assert.match(layout, /if \(installedPwa\)/);
@@ -19,10 +23,40 @@ test("Admin installed PWA uses a separate one-item shell without changing browse
   assert.match(shell, /href=\"\/admin\/chat\"/);
   assert.match(shell, /aria-label=\"Admin PWA navigation\"/);
   assert.match(shell, /<span>Messages<\/span>/);
-  assert.match(shell, /Open Staff Chat/);
-  assert.match(shell, /<PwaInstallAndNotifications \/>/);
-  assert.match(notifications, /window\.location\.pathname === "\/admin"/);
+  assert.match(shell, /href="\/admin\?tab=student-information"/);
+  assert.match(shell, /href="\/admin\?tab=settings"/);
+  assert.match(shell, /<span>Student Information<\/span>/);
+  assert.match(shell, /<span>Settings<\/span>/);
+  assert.match(shell, /AdminPwaDashboard/);
+  assert.match(shell, /AdminPwaStudentInformation/);
+  assert.match(shell, /AdminPwaSettings/);
+  assert.doesNotMatch(shell, /Open Staff Chat/);
+  assert.doesNotMatch(shell, /PwaInstallAndNotifications/);
+  assert.doesNotMatch(shell, /PasskeyEnrollment/);
   assert.doesNotMatch(shell, /People & Classes|Calendar & Scheduling|Staff Time/);
+});
+
+test("Admin phone PWA dashboard is calendar-only", () => {
+  assert.match(dashboard, /Upcoming calendar/);
+  assert.match(dashboard, /getUpcomingTeacherCalendarEvents/);
+  assert.match(dashboard, /getUpcomingCalendarGroups/);
+  assert.match(shell, /isDashboard/);
+});
+
+test("Admin phone PWA student information is read-only name search", () => {
+  assert.match(studentInformation, /searchAllStudents/);
+  assert.match(studentInformation, /getStudentInformation/);
+  assert.match(studentInformation, /READ-ONLY LOOKUP/);
+  assert.match(studentInformation, /Search student by name/);
+  assert.match(studentInformation, /admin-pwa-student-overlay/);
+  assert.doesNotMatch(studentInformation, /Access Control|Student Management/);
+});
+
+test("Admin phone PWA settings reuse the Student PWA notification and biometric controls", () => {
+  assert.match(settings, /PwaNotificationToggle/);
+  assert.match(settings, /PwaBiometricToggle/);
+  assert.match(biometricToggle, /registerPasskey/);
+  assert.match(biometricToggle, /after logout or session expiry/);
 });
 
 test("Admin PWA identity is resolved before the limited shell renders", () => {
