@@ -24211,7 +24211,7 @@ img {
   bottom: 0;
   box-shadow: 0 -10px 28px rgba(31,60,136,.14);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   left: 0;
   padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
   position: fixed;
@@ -24352,11 +24352,16 @@ img {
 .admin-pwa-student-panel > header { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }
 .admin-pwa-student-panel h2 { color: #173b6b; font-size: 1.3rem; margin: 3px 0 2px; overflow-wrap: anywhere; }
 .admin-pwa-student-panel header p { color: #60758a; font-size: .82rem; margin: 0; }
+.admin-pwa-student-context { line-height: 1.4; }
 .admin-pwa-student-close { align-items: center; background: #e8f3fa; border: 1px solid #c6deeb; border-radius: 50%; color: #1f5f9f; cursor: pointer; display: inline-flex; height: 38px; justify-content: center; width: 38px; }
-.admin-pwa-student-facts { display: grid; gap: 8px; margin-top: 17px; }
-.admin-pwa-student-facts > div { background: rgba(255,255,255,.72); border: 1px solid #dbeaf2; border-radius: 13px; display: grid; gap: 3px; padding: 10px 12px; }
-.admin-pwa-student-facts span { color: #6c8194; font-size: .69rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.admin-pwa-student-facts strong { color: #173b6b; font-size: .9rem; overflow-wrap: anywhere; }
+.admin-pwa-student-summary { display: grid; gap: 9px; margin-top: 17px; }
+.admin-pwa-student-summary > div { background: rgba(255,255,255,.72); border: 1px solid #dbeaf2; border-radius: 13px; display: grid; gap: 5px; padding: 11px 12px; }
+.admin-pwa-student-summary span { color: #6c8194; font-size: .69rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.admin-pwa-student-summary strong { color: #173b6b; font-size: .9rem; overflow-wrap: anywhere; }
+.admin-pwa-student-skill-grid { display: grid; gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.admin-pwa-student-skill-grid span { background: rgba(232,243,255,.72); border-radius: 9px; display: grid; gap: 2px; padding: 7px 6px; text-align: center; }
+.admin-pwa-student-skill-grid small { color: #60758a; font-size: .62rem; font-weight: 750; letter-spacing: 0; overflow-wrap: anywhere; text-transform: none; }
+.admin-pwa-student-skill-grid strong { font-size: .88rem; }
 .admin-pwa-settings-page { max-width: none; min-height: 0; padding: 0; }
 
 /* Keep installed-PWA navigation attached to the viewport instead of the

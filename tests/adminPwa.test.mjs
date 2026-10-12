@@ -15,7 +15,9 @@ const routeLayout = read("app/admin/layout.tsx");
 const styles = read("app/globals.css");
 const chatRoute = read("app/admin/chat/page.tsx");
 
-test("Admin installed PWA uses a separate three-tab shell without changing browser navigation", () => {
+test("Admin installed PWA uses a separate four-tab shell without changing browser navigation", () => {
+  assert.match(shell, /Dashboard/);
+  assert.match(shell, /href=.*\/admin/);
   assert.match(layout, /display-mode: standalone/);
   assert.match(layout, /<AdminPwaShell/);
   assert.match(layout, /if \(installedPwa\)/);
@@ -44,6 +46,12 @@ test("Admin phone PWA dashboard is calendar-only", () => {
 });
 
 test("Admin phone PWA student information is read-only name search", () => {
+  assert.match(studentInformation, /getAdminStudentAttendanceSummary/);
+  assert.match(studentInformation, /Homework averages/);
+  assert.match(studentInformation, /Class exam average/);
+  assert.match(studentInformation, /Follow-up documents/);
+  assert.match(studentInformation, /attended/);
+  assert.match(studentInformation, /missed/);
   assert.match(studentInformation, /searchAllStudents/);
   assert.match(studentInformation, /getStudentInformation/);
   assert.match(studentInformation, /READ-ONLY LOOKUP/);

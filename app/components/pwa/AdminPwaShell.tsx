@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MessageCircle, Settings, UserRound } from "lucide-react";
+import { LayoutDashboard, MessageCircle, Settings, UserRound } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -108,6 +108,15 @@ export default function AdminPwaShell({
       </main>
 
       <nav className="admin-pwa-bottom-nav" aria-label="Admin PWA navigation">
+        <Link
+          href="/admin"
+          className={isDashboard ? "is-active" : ""}
+          aria-current={isDashboard ? "page" : undefined}
+          aria-label="Dashboard"
+        >
+          <LayoutDashboard size={22} aria-hidden="true" />
+          <span>Dashboard</span>
+        </Link>
         <Link
           href="/admin/chat"
           className={isChat ? "is-active" : ""}

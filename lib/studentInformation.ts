@@ -465,6 +465,51 @@ export async function searchAllStudents(query: string) {
   ].sort((first, second) => first.full_name.localeCompare(second.full_name));
 }
 
+export async function getAdminStudentAttendanceSummary(
+  studentType: string,
+  studentId: string
+) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error("No user logged in.");
+  }
+
+  const params = new URLSearchParams({
+    studentType: studentType === "young_learner" ? "young_learner" : "profile",
+  });
+  const response = await fetch(
+    `/api/admin/students/${encodeURIComponent(studentId)}/attendance?${params}`,
+    {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    }
+  );
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to load attendance.");
+  }
+
+  const history = Array.isArray(payload?.history) ? payload.history : [];
+  const presentCount = history.filter(
+    (row: any) => row?.attendance_status === "present"
+  ).length;
+  const absentCount = history.filter(
+    (row: any) => row?.attendance_status === "absent"
+  ).length;
+  const total = presentCount + absentCount;
+
+  return {
+    present_count: presentCount,
+    absent_count: absentCount,
+    attendance_percentage:
+      total === 0 ? null : Math.round((presentCount / total) * 1000) / 10,
+  };
+}
+
 export async function getCambridgeFridayTutorialProgressSummary(
   studentId: string
 ): Promise<FridayTutorialProgressSummary> {

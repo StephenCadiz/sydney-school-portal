@@ -3,8 +3,16 @@
 import { Search, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { getStudentAcademicYearDisplayValue } from "../../../lib/academicYearRules";
-import { getStudentInformation, searchAllStudents } from "../../../lib/studentInformation";
+import {
+  formatAverage,
+  getAdminStudentAttendanceSummary,
+  getStudentInformation,
+  searchAllStudents,
+} from "../../../lib/studentInformation";
+import {
+  getCambridgeReadingSkillLabel,
+  normalizeHomeworkSkill,
+} from "../../../lib/homework";
 
 function studentTypeLabel(type: string) {
   return type === "young_learner" ? "Young Learner" : "Cambridge";
@@ -59,7 +67,17 @@ export default function AdminPwaStudentInformation() {
     setLoadingStudent(true);
     setError("");
     try {
-      setSelectedStudent(await getStudentInformation(student.student_type, student.id));
+      const information = await getStudentInformation(student.student_type, student.id);
+      let attendanceSummary = null;
+      try {
+        attendanceSummary = await getAdminStudentAttendanceSummary(
+          student.student_type,
+          student.id
+        );
+      } catch {
+        // The read-only profile remains useful if attendance is temporarily unavailable.
+      }
+      setSelectedStudent({ ...information, attendance_summary: attendanceSummary });
     } catch (loadError: any) {
       setError(loadError?.message || "Unable to load student information.");
     } finally {
@@ -104,18 +122,37 @@ export default function AdminPwaStudentInformation() {
               <div>
                 <span className="admin-pwa-eyebrow">READ-ONLY INFORMATION</span>
                 <h2 id="admin-pwa-student-panel-title">{selectedStudent.full_name || "Student"}</h2>
-                <p>{studentSubtitle(selectedStudent)}</p>
+                <p className="admin-pwa-student-context">
+                  {[selectedStudent.level_name, selectedStudent.teacher_name, [selectedStudent.class_days, selectedStudent.start_time && selectedStudent.end_time ? `${selectedStudent.start_time}-${selectedStudent.end_time}` : ""].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}
+                </p>
               </div>
               <button type="button" className="admin-pwa-student-close" onClick={() => setSelectedStudent(null)} aria-label="Close student information"><X size={20} /></button>
             </header>
             {loadingStudent ? <p className="admin-pwa-student-state">Loading student information…</p> : (
-              <div className="admin-pwa-student-facts">
-                <div><span>Type</span><strong>{studentTypeLabel(selectedStudent.student_type)}</strong></div>
-                <div><span>Level</span><strong>{selectedStudent.level_name || "Unknown level"}</strong></div>
-                <div><span>Class</span><strong>{selectedStudent.class_label || "Class not found"}</strong></div>
-                <div><span>Current academic year</span><strong>{getStudentAcademicYearDisplayValue(selectedStudent)}</strong></div>
-                <div><span>Teacher</span><strong>{selectedStudent.teacher_name || "No teacher assigned"}</strong></div>
-                <div><span>Days / time</span><strong>{[selectedStudent.class_days, selectedStudent.start_time && selectedStudent.end_time ? `${selectedStudent.start_time}-${selectedStudent.end_time}` : ""].filter(Boolean).join(" ") || "-"}</strong></div>
+              <div className="admin-pwa-student-summary">
+                <div className="admin-pwa-student-attendance" aria-label="Attendance summary">
+                  <span>Attendance</span>
+                  <strong>{selectedStudent.attendance_summary ? `${selectedStudent.attendance_summary.present_count} attended · ${selectedStudent.attendance_summary.absent_count} missed · ${selectedStudent.attendance_summary.attendance_percentage === null ? "—" : `${selectedStudent.attendance_summary.attendance_percentage}%`}` : "—"}</strong>
+                </div>
+                <div className="admin-pwa-student-performance">
+                  <span>{selectedStudent.student_type === "young_learner" ? "Class exam average" : "Homework averages"}</span>
+                  {selectedStudent.student_type === "young_learner" ? (
+                    <strong>{formatAverage(selectedStudent.results_summary?.averages?.overall) === "-" ? "—" : `${formatAverage(selectedStudent.results_summary?.averages?.overall)}%`}</strong>
+                  ) : (
+                    <div className="admin-pwa-student-skill-grid">
+                      {[
+                        ["reading", getCambridgeReadingSkillLabel(selectedStudent.level_name)],
+                        ["writing", "Writing"],
+                        ["listening", "Listening"],
+                      ].map(([skill, label]) => {
+                        const item = (selectedStudent.results_summary?.practice?.skill_averages || []).find((entry: any) => normalizeHomeworkSkill(entry.skill) === skill);
+                        const value = formatAverage(item?.average);
+                        return <span key={skill}><small>{label}</small><strong>{value === "-" ? "—" : `${value}%`}</strong></span>;
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="admin-pwa-student-follow-up"><span>Follow-up documents</span><strong>{selectedStudent.follow_ups?.length ? "Yes" : "No"}</strong></div>
               </div>
             )}
           </section>
