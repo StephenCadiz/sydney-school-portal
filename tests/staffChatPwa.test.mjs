@@ -94,3 +94,13 @@ test("chat supports contact discovery, delta sync, pagination, and profile-scope
   assert.match(chatView, /loadOlderMessages/);
   assert.match(chatView, /staff-chat-account/);
 });
+
+test("staff chat uses a teacher's primary class icon and the school icon for admins", () => {
+  assert.match(chatServer, /classrooms\(id, name, logo\)/);
+  assert.match(chatServer, /sortClassesByGlobalOrder/);
+  assert.match(chatServer, /SCHOOL_CHAT_AVATAR/);
+  assert.match(chatServer, /avatar_url/);
+  assert.match(chatView, /ChatAvatar/);
+  assert.match(chatView, /icons\/icon-192\.png/);
+  assert.match(styles, /staff-chat-avatar img/);
+});

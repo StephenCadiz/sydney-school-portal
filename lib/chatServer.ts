@@ -5,9 +5,13 @@ import { randomUUID } from "crypto";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { sendPortalPush } from "./pushNotificationsServer";
 import { MESSAGE_ATTACHMENT_MAX_COUNT, validateMessageFile } from "./messageAttachmentConfig";
+import { getMadridDateString, classUsesAcademicYear } from "./academicYearRules";
+import { sortClassesByGlobalOrder } from "./classOrdering";
 
 export type ChatActor = { authUserId: string; profileId: string; role: "admin" | "teacher" };
 export type ChatAttachmentInput = { storagePath: string; fileName: string; mimeType: string; byteSize: number };
+
+const SCHOOL_CHAT_AVATAR = "/icons/icon-192.png";
 
 function tokenFromRequest(request: NextRequest) {
   const value = request.headers.get("authorization") || "";
@@ -46,6 +50,70 @@ function profileName(profile: any) {
   return `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() || "Staff member";
 }
 
+function classIsCurrent(classroom: any, currentAcademicYearId: string | null, madridDate: string) {
+  if (classUsesAcademicYear(classroom?.course_type)) {
+    return Boolean(currentAcademicYearId && String(classroom?.academic_year_id || "") === currentAcademicYearId);
+  }
+  const start = String(classroom?.start_date || "").slice(0, 10);
+  const end = String(classroom?.end_date || "").slice(0, 10);
+  if (start && end) return start <= madridDate && end >= madridDate;
+  return true;
+}
+
+/**
+ * Resolve a stable, public avatar for staff chat without storing avatar data in
+ * the chat tables. Teachers use the first current class in the same ordering
+ * used by My Classes (their primary class); Admin staff use the school mark.
+ */
+async function addStaffAvatars<T extends { id: string; role?: string }>(profiles: T[]) {
+  const result = new Map<string, string>();
+  for (const profile of profiles) {
+    if (String(profile.role) === "admin") result.set(String(profile.id), SCHOOL_CHAT_AVATAR);
+  }
+  const teacherIds = profiles.filter((profile) => String(profile.role) === "teacher").map((profile) => String(profile.id));
+  if (!teacherIds.length) return result;
+
+  const { data: classes, error: classError } = await supabaseAdmin
+    .from("classes")
+    .select("id, teacher_id, level_id, class_name, course_type, academic_year_id, start_date, end_date, days, start_time, classrooms(id, name, logo)")
+    .in("teacher_id", teacherIds);
+  if (classError) throw classError;
+
+  const levelIds = Array.from(new Set((classes || []).map((classroom) => classroom.level_id).filter(Boolean)));
+  const { data: levels, error: levelError } = levelIds.length
+    ? await supabaseAdmin.from("levels").select("id, name").in("id", levelIds)
+    : { data: [], error: null };
+  if (levelError) throw levelError;
+  const levelById = new Map((levels || []).map((level) => [String(level.id), level.name]));
+
+  const { data: currentAcademicYear, error: academicYearError } = await supabaseAdmin
+    .from("academic_years")
+    .select("id")
+    .eq("status", "current")
+    .limit(1)
+    .maybeSingle();
+  if (academicYearError) throw academicYearError;
+  const currentAcademicYearId = currentAcademicYear?.id ? String(currentAcademicYear.id) : null;
+  const madridDate = getMadridDateString();
+  const byTeacher = new Map<string, any[]>();
+  for (const classroom of classes || []) {
+    const teacherId = String(classroom.teacher_id || "");
+    if (!teacherId || !classIsCurrent(classroom, currentAcademicYearId, madridDate)) continue;
+    byTeacher.set(teacherId, [...(byTeacher.get(teacherId) || []), { ...classroom, level_name: levelById.get(String(classroom.level_id)) || "" }]);
+  }
+  for (const teacherId of teacherIds) {
+    const primaryClass = sortClassesByGlobalOrder(byTeacher.get(teacherId) || [])[0];
+    const logo = String(primaryClass?.classrooms?.logo || "").trim();
+    result.set(teacherId, logo || SCHOOL_CHAT_AVATAR);
+  }
+  return result;
+}
+
+function withAvatar(profile: any, avatarById: Map<string, string>) {
+  const id = String(profile?.id || "");
+  return { ...profile, avatar_url: avatarById.get(id) || SCHOOL_CHAT_AVATAR };
+}
+
 export async function searchChatRecipients(actor: ChatActor, query: string, includeAll = false) {
   const trimmed = query.trim();
   if (!includeAll && trimmed.length < 2) return [];
@@ -61,7 +129,12 @@ export async function searchChatRecipients(actor: ChatActor, query: string, incl
   if (trimmed) queryBuilder = queryBuilder.or(`first_name.ilike.${pattern},last_name.ilike.${pattern}`);
   const { data, error } = await queryBuilder;
   if (error) throw error;
-  return (data || []).filter((profile) => profile.active !== false).map((profile) => ({ id: profile.id, name: profileName(profile), role: profile.role }));
+  const activeProfiles = (data || []).filter((profile) => profile.active !== false);
+  const avatarById = await addStaffAvatars(activeProfiles);
+  return activeProfiles.map((profile) => {
+    const enriched = withAvatar(profile, avatarById);
+    return { id: enriched.id, name: profileName(enriched), role: enriched.role, avatar_url: enriched.avatar_url };
+  });
 }
 
 async function getParticipantIds(conversationId: string) {
@@ -103,18 +176,20 @@ export async function listChatConversations(actor: ChatActor) {
     .in("conversation_id", ids)
     .is("left_at", null);
   if (participantError) throw participantError;
-  const otherIds = Array.from(new Set((participants || []).map((row) => String(row.profile_id)).filter((id) => id !== actor.profileId)));
-  const { data: profiles, error: profileError } = otherIds.length
-    ? await supabaseAdmin.from("profiles").select("id, first_name, last_name, role").in("id", otherIds)
+  const profileIds = Array.from(new Set((participants || []).map((row) => String(row.profile_id))));
+  const { data: profiles, error: profileError } = profileIds.length
+    ? await supabaseAdmin.from("profiles").select("id, first_name, last_name, role").in("id", profileIds)
     : { data: [], error: null };
   if (profileError) throw profileError;
+  const avatarById = await addStaffAvatars(profiles || []);
+  const enrichedProfiles = (profiles || []).map((profile) => withAvatar(profile, avatarById));
   const { data: messages, error: messageError } = await supabaseAdmin
     .from("chat_messages")
     .select("id, conversation_id, sender_id, body, created_at")
     .in("conversation_id", ids)
     .order("created_at", { ascending: false });
   if (messageError) throw messageError;
-  const profileById = new Map((profiles || []).map((profile) => [String(profile.id), profile]));
+  const profileById = new Map(enrichedProfiles.map((profile) => [String(profile.id), profile]));
   const memberByConversation = new Map<string, string[]>();
   for (const participant of participants || []) memberByConversation.set(String(participant.conversation_id), [...(memberByConversation.get(String(participant.conversation_id)) || []), String(participant.profile_id)]);
   const membershipByConversation = new Map((memberships || []).map((membership) => [String(membership.conversation_id), membership]));
@@ -126,7 +201,11 @@ export async function listChatConversations(actor: ChatActor) {
     const latest = latestByConversation.get(String(conversation.id));
     const lastReadAt = membershipByConversation.get(String(conversation.id))?.last_read_at;
     const unreadCount = (messages || []).filter((message) => String(message.conversation_id) === String(conversation.id) && message.sender_id !== actor.profileId && (!lastReadAt || new Date(message.created_at).getTime() > new Date(lastReadAt).getTime())).length;
-    return { ...conversation, display_name: conversation.name || names.join(", ") || "Conversation", participants: memberIds.map((id) => ({ id, name: profileName(profileById.get(id)), role: profileById.get(id)?.role || "" })), last_message: latest ? { body: latest.body, created_at: latest.created_at } : null, unread_count: unreadCount };
+    const participantRows = memberIds.map((id) => ({ id, name: profileName(profileById.get(id)), role: profileById.get(id)?.role || "", avatar_url: profileById.get(id)?.avatar_url || SCHOOL_CHAT_AVATAR }));
+    const conversationAvatar = memberIds.some((id) => profileById.get(id)?.role === "admin")
+      ? SCHOOL_CHAT_AVATAR
+      : participantRows.find((participant) => participant.role === "teacher")?.avatar_url || SCHOOL_CHAT_AVATAR;
+    return { ...conversation, display_name: conversation.name || names.join(", ") || "Conversation", avatar_url: conversationAvatar, participants: participantRows, last_message: latest ? { body: latest.body, created_at: latest.created_at } : null, unread_count: unreadCount };
   });
 }
 
