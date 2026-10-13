@@ -7,6 +7,7 @@ const workspaceRoute = read("app/api/teacher/young-learners/[studentId]/workspac
 const classPage = read("app/teacher/class/page.tsx");
 const sharedResources = read("app/teacher/class/SharedResourcesTab.tsx");
 const officialResources = read("app/teacher/class/OfficialResourcesTab.tsx");
+const classExams = read("app/teacher/class/ClassExamsTab.tsx");
 const resourceLibrary = read("lib/teacherResources.ts");
 const workspacePage = read("app/teacher/class/young-learner/[studentId]/page.tsx");
 const styles = read("app/globals.css");
@@ -49,6 +50,17 @@ test("Young Learner classes expose the existing Shared and Official Resources ta
   assert.match(officialResources, /getOfficialTeacherResourcesForLevel/);
   assert.match(resourceLibrary, /getTeacherResourcesForLevel\(levelId, "shared_teacher"\)/);
   assert.match(resourceLibrary, /getTeacherResourcesForLevel\(levelId, "official_teacher"\)/);
+});
+
+test("Young Learner Official Resources include uploaded class exam papers, audio, and keys", () => {
+  assert.match(officialResources, /isClassExamLevel\(levelName\)/);
+  assert.match(officialResources, /<ClassExamsTab levelName=\{levelName\} \/>/);
+  assert.match(classExams, /getClassExamMaterialsByLevelName\(levelName\)/);
+  assert.match(classExams, /item\.exam_file_url/);
+  assert.match(classExams, /item\.audio_file_url/);
+  assert.match(classExams, /item\.key_file_url/);
+  assert.match(classExams, /Open Audio/);
+  assert.match(classExams, /Open Key/);
 });
 
 test("Resource tabs preserve class authorization and direct tab links", () => {

@@ -6,8 +6,10 @@ import {
   getOfficialTeacherResourcesForLevel,
   type TeacherResource,
 } from "../../../lib/teacherResources";
+import { isClassExamLevel } from "../../../lib/classExams";
 import TeacherResourceCard from "./TeacherResourceCard";
 import CambridgeExamLibrary from "./CambridgeExamLibrary";
+import ClassExamsTab from "./ClassExamsTab";
 
 const sectionStyle = {
   display: "grid",
@@ -146,6 +148,8 @@ export default function OfficialResourcesTab({
           ))}
         </div>
       )}
+
+      {isClassExamLevel(levelName) && <ClassExamsTab levelName={levelName} />}
 
       {studentResources.length > 0 && (
         <section style={{ display: "grid", gap: "14px" }}>
