@@ -16,6 +16,10 @@ import { buildHomeworkResultMap } from "./progress";
 import { resolveStudentCurrentClassServer } from "./academicYearsServer";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { resolveProfileIdForAuthUser } from "./cambridgeStudentAccessServer";
+import {
+  assignmentMemberIds,
+  collapseCompleteAssignmentRows,
+} from "./cambridgeHomeworkGrouping";
 
 export const CAMBRIDGE_ASSIGNMENT_HOMEWORK_CUTOVER_DATE = "2026-07-28";
 export const STUDENT_HOMEWORK_LIMIT = 100;
@@ -242,7 +246,20 @@ async function loadVisibleAssignmentRows(context: StudentContext) {
     .order("id", { ascending: true })
     .limit(STUDENT_HOMEWORK_LIMIT);
   if (error) throw error;
-  return data || [];
+  const rows = data || [];
+  const parentIds = Array.from(new Set(rows.map((row: any) => String(one(row.part)?.id || "")).filter(Boolean)));
+  const subpartResult = parentIds.length
+    ? await supabaseAdmin.from("cambridge_exam_subparts").select("id, exam_part_id").in("exam_part_id", parentIds)
+    : { data: [], error: null };
+  if (subpartResult.error && !["42P01", "PGRST205"].includes(String(subpartResult.error.code || ""))) {
+    throw subpartResult.error;
+  }
+  const expected = new Map<string, Set<string>>();
+  for (const row of subpartResult.data || []) {
+    const key = String(row.exam_part_id);
+    expected.set(key, new Set([...(expected.get(key) || []), String(row.id)]));
+  }
+  return collapseCompleteAssignmentRows(rows, expected);
 }
 
 export async function loadVisibleAssignmentIds(context: StudentContext) {
@@ -356,7 +373,7 @@ export async function loadStudentHomework(
 ) {
   const today = getMadridDateString();
   const assignmentRows = await loadVisibleAssignmentRows(context);
-  const assignmentIds = assignmentRows.map((row: any) => String(row.id));
+  const assignmentIds = Array.from(new Set(assignmentRows.flatMap((row: any) => assignmentMemberIds(row))));
   const partIds = assignmentRows
     .map((row: any) => String(one(row.part)?.id || ""))
     .filter(Boolean);
@@ -506,7 +523,19 @@ export async function loadStudentHomework(
       const partType = String(part?.part_type || "");
       const allowedTypes =
         partType === "listening" ? new Set(["paper", "audio"]) : new Set(["paper"]);
-      const result = resultByAssignment.get(String(row.id));
+      const memberResults = assignmentMemberIds(row)
+        .map((assignmentId) => resultByAssignment.get(assignmentId))
+        .filter(Boolean);
+      const canonicalResult = resultByAssignment.get(String(row.id));
+      const numericResults = memberResults
+        .map((candidate: any) => Number(candidate.percentage))
+        .filter((value) => Number.isFinite(value));
+      const result = canonicalResult || (numericResults.length
+        ? {
+            ...memberResults[0],
+            percentage: numericResults.reduce((sum, value) => sum + value, 0) / numericResults.length,
+          }
+        : null);
       return {
         id: String(row.id),
         source: "assignment",
@@ -541,7 +570,7 @@ export async function loadStudentHomework(
                 : ("Question Paper" as const),
             url: String(resource.external_url),
           })),
-        viewed: viewedAssignments.has(String(row.id)),
+        viewed: assignmentMemberIds(row).some((assignmentId) => viewedAssignments.has(assignmentId)),
         result: result
           ? {
               id: String(result.id),

@@ -30,6 +30,7 @@ import {
   isEligibleExamPart,
   type CoursePlanExam,
 } from "./coursePlanExamScoring";
+import { collapseCompletePartSelections } from "./cambridgeHomeworkGrouping";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -465,6 +466,12 @@ export async function loadCoursePlanDays(
       subparts: subpartsByParent.get(String(part.id)) || [],
     }))));
   }
+  const coursePlanExams: CoursePlanExam[] = Array.from(examSets.values()).map((exam: any) => ({
+    id: String(exam.id),
+    exam_number: Number(exam.exam_number),
+    title: exam.title ? String(exam.title) : null,
+    parts: partsByExam.get(String(exam.id)) || [],
+  }));
   const examPartIds = Array.from(parts.keys());
   const examResourcesResult =
     options.includeExamResources && examPartIds.length
@@ -493,8 +500,39 @@ export async function loadCoursePlanDays(
       })
   );
 
+  const displayItems = (days || []).flatMap((day) => {
+    const dayItems = items.filter((item) => String(item.course_plan_day_id) === String(day.id));
+    const selections = dayItems.map((item) => ({
+      exam_set_id: String(item.exam_set_id),
+      exam_part_id: item.exam_part_id ? String(item.exam_part_id) : null,
+      exam_subpart_id: item.exam_subpart_id ? String(item.exam_subpart_id) : null,
+      purpose: String(item.purpose) as "class_practice" | "homework",
+      selection_scope: String(item.selection_scope) as "full_exam" | "skill" | "part",
+    }));
+    return collapseCompletePartSelections(selections, coursePlanExams).map((selection, index) => {
+      const source = dayItems.find((item) =>
+        String(item.exam_set_id) === selection.exam_set_id &&
+        String(item.purpose) === selection.purpose &&
+        (selection.selection_scope === "skill"
+          ? (String(item.exam_part_id || "") === String(selection.exam_part_id || "") || Boolean(item.exam_subpart_id))
+          : String(item.exam_part_id || "") === String(selection.exam_part_id || "") &&
+            String(item.exam_subpart_id || "") === String(selection.exam_subpart_id || ""))
+      ) || dayItems[index];
+      return {
+        ...(source || {}),
+        id: String(source?.id || `${day.id}:${selection.exam_set_id}:${selection.exam_part_id || "full"}:${selection.purpose}`),
+        course_plan_day_id: String(day.id),
+        exam_set_id: selection.exam_set_id,
+        exam_part_id: selection.exam_part_id,
+        exam_subpart_id: selection.exam_subpart_id,
+        purpose: selection.purpose,
+        selection_scope: selection.selection_scope,
+        sort_order: Number(source?.sort_order ?? index),
+      };
+    });
+  });
   const itemsByDay = new Map<string, any[]>();
-  for (const item of items) {
+  for (const item of displayItems) {
     const exam = examSets.get(String(item.exam_set_id));
     const part = (item as any).exam_subpart_id
       ? (partsByExam.get(String(item.exam_set_id)) || []).find((candidate) => String(candidate.id) === String((item as any).exam_subpart_id))

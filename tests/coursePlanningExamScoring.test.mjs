@@ -12,6 +12,7 @@ const scoringUi = read("app/teacher/class/CoursePlanExamScoringSection.tsx");
 const studentPlan = read("app/student/course-plan/page.tsx");
 const teacherHomework = read("lib/teacherHomeworkServer.ts");
 const studentHomework = read("lib/studentHomeworkServer.ts");
+const homeworkGrouping = read("lib/cambridgeHomeworkGrouping.ts");
 const route = read("app/api/teacher/classes/[id]/course-planning/scores/route.ts");
 const migration = read("supabase/migrations/20261001120000_course_plan_exam_part_scoring.sql");
 const definitions = read("lib/cambridgeExamPartDefinitions.ts");
@@ -61,6 +62,17 @@ test("whole-exam homework is grouped into one assignment per skill", () => {
   assert.match(studentHomework, /All parts/);
   assert.match(scoringServer, /selection_scope: "skill" as const/);
   assert.match(scoringServer, /aggregateSelected/);
+});
+
+test("legacy complete numbered-skill assignments collapse to one All parts activity", () => {
+  assert.match(homeworkGrouping, /collapseCompletePartSelections/);
+  assert.match(homeworkGrouping, /collapseCompleteAssignmentRows/);
+  assert.match(homeworkGrouping, /expectedSubpartsByParent/);
+  assert.match(scoringServer, /collapseCompletePartSelections/);
+  assert.match(planningServer, /collapseCompletePartSelections/);
+  assert.match(teacherHomework, /collapseCompleteAssignmentRows/);
+  assert.match(studentHomework, /collapseCompleteAssignmentRows/);
+  assert.match(studentHomework, /assignmentMemberIds/);
 });
 
 test("numbered parts are grouped under their skill and preserve Listening Parts 1-4", () => {

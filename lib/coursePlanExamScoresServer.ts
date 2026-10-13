@@ -10,6 +10,7 @@ import {
   type CoursePlanExam,
   type CoursePlanSelection,
 } from "./coursePlanExamScoring";
+import { collapseCompletePartSelections } from "./cambridgeHomeworkGrouping";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { CoursePlanningError, type CoursePlanningContext } from "./coursePlanningServer";
 
@@ -135,7 +136,22 @@ export async function loadCoursePlanExamScores(
     percentage: Number(score.percentage),
     updated_at: score.updated_at || null,
   }));
-  const assignments: ScoreAssignment[] = items.flatMap((item): ScoreAssignment[] => {
+  const normalizedItems = days.flatMap((day) => {
+    const daySelections = items
+      .filter((item) => String(item.course_plan_day_id) === String(day.id))
+      .map((item) => ({
+        exam_set_id: String(item.exam_set_id),
+        exam_part_id: item.exam_part_id ? String(item.exam_part_id) : null,
+        exam_subpart_id: item.exam_subpart_id ? String(item.exam_subpart_id) : null,
+        purpose: String(item.purpose) as CoursePlanSelection["purpose"],
+        selection_scope: String(item.selection_scope) as CoursePlanSelection["selection_scope"],
+      }));
+    return collapseCompletePartSelections(daySelections, exams).map((selection) => ({
+      ...selection,
+      course_plan_day_id: String(day.id),
+    }));
+  });
+  const assignments: ScoreAssignment[] = normalizedItems.flatMap((item): ScoreAssignment[] => {
     const exam = exams.find((candidate) => candidate.id === String(item.exam_set_id));
     if (!exam) return [];
     const selection: CoursePlanSelection = {
@@ -298,13 +314,14 @@ export async function saveCoursePlanExamScore(
   if (!parts?.some((part) => String(part.id) === examPartId && isEligibleExamPart(part))) {
     throw new CoursePlanningError("Speaking and unassigned exam parts cannot be scored.", 422);
   }
-  const selections = (items || []).map((item) => ({
+  const rawSelections = (items || []).map((item) => ({
     exam_set_id: String(item.exam_set_id),
     exam_part_id: item.exam_part_id ? String(item.exam_part_id) : null,
     exam_subpart_id: item.exam_subpart_id ? String(item.exam_subpart_id) : null,
     purpose: String(item.purpose) as CoursePlanSelection["purpose"],
     selection_scope: String(item.selection_scope) as CoursePlanSelection["selection_scope"],
   }));
+  const selections = collapseCompletePartSelections(rawSelections, [exam]);
   const expanded = expandSelections(selections.filter((item) => item.exam_set_id === examSetId), [exam]);
   const selected = expanded.find((part) => part.id === (examSubpartId || examPartId) && part.purpose === purpose);
   const aggregateSelected = !examSubpartId && selections.some((selection) =>

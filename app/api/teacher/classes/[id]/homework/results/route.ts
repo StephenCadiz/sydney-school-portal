@@ -51,9 +51,15 @@ export async function GET(
       return fail("The student is not enrolled in this class.", 403);
     }
     const homework = await loadTeacherClassHomework(context);
-    const assignmentIds = homework.homework
+    const assignmentGroups = homework.homework
       .filter((item) => item.source === "assignment")
-      .map((item) => item.id);
+      .map((item: any) => ({
+        id: String(item.id),
+        ids: Array.isArray(item.assignment_ids)
+          ? item.assignment_ids.map((id: unknown) => String(id))
+          : [String(item.id)],
+      }));
+    const assignmentIds = Array.from(new Set(assignmentGroups.flatMap((group) => group.ids)));
     if (!assignmentIds.length) return NextResponse.json({ results: [] });
     const { data, error } = await supabaseAdmin
       .from("results")
@@ -67,7 +73,26 @@ export async function GET(
       .order("id", { ascending: false })
       .limit(200);
     if (error) throw error;
-    return NextResponse.json({ results: data || [] });
+    const resultsByAssignment = new Map(
+      (data || []).map((result: any) => [String(result.cambridge_exam_assignment_id), result])
+    );
+    const groupedResults = assignmentGroups.flatMap((group) => {
+      const canonical = resultsByAssignment.get(group.id);
+      if (canonical) return [canonical];
+      const members = group.ids
+        .map((id: string) => resultsByAssignment.get(id))
+        .filter(Boolean);
+      const percentages = members
+        .map((result: any) => Number(result.percentage))
+        .filter((value: number) => Number.isFinite(value));
+      if (!members.length || !percentages.length) return [];
+      return [{
+        ...members[0],
+        cambridge_exam_assignment_id: group.id,
+        percentage: percentages.reduce((sum: number, value: number) => sum + value, 0) / percentages.length,
+      }];
+    });
+    return NextResponse.json({ results: groupedResults });
   } catch (error) {
     if (error instanceof TeacherHomeworkError) return fail(error.message, error.status);
     console.error("Assignment homework results load failed.");

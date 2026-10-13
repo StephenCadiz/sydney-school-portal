@@ -12,6 +12,7 @@ import {
   isSuppressedLegacyHomework,
 } from "./homework";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { collapseCompleteAssignmentRows } from "./cambridgeHomeworkGrouping";
 
 export const TEACHER_HOMEWORK_CUTOVER_DATE = "2026-07-28";
 const ELIGIBLE_LEVELS = new Set(["B1", "B2", "C1", "C2"]);
@@ -186,7 +187,8 @@ export async function loadTeacherClassHomework(
     .limit(100);
   if (assignmentError) throw assignmentError;
 
-  const assignmentRows = assignments || [];
+  const rawAssignmentRows = assignments || [];
+  const assignmentRows = rawAssignmentRows;
   const partIds = assignmentRows
     .map((row: any) => String(one(row.part)?.id || ""))
     .filter(Boolean);
@@ -215,7 +217,7 @@ export async function loadTeacherClassHomework(
   const subpartResult = partIds.length
     ? await supabaseAdmin
         .from("cambridge_exam_subparts")
-        .select("exam_part_id")
+        .select("id, exam_part_id")
         .in("exam_part_id", partIds)
     : { data: [], error: null };
   if (subpartResult.error && !["42P01", "PGRST205"].includes(String(subpartResult.error.code || ""))) {
@@ -224,6 +226,12 @@ export async function loadTeacherClassHomework(
   const parentIdsWithSubparts = new Set(
     (subpartResult.data || []).map((row: any) => String(row.exam_part_id))
   );
+  const expectedSubpartsByParent = new Map<string, Set<string>>();
+  for (const row of subpartResult.data || []) {
+    const key = String(row.exam_part_id);
+    expectedSubpartsByParent.set(key, new Set([...(expectedSubpartsByParent.get(key) || []), String(row.id)]));
+  }
+  const groupedAssignmentRows = collapseCompleteAssignmentRows(rawAssignmentRows, expectedSubpartsByParent);
 
   const resourcesByPart = new Map<string, any[]>();
   for (const resource of resourceResult.data || []) {
@@ -231,7 +239,7 @@ export async function loadTeacherClassHomework(
     resourcesByPart.set(id, [...(resourcesByPart.get(id) || []), resource]);
   }
   const assignmentKeys = new Set(
-    assignmentRows
+    groupedAssignmentRows
       .map((row: any) => {
         const part = one(row.part);
         const exam = one(part?.exam);
@@ -244,7 +252,7 @@ export async function loadTeacherClassHomework(
       .filter(Boolean)
   );
 
-  const assignmentHomework = assignmentRows.map((row: any) => {
+  const assignmentHomework = groupedAssignmentRows.map((row: any) => {
     const part = one(row.part);
     const exam = one(part?.exam);
     const partType = normalizeHomeworkSkill(part?.part_type);
@@ -259,6 +267,9 @@ export async function loadTeacherClassHomework(
         : new Set(["paper"]);
     return {
       id: String(row.id),
+      assignment_ids: Array.isArray(row.__assignmentIds)
+        ? row.__assignmentIds.map((id: unknown) => String(id))
+        : [String(row.id)],
       source: "assignment" as const,
       exam: {
         id: String(exam?.id || ""),
