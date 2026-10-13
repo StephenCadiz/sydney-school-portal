@@ -120,6 +120,12 @@ test("student classwork and homework render every selected item independently", 
   assert.match(studentPlan, /items\.map\(\(item\)/);
 });
 
+test("completing every numbered part in a skill collapses to one skill selection", () => {
+  assert.match(planningUi, /const skillComplete =/);
+  assert.match(planningUi, /selection_scope: "skill" as const/);
+  assert.match(studentPlan, /All parts/);
+});
+
 test("normal course eligibility remains unchanged", () => {
   assert.match(eligibility, /COURSE_PLANNING_COURSE_TYPES = new Set\(\["intensive", "express"\]\)/);
   assert.match(eligibility, /input\.isCambridge === true/);

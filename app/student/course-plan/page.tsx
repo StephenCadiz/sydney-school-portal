@@ -16,7 +16,7 @@ import StudentMenu from "../StudentMenu";
 import { supabase } from "../../../lib/supabase";
 
 type PlanResource = { type: string; label: string; url: string };
-type PlanPart = { id: string; type: string; label?: string; part_number?: number | null; resources: PlanResource[] };
+type PlanPart = { id: string; parent_part_id?: string | null; type: string; skill_label?: string; label?: string; part_number?: number | null; resources: PlanResource[] };
 type PlanScore = { exam_set_id: string; exam_part_id: string; exam_subpart_id?: string | null; purpose: "class_practice" | "homework"; percentage: number | null };
 type PlanItem = {
   id: string;
@@ -259,31 +259,60 @@ function MaterialActions({ items, scores = [] }: { items: PlanItem[]; scores?: P
   return (
     <div className="student-course-plan-exam-list">
       {items.map((item) => {
-        const resources = item.available_parts.flatMap((part) =>
-          part.resources
+        const availableParts = item.available_parts.map((part) => part);
+        const groups = Array.from(
+          availableParts.reduce((map, part) => {
+            const key = part.skill_label || part.type;
+            const group = map.get(key) || [];
+            group.push(part);
+            map.set(key, group);
+            return map;
+          }, new Map<string, PlanPart[]>())
+        );
+        const resources = Array.from(
+          availableParts
+            .flatMap((part) => part.resources)
             .filter((resource) => resource.type === "paper" || resource.type === "audio")
-            .map((resource, index) => ({ part, resource, index }))
+            .reduce((map, resource) => {
+              map.set(`${resource.type}:${resource.url}`, resource);
+              return map;
+            }, new Map<string, PlanResource>())
+            .values()
         );
 
         return (
           <div className="student-course-plan-exam-item" key={item.id}>
-            {item.available_parts.map((part) => {
-              const score = scores.find((candidate) =>
-                candidate.exam_set_id === String(item.exam?.id || "") &&
-                (candidate.exam_subpart_id || candidate.exam_part_id) === part.id &&
-                candidate.purpose === item.purpose
+            {groups.map(([skill, parts]) => {
+              const scoreValues = parts
+                .map((part) => scores.find((candidate) =>
+                  candidate.exam_set_id === String(item.exam?.id || "") &&
+                  ((candidate.exam_subpart_id || candidate.exam_part_id) === part.id ||
+                    (!candidate.exam_subpart_id && candidate.exam_part_id === part.parent_part_id)) &&
+                  candidate.purpose === item.purpose
+                )?.percentage)
+                .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+              const score = scoreValues.length
+                ? scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length
+                : null;
+              const scopeLabel = item.selection_scope === "part" && parts.length === 1
+                ? parts[0].label || "Part"
+                : "All parts";
+              return (
+                <div className="student-course-plan-exam-skill" key={item.id + "-" + skill}>
+                  <strong>{itemTitle(item).replace(/ - (Full exam|Reading|Reading and Use of English|Listening|Writing)$/, "")} - {skill} · {scopeLabel}{score !== null ? ` · Score ${Math.round(score * 100) / 100}%` : " · Not marked"}</strong>
+                  {item.selection_scope === "full_exam" && <span className="student-course-plan-exam-parts">{parts.map((part) => part.label).join(" · ")}</span>}
+                </div>
               );
-              return <strong key={item.id + "-" + part.id}>{itemTitle(item).replace(/ - (Full exam|Reading|Reading and Use of English|Listening|Writing)$/, "")} - {part.label || part.type.charAt(0).toUpperCase() + part.type.slice(1)}{score?.percentage !== null && score?.percentage !== undefined ? ` · Score ${score.percentage}%` : " · Not marked"}</strong>;
             })}
             {resources.length > 0 && (
               <div className="student-course-plan-material-actions">
-                {resources.map(({ part, resource, index }) => {
+                {resources.map((resource, index) => {
                   const action = resourceAction(resource);
                   const Icon = action.Icon;
 
                   return (
                     <a
-                      key={item.id + "-" + part.id + "-" + resource.type + "-" + index}
+                      key={item.id + "-" + resource.type + "-" + index}
                       href={resource.url}
                       target="_blank"
                       rel="noreferrer"

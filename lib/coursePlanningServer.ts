@@ -528,7 +528,9 @@ export async function loadCoursePlanDays(
         : null,
       available_parts: selectedParts.map((selectedPart) => ({
         id: String(selectedPart.id),
+        parent_part_id: (selectedPart as any).parent_part_id ? String((selectedPart as any).parent_part_id) : null,
         type: String(selectedPart.part_type),
+        skill_label: getHomeworkSkillLabel(options.levelName || "", selectedPart.part_type),
         label: String(selectedPart.label || getHomeworkSkillLabel(options.levelName || "", selectedPart.part_type)),
         part_number: (selectedPart as any).part_number || null,
         resources: (examResourcesByPart.get(String((selectedPart as any).parent_part_id || selectedPart.id)) || [])
@@ -1054,6 +1056,7 @@ async function syncHomeworkForDay(
     .in("exam_set_id", examSetIds);
   if (partError) throw partError;
   const partsByExam = new Map<string, Array<{ parentId: string; id: string; subpartId: string | null }>>();
+  const skillPartsByExam = new Map<string, Array<{ parentId: string; id: string; subpartId: string | null }>>();
   const parentRows = allParts || [];
   const subpartsForHomework = parentRows.length
     ? await supabaseAdmin.from("cambridge_exam_subparts").select("id, exam_part_id").in("exam_part_id", parentRows.map((part) => String(part.id)))
@@ -1064,6 +1067,10 @@ async function syncHomeworkForDay(
   for (const part of parentRows) {
     if (!isEligibleExamPart(part)) continue;
     const examId = String(part.exam_set_id);
+    skillPartsByExam.set(examId, [
+      ...(skillPartsByExam.get(examId) || []),
+      { parentId: String(part.id), id: String(part.id), subpartId: null },
+    ]);
     const children = childrenByParent.get(String(part.id)) || [];
     const values = children.length
       ? children.map((childId) => ({ parentId: String(part.id), id: childId, subpartId: childId }))
@@ -1074,7 +1081,7 @@ async function syncHomeworkForDay(
   for (const item of homeworkItems || []) {
     const selections =
       item.selection_scope === "full_exam"
-        ? partsByExam.get(String(item.exam_set_id)) || []
+        ? skillPartsByExam.get(String(item.exam_set_id)) || []
         : [{ parentId: String(item.exam_part_id || ""), id: String(item.exam_subpart_id || item.exam_part_id || ""), subpartId: item.exam_subpart_id ? String(item.exam_subpart_id) : null }].filter((entry) => Boolean(entry.id));
     if (!selections.length) {
       throw new CoursePlanningError("A homework exam selection is no longer available.", 422);

@@ -9,6 +9,7 @@ type ScoreAssignment = {
   exam_set_id: string;
   exam_part_id: string;
   exam_subpart_id?: string | null;
+  selection_scope?: "skill" | "part";
   part_label?: string | null;
   part_number?: number | null;
   purpose: "class_practice" | "homework";
@@ -98,7 +99,7 @@ export default function CoursePlanExamScoringSection({
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Unable to save the exam score.");
       setSnapshot(payload as ScoreSnapshot);
-      setMessage("Exam part score saved.");
+        setMessage(item.selection_scope === "skill" ? "Skill score saved." : "Exam part score saved.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to save the exam score.");
     } finally {

@@ -433,19 +433,23 @@ export default function CoursePlanningTab({
     );
     updateExamSelections(purpose, (items) => {
       const candidateKeys = new Set(candidates.map(({ exam, part }) => `${exam.id}:${part.id}`));
-      const candidateParentKeys = new Set(candidates.map(({ exam, part }) => `${exam.id}:${parentSkillFor(exam, part).id}`));
+      const parent = candidates[0] ? parentSkillFor(candidates[0].exam, candidates[0].part) : null;
+      const parentKey = parent ? `${examId}:${parent.id}` : "";
       const withoutSkill = items.filter((item) =>
-        !(item.selection_scope !== "full_exam" && (candidateKeys.has(`${item.exam_set_id}:${item.exam_subpart_id || item.exam_part_id}`) || (item.selection_scope === "skill" && candidateParentKeys.has(`${item.exam_set_id}:${item.exam_part_id}`))))
+        !(item.selection_scope !== "full_exam" && (
+          candidateKeys.has(`${item.exam_set_id}:${item.exam_subpart_id || item.exam_part_id}`) ||
+          (item.selection_scope === "skill" && `${item.exam_set_id}:${item.exam_part_id}` === parentKey)
+        ))
       );
       if (allSelected) return withoutSkill;
-      const next = [...withoutSkill];
-      for (const { exam, part } of candidates) {
-        if (!isExamPartSelected(exam.id, String(part.id), purpose)) {
-          const parent = parentSkillFor(exam, part);
-          next.push({ exam_set_id: exam.id, exam_part_id: parent.id, exam_subpart_id: part.id, purpose, selection_scope: "part" });
-        }
-      }
-      return next;
+      if (!parent) return withoutSkill;
+      return [...withoutSkill, {
+        exam_set_id: examId,
+        exam_part_id: parent.id,
+        exam_subpart_id: null,
+        purpose,
+        selection_scope: "skill",
+      }];
     });
     setOpenExamPurpose(null);
   }
@@ -529,16 +533,34 @@ export default function CoursePlanningTab({
           (item) => !(item.exam_set_id === exam.id && (item.exam_subpart_id === part.id || item.exam_part_id === part.id))
         );
       }
-      return [
+      const next = [
         ...items,
         {
           exam_set_id: exam.id,
           exam_part_id: parentSkillFor(exam, part).id,
           exam_subpart_id: part.id,
           purpose,
-          selection_scope: "part",
+          selection_scope: "part" as const,
         },
       ];
+      const parent = parentSkillFor(exam, part);
+      const skillParts = examPartsFor(exam).filter((candidate) => parentSkillFor(exam, candidate).id === parent.id);
+      const skillComplete = skillParts.length > 0 && skillParts.every((candidate) =>
+        next.some((item) => item.exam_set_id === exam.id && item.selection_scope === "part" && item.exam_subpart_id === candidate.id)
+      );
+      if (skillComplete) {
+        return [
+          ...next.filter((item) => !(item.exam_set_id === exam.id && item.selection_scope === "part" && skillParts.some((candidate) => candidate.id === item.exam_subpart_id))),
+          {
+            exam_set_id: exam.id,
+            exam_part_id: parent.id,
+            exam_subpart_id: null,
+            purpose,
+            selection_scope: "skill" as const,
+          },
+        ];
+      }
+      return next;
     });
     setOpenExamPurpose(null);
   }

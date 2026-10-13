@@ -15,6 +15,23 @@ import { CoursePlanningError, type CoursePlanningContext } from "./coursePlannin
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+type ScoreAssignment = {
+  course_plan_day_id: string;
+  exam_set_id: string;
+  exam_part_id: string;
+  exam_subpart_id: string | null;
+  selection_scope: "skill" | "part";
+  purpose: "class_practice" | "homework";
+  exam_number: number;
+  exam_title: string | null;
+  skill: string;
+  skill_label: string;
+  part_label: string | null;
+  part_number: number | null;
+  percentage: number | null;
+  updated_at: string | null;
+};
+
 function requireUuid(value: unknown, label: string) {
   const normalized = String(value || "").trim();
   if (!UUID.test(normalized)) throw new CoursePlanningError(`${label} is required.`, 400);
@@ -118,7 +135,7 @@ export async function loadCoursePlanExamScores(
     percentage: Number(score.percentage),
     updated_at: score.updated_at || null,
   }));
-  const assignments = items.flatMap((item) => {
+  const assignments: ScoreAssignment[] = items.flatMap((item): ScoreAssignment[] => {
     const exam = exams.find((candidate) => candidate.id === String(item.exam_set_id));
     if (!exam) return [];
     const selection: CoursePlanSelection = {
@@ -128,34 +145,81 @@ export async function loadCoursePlanExamScores(
       purpose: String(item.purpose) as CoursePlanSelection["purpose"],
       selection_scope: String(item.selection_scope) as CoursePlanSelection["selection_scope"],
     };
-    return expandSelections([selection], [exam]).map((part) => {
-      const score = scoreRows.find((row) =>
+    const expanded = expandSelections([selection], [exam]);
+    if (selection.selection_scope === "part") {
+      return expanded.map((part) => {
+        const score = scoreRows.find((row) =>
+          row.course_plan_day_id === String(item.course_plan_day_id) &&
+          (row.exam_subpart_id || row.exam_part_id) === part.id &&
+          row.purpose === selection.purpose
+        );
+        return {
+          course_plan_day_id: String(item.course_plan_day_id),
+          exam_set_id: String(item.exam_set_id),
+          exam_part_id: part.parent_part_id || part.id,
+          exam_subpart_id: part.parent_part_id ? part.id : null,
+          selection_scope: "part" as const,
+          purpose: selection.purpose,
+          exam_number: exam.exam_number,
+          exam_title: exam.title || null,
+          skill: String(part.part_type),
+          skill_label: getHomeworkSkillLabel(context.levelName, part.part_type),
+          part_label: part.label || null,
+          part_number: part.part_number || null,
+          percentage: score?.percentage ?? null,
+          updated_at: score?.updated_at || null,
+        };
+      });
+    }
+
+    const groups = new Map<string, any[]>();
+    for (const part of expanded) {
+      const parentId = String(part.parent_part_id || part.id);
+      groups.set(parentId, [...(groups.get(parentId) || []), part]);
+    }
+    return Array.from(groups.entries()).map(([parentId, parts]) => {
+      const aggregateScore = scoreRows.find((row) =>
         row.course_plan_day_id === String(item.course_plan_day_id) &&
-        (row.exam_subpart_id || row.exam_part_id) === part.id &&
+        row.exam_part_id === parentId &&
+        !row.exam_subpart_id &&
         row.purpose === selection.purpose
       );
+      const legacyScores = parts
+        .map((part) => scoreRows.find((row) =>
+          row.course_plan_day_id === String(item.course_plan_day_id) &&
+          (row.exam_subpart_id || row.exam_part_id) === part.id &&
+          row.purpose === selection.purpose
+        )?.percentage)
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+      const percentage = aggregateScore?.percentage ?? (legacyScores.length
+        ? legacyScores.reduce((sum, value) => sum + value, 0) / legacyScores.length
+        : null);
+      const first = parts[0];
       return {
         course_plan_day_id: String(item.course_plan_day_id),
         exam_set_id: String(item.exam_set_id),
-        exam_part_id: part.id,
+        exam_part_id: parentId,
+        exam_subpart_id: null,
+        selection_scope: "skill" as const,
         purpose: selection.purpose,
         exam_number: exam.exam_number,
         exam_title: exam.title || null,
-        skill: String(part.part_type),
-        skill_label: getHomeworkSkillLabel(context.levelName, part.part_type),
-        part_label: part.label || null,
-        part_number: part.part_number || null,
-        percentage: score?.percentage ?? null,
-        updated_at: score?.updated_at || null,
+        skill: String(first.part_type),
+        skill_label: getHomeworkSkillLabel(context.levelName, first.part_type),
+        part_label: "All parts",
+        part_number: null,
+        percentage,
+        updated_at: aggregateScore?.updated_at || null,
       };
     });
   });
   const skillGroups = new Map<string, { percentages: any[]; parts: any[] }>();
   for (const assignment of assignments) {
-      const key = String(assignment.skill);
+    const key = String(assignment.skill);
     const current = skillGroups.get(key) || { percentages: [], parts: [] };
-    current.percentages.push({ exam_part_id: assignment.exam_part_id, percentage: assignment.percentage });
-    current.parts.push({ id: assignment.exam_part_id, exam_set_id: assignment.exam_set_id, part_type: assignment.skill });
+    const scorePartId = assignment.exam_subpart_id || assignment.exam_part_id;
+    current.percentages.push({ exam_part_id: scorePartId, percentage: assignment.percentage });
+    current.parts.push({ id: scorePartId, exam_set_id: assignment.exam_set_id, part_type: assignment.skill });
     skillGroups.set(key, current);
   }
   const skillAverages = Array.from(skillGroups.entries()).map(([skill, group]) => ({
@@ -166,7 +230,14 @@ export async function loadCoursePlanExamScores(
   const testGroups = new Map<string, any[]>();
   for (const assignment of assignments) {
     const key = `${assignment.course_plan_day_id}:${assignment.exam_set_id}`;
-    testGroups.set(key, [...(testGroups.get(key) || []), { exam_part_id: assignment.exam_part_id, percentage: assignment.percentage }]);
+    const exam = exams.find((candidate) => candidate.id === assignment.exam_set_id);
+    const coveredParts = assignment.selection_scope === "skill"
+      ? (exam?.parts || []).filter((part) => String(part.parent_part_id || part.id) === assignment.exam_part_id)
+      : [{ id: assignment.exam_subpart_id || assignment.exam_part_id }];
+    testGroups.set(key, [
+      ...(testGroups.get(key) || []),
+      ...coveredParts.map((part) => ({ exam_part_id: part.id, percentage: assignment.percentage })),
+    ]);
   }
   const testPercentages = Array.from(testGroups.entries()).map(([key, values]) => {
     const [, examSetId] = key.split(":");
@@ -236,21 +307,48 @@ export async function saveCoursePlanExamScore(
   }));
   const expanded = expandSelections(selections.filter((item) => item.exam_set_id === examSetId), [exam]);
   const selected = expanded.find((part) => part.id === (examSubpartId || examPartId) && part.purpose === purpose);
-  if (!selected) throw new CoursePlanningError("That exam part is not assigned to this activity.", 422);
-  const { error } = await supabaseAdmin
+  const aggregateSelected = !examSubpartId && selections.some((selection) =>
+    selection.exam_set_id === examSetId &&
+    selection.purpose === purpose &&
+    ((selection.selection_scope === "skill" && selection.exam_part_id === examPartId) ||
+      (selection.selection_scope === "full_exam" && parts.some((part) => String(part.id) === examPartId && isEligibleExamPart(part))))
+  );
+  if (!selected && !aggregateSelected) throw new CoursePlanningError("That exam part is not assigned to this activity.", 422);
+  const scoreValues = {
+    class_id: context.classId,
+    exam_set_id: examSetId,
+    exam_part_id: examPartId,
+    exam_subpart_id: examSubpartId,
+    purpose,
+    percentage,
+    updated_by: context.actorId,
+  };
+  let existingScoreQuery = supabaseAdmin
     .from("course_plan_exam_scores")
-      .upsert({
-      course_plan_day_id: dayId,
-      class_id: context.classId,
-      student_id: studentId,
-      exam_set_id: examSetId,
-      exam_part_id: examPartId,
-      exam_subpart_id: examSubpartId,
-      purpose,
-      percentage,
-      updated_by: context.actorId,
-      created_by: context.actorId,
-    }, { onConflict: "course_plan_day_id,student_id,exam_part_id,exam_subpart_id,purpose" });
+    .select("id")
+    .eq("course_plan_day_id", dayId)
+    .eq("student_id", studentId)
+    .eq("exam_part_id", examPartId)
+    .eq("purpose", purpose);
+  existingScoreQuery = examSubpartId
+    ? existingScoreQuery.eq("exam_subpart_id", examSubpartId)
+    : existingScoreQuery.is("exam_subpart_id", null);
+  const { data: existingScore, error: existingScoreError } = await existingScoreQuery.maybeSingle();
+  if (existingScoreError) throw existingScoreError;
+  const scoreWrite = existingScore
+    ? supabaseAdmin
+        .from("course_plan_exam_scores")
+        .update(scoreValues)
+        .eq("id", existingScore.id)
+    : supabaseAdmin
+        .from("course_plan_exam_scores")
+        .insert({
+          course_plan_day_id: dayId,
+          student_id: studentId,
+          created_by: context.actorId,
+          ...scoreValues,
+        });
+  const { error } = await scoreWrite;
   if (error) throw error;
   const { error: historyError } = await supabaseAdmin
     .from("course_plan_exam_score_history")

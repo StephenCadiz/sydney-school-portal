@@ -212,6 +212,19 @@ export async function loadTeacherClassHomework(
   if (resourceResult.error) throw resourceResult.error;
   if (legacyResult.error) throw legacyResult.error;
 
+  const subpartResult = partIds.length
+    ? await supabaseAdmin
+        .from("cambridge_exam_subparts")
+        .select("exam_part_id")
+        .in("exam_part_id", partIds)
+    : { data: [], error: null };
+  if (subpartResult.error && !["42P01", "PGRST205"].includes(String(subpartResult.error.code || ""))) {
+    throw subpartResult.error;
+  }
+  const parentIdsWithSubparts = new Set(
+    (subpartResult.data || []).map((row: any) => String(row.exam_part_id))
+  );
+
   const resourcesByPart = new Map<string, any[]>();
   for (const resource of resourceResult.data || []) {
     const id = String(resource.exam_part_id);
@@ -257,6 +270,8 @@ export async function loadTeacherClassHomework(
         type: partType,
         label: subpart?.label
           ? `${getHomeworkSkillLabel(context.level, partType)} · ${String(subpart.label)}`
+          : parentIdsWithSubparts.has(String(part?.id))
+          ? `${getHomeworkSkillLabel(context.level, partType)} · All parts`
           : getHomeworkSkillLabel(context.level, partType),
       },
       release_date: row.release_date || null,

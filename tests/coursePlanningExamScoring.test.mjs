@@ -54,6 +54,15 @@ test("whole skill and whole exam selections expand to eligible parts", () => {
   assert.match(scoring, /exam_subpart_id/);
 });
 
+test("whole-exam homework is grouped into one assignment per skill", () => {
+  assert.match(planningServer, /const skillPartsByExam = new Map/);
+  assert.match(planningServer, /item\.selection_scope === "full_exam"\s*\n\s*\? skillPartsByExam/);
+  assert.match(teacherHomework, /All parts/);
+  assert.match(studentHomework, /All parts/);
+  assert.match(scoringServer, /selection_scope: "skill" as const/);
+  assert.match(scoringServer, /aggregateSelected/);
+});
+
 test("numbered parts are grouped under their skill and preserve Listening Parts 1-4", () => {
   assert.match(definitions, /partCountFor/);
   assert.match(subpartsMigration, /generate_series\(1, v_count\)/);
@@ -84,7 +93,9 @@ test("score persistence is class-scoped, authorized, and idempotent", () => {
   assert.match(migration, /enable row level security/);
   assert.match(migration, /revoke all on table public\.course_plan_exam_scores from anon, authenticated/);
   assert.match(scoringServer, /current_class_enrolments/);
-  assert.match(scoringServer, /upsert/);
+  assert.match(scoringServer, /existingScore/);
+  assert.match(scoringServer, /\.update\(scoreValues\)/);
+  assert.match(scoringServer, /\.insert\(/);
   assert.match(scoringServer, /exam_subpart_id/);
   assert.match(route, /getCoursePlanningContext/);
 });
@@ -104,7 +115,8 @@ test("teacher scoring UI keeps classwork and homework distinct and validates 0-1
 
 test("student rendering shows the exact exam skill part and score state", () => {
   assert.match(studentPlan, /available_parts\.map/);
-  assert.match(studentPlan, /Score \$\{score\.percentage\}%/);
+  assert.match(studentPlan, /Score \$\{Math\.round\(score \* 100\) \/ 100\}%/);
+  assert.match(studentPlan, /All parts/);
   assert.match(studentPlan, /Not marked/);
   assert.match(studentPlan, /scores=\{day\.scores\}/);
   assert.match(teacherHomework, /cambridge_exam_subparts/);
