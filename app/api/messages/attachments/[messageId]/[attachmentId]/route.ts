@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { resolveProfileIdForAuthUser } from "../../../../../../lib/cambridgeStudentAccessServer";
 import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
 
 const BUCKET = "message-attachments";
@@ -17,10 +18,11 @@ export async function GET(
   if (!token) return jsonError("Authentication required.", 401);
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !authData.user) return jsonError("Authentication required.", 401);
+  const profileId = await resolveProfileIdForAuthUser(authData.user.id);
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id, role")
-    .eq("id", authData.user.id)
+    .eq("id", profileId)
     .maybeSingle();
   if (profileError || !profile) return jsonError("Unable to verify account access.", 500);
 
@@ -33,8 +35,8 @@ export async function GET(
   if (messageError || !message) return jsonError("Message not found.", 404);
 
   const allowed =
-    (message.sender_id === authData.user.id && !message.sender_deleted_at) ||
-    (message.receiver_id === authData.user.id && !message.recipient_deleted_at) ||
+    (message.sender_id === profileId && !message.sender_deleted_at) ||
+    (message.receiver_id === profileId && !message.recipient_deleted_at) ||
     (profile.role === "admin" && message.recipient_group === "admin" && !message.admin_deleted_at);
   if (!allowed) return jsonError("You are not allowed to access this attachment.", 403);
 

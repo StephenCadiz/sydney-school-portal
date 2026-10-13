@@ -6,6 +6,7 @@ import {
   validateMessageFile,
   type MessageAttachment,
 } from "../../../../lib/messageAttachmentConfig";
+import { resolveProfileIdForAuthUser } from "../../../../lib/cambridgeStudentAccessServer";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 const BUCKET = "message-attachments";
@@ -20,16 +21,17 @@ async function authenticate(request: NextRequest) {
   if (!token) return { user: null, response: jsonError("Authentication required.", 401) };
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data.user) return { user: null, response: jsonError("Authentication required.", 401) };
+  const profileId = await resolveProfileIdForAuthUser(data.user.id);
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id, role")
-    .eq("id", data.user.id)
+    .eq("id", profileId)
     .maybeSingle();
   if (profileError) return { user: null, response: jsonError("Unable to verify account access.", 500) };
   if (!profile || !["admin", "teacher", "student"].includes(String(profile.role))) {
     return { user: null, response: jsonError("Messaging access required.", 403) };
   }
-  return { user: data.user, response: null };
+  return { user: data.user, profileId, response: null };
 }
 
 function safeFilename(value: string) {
@@ -69,7 +71,8 @@ function hasExpectedSignature(type: string, bytes: Uint8Array) {
 
 export async function POST(request: NextRequest) {
   const auth = await authenticate(request);
-  if (auth.response || !auth.user) return auth.response;
+  if (auth.response) return auth.response;
+  if (!auth.user || !auth.profileId) return jsonError("Unable to verify account access.", 500);
   const formData = await request.formData();
   const entries = formData.getAll("files").filter((value): value is File => value instanceof File);
   if (!entries.length) return jsonError("Choose at least one file.", 400);
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
   try {
     for (const file of entries) {
       const id = randomUUID();
-      const path = `${auth.user.id}/${id}`;
+      const path = `${auth.profileId}/${id}`;
       const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, file, {
         cacheControl: "3600",
         contentType: file.type,
@@ -112,11 +115,12 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const auth = await authenticate(request);
-  if (auth.response || !auth.user) return auth.response;
+  if (auth.response) return auth.response;
+  if (!auth.user || !auth.profileId) return jsonError("Unable to verify account access.", 500);
   const body = await request.json().catch(() => ({}));
   const entries = Array.isArray(body?.attachments) ? body.attachments : [];
   const paths = entries
-    .filter((item: any) => item && typeof item.path === "string" && item.path.startsWith(`${auth.user.id}/`))
+    .filter((item: any) => item && typeof item.path === "string" && item.path.startsWith(`${auth.profileId}/`))
     .map((item: any) => item.path)
     .slice(0, MESSAGE_ATTACHMENT_MAX_COUNT);
   if (paths.length) await supabaseAdmin.storage.from(BUCKET).remove(paths);

@@ -13,6 +13,7 @@ const uploadRoute = read("app/api/messages/attachments/route.ts");
 const openRoute = read(
   "app/api/messages/attachments/[messageId]/[attachmentId]/route.ts"
 );
+const identityResolver = read("lib/cambridgeStudentAccessServer.ts");
 const picker = read("app/components/messages/MessageAttachmentPicker.tsx");
 const display = read("app/components/messages/MessageAttachments.tsx");
 const adminPage = read("app/admin/messages/page.tsx");
@@ -58,6 +59,8 @@ test("file picker supports accessible selection, drag and drop, validation, and 
 
 test("uploads are authenticated, limited, and cleaned up on failure", () => {
   assert.match(uploadRoute, /auth\.getUser\(token\)/);
+  assert.match(uploadRoute, /resolveProfileIdForAuthUser\(data\.user\.id\)/);
+  assert.match(uploadRoute, /\.eq\("id", profileId\)/);
   assert.match(uploadRoute, /validateMessageFile/);
   assert.match(uploadRoute, /MESSAGE_ATTACHMENT_MAX_COUNT/);
   assert.match(uploadRoute, /upsert: false/);
@@ -65,21 +68,25 @@ test("uploads are authenticated, limited, and cleaned up on failure", () => {
   assert.match(uploadRoute, /storage\.from\(BUCKET\)\.remove\(uploadedPaths\)/);
   assert.match(uploadRoute, /Cache-Control.*no-store/);
   assert.match(uploadRoute, /safeFilename/);
-  assert.match(uploadRoute, /startsWith\(`\$\{auth\.user\.id\}\/`\)/);
+  assert.match(uploadRoute, /const path = `\$\{auth\.profileId\}\/\$\{id\}`/);
+  assert.match(uploadRoute, /startsWith\(`\$\{auth\.profileId\}\/`\)/);
   assert.match(uploadRoute, /hasExpectedSignature/);
   assert.match(uploadRoute, /declared file type/);
 });
 
 test("attachment opening checks message permissions and returns short-lived signed URLs", () => {
   assert.match(openRoute, /auth\.getUser\(token\)/);
-  assert.match(openRoute, /message\.sender_id === authData\.user\.id/);
-  assert.match(openRoute, /message\.receiver_id === authData\.user\.id/);
+  assert.match(openRoute, /resolveProfileIdForAuthUser\(authData\.user\.id\)/);
+  assert.match(openRoute, /\.eq\("id", profileId\)/);
+  assert.match(openRoute, /message\.sender_id === profileId/);
+  assert.match(openRoute, /message\.receiver_id === profileId/);
   assert.match(openRoute, /profile\.role === "admin" && message\.recipient_group === "admin"/);
   assert.match(openRoute, /!message\.admin_deleted_at/);
   assert.match(openRoute, /!message\.sender_deleted_at/);
   assert.match(openRoute, /!message\.recipient_deleted_at/);
   assert.match(openRoute, /createSignedUrl\(attachment\.path, 120\)/);
   assert.match(openRoute, /Attachment not found/);
+  assert.match(identityResolver, /export async function resolveProfileIdForAuthUser/);
   assert.match(display, /Authorization: `Bearer \$\{session\.access_token\}`/);
   assert.match(display, /Open \/ download/);
 });
