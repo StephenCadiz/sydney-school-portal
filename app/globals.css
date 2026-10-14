@@ -23990,7 +23990,7 @@ img {
   bottom: 0;
   box-shadow: 0 -10px 28px rgba(31, 60, 136, 0.14);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   left: 0;
   padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
   position: fixed;
@@ -24024,6 +24024,11 @@ img {
 }
 .teacher-layout-shell.is-installed-pwa .teacher-main-content {
   padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+}
+
+.teacher-layout-shell.is-installed-pwa-settings .teacher-main-content {
+  min-height: 100dvh;
+  overflow-y: auto;
 }
 
 /* Installed Student PWA navigation. Browser Student pages keep their

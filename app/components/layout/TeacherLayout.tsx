@@ -18,9 +18,7 @@ import { supabase } from "../../../lib/supabase";
 import TeacherClassProgressReminder from "../teacher/TeacherClassProgressReminder";
 import TeacherOutstandingTaskCards from "../teacher/TeacherOutstandingTaskCards";
 import TeacherStudentMonitoringTasks from "../teacher/TeacherStudentMonitoringTasks";
-import PwaInstallAndNotifications from "../pwa/PwaInstallAndNotifications";
 import TeacherPwaBottomNav from "../pwa/TeacherPwaBottomNav";
-import PasskeyEnrollment from "../pwa/PasskeyEnrollment";
 import PwaViewportLock from "../pwa/PwaViewportLock";
 
 interface TeacherLayoutProps {
@@ -235,10 +233,11 @@ export default function TeacherLayout({
   });
 
   const isInstalledChatPwa = installedPwa && pathname === "/teacher/chat";
+  const isInstalledSettingsPwa = installedPwa && pathname === "/teacher/settings";
 
   return (
     <div
-      className={`teacher-layout-shell${installedPwa ? " is-installed-pwa" : ""}${isInstalledChatPwa ? " is-installed-pwa-chat" : ""}`}
+      className={`teacher-layout-shell${installedPwa ? " is-installed-pwa" : ""}${isInstalledChatPwa ? " is-installed-pwa-chat" : ""}${isInstalledSettingsPwa ? " is-installed-pwa-settings" : ""}`}
       style={{
         display: "flex",
         minHeight: "100vh",
@@ -246,7 +245,7 @@ export default function TeacherLayout({
       }}
     >
       <PwaViewportLock />
-      {!isInstalledChatPwa && (
+      {!isInstalledChatPwa && !isInstalledSettingsPwa && (
         <button
           type="button"
           aria-label="Close teacher menu"
@@ -255,7 +254,7 @@ export default function TeacherLayout({
         />
       )}
 
-      {!isInstalledChatPwa && (
+      {!isInstalledChatPwa && !isInstalledSettingsPwa && (
         <TeacherSidebar
           isMobileOpen={menuOpen}
           onClose={() => setMenuOpen(false)}
@@ -270,12 +269,12 @@ export default function TeacherLayout({
         className={`teacher-main-content${isInstalledChatPwa ? " is-installed-pwa-chat-main" : ""}`}
         style={{
           flex: 1,
-          padding: isInstalledChatPwa ? 0 : "40px",
+          padding: isInstalledChatPwa || isInstalledSettingsPwa ? 0 : "40px",
           overflowY: isInstalledChatPwa ? "hidden" : "auto",
           background: "var(--ss-page-bg)",
         }}
       >
-        {!isInstalledChatPwa && (
+        {!isInstalledChatPwa && !isInstalledSettingsPwa && (
           <PortalHeader
             title="Teacher Portal"
             firstName={teacherFirstName}
@@ -285,10 +284,7 @@ export default function TeacherLayout({
           />
         )}
 
-        {installedPwa && !isInstalledChatPwa && <PwaInstallAndNotifications />}
-        {installedPwa && !isInstalledChatPwa && <PasskeyEnrollment />}
-
-        {!isInstalledChatPwa && (
+        {!isInstalledChatPwa && !isInstalledSettingsPwa && (
           <Suspense fallback={null}>
             <TeacherOutstandingTaskCards />
             <TeacherStudentMonitoringTasks
@@ -304,7 +300,7 @@ export default function TeacherLayout({
             : children}
         </div>
       </main>
-      {!isInstalledChatPwa && <TeacherClassProgressReminder />}
+      {!isInstalledChatPwa && !isInstalledSettingsPwa && <TeacherClassProgressReminder />}
       {installedPwa && <TeacherPwaBottomNav />}
     </div>
   );

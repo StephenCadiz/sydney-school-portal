@@ -7,6 +7,7 @@ const supabase = read("lib/supabase.ts");
 const login = read("app/login/page.tsx");
 const enrollment = read("app/components/pwa/PasskeyEnrollment.tsx");
 const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
+const teacherSettings = read("app/teacher/settings/page.tsx");
 const adminShell = read("app/components/pwa/AdminPwaShell.tsx");
 const adminSettings = read("app/components/pwa/AdminPwaSettings.tsx");
 const pwaBiometricToggle = read("app/components/pwa/PwaBiometricToggle.tsx");
@@ -28,14 +29,16 @@ test("Teacher and Admin PWA surfaces can register a passkey while signed in", ()
   assert.match(enrollment, /Use Face ID or fingerprint after logout or session expiry/);
   assert.match(pwaBiometricToggle, /registerPasskey/);
   assert.match(pwaBiometricToggle, /Use Face ID or fingerprint after logout or session expiry/);
-  assert.match(teacherLayout, /PasskeyEnrollment/);
+  assert.match(teacherSettings, /PwaBiometricToggle/);
   assert.match(adminSettings, /PwaBiometricToggle/);
   assert.match(adminShell, /AdminPwaSettings/);
 });
 
 test("Teacher install and biometric controls are PWA-only", () => {
-  assert.match(teacherLayout, /installedPwa && !isInstalledChatPwa && <PwaInstallAndNotifications \/>/);
-  assert.match(teacherLayout, /installedPwa && !isInstalledChatPwa && <PasskeyEnrollment \/>/);
+  assert.doesNotMatch(teacherLayout, /PwaInstallAndNotifications/);
+  assert.doesNotMatch(teacherLayout, /PasskeyEnrollment/);
+  assert.match(teacherSettings, /display-mode: standalone/);
+  assert.match(teacherSettings, /installed Teacher app/);
 });
 
 test("passkey controls require platform WebAuthn support", () => {

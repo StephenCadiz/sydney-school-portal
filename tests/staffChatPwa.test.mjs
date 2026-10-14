@@ -20,6 +20,7 @@ test("installed Teacher PWA exposes only the safe-area bottom navigation", () =>
   assert.match(bottomNav, /My Classes/);
   assert.match(bottomNav, /Calendar/);
   assert.match(bottomNav, /Messages/);
+  assert.match(bottomNav, /Settings/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
   assert.match(styles, /teacher-layout-shell\.is-installed-pwa/);
 });
