@@ -2857,6 +2857,67 @@
   margin-top: 20px;
 }
 
+.auth-install-card {
+  align-items: center;
+  background: linear-gradient(145deg, rgba(238, 248, 255, 0.96), rgba(255, 255, 255, 0.92));
+  border: 1px solid rgba(83, 135, 204, 0.28);
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(31, 60, 136, 0.08);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-top: 22px;
+  padding: 14px 15px;
+}
+
+.auth-install-card-copy {
+  color: #172b55;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.auth-install-card-copy strong {
+  font-size: 15px;
+}
+
+.auth-install-card-copy span,
+.auth-install-card-copy small {
+  color: #526581;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.auth-install-card-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.auth-install-card-actions button {
+  background: #1f559a;
+  border: 1px solid #1f559a;
+  border-radius: 9px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 36px;
+  padding: 8px 11px;
+}
+
+.auth-install-card-actions button.is-secondary {
+  background: rgba(255, 255, 255, 0.8);
+  color: #1f559a;
+}
+
+.auth-install-card-actions button:focus-visible {
+  outline: 3px solid rgba(22, 143, 217, 0.28);
+  outline-offset: 2px;
+}
+
 @media (max-width: 480px) {
   .auth-page {
     align-items: flex-start;
@@ -2875,6 +2936,15 @@
 
   .auth-title {
     font-size: 24px;
+  }
+
+  .auth-install-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .auth-install-card-actions {
+    justify-content: flex-end;
   }
 
   .auth-password-heading {

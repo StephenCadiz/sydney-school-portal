@@ -7,6 +7,7 @@ import { Fingerprint } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
 import { passkeyErrorMessage } from "../../lib/passkeyErrors";
+import PwaLoginInstallPrompt from "../components/pwa/PwaLoginInstallPrompt";
 
 function LoginForm() {
   const router = useRouter();
@@ -182,6 +183,8 @@ function LoginForm() {
             Sign in with Face ID / fingerprint
           </button>
         )}
+
+        <PwaLoginInstallPrompt />
       </section>
     </main>
   );
