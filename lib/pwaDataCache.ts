@@ -125,7 +125,7 @@ function isCacheableRequest(request: Request) {
   return true;
 }
 
-async function saveResponse(accountId: string, url: string, response: Response) {
+async function saveResponse(accountId: string, key: string, url: string, response: Response) {
   if (!response.ok) return;
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.toLowerCase().includes("json")) return;
@@ -136,7 +136,7 @@ async function saveResponse(accountId: string, url: string, response: Response) 
   const db = await openDatabase();
   if (!db) return;
   await writeRecord(db, {
-    key: cacheKey(accountId, url),
+    key,
     accountId,
     url,
     status: response.status,
@@ -159,7 +159,7 @@ async function refreshResponse(
   if (existing) return existing;
 
   const refresh = originalFetch(input, init).then(async (response) => {
-    await saveResponse(accountId, url, response);
+    await saveResponse(accountId, key, url, response);
     return response;
   }).finally(() => {
     refreshes.delete(key);
