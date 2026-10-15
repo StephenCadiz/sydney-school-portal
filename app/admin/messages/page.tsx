@@ -14,8 +14,8 @@ import {
   markSharedAdminMessageAsRead,
   markMessageAsRead,
   sendAdminMessageToAllTeachers,
+  sendAdminStaffReply,
   sendAdminMessageToTeacher,
-  sendMessage,
   isRosaProfile,
 } from "../../../lib/messages";
 import { supabase } from "../../../lib/supabase";
@@ -502,9 +502,8 @@ export default function AdminMessagesPage() {
           senderIdentity: replySenderIdentity,
         });
       } else {
-        await sendMessage({
-          sender_id: adminId,
-          receiver_id: selectedMessage.sender_id,
+        await sendAdminStaffReply({
+          messageId: String(selectedMessage.id),
           subject: getReplySubject(selectedMessage.subject),
           message: replyMessage.trim(),
           attachments: uploadedAttachments,

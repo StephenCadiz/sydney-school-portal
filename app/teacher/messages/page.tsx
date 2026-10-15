@@ -402,14 +402,19 @@ export default function TeacherMessagesPage() {
       const selectedRecipient = recipients.admins.find(
         (admin) => admin.id === receiverId
       );
+      const selectedTeacher = recipients.teachers.find(
+        (teacher) => teacher.id === receiverId
+      );
 
       await sendTeacherStaffMessage({
         senderId: teacherId,
         recipient:
           receiverId === TEACHER_ADMIN_RECIPIENT_VALUE
             ? { type: "admin_group" }
-            : selectedRecipient?.is_rosa
+            : selectedRecipient
               ? { type: "direct_staff", staffId: receiverId }
+            : selectedTeacher
+              ? { type: "teacher", teacherId: receiverId }
               : { type: "teacher", teacherId: receiverId },
         subject: subject.trim(),
         message: message.trim(),
@@ -730,7 +735,7 @@ export default function TeacherMessagesPage() {
                           <span>Recipient</span>
                           <select value={receiverId} onChange={(event) => setReceiverId(event.target.value)}>
                             <option value="">Select staff member</option>
-                            {recipients.admins.length > 0 && <optgroup label="Admin">{recipients.admins.map((admin) => <option key={admin.id} value={admin.id}>{admin.is_rosa ? "Rosa Vara" : getProfileName(admin)}</option>)}</optgroup>}
+                            {recipients.admins.length > 0 && <optgroup label="Admin">{recipients.admins.map((admin) => <option key={admin.id} value={admin.id}>{admin.is_group ? "Admin (all staff)" : admin.is_rosa ? "Rosa Vara" : `${getProfileName(admin)} (ADMIN)`}</option>)}</optgroup>}
                             {recipients.teachers.length > 0 && <optgroup label="Teachers">{recipients.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{getProfileName(teacher)}</option>)}</optgroup>}
                           </select>
                         </label>

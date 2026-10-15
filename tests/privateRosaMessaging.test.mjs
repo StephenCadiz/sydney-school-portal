@@ -10,6 +10,7 @@ const teacherMessageStyles = read("app/globals.css");
 const adminPage = read("app/admin/messages/page.tsx");
 const adminStyles = read("app/globals.css");
 const adminSentRoute = read("app/api/admin/messages/sent/route.ts");
+const teacherStaffRoute = read("app/api/teacher/messages/staff/route.ts");
 const migration = read(
   "supabase/migrations/20260911150000_private_rosa_staff_messages.sql"
 );
@@ -23,15 +24,14 @@ const senderIdentityMigration = read(
   "supabase/migrations/20260911180000_allow_admin_identity_staff_messages.sql"
 );
 
-test("teacher recipients resolve the current Rosa Admin profile and direct sends target her", () => {
+test("teacher recipients resolve every current Admin profile and direct sends target staff safely", () => {
   assert.match(messages, /ROSA_RECIPIENT_NAME\s*=\s*"Rosa Vara"/);
-  assert.match(messages, /isRosaProfile\(profile\)/);
-  assert.match(messages, /is_rosa: true/);
+  assert.match(teacherStaffRoute, /is_rosa: isRosa\(profile\)/);
+  assert.match(teacherStaffRoute, /admins\.map/);
   assert.match(messages, /type: "direct_staff"/);
-  assert.match(messages, /!isRosaProfile\(receiverProfile\)/);
-  assert.match(messages, /select\("id, role, first_name, last_name"\)/);
-  assert.match(messages, /payload\.receiver_id = recipient\.staffId/);
-  assert.match(messages, /payload\.recipient_group = null/);
+  assert.match(teacherStaffRoute, /recipient\.type === "admin_group"/);
+  assert.match(teacherStaffRoute, /receiver\.role !== expectedRole/);
+  assert.match(teacherStaffRoute, /recipient_group: recipientGroup/);
 });
 
 test("staff replies use the opened sender while manual composition keeps its recipient rules", () => {
@@ -212,8 +212,10 @@ test("Admin identity inserts are constrained by Admin RLS and teacher recipients
   assert.match(senderIdentityMigration, /grant execute on function public\.mark_direct_staff_message_as_read\(uuid\) to service_role/i);
 });
 
-test("read marking uses the participant-scoped RPC", () => {
-  assert.match(messages, /mark_direct_staff_message_as_read/);
+test("read marking uses the authenticated Teacher message route", () => {
+  assert.match(messages, /fetch\("\/api\/teacher\/messages\/staff"/);
+  assert.match(teacherStaffRoute, /export async function PATCH/);
+  assert.match(teacherStaffRoute, /eq\("receiver_id", auth\.teacherId\)/);
   assert.match(migration, /security definer/i);
   assert.match(migration, /set search_path = public, pg_temp/i);
   assert.match(migration, /grant execute on function public\.mark_direct_staff_message_as_read\(uuid\) to authenticated/i);

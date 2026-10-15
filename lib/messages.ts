@@ -272,106 +272,56 @@ export async function getTeacherStaffRecipients(teacherId: string) {
     throw new Error("Unable to identify the logged-in teacher.");
   }
 
-  try {
-    const profiles = await getStaffProfiles(teacherId);
-
-    const rosaProfile = profiles.find((profile) => isRosaProfile(profile));
-
-    return {
-      admins: [
-        {
-          id: TEACHER_ADMIN_RECIPIENT_VALUE,
-          first_name: "Admin",
-          last_name: "",
-          email: "",
-          role: "admin",
-        },
-        ...(rosaProfile ? [{ ...rosaProfile, is_rosa: true }] : []),
-      ],
-      teachers: profiles.filter((profile) => profile.role === "teacher"),
-    };
-  } catch (error) {
-    console.error("Unable to load teacher staff recipients:", error);
-    throw new Error("Unable to load staff recipients.");
-  }
+  const mailbox = await getTeacherStaffMailbox();
+  return mailbox.recipients;
 }
 
 export async function getTeacherStaffInboxMessages(teacherId: string) {
   if (!teacherId) {
     return [];
   }
-
-  const staffProfiles = await getStaffProfiles(teacherId);
-  const staffIds = staffProfiles.map((profile) => profile.id);
-
-  if (staffIds.length === 0) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("receiver_id", teacherId)
-    .in("sender_id", staffIds)
-    .is("recipient_deleted_at", null)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-
-  return enrichMessagesWithProfile(data || [], "sender_id", "sender");
+  const mailbox = await getTeacherStaffMailbox();
+  return mailbox.inbox;
 }
 
 export async function getTeacherStaffSentMessages(teacherId: string) {
   if (!teacherId) {
     return [];
   }
+  const mailbox = await getTeacherStaffMailbox();
+  return mailbox.sent;
+}
 
-  const staffProfiles = await getStaffProfiles(teacherId);
-  const staffIds = staffProfiles.map((profile) => profile.id);
+async function getTeacherStaffMailbox() {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again.");
+  }
 
-  const oneToOneQuery =
-    staffIds.length > 0
-      ? supabase
-          .from("messages")
-          .select("*")
-          .eq("sender_id", teacherId)
-          .in("receiver_id", staffIds)
-          .is("sender_deleted_at", null)
-      : Promise.resolve({ data: [], error: null });
-
-  const sharedAdminQuery = supabase
-    .from("messages")
-    .select("*")
-    .eq("sender_id", teacherId)
-    .eq("recipient_group", "admin")
-    .is("sender_deleted_at", null);
-
-  const [
-    { data: oneToOneData, error: oneToOneError },
-    { data: sharedAdminData, error: sharedAdminError },
-  ] = await Promise.all([oneToOneQuery, sharedAdminQuery]);
-
-  if (oneToOneError) throw oneToOneError;
-  if (sharedAdminError) throw sharedAdminError;
-
-  const oneToOneMessages = await enrichMessagesWithProfile(
-    oneToOneData || [],
-    "receiver_id",
-    "receiver"
-  );
-
-  const sharedAdminMessages = (sharedAdminData || []).map((message) => ({
-    ...message,
-    receiver_name: "Admin",
-    receiver_role: "admin",
-  }));
-
-  return [...oneToOneMessages, ...sharedAdminMessages].sort((first, second) => {
-    const firstTime = first.created_at ? new Date(first.created_at).getTime() : 0;
-    const secondTime = second.created_at ? new Date(second.created_at).getTime() : 0;
-
-    return secondTime - firstTime;
+  const response = await fetch("/api/teacher/messages/staff", {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: "no-store",
   });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to load staff messages.");
+  }
+
+  return {
+    inbox: Array.isArray(payload?.inbox) ? payload.inbox : [],
+    sent: Array.isArray(payload?.sent) ? payload.sent : [],
+    recipients: {
+      admins: Array.isArray(payload?.recipients?.admins)
+        ? payload.recipients.admins
+        : [],
+      teachers: Array.isArray(payload?.recipients?.teachers)
+        ? payload.recipients.teachers
+        : [],
+    },
+  };
 }
 
 export async function getUnreadTeacherStaffMessages(teacherId: string) {
@@ -429,87 +379,33 @@ export async function sendTeacherStaffMessage({
     throw new Error("Please select a staff recipient.");
   }
 
-  const profileIds =
-    recipient.type === "teacher"
-      ? [senderId, recipient.teacherId]
-      : recipient.type === "direct_staff"
-        ? [senderId, recipient.staffId]
-        : [senderId];
-
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, role, first_name, last_name")
-    .in("id", profileIds);
-
-  if (profilesError) throw profilesError;
-
-  const senderProfile = profiles?.find((profile) => profile.id === senderId);
-
-  if (senderProfile?.role !== "teacher") {
-    throw new Error("Only teachers can send staff messages from this page.");
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again.");
   }
 
-  const payload: any = {
-    sender_id: senderId,
-    subject,
-    message,
-  };
-
-  if (recipient.type === "admin_group") {
-    payload.receiver_id = null;
-    payload.recipient_group = "admin";
-  } else if (recipient.type === "teacher") {
-    if (!recipient.teacherId) {
-      throw new Error("Please select a teacher recipient.");
-    }
-
-    if (senderId === recipient.teacherId) {
-      throw new Error("You cannot send a message to yourself.");
-    }
-
-    const receiverProfile = profiles?.find(
-      (profile) => profile.id === recipient.teacherId
-    );
-
-    if (receiverProfile?.role !== "teacher") {
-      throw new Error("Please select a teacher recipient.");
-    }
-
-    payload.receiver_id = recipient.teacherId;
-    payload.recipient_group = null;
-  } else {
-    if (!recipient.staffId) {
-      throw new Error("Please select Rosa Vara as the direct recipient.");
-    }
-
-    if (senderId === recipient.staffId) {
-      throw new Error("You cannot send a message to yourself.");
-    }
-
-    const receiverProfile = profiles?.find(
-      (profile) => profile.id === recipient.staffId
-    );
-
-    if (!isRosaProfile(receiverProfile)) {
-      throw new Error("Please select Rosa Vara as the direct recipient.");
-    }
-
-    payload.receiver_id = recipient.staffId;
-    payload.recipient_group = null;
+  const response = await fetch("/api/teacher/messages/staff", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      recipient,
+      subject,
+      message,
+      attachment_link: attachment_link || null,
+      attachments: attachments || [],
+    }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to send message.");
   }
-
-  if (attachment_link) {
-    payload.attachment_link = attachment_link;
-  }
-  if (attachments?.length) payload.attachments = attachments;
-
-  const { error } = await supabase.from("messages").insert([payload]);
-
-  if (error) throw error;
-
-  return {
-    success: true,
-  };
+  return payload || { success: true };
 }
 
 /**
@@ -570,33 +466,26 @@ export async function markTeacherStaffMessageAsRead(
   messageId: string,
   teacherId: string
 ) {
-  const { data: message, error: messageError } = await supabase
-    .from("messages")
-    .select("id, sender_id")
-    .eq("id", messageId)
-    .eq("receiver_id", teacherId)
-    .single();
-
-  if (messageError) throw messageError;
-
-  const { data: senderProfile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", message.sender_id)
-    .single();
-
-  if (profileError) throw profileError;
-
-  if (!isStaffRole(senderProfile?.role)) {
-    throw new Error("This is not a staff message.");
+  if (!messageId || !teacherId) throw new Error("Unable to identify the message.");
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again.");
   }
-
-  const { error: markError } = await supabase.rpc(
-    "mark_direct_staff_message_as_read",
-    { p_message_id: messageId }
-  );
-
-  if (markError) throw markError;
+  const response = await fetch("/api/teacher/messages/staff", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ message_id: messageId }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to mark message as read.");
+  }
 }
 
 export async function hideTeacherReceivedStaffMessage(messageId: string) {
@@ -960,6 +849,46 @@ export async function sendAdminMessageToAllTeachers({
   return result || { success: true, count: rows.length };
 }
 
+export async function sendAdminStaffReply({
+  messageId,
+  subject,
+  message,
+  attachment_link,
+  attachments,
+}: {
+  messageId: string;
+  subject: string;
+  message: string;
+  attachment_link?: string | null;
+  attachments?: MessageAttachment[];
+}) {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error("Your Admin session has expired. Please sign in again.");
+  }
+
+  const response = await fetch("/api/admin/messages/reply", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messageId,
+      subject,
+      message,
+      attachment_link: attachment_link || null,
+      attachments: attachments || [],
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Unable to send reply.");
+  return result || { success: true };
+}
+
 export async function getInboxMessages(
   userId: string,
   otherUserId: string
@@ -996,16 +925,26 @@ export async function markMessageAsRead(
   messageId: string,
   receiverId: string
 ) {
-  const { error } = await supabase
-    .from("messages")
-    .update({
-      read_at: new Date().toISOString(),
-    })
-    .eq("id", messageId)
-    .eq("receiver_id", receiverId)
-    .is("read_at", null);
-
-  if (error) throw error;
+  if (!messageId || !receiverId) throw new Error("Unable to identify the message.");
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error("Your Admin session has expired. Please sign in again.");
+  }
+  const response = await fetch("/api/admin/messages/read", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ message_id: messageId }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to mark message as read.");
+  }
 }
 
 export async function getTeacherSentMessagesForClass(
