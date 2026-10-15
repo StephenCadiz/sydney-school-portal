@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import StudentPwaBottomNav from "../components/pwa/StudentPwaBottomNav";
 import PwaViewportLock from "../components/pwa/PwaViewportLock";
+import PwaDataCacheBootstrap from "../components/pwa/PwaDataCacheBootstrap";
 
 function isStandalonePwa() {
   if (typeof window === "undefined") return false;
@@ -27,6 +28,7 @@ export default function StudentLayout({ children }: { children: ReactNode }) {
   return (
     <div className={`student-pwa-route-shell${installedPwa ? " is-installed-pwa" : ""}`}>
       <PwaViewportLock />
+      <PwaDataCacheBootstrap />
       {children}
       {installedPwa && <StudentPwaBottomNav />}
     </div>

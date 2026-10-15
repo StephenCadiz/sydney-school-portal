@@ -107,8 +107,8 @@ test("Admin PWA does not introduce an offline private-data cache", () => {
 test("Teacher and Admin chat PWAs use a dedicated full-screen surface", () => {
   assert.match(teacherLayout, /isInstalledChatPwa = installedPwa && pathname === "\/teacher\/chat"/);
   assert.match(teacherLayout, /is-installed-pwa-chat/);
-  assert.match(teacherLayout, /!isInstalledChatPwa && \([\s\S]*<PortalHeader/);
-  assert.match(teacherLayout, /!isInstalledChatPwa && <PwaInstallAndNotifications/);
+  assert.match(teacherLayout, /!isInstalledChatPwa && !isInstalledSettingsPwa && \([\s\S]*<PortalHeader/);
+  assert.doesNotMatch(teacherLayout, /PwaInstallAndNotifications/);
   assert.match(shell, /is-admin-chat-pwa/);
   assert.match(shell, /!isChat && <header className="admin-pwa-header">/);
   assert.match(styles, /\.is-admin-chat-pwa \.admin-pwa-header\s*\{[\s\S]*display: none/);

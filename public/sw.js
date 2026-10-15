@@ -1,18 +1,51 @@
 /* Sydney School Portal service worker.
- * Deliberately network-only: private portal data, API responses, and sessions
- * are never cached for offline use.
+ * Static app assets are cached for a fast installed-PWA shell. Private API
+ * responses and user data are handled by the account-scoped IndexedDB cache,
+ * never by this shared service-worker cache. PDFs, audio, downloads, and
+ * attachments remain network-only.
  */
-const SCOPE = "/";
+const STATIC_CACHE = "sydney-school-static-v2";
+const STATIC_PATHS = ["/_next/static/", "/icons/", "/fonts/", "/LOGO and NAME.png"];
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(
+      keys
+        .filter((key) => key.startsWith("sydney-school-static-") && key !== STATIC_CACHE)
+        .map((key) => caches.delete(key))
+    )).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
-  event.respondWith(fetch(request));
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/api/") || /\.(pdf|mp3|wav|m4a|aac|ogg|webm)$/i.test(url.pathname)) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  if (!STATIC_PATHS.some((path) => url.pathname.startsWith(path))) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  event.respondWith(
+    caches.open(STATIC_CACHE).then(async (cache) => {
+      const cached = await cache.match(request);
+      if (cached) {
+        void fetch(request).then((response) => {
+          if (response.ok && response.type === "basic") void cache.put(request, response.clone());
+        }).catch(() => undefined);
+        return cached;
+      }
+      const response = await fetch(request);
+      if (response.ok && response.type === "basic") await cache.put(request, response.clone());
+      return response;
+    })
+  );
 });
 
 self.addEventListener("push", (event) => {

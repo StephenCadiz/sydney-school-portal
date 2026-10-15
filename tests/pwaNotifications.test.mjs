@@ -27,9 +27,13 @@ test("Teacher and Student manifest is standalone with Sydney branding and instal
   }
 });
 
-test("service worker has network-only fetch behavior and never caches private API data", () => {
-  assert.match(worker, /event\.respondWith\(fetch\(request\)\)/);
-  assert.doesNotMatch(worker, /caches\.open|cache\.put|cacheFirst|staleWhileRevalidate/);
+test("service worker caches only static assets and never private API, media, or document data", () => {
+  assert.match(worker, /STATIC_CACHE/);
+  assert.match(worker, /caches\.open\(STATIC_CACHE\)/);
+  assert.match(worker, /url\.pathname\.startsWith\("\/api\/"\)/);
+  assert.match(worker, /\(pdf\|mp3\|wav\|m4a/);
+  assert.match(worker, /cache\.put/);
+  assert.match(worker, /STATIC_PATHS/);
   assert.match(worker, /push/);
   assert.match(worker, /event\.data\.text\(\)/);
   assert.match(worker, /notificationclick/);

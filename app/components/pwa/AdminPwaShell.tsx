@@ -11,6 +11,7 @@ import AdminPwaDashboard from "./AdminPwaDashboard";
 import AdminPwaSettings from "./AdminPwaSettings";
 import AdminPwaStudentInformation from "./AdminPwaStudentInformation";
 import PwaViewportLock from "./PwaViewportLock";
+import PwaDataCacheBootstrap from "./PwaDataCacheBootstrap";
 
 type AdminPwaShellProps = {
   children?: ReactNode;
@@ -74,6 +75,7 @@ export default function AdminPwaShell({
   return (
     <div className={`admin-pwa-shell${isChat ? " is-admin-chat-pwa" : ""}`}>
       <PwaViewportLock />
+      <PwaDataCacheBootstrap />
       {!isChat && <header className="admin-pwa-header">
         <Image
           src="/LOGO and NAME.png"
