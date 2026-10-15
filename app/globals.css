@@ -19373,10 +19373,10 @@ img {
   min-height: 78px;
   padding: 16px 18px 14px;
 }
+.staff-chat-pwa-brand { align-items: center; display: flex; gap: 10px; min-width: 0; }
 .staff-chat-pwa-header .staff-chat-eyebrow { color: rgba(255,255,255,.72); font-size: .63rem; letter-spacing: .16em; }
 .staff-chat-pwa-header h1 { color: #fff; font-size: 1.42rem; font-weight: 850; letter-spacing: -.02em; margin: 3px 0 0; }
-.staff-chat-pwa-page:not(:has(.staff-chat-pwa-thread)) .staff-chat-pwa-header h1 { font-size: 0; }
-.staff-chat-pwa-page:not(:has(.staff-chat-pwa-thread)) .staff-chat-pwa-header h1::after { content: "Chats"; font-size: 1.42rem; }
+.staff-chat-pwa-school-logo { display: block; height: 38px; max-width: 142px; object-fit: contain; object-position: left center; width: auto; }
 .staff-chat-pwa-new { background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35); color: #fff; height: 42px; width: 42px; }
 .staff-chat-pwa-new:hover { background: rgba(255,255,255,.28); }
 .staff-chat-pwa-list { background: #fff; }

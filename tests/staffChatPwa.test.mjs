@@ -69,6 +69,14 @@ test("installed PWA chat uses a WhatsApp-style contact/thread surface without ch
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
 });
 
+test("PWA chat resets the header when returning to the contact list", () => {
+  assert.match(chatView, /staff-chat-pwa-school-logo/);
+  assert.match(chatView, /<h1>Chats<\/h1>/);
+  assert.match(chatView, /function closePwaThread\(\)/);
+  assert.match(chatView, /onClick=\{closePwaThread\}/);
+  assert.doesNotMatch(styles, /staff-chat-pwa-page:not\(:has\(\.staff-chat-pwa-thread\)\)/);
+});
+
 test("Teacher PWA chat reserves the fixed nav area and keeps contacts scrollable", () => {
   assert.match(styles, /is-installed-pwa-chat \.staff-chat-pwa-page/);
   assert.match(styles, /height: calc\(100dvh - 66px - env\(safe-area-inset-bottom\)\)/);
