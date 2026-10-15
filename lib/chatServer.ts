@@ -53,6 +53,11 @@ function profileName(profile: any) {
   return `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() || "Staff member";
 }
 
+export function chatPushPreview(value: string) {
+  const firstTenLines = String(value || "").split(/\r?\n/).slice(0, 10).join("\n");
+  return firstTenLines.length > 1500 ? `${firstTenLines.slice(0, 1497)}…` : firstTenLines;
+}
+
 function staffIdentityKey(profile: any) {
   const email = String(profile?.email || "").trim().toLowerCase();
   if (email) return `email:${email}`;
@@ -352,8 +357,10 @@ export async function sendChatMessage(actor: ChatActor, conversationId: string, 
   const recipients = (await getParticipantIds(conversationId)).filter((id) => id !== actor.profileId);
   if (recipients.length) {
     const { data: recipientProfiles } = await supabaseAdmin.from("profiles").select("id, role").in("id", recipients);
+    const { data: senderProfile } = await supabaseAdmin.from("profiles").select("first_name, last_name").eq("id", actor.profileId).maybeSingle();
+    const senderName = profileName(senderProfile);
     for (const recipient of recipientProfiles || []) {
-      await sendPortalPush([String(recipient.id)], { eventKey: `chat:${inserted.id}`, title: "New chat message", body: "You have a new staff chat message.", url: `${recipient.role === "admin" ? "/admin/chat" : "/teacher/chat"}?conversation=${conversationId}`, tag: `chat:${conversationId}` });
+      await sendPortalPush([String(recipient.id)], { eventKey: `chat:${inserted.id}`, title: `Chat message from: ${senderName}`, body: chatPushPreview(trimmed), url: `${recipient.role === "admin" ? "/admin/chat" : "/teacher/chat"}?conversation=${conversationId}`, tag: `chat:${conversationId}` });
     }
   }
   return inserted;

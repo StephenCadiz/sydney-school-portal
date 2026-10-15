@@ -52,9 +52,18 @@ test("chat schema provides participant authorization, read receipts, attachments
 
 test("chat push uses generic private-safe notification payload and deep link", () => {
   assert.match(chatServer, /sendPortalPush/);
-  assert.match(chatServer, /New chat message/);
+  assert.match(chatServer, /chatPushPreview/);
+  assert.match(chatServer, /Chat message from:/);
   assert.match(chatServer, /conversation=/);
   assert.match(chatServer, /recipient\.role === "admin" \? "\/admin\/chat" : "\/teacher\/chat"/);
+});
+
+test("chat push previews the first ten lines and notification links open the conversation", () => {
+  assert.ok(chatServer.includes("split(/\\r?\\n/).slice(0, 10)"));
+  assert.match(chatServer, /firstTenLines\.length > 1500/);
+  assert.match(chatView, /new URLSearchParams\(window\.location\.search\)\.get\("conversation"\)/);
+  assert.match(chatView, /setPwaThreadOpen\(true\)/);
+  assert.match(chatView, /setSelectedId\(conversationId\)/);
 });
 
 test("installed PWA chat uses a WhatsApp-style contact/thread surface without changing desktop markup", () => {

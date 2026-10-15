@@ -98,6 +98,13 @@ export default function StaffChatView() {
     } catch { /* storage unavailable */ }
   }
 
+  useEffect(() => {
+    const conversationId = new URLSearchParams(window.location.search).get("conversation");
+    if (!conversationId) return;
+    setSelectedId(conversationId);
+    if (installedPwa) setPwaThreadOpen(true);
+  }, [installedPwa]);
+
   const loadConversations = useCallback(async () => {
     const knownAccount = storedAccountId();
 
