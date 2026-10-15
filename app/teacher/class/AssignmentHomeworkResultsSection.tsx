@@ -111,6 +111,25 @@ export default function AssignmentHomeworkResultsSection({
     [results]
   );
 
+  const selectedAssignment = assignments.find((assignment) => assignment.id === selectedId) || null;
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || mutationBusy) return;
+      setSelectedId("");
+      setPercentage("");
+      setComments("");
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mutationBusy, selectedId]);
+
   function edit(assignment: Assignment) {
     const result = resultByAssignment.get(assignment.id);
     setSelectedId(assignment.id);
@@ -122,6 +141,13 @@ export default function AssignmentHomeworkResultsSection({
     setComments(String(result?.comments || ""));
     setError("");
     setMessage("");
+  }
+
+  function closeEditor() {
+    if (mutationBusy) return;
+    setSelectedId("");
+    setPercentage("");
+    setComments("");
   }
 
   async function request(method: "POST" | "DELETE", assignmentId: string) {
@@ -257,41 +283,73 @@ export default function AssignmentHomeworkResultsSection({
           })}
         </div>
       )}
-      {selectedId && (
-        <div className="assignment-homework-result-form">
-          <label>
-            Percentage
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={percentage}
-              onChange={(event) => setPercentage(event.target.value)}
-              disabled={mutationBusy}
-            />
-          </label>
-          <label>
-            Comments
-            <textarea
-              rows={3}
-              value={comments}
-              onChange={(event) => setComments(event.target.value)}
-              disabled={mutationBusy}
-            />
-          </label>
-          <div>
-            <button type="button" onClick={() => void save()} disabled={mutationBusy}>
-              {saving ? "Saving..." : "Save Result"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedId("")}
-              disabled={saving || Boolean(deletingId)}
-            >
-              Cancel
-            </button>
-          </div>
+      {selectedAssignment && (
+        <div
+          className="assignment-homework-result-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeEditor();
+          }}
+        >
+          <section
+            className="assignment-homework-result-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assignment-homework-result-modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="assignment-homework-result-modal-header">
+              <div>
+                <span>Homework result</span>
+                <h2 id="assignment-homework-result-modal-title">
+                  {resultByAssignment.has(selectedAssignment.id) ? "Edit result" : "Add result"}
+                </h2>
+                <p>Exam {selectedAssignment.exam.number} · {selectedAssignment.part.label}</p>
+              </div>
+              <button
+                type="button"
+                className="assignment-homework-result-modal-close"
+                aria-label="Close homework result"
+                onClick={closeEditor}
+                disabled={mutationBusy}
+              >
+                ×
+              </button>
+            </header>
+            <div className="assignment-homework-result-modal-body">
+              <label>
+                Percentage
+                <input
+                  autoFocus
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={percentage}
+                  onChange={(event) => setPercentage(event.target.value)}
+                  disabled={mutationBusy}
+                />
+              </label>
+              <label>
+                Comments
+                <textarea
+                  rows={5}
+                  value={comments}
+                  onChange={(event) => setComments(event.target.value)}
+                  disabled={mutationBusy}
+                  placeholder="Add comments for this homework result (optional)."
+                />
+              </label>
+            </div>
+            <footer className="assignment-homework-result-modal-actions">
+              <button type="button" onClick={closeEditor} disabled={mutationBusy} className="is-secondary">
+                Cancel
+              </button>
+              <button type="button" onClick={() => void save()} disabled={mutationBusy}>
+                {saving ? "Saving..." : "Save Result"}
+              </button>
+            </footer>
+          </section>
         </div>
       )}
     </section>

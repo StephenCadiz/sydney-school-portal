@@ -23869,8 +23869,7 @@ img {
 }
 
 .teacher-homework-card,
-.assignment-homework-result-row,
-.assignment-homework-result-form {
+.assignment-homework-result-row {
   border: 1px solid #e6eaf2;
   border-radius: 12px;
   padding: 18px;
@@ -23946,23 +23945,125 @@ img {
   color: #667085;
 }
 
-.assignment-homework-result-form {
+.assignment-homework-result-modal-backdrop {
+  position: fixed;
+  z-index: 1300;
+  inset: 0;
   display: grid;
-  gap: 12px;
-  margin-top: 16px;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(10, 26, 58, 0.46);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
 }
 
-.assignment-homework-result-form label {
-  display: grid;
-  gap: 6px;
-  font-weight: 700;
+.assignment-homework-result-modal {
+  box-sizing: border-box;
+  width: min(100%, 540px);
+  max-height: min(760px, calc(100dvh - 32px));
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(239, 247, 255, 0.96));
+  box-shadow: 0 26px 70px rgba(5, 20, 48, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  padding: 26px;
 }
 
-.assignment-homework-result-form input,
-.assignment-homework-result-form textarea {
-  border: 1px solid #d9e2ef;
-  border-radius: 8px;
-  padding: 10px;
+.assignment-homework-result-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid rgba(31, 60, 136, 0.14);
+  padding-bottom: 17px;
+}
+
+.assignment-homework-result-modal-header > div {
+  display: grid;
+  gap: 5px;
+}
+
+.assignment-homework-result-modal-header span {
+  color: #2f7db8;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.assignment-homework-result-modal h2 {
+  margin: 0;
+  color: #1f3c88;
+  font-size: 24px;
+}
+
+.assignment-homework-result-modal-header p {
+  margin: 0;
+  color: #53647d;
+  line-height: 1.45;
+}
+
+.assignment-homework-result-modal-close {
+  display: inline-grid !important;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0 !important;
+  border: 1px solid rgba(31, 60, 136, 0.18) !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  color: #1f3c88 !important;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.assignment-homework-result-modal-body {
+  display: grid;
+  gap: 16px;
+  padding: 22px 0;
+}
+
+.assignment-homework-result-modal-body label {
+  display: grid;
+  gap: 7px;
+  color: #344054;
+  font-weight: 800;
+}
+
+.assignment-homework-result-modal-body input,
+.assignment-homework-result-modal-body textarea {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #cbd9e8;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #172b4d;
+  font: inherit;
+  padding: 11px 12px;
+}
+
+.assignment-homework-result-modal-body textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.assignment-homework-result-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid rgba(31, 60, 136, 0.12);
+  padding-top: 16px;
+}
+
+.assignment-homework-result-modal-actions button {
+  min-width: 120px;
+}
+
+.assignment-homework-result-modal-actions button.is-secondary {
+  border: 1px solid #b8cce1;
+  background: rgba(255, 255, 255, 0.78);
+  color: #1f3c88;
 }
 
 @media (max-width: 720px) {
@@ -23975,6 +24076,19 @@ img {
 
   .teacher-homework-dates {
     grid-template-columns: 1fr;
+  }
+
+  .assignment-homework-result-modal {
+    max-height: calc(100dvh - 24px);
+    padding: 20px 16px;
+  }
+
+  .assignment-homework-result-modal-actions {
+    justify-content: stretch;
+  }
+
+  .assignment-homework-result-modal-actions button {
+    flex: 1 1 0;
   }
 }
 
