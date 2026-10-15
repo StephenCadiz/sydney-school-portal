@@ -70,8 +70,10 @@ test("installed PWA chat uses a WhatsApp-style contact/thread surface without ch
 });
 
 test("PWA chat resets the header when returning to the contact list", () => {
-  assert.match(chatView, /staff-chat-pwa-school-logo/);
-  assert.match(chatView, /<h1>Chats<\/h1>/);
+  assert.match(chatView, /staff-chat-pwa-brand-school/);
+  assert.match(chatView, /staff-chat-pwa-school-mark/);
+  assert.match(chatView, /staff-chat-pwa-school-name/);
+  assert.match(chatView, /Sydney School/);
   assert.match(chatView, /function closePwaThread\(\)/);
   assert.match(chatView, /onClick=\{closePwaThread\}/);
   assert.doesNotMatch(styles, /staff-chat-pwa-page:not\(:has\(\.staff-chat-pwa-thread\)\)/);
