@@ -11,6 +11,11 @@ type ChatMessage = { id: string; conversation_id?: string; sender_id: string; se
 type Recipient = { id: string; name: string; role: string; avatar_url?: string | null; identity_key?: string };
 
 const SCHOOL_CHAT_AVATAR = "/icons/icon-192.png";
+const EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID = "850da38b-97df-4c67-939b-0dd9c2e8036b";
+
+function visibleStaffConversations(conversations: Conversation[]) {
+  return conversations.filter((conversation) => !(conversation.kind === "direct" && conversation.participants?.some((participant) => participant.id === EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID)));
+}
 
 function ChatAvatar({ conversation, accountId }: { conversation: Conversation; accountId?: string }) {
   const participants = conversation.participants || [];
@@ -61,14 +66,14 @@ export default function StaffChatView() {
   const loadConversations = useCallback(async () => {
     let knownAccount = accountId;
     if (!knownAccount) { try { knownAccount = window.sessionStorage.getItem("staff-chat-account") || ""; } catch { /* storage unavailable */ } }
-    if (!navigator.onLine) { if (knownAccount) { setAccountId(knownAccount); setConversations((await getCachedConversations(knownAccount)) as Conversation[]); } setLoading(false); return; }
+    if (!navigator.onLine) { if (knownAccount) { setAccountId(knownAccount); setConversations(visibleStaffConversations((await getCachedConversations(knownAccount)) as Conversation[])); } setLoading(false); return; }
     const headers = await authHeaders(); if (!headers) return;
     const response = await fetch("/api/chat/conversations", { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Unable to load chat.");
     const resolvedAccount = String(payload.viewer_profile_id || ""); if (!resolvedAccount) throw new Error("Unable to resolve your staff account.");
     if (knownAccount && knownAccount !== resolvedAccount) await clearStaffChatCache();
     setAccountId(resolvedAccount); try { window.sessionStorage.setItem("staff-chat-account", resolvedAccount); } catch { /* storage unavailable */ }
-    const nextConversations = (payload.conversations || []) as Conversation[]; setConversations(nextConversations); await saveCachedConversations(resolvedAccount, nextConversations); if (!selectedId && nextConversations[0]?.id) setSelectedId(nextConversations[0].id);
+    const nextConversations = visibleStaffConversations((payload.conversations || []) as Conversation[]); setConversations(nextConversations); await saveCachedConversations(resolvedAccount, nextConversations); if (!selectedId && nextConversations[0]?.id) setSelectedId(nextConversations[0].id);
   }, [accountId, selectedId]);
 
   const loadContacts = useCallback(async () => { if (!installedPwa || !navigator.onLine) return; const headers = await authHeaders(); if (!headers) return; const response = await fetch("/api/chat/recipients?all=1", { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (response.ok) setContacts(payload.recipients || []); }, [installedPwa]);

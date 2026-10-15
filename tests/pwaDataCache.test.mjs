@@ -26,6 +26,7 @@ test("PWA data cache excludes binary resources and clears on account changes", (
     assert.match(cache, new RegExp(pattern.replace(".", "\\.")));
   }
   assert.match(cache, /clearPwaDataCache/);
+  assert.match(cache, /request\.cache === "no-store"/);
   assert.match(bootstrap, /SIGNED_OUT/);
   assert.match(bootstrap, /clearPwaDataCache\(previousAccountId\)/);
   assert.match(bootstrap, /installPwaDataCache/);

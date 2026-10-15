@@ -116,6 +116,8 @@ function isExcludedPath(pathname: string) {
 
 function isCacheableRequest(request: Request) {
   if (request.method !== "GET") return false;
+  if (request.cache === "no-store") return false;
+  if ((request.headers.get("cache-control") || "").toLowerCase().includes("no-store")) return false;
   const url = new URL(request.url, window.location.href);
   const isPortalApi = url.origin === window.location.origin && url.pathname.startsWith("/api/");
   const isSupabaseRest = Boolean(SUPABASE_ORIGIN) && url.origin === SUPABASE_ORIGIN && url.pathname.startsWith("/rest/v1/");

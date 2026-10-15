@@ -12,6 +12,9 @@ export type ChatActor = { authUserId: string; profileId: string; role: "admin" |
 export type ChatAttachmentInput = { storagePath: string; fileName: string; mimeType: string; byteSize: number };
 
 const SCHOOL_CHAT_AVATAR = "/icons/icon-192.png";
+// Stephen Ferreira has a separate Teacher profile for Staff Chat. His Admin
+// profile remains available to the email-style Messages system only.
+const EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID = "850da38b-97df-4c67-939b-0dd9c2e8036b";
 
 function tokenFromRequest(request: NextRequest) {
   const value = request.headers.get("authorization") || "";
@@ -131,6 +134,10 @@ function withAvatar(profile: any, avatarById: Map<string, string>) {
   return { ...profile, avatar_url: avatarById.get(id) || SCHOOL_CHAT_AVATAR };
 }
 
+function isEmailOnlyAdminProfile(profileId: unknown) {
+  return String(profileId || "") === EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID;
+}
+
 export async function searchChatRecipients(actor: ChatActor, query: string, includeAll = false) {
   const trimmed = query.trim();
   if (!includeAll && trimmed.length < 2) return [];
@@ -146,6 +153,7 @@ export async function searchChatRecipients(actor: ChatActor, query: string, incl
   const { data, error } = await queryBuilder;
   if (error) throw error;
   const activeProfiles = collapseStaffProfiles((data || []).filter((profile) => profile.active !== false))
+    .filter((profile) => !isEmailOnlyAdminProfile(profile.id))
     .filter((profile) => profile.id !== actor.profileId && staffIdentityKey(profile) !== (actor.email ? `email:${actor.email.trim().toLowerCase()}` : ""));
   const avatarById = await addStaffAvatars(activeProfiles);
   return activeProfiles.map((profile) => {
@@ -212,7 +220,10 @@ export async function listChatConversations(actor: ChatActor) {
   const membershipByConversation = new Map((memberships || []).map((membership) => [String(membership.conversation_id), membership]));
   const latestByConversation = new Map<string, any>();
   for (const message of messages || []) if (!latestByConversation.has(String(message.conversation_id))) latestByConversation.set(String(message.conversation_id), message);
-  return (conversations || []).map((conversation) => {
+  return (conversations || []).filter((conversation) => {
+    const memberIds = memberByConversation.get(String(conversation.id)) || [];
+    return !(conversation.kind === "direct" && memberIds.some((id) => isEmailOnlyAdminProfile(id)));
+  }).map((conversation) => {
     const memberIds = memberByConversation.get(String(conversation.id)) || [];
     const names = memberIds.filter((id) => id !== actor.profileId).map((id) => profileName(profileById.get(id))).filter(Boolean);
     const latest = latestByConversation.get(String(conversation.id));
@@ -228,6 +239,7 @@ export async function listChatConversations(actor: ChatActor) {
 
 export async function createChatConversation(actor: ChatActor, input: { kind: "direct" | "group"; name?: string; participantIds: string[] }) {
   const participantIds = Array.from(new Set([actor.profileId, ...input.participantIds.filter(Boolean)]));
+  if (participantIds.some((profileId) => isEmailOnlyAdminProfile(profileId))) throw new Error("One or more selected participants are unavailable.");
   if (input.kind === "direct" && participantIds.length !== 2) throw new Error("A direct chat needs one other staff member.");
   if (input.kind === "group" && participantIds.length < 2) throw new Error("Choose at least one other staff member.");
   if (input.kind === "group" && !input.name?.trim()) throw new Error("Group name is required.");

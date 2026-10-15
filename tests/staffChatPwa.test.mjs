@@ -121,3 +121,10 @@ test("Staff Chat collapses duplicate staff identities while email-style Messages
   assert.match(chatView, /identityIndex/);
   assert.match(chatView, /nextTarget\?\.role === "teacher"/);
 });
+
+test("Staff Chat keeps Stephen Ferreira Teacher-only and excludes the Admin duplicate", () => {
+  assert.match(chatServer, /EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID/);
+  assert.match(chatServer, /850da38b-97df-4c67-939b-0dd9c2e8036b/);
+  assert.match(chatServer, /conversation\.kind === "direct"/);
+  assert.match(chatServer, /One or more selected participants are unavailable/);
+});
