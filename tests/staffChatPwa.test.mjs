@@ -96,6 +96,8 @@ test("PWA contact-list header shows Sydney School, then the logged-in staff avat
   assert.match(styles, /staff-chat-pwa-header \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto auto/);
   assert.match(styles, /staff-chat-pwa-header \{[\s\S]*padding: 14px 9px 12px 3px/);
   assert.match(styles, /staff-chat-pwa-viewer-avatar \{[\s\S]*margin-right: 3px/);
+  assert.match(styles, /staff-chat-pwa-school-mark \{ display: none; \}/);
+  assert.match(styles, /staff-chat-pwa-new \{[\s\S]*grid-column: 3/);
   assert.match(styles, /staff-chat-pwa-new \{[\s\S]*flex: 0 0 38px/);
 });
 
