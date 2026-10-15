@@ -2,6 +2,7 @@
 
 export type CachedConversation = Record<string, unknown> & { id: string };
 export type CachedMessage = Record<string, unknown> & { id: string; created_at: string };
+export type CachedContact = Record<string, unknown> & { id: string; name: string };
 
 const DATABASE_NAME = "sydney-school-staff-chat";
 const DATABASE_VERSION = 1;
@@ -10,7 +11,7 @@ const STORE_NAME = "account_cache";
 type CacheRecord = {
   key: string;
   accountId: string;
-  kind: "conversations" | "messages";
+  kind: "conversations" | "messages" | "contacts";
   conversationId?: string;
   value: unknown;
   updatedAt: number;
@@ -59,6 +60,18 @@ export async function saveCachedConversations(accountId: string, conversations: 
   const db = await openDatabase();
   if (!db) return;
   await writeRecord(db, { key: `${accountId}:conversations`, accountId, kind: "conversations", value: conversations, updatedAt: Date.now() });
+}
+
+export async function getCachedContacts(accountId: string): Promise<CachedContact[]> {
+  const db = await openDatabase();
+  if (!db) return [];
+  return (await readRecord<CachedContact[]>(db, `${accountId}:contacts`)) || [];
+}
+
+export async function saveCachedContacts(accountId: string, contacts: CachedContact[]) {
+  const db = await openDatabase();
+  if (!db) return;
+  await writeRecord(db, { key: `${accountId}:contacts`, accountId, kind: "contacts", value: contacts, updatedAt: Date.now() });
 }
 
 export async function getCachedMessages(accountId: string, conversationId: string): Promise<CachedMessage[]> {

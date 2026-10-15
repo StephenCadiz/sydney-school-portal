@@ -91,10 +91,28 @@ test("PWA chat cache is account-scoped IndexedDB and never a service-worker HTTP
   assert.match(cache, /indexedDB/);
   assert.match(cache, /accountId/);
   assert.match(cache, /conversationId/);
+  assert.match(cache, /getCachedContacts/);
+  assert.match(cache, /saveCachedContacts/);
   assert.match(cache, /clearStaffChatCache/);
   assert.match(chatView, /saveCachedMessages/);
   assert.match(chatView, /saveCachedConversations/);
+  assert.match(chatView, /getCachedContacts/);
+  assert.match(chatView, /saveCachedContacts/);
   assert.match(chatView, /Cache-Control|cache: "no-store"/);
+});
+
+test("PWA chat hydrates cached content before its silent network refresh", () => {
+  const cachedConversations = chatView.indexOf("getCachedConversations");
+  const conversationFetch = chatView.indexOf('fetch("/api/chat/conversations"');
+  const cachedMessages = chatView.indexOf("getCachedMessages");
+  const messageFetch = chatView.indexOf("/messages${query}");
+  assert.ok(cachedConversations >= 0 && cachedConversations < conversationFetch, "conversation cache should be read before the API");
+  assert.ok(cachedMessages >= 0 && cachedMessages < messageFetch, "message cache should be read before the API");
+  assert.doesNotMatch(chatView, /Loading conversations…/);
+  assert.doesNotMatch(chatView, /Loading messages…/);
+  assert.match(chatView, /An empty cache is a valid state/);
+  assert.match(chatView, /setMessages\(cached\)/);
+  assert.match(chatView, /staff-chat-account.*localStorage/);
 });
 
 test("chat supports contact discovery, delta sync, pagination, and profile-scoped identity", () => {
