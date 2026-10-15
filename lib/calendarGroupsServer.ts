@@ -3,7 +3,7 @@ import "server-only";
 import { getMadridSchoolDate } from "./schoolClosures";
 import { supabaseAdmin } from "./supabaseAdmin";
 import {
-  formatExamWeekLevelLabel,
+  selectUpcomingExamWeekGroup,
   type UpcomingCalendarGroup,
 } from "./calendarGroups";
 import {
@@ -107,42 +107,6 @@ export function selectUpcomingFridayTutorialGroup(
     };
   }
   return null;
-}
-
-export function selectUpcomingExamWeekGroup(
-  rows: readonly {
-    id: string;
-    level_name: string;
-    start_date: string;
-    end_date: string;
-    unit_number?: number | null;
-  }[],
-  today: string
-) {
-  const periods = rows
-    .filter((row) => row.start_date && row.end_date && row.end_date >= today)
-    .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.end_date.localeCompare(b.end_date));
-  const first = periods[0];
-  if (!first) return null;
-  const matching = periods.filter((row) => row.start_date === first.start_date && row.end_date === first.end_date);
-  const uniqueLevels = [...new Map(matching.map((row) => [row.level_name.trim().toLocaleLowerCase(), row])).values()]
-    .sort((a, b) => a.level_name.localeCompare(b.level_name));
-  return {
-    id: `exam-week-${first.start_date}-${first.end_date}`,
-    kind: "exam_week" as const,
-    title: "Exam Week",
-    event_date: first.start_date,
-    end_date: first.end_date,
-    start_time: null,
-    end_time: null,
-    description: "Syllabus exam week for the scheduled levels.",
-    items: uniqueLevels.map((row) => ({
-      id: String(row.id),
-      label: formatExamWeekLevelLabel(row.level_name, row.unit_number),
-      start_time: null,
-      end_time: null,
-    })),
-  };
 }
 
 export function selectUpcomingFridayAt6Group(

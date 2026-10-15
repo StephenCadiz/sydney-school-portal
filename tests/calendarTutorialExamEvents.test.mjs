@@ -41,17 +41,53 @@ test("Friday Tutorial groups choose the nearest Madrid-local Friday and include 
 });
 
 test("Exam Week entries are grouped by period and levels are deduplicated", () => {
-  assert.match(groups, /selectUpcomingExamWeekGroup/);
-  assert.match(groups, /end_date >= today/);
-  assert.match(groups, /row\.start_date === first\.start_date && row\.end_date === first\.end_date/);
-  assert.match(groups, /uniqueLevels/);
-  assert.match(groups, /title: "Exam Week"/);
+  const calendarGroups = read("lib/calendarGroups.ts");
+  assert.match(calendarGroups, /selectUpcomingExamWeekGroup/);
+  assert.match(calendarGroups, /end_date >= today/);
+  assert.match(calendarGroups, /row\.start_date === first\.start_date/);
+  assert.match(calendarGroups, /groupEndDate/);
+  assert.match(calendarGroups, /uniqueLevels/);
+  assert.match(calendarGroups, /title: "Exam Week"/);
   assert.match(groups, /syllabus_units/);
   assert.match(groups, /exam_week_start_date/);
   assert.match(groups, /exam_week_end_date/);
   assert.match(groups, /academic_years/);
   assert.match(groups, /unit_number/);
-  assert.match(groups, /formatExamWeekLevelLabel/);
+  assert.match(calendarGroups, /formatExamWeekLevelLabel/);
+});
+
+test("Exam Week includes every level sharing a start date even when end dates differ", () => {
+  const { selectUpcomingExamWeekGroup } = loadCalendarGroupHelpers();
+  const group = selectUpcomingExamWeekGroup([
+    {
+      id: "junior-3-unit-1",
+      level_name: "Junior 3",
+      start_date: "2026-10-19",
+      end_date: "2026-10-22",
+      unit_number: 1,
+    },
+    {
+      id: "junior-4-unit-1",
+      level_name: "Junior 4",
+      start_date: "2026-10-19",
+      end_date: "2026-10-23",
+      unit_number: 1,
+    },
+    {
+      id: "b1-unit-2",
+      level_name: "B1",
+      start_date: "2026-10-26",
+      end_date: "2026-10-30",
+      unit_number: 2,
+    },
+  ], "2026-10-15");
+
+  assert.equal(group?.event_date, "2026-10-19");
+  assert.equal(group?.end_date, "2026-10-23");
+  assert.deepEqual(group?.items.map((item) => item.label), [
+    "Junior 3 — Unit 1",
+    "Junior 4 — Unit 1",
+  ]);
 });
 
 test("Exam Week labels use configured units and never infer missing units", () => {
@@ -60,8 +96,8 @@ test("Exam Week labels use configured units and never infer missing units", () =
   assert.match(calendarGroups, /Unit not specified/);
   assert.match(calendarGroups, /Number\.isInteger\(numericUnit\)/);
   assert.match(groups, /unit\.sort_order/);
-  assert.match(groups, /level_name.*unit_number/);
-  assert.match(groups, /label: formatExamWeekLevelLabel/);
+  assert.match(groups, /level_name:/);
+  assert.match(calendarGroups, /label: formatExamWeekLevelLabel/);
 });
 
 test("Exam Week formatting preserves one unit per level and marks missing configuration", () => {
