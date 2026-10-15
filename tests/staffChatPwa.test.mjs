@@ -82,31 +82,26 @@ test("installed PWA chat uses a WhatsApp-style contact/thread surface without ch
 test("PWA chat resets the header when returning to the contact list", () => {
   assert.match(chatView, /staff-chat-pwa-brand-school/);
   assert.match(chatView, /staff-chat-pwa-school-mark/);
-  assert.match(chatView, /staff-chat-pwa-school-name/);
-  assert.match(chatView, /Sydney School/);
+  assert.doesNotMatch(chatView, /staff-chat-pwa-school-name/);
   assert.match(chatView, /function closePwaThread\(\)/);
   assert.match(chatView, /onClick=\{closePwaThread\}/);
   assert.doesNotMatch(styles, /staff-chat-pwa-page:not\(:has\(\.staff-chat-pwa-thread\)\)/);
 });
 
-test("PWA contact-list header shows Sydney School, then the logged-in staff avatar, then group creation", () => {
+test("PWA contact-list header shows only the school icon and group creation", () => {
   assert.match(conversationsRoute, /getChatActorPresentation/);
   assert.match(conversationsRoute, /viewer/);
-  assert.match(chatView, /function ViewerAvatar/);
-  assert.match(chatView, /viewer\?\.role === "admin"/);
-  assert.match(chatView, /staff-chat-pwa-viewer-initial/);
-  assert.match(chatView, /<ViewerAvatar viewer=\{viewer\} \/>/);
+  assert.doesNotMatch(chatView, /function ViewerAvatar/);
+  assert.doesNotMatch(chatView, /<ViewerAvatar viewer=\{viewer\} \/>/);
   const schoolBrand = chatView.indexOf("staff-chat-pwa-brand-school");
-  const viewerAvatar = chatView.indexOf("<ViewerAvatar viewer={viewer} />");
   const newChatButton = chatView.indexOf("staff-chat-pwa-new");
-  assert.ok(schoolBrand >= 0 && schoolBrand < viewerAvatar && viewerAvatar < newChatButton, "header controls should stay in the requested order");
-  assert.match(styles, /staff-chat-pwa-viewer-avatar/);
+  assert.ok(schoolBrand >= 0 && schoolBrand < newChatButton, "header controls should stay in the requested order");
+  assert.match(chatView, /className="staff-chat-pwa-school-mark" src="\/icons\/icon-192\.png"/);
   assert.match(styles, /staff-chat-pwa-header \{[\s\S]*gap: 8px/);
-  assert.match(styles, /staff-chat-pwa-header \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto auto/);
+  assert.match(styles, /staff-chat-pwa-header \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto/);
   assert.match(styles, /staff-chat-pwa-header \{[\s\S]*padding: 14px 9px 12px 3px/);
-  assert.match(styles, /staff-chat-pwa-viewer-avatar \{[\s\S]*margin-right: 3px/);
-  assert.match(styles, /staff-chat-pwa-school-mark \{ display: none; \}/);
-  assert.match(styles, /staff-chat-pwa-new \{[\s\S]*grid-column: 3/);
+  assert.match(styles, /staff-chat-pwa-school-mark \{ border: 1px solid/);
+  assert.match(styles, /staff-chat-pwa-new \{[\s\S]*grid-column: 2/);
   assert.match(styles, /staff-chat-pwa-new \{[\s\S]*flex: 0 0 38px/);
 });
 
