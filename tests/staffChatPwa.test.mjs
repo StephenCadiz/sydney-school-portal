@@ -101,6 +101,13 @@ test("PWA contact-list header shows Sydney School, then the logged-in staff avat
   assert.match(styles, /staff-chat-pwa-new \{[\s\S]*flex: 0 0 38px/);
 });
 
+test("desktop and PWA contact lists render unread counts as compact color badges", () => {
+  assert.match(chatView, /row\.conversation\.unread_count > 0 && <b>\{row\.conversation\.unread_count\}<\/b>/);
+  assert.match(chatView, /conversation\.unread_count > 0 && <b>\{conversation\.unread_count\}<\/b>/);
+  assert.match(styles, /staff-chat-conversation-meta b \{[\s\S]*background: #00a4dc[\s\S]*border-radius: 50%[\s\S]*height: 20px/);
+  assert.match(styles, /staff-chat-pwa-contact-meta b \{[\s\S]*background: #00a4dc[\s\S]*border-radius: 50%[\s\S]*height: 20px/);
+});
+
 test("Teacher PWA chat reserves the fixed nav area and keeps contacts scrollable", () => {
   assert.match(styles, /is-installed-pwa-chat \.staff-chat-pwa-page/);
   assert.match(styles, /height: calc\(100dvh - 66px - env\(safe-area-inset-bottom\)\)/);
