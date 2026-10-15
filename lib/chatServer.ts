@@ -134,6 +134,19 @@ function withAvatar(profile: any, avatarById: Map<string, string>) {
   return { ...profile, avatar_url: avatarById.get(id) || SCHOOL_CHAT_AVATAR };
 }
 
+export async function getChatActorPresentation(actor: ChatActor) {
+  const { data: profile, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id, first_name, last_name, role")
+    .eq("id", actor.profileId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!profile) return { id: actor.profileId, name: "Staff member", role: actor.role, avatar_url: SCHOOL_CHAT_AVATAR };
+  const avatarById = await addStaffAvatars([profile]);
+  const enriched = withAvatar(profile, avatarById);
+  return { id: String(enriched.id), name: profileName(enriched), role: enriched.role, avatar_url: enriched.avatar_url };
+}
+
 function isEmailOnlyAdminProfile(profileId: unknown) {
   return String(profileId || "") === EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID;
 }

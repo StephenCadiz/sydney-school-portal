@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateChatActor, chatError, createChatConversation, listChatConversations } from "../../../../lib/chatServer";
+import { authenticateChatActor, chatError, createChatConversation, getChatActorPresentation, listChatConversations } from "../../../../lib/chatServer";
 
 export async function GET(request: NextRequest) {
   const actor = await authenticateChatActor(request);
   if (!actor) return NextResponse.json(chatError("Staff chat access required.", 403), { status: 403 });
   try {
-    const conversations = await listChatConversations(actor);
-    return NextResponse.json({ conversations, viewer_profile_id: actor.profileId }, { headers: { "Cache-Control": "no-store" } });
+    const [conversations, viewer] = await Promise.all([listChatConversations(actor), getChatActorPresentation(actor)]);
+    return NextResponse.json({ conversations, viewer_profile_id: actor.profileId, viewer }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Chat conversation list failed:", error);
     return NextResponse.json(chatError("Unable to load chat conversations.", 500), { status: 500 });

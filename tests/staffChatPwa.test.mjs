@@ -12,6 +12,7 @@ const styles = read("app/globals.css");
 const cache = read("lib/staffChatCache.ts");
 const messagesRoute = read("app/api/chat/conversations/[id]/messages/route.ts");
 const recipientsRoute = read("app/api/chat/recipients/route.ts");
+const conversationsRoute = read("app/api/chat/conversations/route.ts");
 
 test("installed Teacher PWA exposes only the safe-area bottom navigation", () => {
   assert.match(teacherLayout, /display-mode: standalone/);
@@ -77,6 +78,20 @@ test("PWA chat resets the header when returning to the contact list", () => {
   assert.match(chatView, /function closePwaThread\(\)/);
   assert.match(chatView, /onClick=\{closePwaThread\}/);
   assert.doesNotMatch(styles, /staff-chat-pwa-page:not\(:has\(\.staff-chat-pwa-thread\)\)/);
+});
+
+test("PWA contact-list header shows Sydney School, then the logged-in staff avatar, then group creation", () => {
+  assert.match(conversationsRoute, /getChatActorPresentation/);
+  assert.match(conversationsRoute, /viewer/);
+  assert.match(chatView, /function ViewerAvatar/);
+  assert.match(chatView, /viewer\?\.role === "admin"/);
+  assert.match(chatView, /staff-chat-pwa-viewer-initial/);
+  assert.match(chatView, /<ViewerAvatar viewer=\{viewer\} \/>/);
+  const schoolBrand = chatView.indexOf("staff-chat-pwa-brand-school");
+  const viewerAvatar = chatView.indexOf("<ViewerAvatar viewer={viewer} />");
+  const newChatButton = chatView.indexOf("staff-chat-pwa-new");
+  assert.ok(schoolBrand >= 0 && schoolBrand < viewerAvatar && viewerAvatar < newChatButton, "header controls should stay in the requested order");
+  assert.match(styles, /staff-chat-pwa-viewer-avatar/);
 });
 
 test("Teacher PWA chat reserves the fixed nav area and keeps contacts scrollable", () => {
