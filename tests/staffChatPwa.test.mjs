@@ -92,6 +92,9 @@ test("PWA contact-list header shows Sydney School, then the logged-in staff avat
   const newChatButton = chatView.indexOf("staff-chat-pwa-new");
   assert.ok(schoolBrand >= 0 && schoolBrand < viewerAvatar && viewerAvatar < newChatButton, "header controls should stay in the requested order");
   assert.match(styles, /staff-chat-pwa-viewer-avatar/);
+  assert.match(styles, /staff-chat-pwa-header \{[\s\S]*gap: 12px/);
+  assert.match(styles, /staff-chat-pwa-viewer-avatar \{[\s\S]*margin-right: 4px/);
+  assert.match(styles, /staff-chat-pwa-new \{[\s\S]*flex: 0 0 42px/);
 });
 
 test("Teacher PWA chat reserves the fixed nav area and keeps contacts scrollable", () => {
