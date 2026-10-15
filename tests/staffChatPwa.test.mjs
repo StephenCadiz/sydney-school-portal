@@ -79,6 +79,11 @@ test("installed PWA chat uses a WhatsApp-style contact/thread surface without ch
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
 });
 
+test("PWA chat composer gives attachment and Send controls separate touch targets", () => {
+  assert.match(styles, /staff-chat-pwa-attach \{[\s\S]*flex: 0 0 42px[\s\S]*min-width: 42px/);
+  assert.match(styles, /staff-chat-pwa-composer button \{[\s\S]*flex: 0 0 48px[\s\S]*min-width: 48px[\s\S]*touch-action: manipulation/);
+});
+
 test("PWA chat resets the header when returning to the contact list", () => {
   assert.match(chatView, /staff-chat-pwa-brand-school/);
   assert.match(chatView, /staff-chat-pwa-school-mark/);

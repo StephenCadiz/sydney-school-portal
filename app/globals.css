@@ -19417,8 +19417,9 @@ img {
 .staff-chat-pwa-composer { background: #fff; border-top: 1px solid #d6e5ee; gap: 8px; padding: 9px 11px calc(9px + env(safe-area-inset-bottom)); }
 .staff-chat-pwa-composer textarea { background: #f4f8fb; border: 1px solid #d2e1eb; border-radius: 22px; font-size: .9rem; min-height: 42px; padding: 10px 14px; }
 .staff-chat-pwa-composer textarea:focus { background: #fff; border-color: var(--ss-chat-cyan); box-shadow: 0 0 0 3px rgba(0,164,220,.12); }
-.staff-chat-pwa-attach { color: var(--ss-chat-blue); font-size: 1.5rem; }
-.staff-chat-pwa-composer button { background: linear-gradient(145deg, var(--ss-chat-blue), var(--ss-chat-navy)); box-shadow: 0 4px 10px rgba(18,63,115,.2); height: 42px; width: 42px; }
+.staff-chat-pwa-attach { align-items: center; border-radius: 50%; color: var(--ss-chat-blue); display: inline-flex; flex: 0 0 42px; font-size: 1.5rem; height: 42px; justify-content: center; min-height: 42px; min-width: 42px; width: 42px; }
+.staff-chat-pwa-attach:hover { background: #eaf4fa; }
+.staff-chat-pwa-composer button { background: linear-gradient(145deg, var(--ss-chat-blue), var(--ss-chat-navy)); box-shadow: 0 4px 10px rgba(18,63,115,.2); flex: 0 0 48px; height: 48px; margin-left: 2px; min-height: 48px; min-width: 48px; touch-action: manipulation; width: 48px; }
 .staff-chat-pwa-older { background: rgba(255,255,255,.88); border-color: #cfe1eb; color: var(--ss-chat-blue); font-size: .75rem; }
 @media (max-width: 430px) {
   .staff-chat-pwa-page { box-shadow: none; }
