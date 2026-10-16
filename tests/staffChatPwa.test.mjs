@@ -84,6 +84,17 @@ test("PWA chat composer gives attachment and Send controls separate touch target
   assert.match(styles, /staff-chat-pwa-composer button \{[\s\S]*flex: 0 0 48px[\s\S]*min-width: 48px[\s\S]*touch-action: manipulation/);
 });
 
+test("PWA chat composer puts attachments first and grows the message field", () => {
+  assert.match(styles, /staff-chat-pwa-composer \{[\s\S]*align-items: flex-end/);
+  assert.match(styles, /staff-chat-pwa-attach \{[\s\S]*order: -1/);
+  assert.match(styles, /staff-chat-pwa-composer textarea \{[\s\S]*max-height: 132px[\s\S]*overflow-y: hidden/);
+  assert.match(styles, /staff-chat-pwa-composer button \{[\s\S]*order: 1/);
+  assert.match(chatView, /useLayoutEffect/);
+  assert.match(chatView, /staff-chat-pwa-composer textarea/);
+  assert.match(chatView, /Math\.min\(element\.scrollHeight, maxHeight\)/);
+  assert.match(chatView, /element\.style\.overflowY = element\.scrollHeight > maxHeight \? "auto" : "hidden"/);
+});
+
 test("PWA chat resets the header when returning to the contact list", () => {
   assert.match(chatView, /staff-chat-pwa-brand-school/);
   assert.match(chatView, /staff-chat-pwa-school-mark/);

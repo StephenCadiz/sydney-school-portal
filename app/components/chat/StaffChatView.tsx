@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, CheckCheck, MessageCircle, Plus, Search, Send, Users, X } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import { clearStaffChatCache, getCachedContacts, getCachedConversations, getCachedMessages, saveCachedContacts, saveCachedConversations, saveCachedMessages } from "../../../lib/staffChatCache";
@@ -60,6 +60,16 @@ export default function StaffChatView() {
   const [pwaThreadOpen, setPwaThreadOpen] = useState(false);
   const accountIdRef = useRef("");
   const messageLoadTokenRef = useRef(0);
+
+  useLayoutEffect(() => {
+    const element = document.querySelector<HTMLTextAreaElement>(".staff-chat-pwa-composer textarea");
+    if (!element) return;
+    const maxHeight = 132;
+    element.style.height = "auto";
+    const nextHeight = Math.min(element.scrollHeight, maxHeight);
+    element.style.height = `${nextHeight}px`;
+    element.style.overflowY = element.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, [composer, installedPwa, pwaThreadOpen]);
 
   useEffect(() => { const update = () => setInstalledPwa(window.matchMedia("(display-mode: standalone)").matches || Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone)); update(); window.addEventListener("resize", update); return () => window.removeEventListener("resize", update); }, []);
   useEffect(() => { setOffline(!navigator.onLine); const online = () => setOffline(false); const offlineEvent = () => setOffline(true); window.addEventListener("online", online); window.addEventListener("offline", offlineEvent); return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offlineEvent); }; }, []);
