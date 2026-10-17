@@ -1120,6 +1120,10 @@ async function syncHomeworkForDay(
     const selections =
       item.selection_scope === "full_exam"
         ? skillPartsByExam.get(String(item.exam_set_id)) || []
+        : item.selection_scope === "skill"
+        ? (skillPartsByExam.get(String(item.exam_set_id)) || []).filter(
+            (entry) => entry.parentId === String(item.exam_part_id || "")
+          )
         : [{ parentId: String(item.exam_part_id || ""), id: String(item.exam_subpart_id || item.exam_part_id || ""), subpartId: item.exam_subpart_id ? String(item.exam_subpart_id) : null }].filter((entry) => Boolean(entry.id));
     if (!selections.length) {
       throw new CoursePlanningError("A homework exam selection is no longer available.", 422);
@@ -1266,6 +1270,15 @@ export async function saveCoursePlanningDay(
     if (insertItemsError) {
       const errorRecord = insertItemsError as unknown as Record<string, unknown>;
       const constraint = String(errorRecord.constraint || insertItemsError.message || "");
+      if (
+        String(insertItemsError.code || "") === "23514" &&
+        constraint.toLowerCase().includes("selection")
+      ) {
+        throw new CoursePlanningError(
+          "The Course Planning database is missing support for Whole skill selections. Apply the latest Course Planning migration and try again.",
+          422
+        );
+      }
       if (
         String(insertItemsError.code || "") === "23505" &&
         constraint.includes("course_plan_exam_items")
