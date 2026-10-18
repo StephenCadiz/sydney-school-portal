@@ -124,6 +124,15 @@ test("Friday @ 6 events use the existing duty schedule and roll over after 19:00
   assert.match(groups, /assignEffectiveFridayTutorialDutyDates/);
 });
 
+test("B1 duty calendar items use 17:00–18:00 while general duty remains 18:00–19:00", () => {
+  assert.match(groups, /getFridayTutorialTimeWindow/);
+  assert.match(groups, /start_time: b1Window\.start_time/);
+  assert.match(groups, /end_time: b1Window\.end_time/);
+  assert.match(groups, /start_time: duty\.b1_teacher_id \? "17:00" : "18:00"/);
+  assert.match(read("lib/fridayTutorials.ts"), /general: \{ start_time: "18:00", end_time: "19:00" \}/);
+  assert.match(read("lib/fridayTutorials.ts"), /b1: \{ start_time: "17:00", end_time: "18:00" \}/);
+});
+
 test("A named Cambridge activity takes precedence over generic Friday @ 6 duty text", () => {
   assert.match(groups, /if \(namedActivities\.length > 0\)/);
   assert.match(groups, /level_name/);

@@ -93,3 +93,12 @@ test("B1 rows remain excluded from teacher notifications", () => {
   assert.match(workflowRoute, /student_type !== "young_learner"/);
   assert.doesNotMatch(workflowRoute, /student_type === "b1"/);
 });
+
+test("B1 weekly-register rows use the earlier B1 duty slot", () => {
+  assert.match(fridayTutorials, /duty_type: timeWindow\.duty_type/);
+  assert.match(fridayTutorials, /getFridayTutorialTimeWindowForLevel\(/);
+  assert.match(fridayTutorials, /normalizeLevelName\(levelName\) === "B1"/);
+  assert.match(fridayTutorials, /FRIDAY_AT_6_DUTY_TYPES\.B1/);
+  assert.match(fridayTutorials, /start_time: timeWindow\.start_time/);
+  assert.match(fridayTutorials, /end_time: timeWindow\.end_time/);
+});

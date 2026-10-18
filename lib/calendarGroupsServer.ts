@@ -16,6 +16,7 @@ import {
   FRIDAY_AT_6_DUTY_TYPES,
   FRIDAY_AT_6_DUTY_LABELS,
   getFridayAt6ResponsibilityLevelLabels,
+  getFridayTutorialTimeWindow,
 } from "./fridayTutorials";
 import { loadFridayTutorialRotationContext } from "./fridayTutorialRotationServer";
 
@@ -174,11 +175,12 @@ export function selectUpcomingFridayAt6Group(
   if (duty.b1_teacher_id) {
     const b1Levels = getFridayAt6ResponsibilityLevelLabels(group, [FRIDAY_AT_6_DUTY_TYPES.B1]);
     if (b1Levels.length) {
+      const b1Window = getFridayTutorialTimeWindow(FRIDAY_AT_6_DUTY_TYPES.B1);
       items.push({
         id: `${duty.id}-b1`,
         label: `${FRIDAY_AT_6_DUTY_LABELS[FRIDAY_AT_6_DUTY_TYPES.B1]} — ${b1Levels.join(", ")}`,
-        start_time: "18:00",
-        end_time: "19:00",
+        start_time: b1Window.start_time,
+        end_time: b1Window.end_time,
       });
     }
   }
@@ -188,7 +190,7 @@ export function selectUpcomingFridayAt6Group(
     title: "Friday @ 6",
     event_date: selectedDate,
     end_date: selectedDate,
-    start_time: "18:00",
+    start_time: duty.b1_teacher_id ? "17:00" : "18:00",
     end_time: "19:00",
     description: "Friday @ 6 tutorial and workshop duties.",
     items,

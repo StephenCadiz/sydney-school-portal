@@ -3,6 +3,7 @@
 import {
   FRIDAY_AT_6_DUTY_LABELS,
   FRIDAY_AT_6_DUTY_TYPES,
+  getFridayTutorialTimeWindow,
   type FridayAt6DutyType,
 } from "../../../lib/fridayTutorials";
 
@@ -25,7 +26,12 @@ export default function FridayAt6DutyCard({ duty }: { duty: any | null }) {
       <div className="teacher-dashboard-section-title">
         <div>
           <h2>{heading}</h2>
-          <p>Today · 18:00–19:00</p>
+          <p>
+            Today · {dutyTypes.map((dutyType) => {
+              const window = getFridayTutorialTimeWindow(dutyType);
+              return `${dutyType === FRIDAY_AT_6_DUTY_TYPES.B1 ? "B1" : "General"} ${window.start_time}–${window.end_time}`;
+            }).join(" · ")}
+          </p>
         </div>
       </div>
 
@@ -34,6 +40,7 @@ export default function FridayAt6DutyCard({ duty }: { duty: any | null }) {
           <article key={dutyType} className="teacher-dashboard-duty-row">
             <h3>{FRIDAY_AT_6_DUTY_LABELS[dutyType]}</h3>
             <p>
+              {getFridayTutorialTimeWindow(dutyType).start_time}–{getFridayTutorialTimeWindow(dutyType).end_time} · {" "}
               {dutyType === FRIDAY_AT_6_DUTY_TYPES.B1
                 ? "You are responsible for today's B1 tutorial."
                 : "You are responsible for today's general tutorial."}

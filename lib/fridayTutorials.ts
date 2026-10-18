@@ -34,6 +34,66 @@ export const FRIDAY_AT_6_DUTY_LABELS: Record<FridayAt6DutyType, string> = {
   b1: "B1 Tutorial Duty",
 };
 
+export type FridayTutorialTimeWindow = {
+  duty_type: FridayAt6DutyType;
+  start_time: string;
+  end_time: string;
+};
+
+/**
+ * General Tutorial remains at 18:00–19:00. B1 Tutorial has its own earlier
+ * slot when a B1-duty teacher is assigned, without changing the shared
+ * Friday roster's historical session record.
+ */
+export const FRIDAY_TUTORIAL_TIME_WINDOWS: Record<
+  FridayAt6DutyType,
+  Omit<FridayTutorialTimeWindow, "duty_type">
+> = {
+  general: { start_time: "18:00", end_time: "19:00" },
+  b1: { start_time: "17:00", end_time: "18:00" },
+};
+
+export function getFridayTutorialTimeWindow(
+  dutyType: FridayAt6DutyType
+): FridayTutorialTimeWindow {
+  return {
+    duty_type: dutyType,
+    ...FRIDAY_TUTORIAL_TIME_WINDOWS[dutyType],
+  };
+}
+
+export function getFridayTutorialTimeWindows(
+  dutyTypes: readonly FridayAt6DutyType[]
+) {
+  return dutyTypes
+    .map(getFridayTutorialTimeWindow)
+    .sort((first, second) => first.start_time.localeCompare(second.start_time));
+}
+
+export function getActiveFridayTutorialDutyTypes(
+  dutyTypes: readonly FridayAt6DutyType[],
+  minutes: number
+) {
+  return dutyTypes.filter((dutyType) => {
+    const window = FRIDAY_TUTORIAL_TIME_WINDOWS[dutyType];
+    const start = Number(window.start_time.slice(0, 2)) * 60 + Number(window.start_time.slice(3));
+    const end = Number(window.end_time.slice(0, 2)) * 60 + Number(window.end_time.slice(3));
+    return minutes >= start && minutes < end;
+  });
+}
+
+export function getFridayTutorialTimeWindowForLevel(
+  tutorialGroup: string | null | undefined,
+  levelName: string | null | undefined
+) {
+  const isB1Student =
+    isB1FridayTutorialSession(tutorialGroup) &&
+    normalizeLevelName(levelName) === "B1";
+  return getFridayTutorialTimeWindow(
+    isB1Student ? FRIDAY_AT_6_DUTY_TYPES.B1 : FRIDAY_AT_6_DUTY_TYPES.GENERAL
+  );
+}
+
 const responsibilityLevels: Record<
   FridayTutorialSessionType,
   Record<FridayAt6DutyType, readonly string[]>
@@ -814,13 +874,18 @@ export async function getFridayTutorialSessionRegister(
   return rows.map((row) => {
     const tutorialStudent = tutorialStudentMap.get(row.tutorial_student_id) || {};
     const enrichedStudent = enrichedMap.get(row.tutorial_student_id) || {};
+    const timeWindow = getFridayTutorialTimeWindowForLevel(
+      tutorialGroup,
+      enrichedStudent.level_name
+    );
 
     return {
       session_student_id: row.id,
       session_id: row.session_id,
       session_date: session.session_date,
-      start_time: session.start_time,
-      end_time: session.end_time,
+      duty_type: timeWindow.duty_type,
+      start_time: timeWindow.start_time,
+      end_time: timeWindow.end_time,
       completed: session.completed,
       is_completed: session.is_completed,
       completed_at: session.completed_at,

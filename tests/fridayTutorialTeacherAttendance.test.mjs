@@ -28,10 +28,14 @@ test("duty dismissal is phase-specific and reappears for the next phase", () => 
   assert.match(reminderCard, /Dismiss \{phaseLabel\} reminder/);
 });
 
-test("attendance is restricted to the assigned teacher and opens at 18:00", () => {
+test("attendance is restricted to the assigned teacher and uses duty-specific windows", () => {
   assert.match(attendance, /profile\?\.role !== "teacher"/);
   assert.match(attendance, /getFridayAt6DutyTypesForTeacher\(/);
-  assert.match(attendance, /open: now\.minutes >= 18 \* 60/);
+  assert.match(attendance, /getActiveFridayTutorialDutyTypes\(/);
+  assert.match(attendance, /open: activeDutyTypes\.length > 0/);
+  assert.match(attendance, /Friday Tutorial attendance opens at/);
+  assert.match(read("lib/fridayTutorials.ts"), /general: \{ start_time: "18:00", end_time: "19:00" \}/);
+  assert.match(read("lib/fridayTutorials.ts"), /b1: \{ start_time: "17:00", end_time: "18:00" \}/);
   assert.match(attendance, /student_attended_status/);
   assert.doesNotMatch(attendance, /parent_confirmed_status/);
 });

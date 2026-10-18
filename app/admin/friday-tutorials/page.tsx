@@ -9,6 +9,7 @@ import {
   getFridayTutorialRotationContext,
   getFridayTutorialStudents,
   getTutorialGroupLabel,
+  isB1FridayTutorialSession,
   isFridayTutorialSessionRemovable,
   saveFridayTutorialSettings,
   updateFridayTutorialSessionStudent,
@@ -667,10 +668,10 @@ export default function AdminFridayTutorialsPage() {
         >
           <strong style={{ color: "var(--ss-blue-dark)" }}>How it works</strong>
           <p style={{ color: "#4b5563", lineHeight: 1.6, margin: "8px 0 0" }}>
-            Friday tutorials run on each open Friday from 18:00 to 19:00. The
-            sessions alternate between Kids 2 - Junior 3 and Junior 4 - Teens +
-            B1 Training. A School Closure pauses the rotation, so the pending
-            group moves to the next open Friday.
+            General Friday Tutorials run from 18:00 to 19:00. On the
+            Junior 4 - Teens + B1 rotation, B1 students have their separate
+            B1 Tutorial duty slot from 17:00 to 18:00. A School Closure pauses
+            the rotation, so the pending group moves to the next open Friday.
           </p>
         </section>
 
@@ -836,7 +837,14 @@ export default function AdminFridayTutorialsPage() {
                 <div className="friday-weekly-session-summary">
                   <div><span>Selected date</span><strong>{formatShortDate(selectedTutorial.session_date)}</strong></div>
                   <div><span>Selected group</span><strong>{selectedTutorial.tutorial_group_label}</strong></div>
-                  <div><span>Session time</span><strong>Friday 18:00–19:00</strong></div>
+                  <div>
+                    <span>Session time</span>
+                    <strong>
+                      {isB1FridayTutorialSession(selectedTutorial.tutorial_group)
+                        ? "B1 17:00–18:00 · General 18:00–19:00"
+                        : "Friday 18:00–19:00"}
+                    </strong>
+                  </div>
                 </div>
 
                 {registerLoading ? (
@@ -922,7 +930,11 @@ export default function AdminFridayTutorialsPage() {
                                   style={inputStyle}
                                 />
                               </td>
-                              <td className="friday-weekly-nowrap">Friday 18:00–19:00</td>
+                              <td className="friday-weekly-nowrap">
+                                {row.duty_type === "b1"
+                                  ? "B1 · Friday 17:00–18:00"
+                                  : "General · Friday 18:00–19:00"}
+                              </td>
                               <td>{row.teacher_name}</td>
                               <td>
                                 <StatusSelect
@@ -1226,7 +1238,7 @@ export default function AdminFridayTutorialsPage() {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {tutorial.school_closed ? "No Friday Tutorial" : "18:00-19:00"}
+                        {tutorial.school_closed ? "No Friday Tutorial" : tutorial.time}
                       </span>
                     </div>
                   ))}

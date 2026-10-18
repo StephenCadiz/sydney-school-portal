@@ -4,6 +4,7 @@ import {
   calculateUpcomingFridayTutorials,
   getTutorialGroupLabel,
 } from "../../../../../lib/fridayTutorialRotation";
+import { getFridayTutorialTimeWindowForLevel } from "../../../../../lib/fridayTutorials";
 import { loadFridayTutorialRotationContext } from "../../../../../lib/fridayTutorialRotationServer";
 import { getMadridSchoolDate } from "../../../../../lib/schoolClosures";
 import {
@@ -154,10 +155,14 @@ async function notifyYoungLearnerTeacher(
   if (levelError) throw levelError;
 
   const studentName = fullName(student);
+  const timeWindow = getFridayTutorialTimeWindowForLevel(
+    session.tutorial_group,
+    level?.name
+  );
   const marker = `[friday-tutorial-parent-confirmed:${sessionStudent.id}]`;
   const details = [
     `${studentName} (${level?.name || "Young Learner"}${classRow?.class_name ? `, ${classRow.class_name}` : ""})`,
-    `Friday ${session.session_date} ${String(session.start_time || "18:00").slice(0, 5)}–${String(session.end_time || "19:00").slice(0, 5)}`,
+    `Friday ${session.session_date} ${timeWindow.start_time || String(session.start_time || "18:00").slice(0, 5)}–${timeWindow.end_time || String(session.end_time || "19:00").slice(0, 5)}`,
     "Instruction: prepare activities for the student and send them to Admin as soon as possible.",
     marker,
   ].join("\n");
@@ -256,7 +261,7 @@ export async function POST(request: NextRequest) {
         await Promise.all([
           supabaseAdmin
             .from("friday_tutorial_sessions")
-            .select("session_date, start_time, end_time")
+            .select("session_date, tutorial_group, start_time, end_time")
             .eq("id", current.session_id)
             .single(),
           supabaseAdmin

@@ -9,6 +9,11 @@ type DutyReminder = {
   duty_labels?: string[];
   start_time?: string;
   end_time?: string;
+  duty_windows?: Array<{
+    duty_type: "general" | "b1";
+    start_time: string;
+    end_time: string;
+  }>;
 };
 
 function formatDate(value: string) {
@@ -52,6 +57,13 @@ export default function FridayTutorialDutyReminderCard({
 
   const labels = reminder.duty_labels?.join(" + ") || "Friday Tutorial duty";
   const phaseLabel = reminder.phase.charAt(0).toUpperCase() + reminder.phase.slice(1);
+  const windows = reminder.duty_windows?.length
+    ? reminder.duty_windows
+    : [{
+        duty_type: "general" as const,
+        start_time: reminder.start_time || "18:00",
+        end_time: reminder.end_time || "19:00",
+      }];
 
   return (
     <section
@@ -63,7 +75,9 @@ export default function FridayTutorialDutyReminderCard({
           <p className="teacher-dashboard-duty-reminder-eyebrow">TEACHER TASK</p>
           <h2 id="teacher-friday-duty-reminder-title">Friday Tutorial duty</h2>
           <p>
-            {formatDate(reminder.session_date)} · {reminder.start_time || "18:00"}–{reminder.end_time || "19:00"}
+            {formatDate(reminder.session_date)} · {windows.map((window) =>
+              `${window.duty_type === "b1" ? "B1" : "General"} ${window.start_time}–${window.end_time}`
+            ).join(" · ")}
           </p>
         </div>
         <span className="teacher-dashboard-attendance-group">{labels}</span>

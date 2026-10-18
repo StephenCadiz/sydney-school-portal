@@ -167,7 +167,9 @@ function rotationEntry(
     date: sessionDate,
     session_type: sessionType,
     session_label: label,
-    time: "18:00-19:00",
+    time: isB1FridayTutorialSession(sessionType)
+      ? "B1 17:00-18:00 · General 18:00-19:00"
+      : "18:00-19:00",
     school_closed: Boolean(closure),
     closure,
   };

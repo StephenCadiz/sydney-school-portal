@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   FRIDAY_AT_6_DUTY_LABELS,
   type FridayTutorialSessionType,
+  getActiveFridayTutorialDutyTypes,
   getFridayAt6DutyTypesForTeacher,
   getFridayAt6ResponsibilityLevelLabels,
   getFridayAt6ResponsibilityLevels,
+  getFridayTutorialTimeWindows,
   getFridayTutorialSessionTypeForDate,
   getTutorialGroupLabel,
 } from "../../../../lib/fridayTutorials";
@@ -139,9 +141,12 @@ async function getAttendanceContext(request: NextRequest) {
     return { response: jsonError("Friday Tutorial attendance not found.", 404), context: null };
   }
 
+  const activeDutyTypes = getActiveFridayTutorialDutyTypes(dutyTypes, now.minutes);
   const allowedLevels = new Set(
-    getFridayAt6ResponsibilityLevels(expectedGroup, dutyTypes)
+    getFridayAt6ResponsibilityLevels(expectedGroup, activeDutyTypes)
   );
+  const dutyWindows = getFridayTutorialTimeWindows(dutyTypes);
+  const lastWindow = dutyWindows.at(-1);
 
   return {
     response: null,
@@ -150,9 +155,17 @@ async function getAttendanceContext(request: NextRequest) {
       now,
       duty,
       dutyTypes,
+      activeDutyTypes,
+      dutyWindows,
       allowedLevels,
       expectedGroup,
-      open: now.minutes >= 18 * 60,
+      open: activeDutyTypes.length > 0,
+      windowEnded: Boolean(
+        lastWindow &&
+          now.minutes >=
+            Number(lastWindow.end_time.slice(0, 2)) * 60 +
+              Number(lastWindow.end_time.slice(3))
+      ),
     },
   };
 }
@@ -261,11 +274,21 @@ export async function GET(request: NextRequest) {
         ),
         responsibility_levels: getFridayAt6ResponsibilityLevelLabels(
           access.context.expectedGroup as FridayTutorialSessionType,
-          access.context.dutyTypes
+          access.context.activeDutyTypes.length > 0
+            ? access.context.activeDutyTypes
+            : access.context.dutyTypes
         ),
         note: access.context.duty.note || null,
-        start_time: loaded.session?.start_time || "18:00",
-        end_time: loaded.session?.end_time || "19:00",
+        duty_windows: access.context.dutyWindows,
+        window_ended: access.context.windowEnded,
+        start_time:
+          access.context.dutyWindows[0]?.start_time ||
+          loaded.session?.start_time ||
+          "18:00",
+        end_time:
+          access.context.dutyWindows[0]?.end_time ||
+          loaded.session?.end_time ||
+          "19:00",
         open: access.context.open,
         complete: loaded.complete === true,
         students: loaded.rows,
@@ -281,7 +304,18 @@ export async function POST(request: NextRequest) {
   try {
     const access = await getAttendanceContext(request);
     if (access.response || !access.context) return access.response;
-    if (!access.context.open) return jsonError("Friday Tutorial attendance opens at 18:00.", 403);
+    if (!access.context.open) {
+      const nextWindow = access.context.dutyWindows.find((window: any) => {
+        const start = Number(window.start_time.slice(0, 2)) * 60 + Number(window.start_time.slice(3));
+        return access.context.now.minutes < start;
+      });
+      return jsonError(
+        nextWindow
+          ? `Friday Tutorial attendance opens at ${nextWindow.start_time}.`
+          : "This Friday Tutorial attendance window has ended.",
+        403
+      );
+    }
     const body = await request.json().catch(() => null);
     const submitted = Array.isArray(body?.attendance) ? body.attendance : null;
     if (!submitted) return jsonError("Submit valid Friday Tutorial attendance.", 422);

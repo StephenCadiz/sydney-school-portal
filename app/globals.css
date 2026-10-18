@@ -24995,15 +24995,21 @@ img {
   }
 
   .friday-six-general-register col.is-date,
-  .friday-six-general-register col.is-rotation,
-  .friday-six-general-register col.is-teacher,
-  .friday-six-general-register col.is-b1-teacher,
-  .friday-six-general-register col.is-note {
+  .friday-six-general-register col.is-rotation {
     width: 13% !important;
   }
 
-  .friday-six-general-register col.is-time {
+  .friday-six-general-register col.is-teacher,
+  .friday-six-general-register col.is-b1-teacher {
+    width: 12% !important;
+  }
+
+  .friday-six-general-register col.is-note {
     width: 9% !important;
+  }
+
+  .friday-six-general-register col.is-time {
+    width: 15% !important;
   }
 
   .friday-six-general-register col.is-status {
@@ -25094,6 +25100,30 @@ img {
 }
 
 .friday-six-general-time {
+  min-width: 150px;
+  white-space: normal;
+}
+
+.friday-six-time-stack {
+  display: grid;
+  gap: 5px;
+  line-height: 1.25;
+}
+
+.friday-six-time-stack > span {
+  display: grid;
+  gap: 1px;
+}
+
+.friday-six-time-stack strong {
+  color: var(--ss-blue-dark);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+.friday-six-time-stack > span > span {
+  color: #344054;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 

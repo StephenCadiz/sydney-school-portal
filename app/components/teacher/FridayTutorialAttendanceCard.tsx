@@ -114,6 +114,9 @@ export default function FridayTutorialAttendanceCard() {
   const dutyLabel = Array.isArray(attendance.duty_labels)
     ? attendance.duty_labels.join(" + ")
     : attendance.tutorial_group_label;
+  const dutyWindows = Array.isArray(attendance.duty_windows) && attendance.duty_windows.length > 0
+    ? attendance.duty_windows
+    : [{ start_time: attendance.start_time, end_time: attendance.end_time }];
   const responsibilityLevels = Array.isArray(attendance.responsibility_levels)
     ? attendance.responsibility_levels
     : [];
@@ -123,7 +126,11 @@ export default function FridayTutorialAttendanceCard() {
       <div className="teacher-dashboard-section-title teacher-dashboard-attendance-header">
         <div>
           <h2>Friday Tutorial Attendance</h2>
-          <p>{formatFriday(attendance.session_date)} · {attendance.start_time}–{attendance.end_time}</p>
+          <p>
+            {formatFriday(attendance.session_date)} · {dutyWindows.map((window: any) =>
+              `${window.duty_type === "b1" ? "B1" : "General"} ${window.start_time}–${window.end_time}`
+            ).join(" · ")}
+          </p>
           {responsibilityLevels.length > 0 && (
             <p className="teacher-dashboard-attendance-levels">
               {responsibilityLevels.join(" · ")}
@@ -140,7 +147,11 @@ export default function FridayTutorialAttendanceCard() {
       )}
 
       {!attendance.open ? (
-        <p className="teacher-dashboard-attendance-state">Friday Tutorial attendance opens at 18:00.</p>
+        <p className="teacher-dashboard-attendance-state">
+          {attendance.window_ended
+            ? "This Friday Tutorial attendance window has ended."
+            : `Friday Tutorial attendance opens at ${dutyWindows[0]?.start_time || "18:00"}.`}
+        </p>
       ) : attendance.students.length === 0 ? (
         <p className="teacher-dashboard-attendance-state">No students are on today&apos;s assigned Friday Tutorial list.</p>
       ) : (

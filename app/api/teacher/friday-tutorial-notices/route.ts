@@ -9,6 +9,8 @@ import { normalizeCambridgeLevel } from "../../../../lib/fridayTutorialResults";
 import {
   FRIDAY_AT_6_DUTY_LABELS,
   getFridayAt6DutyTypesForTeacher,
+  getFridayTutorialTimeWindowForLevel,
+  getFridayTutorialTimeWindows,
 } from "../../../../lib/fridayTutorials";
 import {
   getFridayTutorialSessionTypeForDate,
@@ -126,6 +128,8 @@ async function loadDutyReminder(today: string, teacherId: string) {
   );
   if (!duty || dutyTypes.length === 0) return null;
 
+  const dutyWindows = getFridayTutorialTimeWindows(dutyTypes);
+
   return {
     duty_id: duty.id,
     session_date: sessionDate,
@@ -134,15 +138,16 @@ async function loadDutyReminder(today: string, teacherId: string) {
     tutorial_group_label: getTutorialGroupLabel(tutorialGroup),
     duty_types: dutyTypes,
     duty_labels: dutyTypes.map((dutyType) => FRIDAY_AT_6_DUTY_LABELS[dutyType]),
-    start_time: "18:00",
-    end_time: "19:00",
+    duty_windows: dutyWindows,
+    start_time: dutyWindows[0].start_time,
+    end_time: dutyWindows[0].end_time,
   };
 }
 
 async function loadTeacherMaterialReminders(today: string, teacherId: string) {
   const { data: sessions, error: sessionsError } = await supabaseAdmin
     .from("friday_tutorial_sessions")
-    .select("id, session_date, start_time, end_time")
+    .select("id, session_date, tutorial_group, start_time, end_time")
     .gte("session_date", today)
     .lte("session_date", addDays(today, 7))
     .order("session_date", { ascending: true });
@@ -211,12 +216,16 @@ async function loadTeacherMaterialReminders(today: string, teacherId: string) {
     const learner = learnerById.get(String(tutorialStudent.young_learner_id));
     const classRow = classById.get(String(tutorialStudent.class_id));
     const level = levelById.get(String(classRow?.level_id));
+    const timeWindow = getFridayTutorialTimeWindowForLevel(
+      session.tutorial_group,
+      level?.name
+    );
     return [{
       id: String(row.id),
       student_name: `${learner?.first_name || ""} ${learner?.last_name || ""}`.trim() || "Young Learner",
       session_date: session.session_date,
-      start_time: session.start_time || null,
-      end_time: session.end_time || null,
+      start_time: timeWindow.start_time || session.start_time || null,
+      end_time: timeWindow.end_time || session.end_time || null,
       level_name: level?.name || "Young Learner",
       class_name: classRow?.class_name || "",
     }];

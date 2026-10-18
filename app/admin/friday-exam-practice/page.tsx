@@ -25,6 +25,7 @@ import {
   FRIDAY_AT_6_DUTY_TYPES,
   getFridayTutorialSessionTypeForDate,
   getFridayTutorialRotationContext,
+  getFridayTutorialTimeWindow,
   getTutorialGroupLabel,
   isB1FridayTutorialSession,
 } from "../../../lib/fridayTutorials";
@@ -524,8 +525,9 @@ export default function FridayAt6Page() {
             Friday @ 6
           </h1>
           <p style={{ color: "#4b5563", margin: 0 }}>
-            Plan Friday 18:00-19:00 exam practice activities and tutorial
-            duties.
+            Plan Friday exam practice activities and tutorial duties. B1
+            Tutorial duty runs 17:00-18:00; General Tutorial duty runs
+            18:00-19:00.
           </p>
         </header>
 
@@ -745,7 +747,10 @@ export default function FridayAt6Page() {
             </p>
           ) : (
             <div className="friday-weekly-table-scroll friday-six-general-register-scroll">
-              <table className="friday-weekly-table friday-six-general-register">
+              <table
+                className="friday-weekly-table friday-six-general-register"
+                style={{ tableLayout: "auto" }}
+              >
                 <colgroup>
                   <col className="is-date" />
                   <col className="is-rotation" />
@@ -763,7 +768,7 @@ export default function FridayAt6Page() {
                     <th>General Duty</th>
                     <th>B1 Duty</th>
                     <th>Note</th>
-                    <th>Time</th>
+                    <th>Duty times</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -803,7 +808,38 @@ export default function FridayAt6Page() {
                               : "Not required"}
                         </td>
                         <td>{duty.note || "—"}</td>
-                        <td className="friday-six-general-time">18:00-19:00</td>
+                        <td
+                          className="friday-six-general-time"
+                          style={{ minWidth: "220px", whiteSpace: "normal" }}
+                        >
+                          <div
+                            className="friday-six-time-stack"
+                            style={{
+                              display: "grid",
+                              gap: "5px",
+                              lineHeight: 1.25,
+                            }}
+                          >
+                            {requiresB1Duty && (
+                              <span style={{ display: "grid", gap: "1px" }}>
+                                <strong>B1 Tutorial</strong>
+                                <span style={{ whiteSpace: "nowrap" }}>
+                                  {getFridayTutorialTimeWindow(
+                                    FRIDAY_AT_6_DUTY_TYPES.B1
+                                  ).start_time}
+                                  –
+                                  {getFridayTutorialTimeWindow(
+                                    FRIDAY_AT_6_DUTY_TYPES.B1
+                                  ).end_time}
+                                </span>
+                              </span>
+                            )}
+                            <span style={{ display: "grid", gap: "1px" }}>
+                              <strong>General Tutorial</strong>
+                              <span style={{ whiteSpace: "nowrap" }}>18:00–19:00</span>
+                            </span>
+                          </div>
+                        </td>
                         <td>
                           <span
                             className={`friday-six-general-status ${
