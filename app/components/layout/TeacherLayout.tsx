@@ -21,6 +21,7 @@ import TeacherStudentMonitoringTasks from "../teacher/TeacherStudentMonitoringTa
 import TeacherPwaBottomNav from "../pwa/TeacherPwaBottomNav";
 import PwaViewportLock from "../pwa/PwaViewportLock";
 import PwaDataCacheBootstrap from "../pwa/PwaDataCacheBootstrap";
+import DesktopStaffChatNotice from "../chat/DesktopStaffChatNotice";
 
 interface TeacherLayoutProps {
   children: ReactNode | ((unreadMessageCount: number) => ReactNode);
@@ -247,6 +248,7 @@ export default function TeacherLayout({
     >
       <PwaViewportLock />
       <PwaDataCacheBootstrap />
+      <DesktopStaffChatNotice />
       {!isInstalledChatPwa && !isInstalledSettingsPwa && (
         <button
           type="button"

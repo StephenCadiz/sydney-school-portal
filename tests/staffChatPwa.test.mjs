@@ -13,6 +13,7 @@ const cache = read("lib/staffChatCache.ts");
 const messagesRoute = read("app/api/chat/conversations/[id]/messages/route.ts");
 const recipientsRoute = read("app/api/chat/recipients/route.ts");
 const conversationsRoute = read("app/api/chat/conversations/route.ts");
+const desktopNotice = read("app/components/chat/DesktopStaffChatNotice.tsx");
 
 test("installed Teacher PWA exposes only the safe-area bottom navigation", () => {
   assert.match(teacherLayout, /display-mode: standalone/);
@@ -85,6 +86,26 @@ test("desktop chat separates sent and received messages visually", () => {
   assert.match(styles, /\.staff-chat-message\.is-own \{[\s\S]*align-self: flex-end[\s\S]*background: #1f5f9f/);
   assert.match(styles, /\.staff-chat-message\.is-own p \{[\s\S]*color: #ffffff/);
   assert.match(styles, /\.staff-chat-message \{[\s\S]*align-self: flex-start[\s\S]*background: #eaf4ff/);
+});
+
+test("desktop chat shows a clickable banner for newly received messages without changing the PWA surface", () => {
+  assert.match(chatView, /desktopNotice/);
+  assert.match(chatView, /New chat message/);
+  assert.match(chatView, /staff-chat-desktop-notice-content/);
+  assert.match(chatView, /conversation\.unread_count > previous\.unreadCount/);
+  assert.match(chatView, /setDesktopNotice\(null\)/);
+  assert.match(chatView, /setTimeout\(\(\) => setDesktopNotice\(null\), 8000\)/);
+  assert.match(styles, /\.staff-chat-desktop-notice \{[\s\S]*position: fixed[\s\S]*z-index: 250/);
+  assert.match(styles, /\.staff-chat-desktop-notice-content \{/);
+});
+
+test("desktop chat notice is available across browser portal pages but excluded from chat PWA and chat routes", () => {
+  assert.match(desktopNotice, /api[\\/]chat[\\/]conversations/);
+  assert.match(desktopNotice, /router\.push\(notice\.href\)/);
+  assert.match(desktopNotice, /display-mode: standalone/);
+  assert.match(desktopNotice, /pathname\?\.endsWith\("\/chat"\)/);
+  assert.match(read("app/components/layout/TeacherLayout.tsx"), /DesktopStaffChatNotice/);
+  assert.match(read("app/components/layout/AdminLayout.tsx"), /DesktopStaffChatNotice/);
 });
 
 test("PWA chat composer gives attachment and Send controls separate touch targets", () => {

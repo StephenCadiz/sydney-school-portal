@@ -14,6 +14,7 @@ import { filterAdminNavGroups, isRocioRestrictedAdmin } from "../../../lib/admin
 import LogoutButton from "../auth/LogoutButton";
 import TeacherLiveClock from "./TeacherLiveClock";
 import AdminPwaShell from "../pwa/AdminPwaShell";
+import DesktopStaffChatNotice from "../chat/DesktopStaffChatNotice";
 
 type AdminNavIconName =
   | "home"
@@ -878,6 +879,7 @@ export default function AdminLayout({
         background: "var(--ss-page-bg)",
       }}
     >
+      <DesktopStaffChatNotice />
       <div className="mobile-topbar">
         <div className="mobile-topbar-title">Sydney School / Admin</div>
         <div
