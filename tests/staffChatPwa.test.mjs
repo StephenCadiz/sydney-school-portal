@@ -79,6 +79,14 @@ test("installed PWA chat uses a WhatsApp-style contact/thread surface without ch
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
 });
 
+test("desktop chat separates sent and received messages visually", () => {
+  assert.match(chatView, /message\.sender_id === accountId/);
+  assert.match(chatView, /staff-chat-message\$\{own \? " is-own" : ""\}/);
+  assert.match(styles, /\.staff-chat-message\.is-own \{[\s\S]*align-self: flex-end[\s\S]*background: #1f5f9f/);
+  assert.match(styles, /\.staff-chat-message\.is-own p \{[\s\S]*color: #ffffff/);
+  assert.match(styles, /\.staff-chat-message \{[\s\S]*align-self: flex-start[\s\S]*background: #eaf4ff/);
+});
+
 test("PWA chat composer gives attachment and Send controls separate touch targets", () => {
   assert.match(styles, /staff-chat-pwa-attach \{[\s\S]*flex: 0 0 42px[\s\S]*min-width: 42px/);
   assert.match(styles, /staff-chat-pwa-composer button \{[\s\S]*flex: 0 0 48px[\s\S]*min-width: 48px[\s\S]*touch-action: manipulation/);
