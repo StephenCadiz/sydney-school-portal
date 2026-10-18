@@ -13943,7 +13943,7 @@ img {
 .friday-weekly-table {
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1568px;
+  min-width: 1608px;
   table-layout: fixed;
   width: 100%;
 }
@@ -13952,8 +13952,8 @@ img {
 .friday-weekly-table .friday-weekly-col-actions { width: 68px; }
 .friday-weekly-table .friday-weekly-col-level { width: 60px; }
 .friday-weekly-table .friday-weekly-col-reason { width: 140px; }
-.friday-weekly-table .friday-weekly-col-time { width: 150px; }
-.friday-weekly-table .friday-weekly-col-teacher { width: 130px; }
+.friday-weekly-table .friday-weekly-col-time { width: 190px; }
+.friday-weekly-table .friday-weekly-col-teacher { width: 150px; }
 .friday-weekly-table .friday-weekly-col-whatsapp { width: 118px; }
 .friday-weekly-table .friday-weekly-col-confirmed { width: 112px; }
 .friday-weekly-table .friday-weekly-col-material { width: 128px; }
@@ -14032,7 +14032,29 @@ img {
   z-index: 2;
 }
 
-.friday-weekly-nowrap {
+.friday-weekly-time-cell {
+  min-width: 190px;
+  white-space: normal;
+}
+
+.friday-weekly-time-cell span,
+.friday-weekly-time-cell strong {
+  display: block;
+}
+
+.friday-weekly-time-cell span {
+  color: #5d6b7d;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.25;
+  margin-bottom: 3px;
+}
+
+.friday-weekly-time-cell strong {
+  color: var(--ss-blue-dark);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
   white-space: nowrap;
 }
 

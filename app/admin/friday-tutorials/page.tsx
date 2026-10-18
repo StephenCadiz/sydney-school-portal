@@ -861,8 +861,8 @@ export default function AdminFridayTutorialsPage() {
                         <col className="friday-weekly-col-actions" />
                         <col className="friday-weekly-col-level" />
                         <col className="friday-weekly-col-reason" />
-                        <col className="friday-weekly-col-time" />
-                        <col className="friday-weekly-col-teacher" />
+                        <col className="friday-weekly-col-time" style={{ width: 190 }} />
+                        <col className="friday-weekly-col-teacher" style={{ width: 150 }} />
                         <col className="friday-weekly-col-whatsapp" />
                         <col className="friday-weekly-col-confirmed" />
                         <col className="friday-weekly-col-material" />
@@ -930,10 +930,20 @@ export default function AdminFridayTutorialsPage() {
                                   style={inputStyle}
                                 />
                               </td>
-                              <td className="friday-weekly-nowrap">
-                                {row.duty_type === "b1"
-                                  ? "B1 · Friday 17:00–18:00"
-                                  : "General · Friday 18:00–19:00"}
+                              <td
+                                className="friday-weekly-time-cell"
+                                style={{ minWidth: 190, width: 190, whiteSpace: "normal" }}
+                              >
+                                <span style={{ display: "block" }}>
+                                  {row.duty_type === "b1"
+                                    ? "B1 tutorial duty"
+                                    : "General tutorial duty"}
+                                </span>
+                                <strong style={{ display: "block", whiteSpace: "nowrap" }}>
+                                  {row.duty_type === "b1"
+                                    ? "Friday 17:00–18:00"
+                                    : "Friday 18:00–19:00"}
+                                </strong>
                               </td>
                               <td>{row.teacher_name}</td>
                               <td>
