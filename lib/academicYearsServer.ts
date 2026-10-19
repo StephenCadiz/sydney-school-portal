@@ -96,20 +96,24 @@ export async function getAcademicYearsWithClassCounts() {
   }));
 }
 
-export async function resolveStudentCurrentClassServer(studentId: string) {
+export async function getStudentCurrentClassIdsServer(studentId: string) {
   const { data: enrolments, error: enrolmentError } = await supabaseAdmin
     .from("current_class_enrolments")
     .select("class_id")
     .eq("student_id", studentId);
   if (enrolmentError) throw enrolmentError;
 
-  const classIds = Array.from(
+  return Array.from(
     new Set(
       (enrolments || [])
         .map((enrolment) => String(enrolment.class_id || ""))
         .filter(Boolean)
     )
   );
+}
+
+export async function resolveStudentCurrentClassServer(studentId: string) {
+  const classIds = await getStudentCurrentClassIdsServer(studentId);
   if (!classIds.length) {
     return resolveCurrentStudentClass([], null);
   }

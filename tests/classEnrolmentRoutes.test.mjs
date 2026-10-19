@@ -161,6 +161,58 @@ test("Friday Progress HTTP handler prevents cross-student reads and uses eligibl
   assert.ok(!f.calls.some(call => call.table === "friday_tutorial_results"));
 });
 
+test("Friday Progress includes results from every current student class", async () => {
+  const f = fixture();
+  f.rows.current_class_enrolments = [
+    { student_id: id(1), class_id: id(10) },
+    { student_id: id(1), class_id: id(11) },
+  ];
+  f.rows.eligible_friday_tutorial_results = [
+    { id: id(101), result_sheet_id: id(201), student_id: id(1), percentage: 82, attended: true },
+    { id: id(102), result_sheet_id: id(202), student_id: id(1), percentage: null, attended: false },
+  ];
+  f.rows.friday_tutorial_result_sheets = [
+    { id: id(201), tutorial_session_id: id(301), class_id: id(10) },
+    { id: id(202), tutorial_session_id: id(302), class_id: id(11) },
+  ];
+  f.rows.friday_exam_practice_sessions = [
+    { id: id(301), session_date: "2026-10-09", level_name: "B1", activity_type: "Reading", exam_part: "Part 1", active: true },
+    { id: id(302), session_date: "2026-10-16", level_name: "B1", activity_type: "Listening", exam_part: "Part 2", active: true },
+  ];
+
+  const route = f.load("app/api/friday-tutorial-progress/route.ts");
+  const response = await route.GET(f.request("/api/friday-tutorial-progress", "student"));
+  assert.equal(response.status, 200);
+  const summary = await response.json();
+  assert.equal(summary.summary.total_count, 2);
+  assert.equal(summary.summary.attendance.eligible_count, 2);
+  assert.equal(summary.summary.attendance.attended_count, 1);
+  assert.equal(summary.summary.attendance.absent_count, 1);
+  assert.equal(summary.summary.recent.length, 2);
+  assert.ok(f.calls.some(call => call.table === "current_class_enrolments"));
+});
+
+test("Friday Progress keeps eligible historical results after an enrolment backfill", async () => {
+  const f = fixture();
+  f.rows.eligible_friday_tutorial_results = [
+    { id: id(111), result_sheet_id: id(211), student_id: id(1), percentage: 74, attended: true },
+  ];
+  f.rows.friday_tutorial_result_sheets = [
+    { id: id(211), tutorial_session_id: id(311), class_id: id(10) },
+  ];
+  f.rows.friday_exam_practice_sessions = [
+    { id: id(311), session_date: "2026-10-09", level_name: "B1", activity_type: "Reading", exam_part: "Part 1", active: true },
+  ];
+
+  const route = f.load("app/api/friday-tutorial-progress/route.ts");
+  const response = await route.GET(f.request("/api/friday-tutorial-progress", "student"));
+  assert.equal(response.status, 200);
+  const summary = await response.json();
+  assert.equal(summary.summary.total_count, 1);
+  assert.equal(summary.summary.attendance.attended_count, 1);
+  assert.equal(summary.summary.recent[0].percentage, 74);
+});
+
 test("shared attendance and Admin class/level/overall consumers aggregate the filtered view", async () => {
   const f = fixture();
   f.rows.classes[0] = { ...f.rows.classes[0], academic_year_id: id(30), start_date: "2020-09-15", end_date: "2021-06-30", course_type: "regular" };

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
-import { resolveStudentCurrentClassServer } from "../../../lib/academicYearsServer";
+import { getStudentCurrentClassIdsServer } from "../../../lib/academicYearsServer";
 import {
   buildFridayTutorialProgressSummary,
   getEmptyFridayTutorialProgressSummary,
@@ -170,7 +170,7 @@ async function resolveTargetStudentId(
   };
 }
 
-async function loadProgressRows(studentId: string, classId?: string) {
+async function loadProgressRows(studentId: string) {
   const todayMadrid = getMadridDateString();
 
   const { data: resultRows, error: resultError } = await supabaseAdmin
@@ -202,7 +202,6 @@ async function loadProgressRows(studentId: string, classId?: string) {
     .from("friday_tutorial_result_sheets")
     .select("id, tutorial_session_id, class_id")
     .in("id", sheetIds);
-  if (classId) sheetQuery = sheetQuery.eq("class_id", classId);
   const { data: sheets, error: sheetError } =
     sheetIds.length > 0
       ? await sheetQuery
@@ -305,21 +304,22 @@ export async function GET(request: NextRequest) {
       return target.response;
     }
 
-    let currentClassId = "";
+    let currentClassIds: string[] | undefined;
     if (role === "student") {
-      const classResolution = await resolveStudentCurrentClassServer(
-        target.studentId
-      );
-      if (classResolution.error || !classResolution.classroom) {
-        return jsonError(
-          classResolution.error || "No current class is available.",
-          classResolution.error?.startsWith("More than one") ? 409 : 404
-        );
-      }
-      currentClassId = String(classResolution.classroom.id);
+      currentClassIds = await getStudentCurrentClassIdsServer(target.studentId);
     }
 
-    const rows = await loadProgressRows(target.studentId, currentClassId);
+    // The eligible view already verifies the student's class membership on the
+    // tutorial date. Do not narrow it to only today's class: that would hide
+    // valid historical results after a class transfer or enrolment backfill.
+    const rows = await loadProgressRows(target.studentId);
+    if (
+      role === "student" &&
+      currentClassIds?.length === 0 &&
+      rows.length === 0
+    ) {
+      return jsonError("No current class is available.", 404);
+    }
 
     return NextResponse.json({
       summary:
