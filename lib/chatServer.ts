@@ -10,6 +10,7 @@ import { sortClassesByGlobalOrder } from "./classOrdering";
 
 export type ChatActor = { authUserId: string; profileId: string; role: "admin" | "teacher"; email?: string | null };
 export type ChatAttachmentInput = { storagePath: string; fileName: string; mimeType: string; byteSize: number };
+export type ChatReaction = { profile_id: string; profile_name: string; created_at: string };
 
 const SCHOOL_CHAT_AVATAR = "/icons/icon-192.png";
 // Stephen Ferreira has a separate Teacher profile for Staff Chat. His Admin
@@ -198,6 +199,65 @@ async function assertParticipant(actor: ChatActor, conversationId: string) {
   return Boolean(data);
 }
 
+async function getChatReactions(messageIds: string[]) {
+  const byMessage = new Map<string, ChatReaction[]>();
+  if (!messageIds.length) return byMessage;
+  const { data: reactions, error: reactionError } = await supabaseAdmin
+    .from("chat_message_reactions")
+    .select("message_id, profile_id, created_at")
+    .in("message_id", messageIds)
+    .order("created_at", { ascending: true });
+  // Keep existing chat history available while a deployment is waiting for
+  // the additive reactions migration. Reaction controls will report the
+  // schema-unavailable state until that migration is applied.
+  if (reactionError) {
+    if (reactionError.code === "42P01" || reactionError.code === "PGRST205") return byMessage;
+    throw reactionError;
+  }
+  const profileIds = Array.from(new Set((reactions || []).map((reaction) => String(reaction.profile_id))));
+  const { data: profiles, error: profileError } = profileIds.length
+    ? await supabaseAdmin.from("profiles").select("id, first_name, last_name").in("id", profileIds)
+    : { data: [], error: null };
+  if (profileError) throw profileError;
+  const profileById = new Map((profiles || []).map((profile) => [String(profile.id), profile]));
+  for (const reaction of reactions || []) {
+    const messageId = String(reaction.message_id);
+    const profileId = String(reaction.profile_id);
+    byMessage.set(messageId, [...(byMessage.get(messageId) || []), {
+      profile_id: profileId,
+      profile_name: profileName(profileById.get(profileId)),
+      created_at: String(reaction.created_at),
+    }]);
+  }
+  return byMessage;
+}
+
+export async function toggleChatReaction(actor: ChatActor, conversationId: string, messageId: string, add: boolean) {
+  if (!(await assertParticipant(actor, conversationId))) throw new Error("You do not have access to this conversation.");
+  const { data: message, error: messageError } = await supabaseAdmin
+    .from("chat_messages")
+    .select("id, conversation_id")
+    .eq("id", messageId)
+    .maybeSingle();
+  if (messageError) throw messageError;
+  if (!message || String(message.conversation_id) !== String(conversationId)) throw new Error("Message not found.");
+  if (add) {
+    const { error } = await supabaseAdmin
+      .from("chat_message_reactions")
+      .upsert({ message_id: messageId, profile_id: actor.profileId }, { onConflict: "message_id,profile_id" });
+    if (error) throw error;
+  } else {
+    const { error } = await supabaseAdmin
+      .from("chat_message_reactions")
+      .delete()
+      .eq("message_id", messageId)
+      .eq("profile_id", actor.profileId);
+    if (error) throw error;
+  }
+  const reactions = await getChatReactions([messageId]);
+  return reactions.get(messageId) || [];
+}
+
 export async function listChatConversations(actor: ChatActor) {
   const { data: memberships, error: membershipError } = await supabaseAdmin
     .from("chat_participants")
@@ -328,8 +388,9 @@ export async function listChatMessages(actor: ChatActor, conversationId: string,
     : { data: [], error: null };
   if (readResult.error) throw readResult.error;
   const readIds = new Set((readResult.data || []).map((row) => String(row.message_id)));
+  const reactionsByMessage = await getChatReactions(messageIds);
   const ordered = after ? data || [] : (data || []).reverse();
-  return ordered.map((message) => ({ ...message, sender_name: profileName(profileById.get(String(message.sender_id))), sender_role: profileById.get(String(message.sender_id))?.role || "", read: readIds.has(String(message.id)), attachments: attachmentsByMessage.get(String(message.id)) || [] }));
+  return ordered.map((message) => ({ ...message, sender_name: profileName(profileById.get(String(message.sender_id))), sender_role: profileById.get(String(message.sender_id))?.role || "", read: readIds.has(String(message.id)), attachments: attachmentsByMessage.get(String(message.id)) || [], reactions: reactionsByMessage.get(String(message.id)) || [] }));
 }
 
 export async function sendChatMessage(actor: ChatActor, conversationId: string, body: string, idempotencyKey: string, attachments: ChatAttachmentInput[] = []) {

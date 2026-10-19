@@ -8,12 +8,14 @@ const chatView = read("app/components/chat/StaffChatView.tsx");
 const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
 const bottomNav = read("app/components/pwa/TeacherPwaBottomNav.tsx");
 const migration = read("supabase/migrations/20261009120000_create_staff_chat.sql");
+const reactionsMigration = read("supabase/migrations/20261020100000_add_staff_chat_reactions.sql");
 const styles = read("app/globals.css");
 const cache = read("lib/staffChatCache.ts");
 const messagesRoute = read("app/api/chat/conversations/[id]/messages/route.ts");
 const recipientsRoute = read("app/api/chat/recipients/route.ts");
 const conversationsRoute = read("app/api/chat/conversations/route.ts");
 const desktopNotice = read("app/components/chat/DesktopStaffChatNotice.tsx");
+const reactionRoute = read("app/api/chat/conversations/[id]/messages/[messageId]/reaction/route.ts");
 
 test("installed Teacher PWA exposes only the safe-area bottom navigation", () => {
   assert.match(teacherLayout, /display-mode: standalone/);
@@ -225,4 +227,38 @@ test("Staff Chat keeps Stephen Ferreira Teacher-only and excludes the Admin dupl
   assert.match(chatServer, /850da38b-97df-4c67-939b-0dd9c2e8036b/);
   assert.match(chatServer, /conversation\.kind === "direct"/);
   assert.match(chatServer, /One or more selected participants are unavailable/);
+});
+
+test("staff chat supports one thumbs-up per member and names group reactors", () => {
+  assert.match(reactionsMigration, /chat_message_reactions/);
+  assert.match(reactionsMigration, /primary key \(message_id, profile_id\)/);
+  assert.match(reactionsMigration, /enable row level security/);
+  assert.match(chatServer, /toggleChatReaction/);
+  assert.match(chatServer, /profile_name/);
+  assert.match(chatServer, /getChatReactions/);
+  assert.match(reactionRoute, /export async function POST/);
+  assert.match(reactionRoute, /export async function DELETE/);
+  assert.match(chatView, /message\.reactions/);
+  assert.match(chatView, /renderReactions/);
+  assert.match(chatView, /reactionDisplayName/);
+  assert.match(chatView, /return "Rose"/);
+  assert.match(chatView, /return "Rosa"/);
+  assert.match(chatView, /Add thumbs up/);
+  assert.match(chatView, /Remove thumbs up/);
+  assert.match(styles, /staff-chat-reaction-toggle\.is-active/);
+  assert.match(styles, /staff-chat-reaction-names/);
+});
+
+test("chat toggles reactions by left-clicking received messages only", () => {
+  assert.match(chatView, /handleMessageClick\(event, message\)/);
+  assert.match(chatView, /message\.sender_id === accountId/);
+  assert.match(chatView, /message\.sender_id === currentAccountId\(\)/);
+  assert.doesNotMatch(chatView, /onContextMenu=/);
+  assert.match(chatView, /method: reacted \? "DELETE" : "POST"/);
+  assert.match(chatView, /if \(message\.sender_id === currentAccountId\(\)\) return/);
+  assert.match(chatView, /closest\("button, a, input, textarea"\)/);
+  assert.match(styles, /staff-chat-reactions\.is-visible \{ display: flex; \}/);
+  assert.match(styles, /top: calc\(100% \+ 6px\)/);
+  assert.match(styles, /:has\(\.staff-chat-reactions\)/);
+  assert.match(styles, /staff-chat-message\.can-react/);
 });
