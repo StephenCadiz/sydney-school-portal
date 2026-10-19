@@ -8,7 +8,10 @@ import TeacherLayout from "../../components/layout/TeacherLayout";
 import { getCurrentAcademicYear } from "../../../lib/academicYears";
 import { supabase } from "../../../lib/supabase";
 import { getTeacherClasses } from "../../../lib/teacher";
-import { compareClassesByGlobalOrder } from "../../../lib/classOrdering";
+import {
+  compareClassesByGlobalOrder,
+  compareClassesByScheduleTime,
+} from "../../../lib/classOrdering";
 import { getMadridDateString } from "../../../lib/academicYearRules";
 import {
   getEffectiveClassDateRange,
@@ -215,7 +218,7 @@ function getTiming(item: ClassRow, currentMinutes: number): Timing {
 }
 
 function compareBySchedule(first: ClassRow, second: ClassRow) {
-  return compareClassesByGlobalOrder(first, second);
+  return compareClassesByScheduleTime(first, second);
 }
 
 function getProgramme(item: ClassRow) {

@@ -18,7 +18,18 @@ test("Teacher My Classes resolves level names separately from the classes query"
   assert.match(loader, /hint: error\?\.hint/);
   assert.match(loader, /sortClassesByGlobalOrder/);
   assert.match(page, /getTeacherClasses\(session\.user\.id\)/);
+  assert.match(page, /compareClassesByScheduleTime/);
   assert.match(page, /Unable to load classes\./);
+});
+
+test("Teacher Today view sorts by start time before the global class order", () => {
+  const ordering = read("lib/classOrdering.ts");
+  const page = read("app/teacher/my-classes/page.tsx");
+
+  assert.match(ordering, /export function compareClassesByScheduleTime/);
+  assert.match(ordering, /timeRank\(first\.start_time\) - timeRank\(second\.start_time\)/);
+  assert.match(ordering, /return compareClassesByGlobalOrder\(first, second\)/);
+  assert.match(page, /\.sort\(compareBySchedule\)/);
 });
 
 test("Teacher class loading keeps Cambridge and Young Learner class data", () => {

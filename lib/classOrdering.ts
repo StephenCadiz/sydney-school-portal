@@ -75,6 +75,17 @@ export function compareClassesByGlobalOrder(first: ClassOrderingRow, second: Cla
   return normalizeClassOrderText(first.id ?? first.class_id).localeCompare(normalizeClassOrderText(second.id ?? second.class_id), undefined, { numeric: true });
 }
 
+/**
+ * Order a teacher's classes for a single day. Daily schedules must be
+ * chronological; the global level order is only a tie-breaker when classes
+ * start at the same time (or do not have a usable start time).
+ */
+export function compareClassesByScheduleTime(first: ClassOrderingRow, second: ClassOrderingRow) {
+  const timeDifference = timeRank(first.start_time) - timeRank(second.start_time);
+  if (timeDifference) return timeDifference;
+  return compareClassesByGlobalOrder(first, second);
+}
+
 export function sortClassesByGlobalOrder<T extends ClassOrderingRow>(rows: T[]) {
   return [...rows].sort(compareClassesByGlobalOrder);
 }
