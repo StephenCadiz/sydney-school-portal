@@ -29,7 +29,7 @@ test("Student header receives liquid-glass styling without affecting the logo", 
 });
 
 test("Student navigation keeps labels, routes, active state, and logout", () => {
-  assert.match(studentMenu, /src="\/Logo\.png"/);
+  assert.match(studentMenu, /src="\/LOGO\.png"/);
   for (const [href, label] of [
     ["/student", "Dashboard"],
     ["/student/homework", "Homework"],
@@ -44,6 +44,13 @@ test("Student navigation keeps labels, routes, active state, and logout", () => 
   assert.match(studentMenu, /student-sidebar-link/);
   assert.match(studentMenu, /aria-current=\{active \? "page" : undefined\}/);
   assert.match(studentMenu, /LogoutButton className="student-logout teacher-logout"/);
+});
+
+test("Student dashboard shows a stable Sydney School mark in the desktop hero", () => {
+  assert.match(studentPage, /student-dashboard-school-mark/);
+  assert.match(studentPage, /src="\/icons\/icon-192\.png"/);
+  assert.match(styles, /\.student-dashboard-hero-side\s*\{/);
+  assert.match(styles, /\.student-pwa-route-shell\.is-installed-pwa \.student-dashboard-school-mark[\s\S]*display: none/);
 });
 
 test("Student navigation uses accessible glass interaction states", () => {

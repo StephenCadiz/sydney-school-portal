@@ -478,12 +478,21 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          {!loading && unreadHomeworkCount === 0 && unreadMessageCount === 0 && (
-            <div className="student-dashboard-up-to-date">
-              <span aria-hidden="true">✓</span>
-              You&apos;re up to date
-            </div>
-          )}
+          <div className="student-dashboard-hero-side">
+            <Image
+              className="student-dashboard-school-mark"
+              src="/icons/icon-192.png"
+              alt="Sydney School"
+              width={58}
+              height={58}
+            />
+            {!loading && unreadHomeworkCount === 0 && unreadMessageCount === 0 && (
+              <div className="student-dashboard-up-to-date">
+                <span aria-hidden="true">✓</span>
+                You&apos;re up to date
+              </div>
+            )}
+          </div>
         </section>
 
         {error && (
