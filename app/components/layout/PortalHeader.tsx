@@ -4,12 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import TeacherLiveClock from "./TeacherLiveClock";
+import { MessageCircle } from "lucide-react";
 
 type Props = {
   title: string;
   firstName?: string;
   showWelcome?: boolean;
   unreadMessageCount?: number;
+  unreadChatCount?: number;
   onMenuOpen?: () => void;
 };
 
@@ -59,6 +61,7 @@ export default function PortalHeader({
   firstName = "",
   showWelcome = false,
   unreadMessageCount = 0,
+  unreadChatCount = 0,
   onMenuOpen,
 }: Props) {
   const [currentTime, setCurrentTime] = useState(() => new Date());
@@ -77,6 +80,10 @@ export default function PortalHeader({
       : "Messages, no unread messages";
   const visibleUnreadCount =
     unreadMessageCount > 99 ? "99+" : String(unreadMessageCount);
+  const visibleUnreadChatCount = unreadChatCount > 99 ? "99+" : String(unreadChatCount);
+  const unreadChatLabel = unreadChatCount > 0
+    ? `Chat, ${unreadChatCount} unread message${unreadChatCount === 1 ? "" : "s"}`
+    : "Chat, no unread messages";
 
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
@@ -147,6 +154,14 @@ export default function PortalHeader({
         >
           <EnvelopeIcon />
           <span aria-hidden="true">{visibleUnreadCount}</span>
+        </Link>
+        <Link
+          href="/teacher/chat"
+          className={`teacher-portal-chat-control${unreadChatCount > 0 ? " has-unread" : ""}`}
+          aria-label={unreadChatLabel}
+        >
+          <MessageCircle aria-hidden="true" size={20} />
+          <span aria-hidden="true">{visibleUnreadChatCount}</span>
         </Link>
         <TeacherLiveClock showLabel={false} />
         <button

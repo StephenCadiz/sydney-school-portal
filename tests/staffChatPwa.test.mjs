@@ -16,6 +16,9 @@ const recipientsRoute = read("app/api/chat/recipients/route.ts");
 const conversationsRoute = read("app/api/chat/conversations/route.ts");
 const desktopNotice = read("app/components/chat/DesktopStaffChatNotice.tsx");
 const reactionRoute = read("app/api/chat/conversations/[id]/messages/[messageId]/reaction/route.ts");
+const unreadCountRoute = read("app/api/chat/unread-count/route.ts");
+const adminLayout = read("app/components/layout/AdminLayout.tsx");
+const portalHeader = read("app/components/layout/PortalHeader.tsx");
 
 test("installed Teacher PWA exposes only the safe-area bottom navigation", () => {
   assert.match(teacherLayout, /display-mode: standalone/);
@@ -157,6 +160,29 @@ test("desktop and PWA contact lists render unread counts as compact color badges
   assert.match(chatView, /conversation\.unread_count > 0 && <b>\{conversation\.unread_count\}<\/b>/);
   assert.match(styles, /staff-chat-conversation-meta b \{[\s\S]*background: #00a4dc[\s\S]*border-radius: 50%[\s\S]*height: 20px/);
   assert.match(styles, /staff-chat-pwa-contact-meta b \{[\s\S]*background: #00a4dc[\s\S]*border-radius: 50%[\s\S]*height: 20px/);
+});
+
+test("Teacher and Admin dashboard headers expose separate Staff Chat unread indicators", () => {
+  assert.match(unreadCountRoute, /getChatUnreadCount/);
+  assert.match(unreadCountRoute, /unread_count/);
+  assert.match(chatServer, /getChatUnreadCount/);
+  assert.match(teacherLayout, /getStaffChatUnreadCount/);
+  assert.match(teacherLayout, /staff-chat-unread-changed/);
+  assert.match(portalHeader, /teacher-portal-chat-control/);
+  assert.match(portalHeader, /href="\/teacher\/chat"/);
+  assert.match(adminLayout, /getStaffChatUnreadCount/);
+  assert.match(adminLayout, /admin-dashboard-chat-control/);
+  assert.match(adminLayout, /href="\/admin\/chat"/);
+  assert.match(adminLayout, /staff-chat-unread-changed/);
+  assert.match(styles, /\.teacher-portal-chat-control/);
+  assert.match(styles, /\.admin-dashboard-chat-control/);
+});
+
+test("dashboard chat indicators refresh without marking conversations read", () => {
+  assert.match(teacherLayout, /setInterval\(refresh, 30_000\)/);
+  assert.match(adminLayout, /setInterval\(refresh, 30_000\)/);
+  assert.match(chatView, /fetch\(`\/api\/chat\/conversations\/\$\{conversationId\}\/read`/);
+  assert.match(chatView, /window\.dispatchEvent\(new Event\("staff-chat-unread-changed"\)\)/);
 });
 
 test("Teacher PWA chat reserves the fixed nav area and keeps contacts scrollable", () => {

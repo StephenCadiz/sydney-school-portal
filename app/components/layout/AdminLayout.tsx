@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
 import { getAdminOutstandingMessageCount } from "../../../lib/messages";
+import { getStaffChatUnreadCount } from "../../../lib/staffChatUnreadCount";
 import { supabase } from "../../../lib/supabase";
 import { filterAdminNavGroups, isRocioRestrictedAdmin } from "../../../lib/adminAccess";
 import LogoutButton from "../auth/LogoutButton";
@@ -294,6 +295,7 @@ export default function AdminLayout({
   const [installedPwa, setInstalledPwa] = useState(false);
   const [pwaDetectionComplete, setPwaDetectionComplete] = useState(false);
   const [outstandingAdminMessages, setOutstandingAdminMessages] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [attendanceAlertCount, setAttendanceAlertCount] = useState(0);
   const [monitoringSummary, setMonitoringSummary] = useState<AdminMonitoringSummary>({ feedbackCount: 0, overdueCount: 0, feedback: [] });
   const [openNavGroup, setOpenNavGroup] = useState("dashboard");
@@ -385,6 +387,30 @@ export default function AdminLayout({
       }
     }
   }, []);
+
+  const loadUnreadChatCount = useCallback(async () => {
+    if (!adminId || installedPwa) return;
+    try {
+      const count = await getStaffChatUnreadCount();
+      if (mountedRef.current) setUnreadChatCount(count);
+    } catch (error) {
+      console.error("Unable to load Admin chat count:", error);
+    }
+  }, [adminId, installedPwa]);
+
+  useEffect(() => {
+    if (!adminId || installedPwa) return;
+    const refresh = () => void loadUnreadChatCount();
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("staff-chat-unread-changed", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("staff-chat-unread-changed", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [adminId, installedPwa, loadUnreadChatCount]);
 
   const loadAttendanceAlertCount = useCallback(async () => {
     try {
@@ -915,6 +941,27 @@ export default function AdminLayout({
           </Link>
 
           <Link
+            href="/admin/chat"
+            className={`admin-mobile-status-link${unreadChatCount > 0 ? " has-chat-unread" : ""}`}
+            aria-label={unreadChatCount > 0 ? `Chat, ${unreadChatCount} unread message${unreadChatCount === 1 ? "" : "s"}` : "Chat, no unread messages"}
+            style={{
+              alignItems: "center",
+              background: unreadChatCount > 0 ? "#e6f7ff" : "#ffffff",
+              border: unreadChatCount > 0 ? "1px solid #8bd5ef" : "1px solid var(--ss-border)",
+              borderRadius: "10px",
+              color: unreadChatCount > 0 ? "#006e98" : "var(--ss-blue-dark)",
+              display: "inline-flex",
+              gap: "7px",
+              minHeight: "42px",
+              padding: "9px 10px",
+              textDecoration: "none",
+            }}
+          >
+            <AdminNavIcon name="messageCircle" size={20} />
+            <UnreadBadge count={unreadChatCount} />
+          </Link>
+
+          <Link
             href="/admin/attendance"
             className="admin-mobile-status-link"
             aria-label={attendanceAccessibleLabel}
@@ -1116,6 +1163,16 @@ export default function AdminLayout({
               <EnvelopeIcon size={24} />
               <span className="admin-dashboard-message-count" aria-hidden="true">
                 {outstandingAdminMessages > 99 ? "99+" : outstandingAdminMessages}
+              </span>
+            </Link>
+            <Link
+              href="/admin/chat"
+              className={`admin-dashboard-chat-control${unreadChatCount > 0 ? " has-unread" : ""}`}
+              aria-label={unreadChatCount > 0 ? `Chat, ${unreadChatCount} unread message${unreadChatCount === 1 ? "" : "s"}` : "Chat, no unread messages"}
+            >
+              <AdminNavIcon name="messageCircle" size={24} />
+              <span className="admin-dashboard-message-count" aria-hidden="true">
+                {unreadChatCount > 99 ? "99+" : unreadChatCount}
               </span>
             </Link>
             <TeacherLiveClock showLabel={false} />

@@ -315,6 +315,49 @@ export async function listChatConversations(actor: ChatActor) {
   });
 }
 
+/** Return the unread Staff Chat total without loading conversation previews. */
+export async function getChatUnreadCount(actor: ChatActor) {
+  const { data: memberships, error: membershipError } = await supabaseAdmin
+    .from("chat_participants")
+    .select("conversation_id, last_read_at")
+    .eq("profile_id", actor.profileId)
+    .is("left_at", null);
+  if (membershipError) throw membershipError;
+  const membershipRows = memberships || [];
+  if (!membershipRows.length) return 0;
+
+  const conversationIds = membershipRows.map((row) => String(row.conversation_id));
+  const [{ data: conversations, error: conversationError }, { data: participants, error: participantError }] = await Promise.all([
+    supabaseAdmin.from("chat_conversations").select("id, kind").in("id", conversationIds),
+    supabaseAdmin.from("chat_participants").select("conversation_id, profile_id").in("conversation_id", conversationIds).is("left_at", null),
+  ]);
+  if (conversationError) throw conversationError;
+  if (participantError) throw participantError;
+
+  const hiddenConversationIds = new Set(
+    (conversations || [])
+      .filter((conversation) => conversation.kind === "direct" && (participants || []).some(
+        (participant) => String(participant.conversation_id) === String(conversation.id) && String(participant.profile_id) === EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID
+      ))
+      .map((conversation) => String(conversation.id))
+  );
+  const visibleMemberships = membershipRows.filter((membership) => !hiddenConversationIds.has(String(membership.conversation_id)));
+  if (!visibleMemberships.length) return 0;
+
+  const visibleIds = visibleMemberships.map((membership) => String(membership.conversation_id));
+  const { data: messages, error: messageError } = await supabaseAdmin
+    .from("chat_messages")
+    .select("conversation_id, sender_id, created_at")
+    .in("conversation_id", visibleIds)
+    .neq("sender_id", actor.profileId);
+  if (messageError) throw messageError;
+  const lastReadByConversation = new Map(visibleMemberships.map((membership) => [
+    String(membership.conversation_id),
+    membership.last_read_at ? new Date(membership.last_read_at).getTime() : 0,
+  ]));
+  return (messages || []).filter((message) => new Date(message.created_at).getTime() > (lastReadByConversation.get(String(message.conversation_id)) || 0)).length;
+}
+
 export async function createChatConversation(actor: ChatActor, input: { kind: "direct" | "group"; name?: string; participantIds: string[] }) {
   const participantIds = Array.from(new Set([actor.profileId, ...input.participantIds.filter(Boolean)]));
   if (participantIds.some((profileId) => isEmailOnlyAdminProfile(profileId))) throw new Error("One or more selected participants are unavailable.");

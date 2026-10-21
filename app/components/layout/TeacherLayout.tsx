@@ -14,6 +14,7 @@ import PortalHeader from "./PortalHeader";
 import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
 import { getTeacherUnreadMessageCount } from "../../../lib/teacherMessageUnreadCount";
+import { getStaffChatUnreadCount } from "../../../lib/staffChatUnreadCount";
 import { supabase } from "../../../lib/supabase";
 import TeacherClassProgressReminder from "../teacher/TeacherClassProgressReminder";
 import TeacherOutstandingTaskCards from "../teacher/TeacherOutstandingTaskCards";
@@ -38,6 +39,7 @@ export default function TeacherLayout({
   const [showWelcome, setShowWelcome] = useState(false);
   const [isSyllabusCoordinator, setIsSyllabusCoordinator] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [studentMonitoringCount, setStudentMonitoringCount] = useState(0);
   const [studentMonitoringOpen, setStudentMonitoringOpen] = useState(false);
   const [installedPwa, setInstalledPwa] = useState(false);
@@ -70,6 +72,7 @@ export default function TeacherLayout({
       setTeacherId("");
       setTeacherFirstName("");
       setUnreadMessageCount(0);
+      setUnreadChatCount(0);
       setStudentMonitoringCount(0);
       setStudentMonitoringOpen(false);
       setShowWelcome(false);
@@ -86,6 +89,7 @@ export default function TeacherLayout({
             setTeacherId("");
             setTeacherFirstName("");
             setUnreadMessageCount(0);
+            setUnreadChatCount(0);
             setStudentMonitoringOpen(false);
             setIsSyllabusCoordinator(false);
           }
@@ -126,6 +130,7 @@ export default function TeacherLayout({
               setTeacherId("");
               setTeacherFirstName("");
               setUnreadMessageCount(0);
+              setUnreadChatCount(0);
               setStudentMonitoringOpen(false);
             }
             return;
@@ -138,6 +143,7 @@ export default function TeacherLayout({
             setTeacherId("");
             setTeacherFirstName("");
             setUnreadMessageCount(0);
+            setUnreadChatCount(0);
             setStudentMonitoringOpen(false);
             setIsSyllabusCoordinator(false);
           }
@@ -219,6 +225,30 @@ export default function TeacherLayout({
     }
   }, [teacherId]);
 
+  const loadUnreadChatCount = useCallback(async () => {
+    if (!teacherId) return;
+    try {
+      const count = await getStaffChatUnreadCount();
+      if (mountedRef.current) setUnreadChatCount(count);
+    } catch (error) {
+      console.error("Unable to load teacher chat count:", error);
+    }
+  }, [teacherId]);
+
+  useEffect(() => {
+    if (!teacherId) return;
+    const refresh = () => void loadUnreadChatCount();
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("staff-chat-unread-changed", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("staff-chat-unread-changed", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [loadUnreadChatCount, teacherId]);
+
   useMessageRealtimeRefresh({
     onRefresh: loadUnreadCount,
     enabled: Boolean(teacherId),
@@ -284,6 +314,7 @@ export default function TeacherLayout({
             firstName={teacherFirstName}
             showWelcome={showWelcome}
             unreadMessageCount={unreadMessageCount}
+            unreadChatCount={unreadChatCount}
             onMenuOpen={() => setMenuOpen(true)}
           />
         )}

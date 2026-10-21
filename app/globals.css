@@ -7526,6 +7526,41 @@ img {
   color: #b42318;
 }
 
+.admin-dashboard-chat-control {
+  align-items: center;
+  background: #f3f8fc;
+  border: 1px solid #d5e4ef;
+  border-radius: 10px;
+  color: var(--ss-blue-dark);
+  display: inline-flex;
+  gap: 7px;
+  justify-content: center;
+  min-height: 42px;
+  min-width: 56px;
+  padding: 9px 11px;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.admin-dashboard-chat-control.has-unread {
+  background: #e6f7ff;
+  border-color: #8bd5ef;
+  color: #006e98;
+}
+
+.admin-dashboard-chat-control:hover {
+  background: #e7f2fa;
+  border-color: #b9d4e7;
+  box-shadow: 0 5px 12px rgba(31, 60, 136, 0.1);
+  transform: translateY(-1px);
+}
+
+.admin-dashboard-chat-control:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.38);
+  outline-offset: 3px;
+}
+
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .admin-portal-header,
   .admin-portal-header .admin-dashboard-message-control {
@@ -29990,6 +30025,41 @@ img {
 .teacher-portal-message-control.has-unread:hover {
   background: #ffe4e8;
   border-color: #fda4af;
+}
+
+.teacher-portal-chat-control {
+  align-items: center;
+  background: #f3f8fc;
+  border: 1px solid #d5e4ef;
+  border-radius: 10px;
+  color: var(--ss-blue-dark);
+  display: inline-flex;
+  gap: 7px;
+  justify-content: center;
+  min-height: 42px;
+  min-width: 56px;
+  padding: 9px 11px;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.teacher-portal-chat-control.has-unread {
+  background: #e6f7ff;
+  border-color: #8bd5ef;
+  color: #006e98;
+}
+
+.teacher-portal-chat-control:hover {
+  background: #e7f2fa;
+  border-color: #b9d4e7;
+  box-shadow: 0 5px 12px rgba(31, 60, 136, 0.1);
+  transform: translateY(-1px);
+}
+
+.teacher-portal-chat-control:focus-visible {
+  outline: 3px solid rgba(47, 125, 184, 0.38);
+  outline-offset: 3px;
 }
 
 .teacher-portal-message-control:focus-visible {
