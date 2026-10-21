@@ -2,6 +2,7 @@
 
 import { Settings as SettingsIcon } from "lucide-react";
 
+import LogoutButton from "../auth/LogoutButton";
 import PwaBiometricToggle from "./PwaBiometricToggle";
 import PwaNotificationToggle from "./PwaNotificationToggle";
 
@@ -19,6 +20,9 @@ export default function AdminPwaSettings() {
         <div className="student-pwa-settings-list">
           <PwaNotificationToggle />
           <PwaBiometricToggle />
+        </div>
+        <div className="admin-pwa-settings-actions">
+          <LogoutButton className="admin-pwa-logout" />
         </div>
       </section>
     </main>

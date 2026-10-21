@@ -24618,6 +24618,29 @@ img {
 .admin-pwa-student-skill-grid small { color: #60758a; font-size: .62rem; font-weight: 750; letter-spacing: 0; overflow-wrap: anywhere; text-transform: none; }
 .admin-pwa-student-skill-grid strong { font-size: .88rem; }
 .admin-pwa-settings-page { max-width: none; min-height: 0; padding: 0; }
+.admin-pwa-settings-actions {
+  border-top: 1px solid rgba(151, 194, 225, 0.28);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+.admin-pwa-logout .portal-logout-button {
+  align-items: center;
+  background: rgba(255, 245, 245, 0.92);
+  border: 1px solid #fecdd3;
+  border-radius: 12px;
+  color: #9f1239;
+  display: inline-flex;
+  font-size: 0.92rem;
+  font-weight: 800;
+  gap: 9px;
+  justify-content: center;
+  min-height: 46px;
+  padding: 10px 14px;
+  width: 100%;
+}
+.admin-pwa-logout .portal-logout-button:hover:not(:disabled) { background: #ffe4e6; border-color: #fda4af; }
+.admin-pwa-logout .portal-logout-button:focus-visible { outline: 3px solid rgba(251, 113, 133, 0.42); outline-offset: 3px; }
+.admin-pwa-logout .portal-logout-error { color: #a32929; margin: 8px 2px 0; }
 
 /* Keep installed-PWA navigation attached to the viewport instead of the
    scrolling content. Explicit sizing prevents safe-area recalculation from

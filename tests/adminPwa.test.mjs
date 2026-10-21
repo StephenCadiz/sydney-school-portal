@@ -9,6 +9,7 @@ const shell = read("app/components/pwa/AdminPwaShell.tsx");
 const dashboard = read("app/components/pwa/AdminPwaDashboard.tsx");
 const studentInformation = read("app/components/pwa/AdminPwaStudentInformation.tsx");
 const settings = read("app/components/pwa/AdminPwaSettings.tsx");
+const logout = read("app/components/auth/LogoutButton.tsx");
 const biometricToggle = read("app/components/pwa/PwaBiometricToggle.tsx");
 const notifications = read("app/components/pwa/PwaInstallAndNotifications.tsx");
 const routeLayout = read("app/admin/layout.tsx");
@@ -63,6 +64,8 @@ test("Admin phone PWA student information is read-only name search", () => {
 test("Admin phone PWA settings reuse the Student PWA notification and biometric controls", () => {
   assert.match(settings, /PwaNotificationToggle/);
   assert.match(settings, /PwaBiometricToggle/);
+  assert.match(settings, /LogoutButton className="admin-pwa-logout"/);
+  assert.match(logout, /router\.replace\("\/login"\)/);
   assert.match(biometricToggle, /registerPasskey/);
   assert.match(biometricToggle, /after logout or session expiry/);
 });
