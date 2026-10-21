@@ -9,6 +9,7 @@ import {
 } from "../../../lib/fridayTutorialResults";
 import { findSchoolClosure } from "../../../lib/schoolClosures";
 import { loadSchoolClosures } from "../../../lib/schoolClosuresServer";
+import { resolveProfileIdForAuthUser } from "../../../lib/cambridgeStudentAccessServer";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -78,10 +79,14 @@ async function getAuthenticatedProfile(request: NextRequest) {
     };
   }
 
+  // Student portal accounts can use an Auth UUID that differs from the
+  // legacy roster/profile UUID. Resolve that mapping before checking the role
+  // or loading any student-owned Friday Tutorial rows.
+  const profileId = await resolveProfileIdForAuthUser(user.id);
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id, role")
-    .eq("id", user.id)
+    .eq("id", profileId)
     .single();
 
   if (profileError || !profile?.role) {
@@ -97,7 +102,7 @@ async function getAuthenticatedProfile(request: NextRequest) {
   }
 
   return {
-    userId: user.id,
+    userId: profileId,
     role: profile.role,
     response: null,
   };

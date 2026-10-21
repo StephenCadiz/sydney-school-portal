@@ -161,6 +161,13 @@ test("Friday Progress HTTP handler prevents cross-student reads and uses eligibl
   assert.ok(!f.calls.some(call => call.table === "friday_tutorial_results"));
 });
 
+test("Friday Progress resolves legacy Auth-to-profile student mappings", () => {
+  const source = readFileSync(resolve(root, "app/api/friday-tutorial-progress/route.ts"), "utf8");
+  assert.match(source, /resolveProfileIdForAuthUser/);
+  assert.match(source, /const profileId = await resolveProfileIdForAuthUser\(user\.id\)/);
+  assert.match(source, /\.eq\("id", profileId\)/);
+});
+
 test("Friday Progress includes results from every current student class", async () => {
   const f = fixture();
   f.rows.current_class_enrolments = [
