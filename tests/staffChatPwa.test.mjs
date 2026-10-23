@@ -78,10 +78,13 @@ test("installed PWA chat uses a WhatsApp-style contact/thread surface without ch
   assert.match(chatView, /staff-chat-pwa-contact/);
   assert.match(chatView, /staff-chat-pwa-message is-own|staff-chat-pwa-message\$\{/);
   assert.match(chatView, /staff-chat-pwa-date/);
+  assert.match(chatView, /staff-chat-pwa-message-sender/);
+  assert.match(chatView, /own \? "You" : message\.sender_name/);
   assert.match(chatView, /Offline · read-only/);
   assert.match(chatView, /staff-chat-pwa-composer/);
   assert.match(chatView, /staff-chat-shell/);
   assert.match(styles, /staff-chat-pwa-message\.is-own/);
+  assert.match(styles, /staff-chat-pwa-message-sender/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
 });
 
