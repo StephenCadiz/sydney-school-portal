@@ -20,27 +20,45 @@ test("confirmed Young Learner rows surface a reminder for only the recommending 
   assert.match(card, /Prepare activities for the student and send them to Admin as soon as possible/);
 });
 
+test("teacher reminders are scoped to the current Madrid school week", () => {
+  assert.match(notices, /getCurrentWeekFriday/);
+  assert.match(notices, /const daysSinceMonday = \(weekday \+ 6\) % 7/);
+  assert.match(notices, /\.eq\("session_date", friday\)/);
+});
+
 test("the reminder excludes completed materials and B1 rows", () => {
   assert.match(notices, /material_received_status !== "yes"/);
   assert.match(notices, /eq\("student_type", "young_learner"\)/);
   assert.match(workflow, /student_type !== "young_learner"/);
 });
 
-test("existing confirmed rows without a message marker are eligible and marker rows are excluded", () => {
-  assert.match(notices, /friday-tutorial-parent-confirmed:\$\{row\.id\}/);
-  assert.match(notices, /messages\.some\(\(item\) => String\(item\.message \|\| ""\)\.includes\(marker\)\)/);
-  assert.match(notices, /return \[\];/);
+test("confirmed rows remain eligible even after the notification message is created", () => {
+  assert.doesNotMatch(notices, /markerRows/);
+  assert.doesNotMatch(notices, /friday-tutorial-parent-confirmed:\$\{row\.id\}/);
+  assert.match(notices, /material_received_status !== "yes"/);
 });
 
-test("Teacher Dashboard renders and acknowledges material reminders", () => {
+test("Teacher Dashboard renders durable material reminders", () => {
   assert.match(teacherPage, /FridayTutorialTeacherMaterialReminderCard/);
   assert.match(teacherPage, /teacher_material_reminders/);
-  assert.match(card, /Acknowledge/);
-  assert.match(card, /teacher-friday-tutorial-material-dismissed/);
+  assert.match(card, /Material Sent to Admin/);
+  assert.match(card, /method: "PATCH"/);
+  assert.match(card, /session_student_id: reminder\.id/);
+  assert.doesNotMatch(card, /localStorage/);
+});
+
+test("teacher acknowledgement is authenticated, teacher-owned, and durable", () => {
+  assert.match(notices, /export async function PATCH/);
+  assert.match(notices, /authenticatePortalActor\(tokenFromRequest\(request\)\)/);
+  assert.match(notices, /String\(tutorialStudent\.teacher_id \|\| ""\) !== actor\.profileId/);
+  assert.match(notices, /material_received_status: "yes"/);
+  assert.match(notices, /updated_at: new Date\(\)\.toISOString\(\)/);
 });
 
 test("the confirmation transition remains idempotent", () => {
   assert.match(workflow, /parent_confirmed_status\.neq\.yes,parent_confirmed_status\.is\.null/);
   assert.match(workflow, /some\(\(message\) => String\(message\.message \|\| ""\)\.includes\(marker\)\)/);
   assert.match(workflow, /return false;/);
+  assert.match(workflow, /eventKey: `friday-tutorial-material:\$\{sessionStudent\.id\}`/);
+  assert.match(notices, /eventKey: `friday-tutorial-material:\$\{reminder\.id\}`/);
 });

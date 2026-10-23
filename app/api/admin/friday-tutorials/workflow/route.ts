@@ -190,7 +190,7 @@ async function notifyYoungLearnerTeacher(
   await sendPortalPush([tutorialStudent.teacher_id], {
     eventKey: `friday-tutorial-material:${sessionStudent.id}`,
     title: "Friday Tutorial material reminder",
-    body: "Prepare activities for the student and send them to Admin as soon as possible.",
+    body: `${studentName} will attend Friday Tutorial on ${session.session_date}. Prepare activities and send them to Admin.`,
     url: "/teacher",
     tag: `friday-tutorial-material:${sessionStudent.id}`,
   });

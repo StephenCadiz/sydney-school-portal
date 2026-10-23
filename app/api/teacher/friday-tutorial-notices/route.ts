@@ -22,7 +22,11 @@ import {
 } from "../../../../lib/fridayTutorialRotationServer";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { getSchoolClosureForDate } from "../../../../lib/schoolClosuresServer";
-import { sendPortalPush } from "../../../../lib/pushNotificationsServer";
+import {
+  authenticatePortalActor,
+  sendPortalPush,
+  tokenFromRequest,
+} from "../../../../lib/pushNotificationsServer";
 
 const RESOURCE_ORDER: Record<
   CambridgeExamPartType,
@@ -71,6 +75,14 @@ function addDays(value: string, days: number) {
 
 function getMadridWeekday(value: string) {
   return new Date(`${value}T12:00:00Z`).getUTCDay();
+}
+
+function getCurrentWeekFriday(today: string) {
+  const weekday = getMadridWeekday(today);
+  // Monday starts the school week. The previous Friday remains visible
+  // through Sunday, then Monday switches to the new Friday.
+  const daysSinceMonday = (weekday + 6) % 7;
+  return addDays(today, 4 - daysSinceMonday);
 }
 
 function getMadridClock(date = new Date()) {
@@ -145,11 +157,11 @@ async function loadDutyReminder(today: string, teacherId: string) {
 }
 
 async function loadTeacherMaterialReminders(today: string, teacherId: string) {
+  const friday = getCurrentWeekFriday(today);
   const { data: sessions, error: sessionsError } = await supabaseAdmin
     .from("friday_tutorial_sessions")
     .select("id, session_date, tutorial_group, start_time, end_time")
-    .gte("session_date", today)
-    .lte("session_date", addDays(today, 7))
+    .eq("session_date", friday)
     .order("session_date", { ascending: true });
   if (sessionsError) throw sessionsError;
   if (!sessions?.length) return [];
@@ -193,15 +205,6 @@ async function loadTeacherMaterialReminders(today: string, teacherId: string) {
     : { data: [], error: null };
   if (levelError) throw levelError;
 
-  const markerRows = await supabaseAdmin
-    .from("messages")
-    .select("message")
-    .eq("receiver_id", teacherId)
-    .eq("subject", "Friday Tutorial: prepare activities")
-    .order("created_at", { ascending: false })
-    .limit(500);
-  if (markerRows.error) throw markerRows.error;
-  const messages = markerRows.data || [];
   const learnerById = new Map((learners || []).map((learner) => [String(learner.id), learner]));
   const classById = new Map((classes || []).map((classRow) => [String(classRow.id), classRow]));
   const levelById = new Map((levels || []).map((level) => [String(level.id), level]));
@@ -211,8 +214,6 @@ async function loadTeacherMaterialReminders(today: string, teacherId: string) {
     const tutorialStudent = tutorialById.get(String(row.tutorial_student_id));
     const session = sessionById.get(String(row.session_id));
     if (!tutorialStudent || !session) return [];
-    const marker = `[friday-tutorial-parent-confirmed:${row.id}]`;
-    if (messages.some((item) => String(item.message || "").includes(marker))) return [];
     const learner = learnerById.get(String(tutorialStudent.young_learner_id));
     const classRow = classById.get(String(tutorialStudent.class_id));
     const level = levelById.get(String(classRow?.level_id));
@@ -372,11 +373,14 @@ export async function GET(request: NextRequest) {
       }
       for (const reminder of teacherMaterialReminders) {
         await sendPortalPush([actor.userId], {
-          eventKey: `teacher-material-reminder:${reminder.id}`,
+          // Use the same event key as the parent-confirmation transition so
+          // this GET remains a safe retry for teachers who subscribed later,
+          // without creating a second notification.
+          eventKey: `friday-tutorial-material:${reminder.id}`,
           title: "Friday Tutorial material reminder",
-          body: "Prepare activities for the student and send them to Admin as soon as possible.",
+          body: `${reminder.student_name} will attend Friday Tutorial on ${reminder.session_date}. Prepare activities and send them to Admin.`,
           url: "/teacher",
-          tag: `teacher-material-reminder:${reminder.id}`,
+          tag: `friday-tutorial-material:${reminder.id}`,
         });
       }
     }
@@ -551,5 +555,59 @@ export async function GET(request: NextRequest) {
     });
   } catch {
     return jsonError("Unable to load Friday Tutorial notices.", 500);
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const actor = await authenticatePortalActor(tokenFromRequest(request));
+    if (!actor || actor.role !== "teacher") {
+      return jsonError("Teacher access required.", 403);
+    }
+
+    const body = await request.json().catch(() => null);
+    const sessionStudentId = String(body?.session_student_id || "").trim();
+    if (!sessionStudentId) return jsonError("A Friday Tutorial row is required.", 400);
+
+    const { data: row, error: rowError } = await supabaseAdmin
+      .from("friday_tutorial_session_students")
+      .select("id, tutorial_student_id, parent_confirmed_status, material_received_status")
+      .eq("id", sessionStudentId)
+      .maybeSingle();
+    if (rowError) throw rowError;
+    if (!row) return jsonError("Friday Tutorial row not found.", 404);
+    if (row.parent_confirmed_status !== "yes") {
+      return jsonError("This student has not been confirmed for Friday Tutorial.", 409);
+    }
+
+    const { data: tutorialStudent, error: tutorialError } = await supabaseAdmin
+      .from("friday_tutorial_students")
+      .select("teacher_id, student_type, active")
+      .eq("id", row.tutorial_student_id)
+      .maybeSingle();
+    if (tutorialError) throw tutorialError;
+    if (
+      !tutorialStudent ||
+      tutorialStudent.student_type !== "young_learner" ||
+      tutorialStudent.active === false ||
+      String(tutorialStudent.teacher_id || "") !== actor.profileId
+    ) {
+      return jsonError("You are not authorised to update this reminder.", 403);
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("friday_tutorial_session_students")
+      .update({ material_received_status: "yes", updated_at: new Date().toISOString() })
+      .eq("id", sessionStudentId)
+      .select("id, material_received_status")
+      .single();
+    if (updateError) throw updateError;
+
+    return NextResponse.json({ success: true, row: updated }, {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    console.error("Friday Tutorial teacher material update failed:", error);
+    return jsonError("Unable to update the Friday Tutorial reminder.", 500);
   }
 }

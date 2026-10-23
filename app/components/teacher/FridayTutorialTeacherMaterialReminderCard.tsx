@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
+
+import { supabase } from "../../../lib/supabase";
 
 type Reminder = {
   id: string;
@@ -27,20 +29,11 @@ export default function FridayTutorialTeacherMaterialReminderCard({
 }: {
   reminders: Reminder[];
 }) {
-  const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
-  const ids = useMemo(() => reminders.map((reminder) => reminder.id).join("|"), [reminders]);
+  const [completed, setCompleted] = useState<Record<string, boolean>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const next: Record<string, boolean> = {};
-    reminders.forEach((reminder) => {
-      next[reminder.id] = window.localStorage.getItem(
-        `teacher-friday-tutorial-material-dismissed:${reminder.id}`
-      ) === "true";
-    });
-    setDismissed(next);
-  }, [ids]);
-
-  const visible = reminders.filter((reminder) => !dismissed[reminder.id]);
+  const visible = reminders.filter((reminder) => !completed[reminder.id]);
   if (!visible.length) return null;
 
   return (
@@ -52,6 +45,7 @@ export default function FridayTutorialTeacherMaterialReminderCard({
           <p>Prepare activities and send them to Admin as soon as possible.</p>
         </div>
       </div>
+      {error ? <p role="alert" className="teacher-dashboard-inline-error">{error}</p> : null}
       <div className="teacher-dashboard-friday-material-list">
         {visible.map((reminder) => (
           <article key={reminder.id} className="teacher-dashboard-friday-material-row">
@@ -64,12 +58,32 @@ export default function FridayTutorialTeacherMaterialReminderCard({
             </div>
             <button
               type="button"
-              onClick={() => {
-                window.localStorage.setItem(`teacher-friday-tutorial-material-dismissed:${reminder.id}`, "true");
-                setDismissed((current) => ({ ...current, [reminder.id]: true }));
+              disabled={savingId === reminder.id}
+              onClick={async () => {
+                setSavingId(reminder.id);
+                setError("");
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (!session?.access_token) throw new Error("Your session has expired. Please sign in again.");
+                  const response = await fetch("/api/teacher/friday-tutorial-notices", {
+                    method: "PATCH",
+                    headers: {
+                      Authorization: `Bearer ${session.access_token}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ session_student_id: reminder.id }),
+                  });
+                  const payload = await response.json().catch(() => ({}));
+                  if (!response.ok) throw new Error(payload.error || "Unable to update this reminder.");
+                  setCompleted((current) => ({ ...current, [reminder.id]: true }));
+                } catch (requestError: any) {
+                  setError(requestError?.message || "Unable to update this reminder.");
+                } finally {
+                  setSavingId(null);
+                }
               }}
             >
-              Acknowledge
+              {savingId === reminder.id ? "Saving…" : "Material Sent to Admin"}
             </button>
           </article>
         ))}
