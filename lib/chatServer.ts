@@ -12,6 +12,22 @@ export type ChatActor = { authUserId: string; profileId: string; role: "admin" |
 export type ChatAttachmentInput = { storagePath: string; fileName: string; mimeType: string; byteSize: number };
 export type ChatReaction = { profile_id: string; profile_name: string; created_at: string };
 
+export const DELETED_CHAT_MESSAGE_BODY = "This message was deleted.";
+
+/**
+ * The message-actions migration is additive. During a rollout, a web server
+ * can briefly run against a database that still has the original chat schema.
+ * Keep ordinary history and sends working in that window, while allowing the
+ * action routes to report a clear migration-pending error.
+ */
+export function isChatMessageActionsSchemaUnavailable(error: unknown) {
+  const code = String((error as any)?.code || "");
+  const message = String((error as any)?.message || "");
+  return ["42703", "PGRST204", "PGRST205"].includes(code)
+    || /column .*?(edited_at|deleted_at|deleted_by).*does not exist/i.test(message)
+    || /could not find the .*?(edited_at|deleted_at|deleted_by).*column/i.test(message);
+}
+
 const SCHOOL_CHAT_AVATAR = "/icons/icon-192.png";
 // Stephen Ferreira has a separate Teacher profile for Staff Chat. His Admin
 // profile remains available to the email-style Messages system only.
@@ -410,10 +426,21 @@ export async function updateChatParticipants(actor: ChatActor, conversationId: s
 
 export async function listChatMessages(actor: ChatActor, conversationId: string, limit = 50, before?: string, after?: string) {
   if (!(await assertParticipant(actor, conversationId))) throw new Error("You do not have access to this conversation.");
-  let query = supabaseAdmin.from("chat_messages").select("id, conversation_id, sender_id, body, created_at").eq("conversation_id", conversationId).order("created_at", { ascending: !after }).limit(Math.min(Math.max(limit, 1), 100));
-  if (before) query = query.lt("created_at", before);
-  if (after) query = query.gt("created_at", after);
-  const { data, error } = await query;
+  const messageLimit = Math.min(Math.max(limit, 1), 100);
+  const loadMessages = (selection: string) => {
+    let query = supabaseAdmin.from("chat_messages").select(selection).eq("conversation_id", conversationId).order("created_at", { ascending: !after }).limit(messageLimit);
+    if (before) query = query.lt("created_at", before);
+    if (after) query = query.gt("created_at", after);
+    return query;
+  };
+  const firstResult = await loadMessages("id, conversation_id, sender_id, body, created_at, edited_at, deleted_at");
+  let data: any[] | null = firstResult.data as any[] | null;
+  let error: any = firstResult.error;
+  if (error && isChatMessageActionsSchemaUnavailable(error)) {
+    const fallbackResult = await loadMessages("id, conversation_id, sender_id, body, created_at");
+    data = fallbackResult.data as any[] | null;
+    error = fallbackResult.error;
+  }
   if (error) throw error;
   const messageIds = (data || []).map((message) => String(message.id));
   const { data: attachments, error: attachmentError } = messageIds.length
@@ -433,7 +460,7 @@ export async function listChatMessages(actor: ChatActor, conversationId: string,
   const readIds = new Set((readResult.data || []).map((row) => String(row.message_id)));
   const reactionsByMessage = await getChatReactions(messageIds);
   const ordered = after ? data || [] : (data || []).reverse();
-  return ordered.map((message) => ({ ...message, sender_name: profileName(profileById.get(String(message.sender_id))), sender_role: profileById.get(String(message.sender_id))?.role || "", read: readIds.has(String(message.id)), attachments: attachmentsByMessage.get(String(message.id)) || [], reactions: reactionsByMessage.get(String(message.id)) || [] }));
+  return ordered.map((message) => ({ ...message, sender_name: profileName(profileById.get(String(message.sender_id))), sender_role: profileById.get(String(message.sender_id))?.role || "", read: readIds.has(String(message.id)), attachments: message.deleted_at ? [] : attachmentsByMessage.get(String(message.id)) || [], reactions: reactionsByMessage.get(String(message.id)) || [] }));
 }
 
 export async function sendChatMessage(actor: ChatActor, conversationId: string, body: string, idempotencyKey: string, attachments: ChatAttachmentInput[] = []) {
@@ -468,6 +495,64 @@ export async function sendChatMessage(actor: ChatActor, conversationId: string, 
     }
   }
   return inserted;
+}
+
+async function assertOwnChatMessage(actor: ChatActor, conversationId: string, messageId: string) {
+  if (!(await assertParticipant(actor, conversationId))) throw new Error("You do not have access to this conversation.");
+  const { data: message, error } = await supabaseAdmin
+    .from("chat_messages")
+    .select("id, conversation_id, sender_id, body, created_at, edited_at, deleted_at")
+    .eq("id", messageId)
+    .eq("conversation_id", conversationId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!message) throw new Error("Message not found.");
+  if (String(message.sender_id) !== String(actor.profileId)) throw new Error("You can only manage your own messages.");
+  return message;
+}
+
+export async function editChatMessage(actor: ChatActor, conversationId: string, messageId: string, body: string) {
+  const message = await assertOwnChatMessage(actor, conversationId, messageId);
+  if (message.deleted_at) throw new Error("Deleted messages cannot be edited.");
+  const trimmed = body.trim();
+  if (!trimmed) throw new Error("Enter a message before saving.");
+  if (trimmed.length > 10000) throw new Error("Messages must be 10,000 characters or fewer.");
+  const { data: updated, error } = await supabaseAdmin
+    .from("chat_messages")
+    .update({ body: trimmed, edited_at: new Date().toISOString() })
+    .eq("id", messageId)
+    .eq("conversation_id", conversationId)
+    .eq("sender_id", actor.profileId)
+    .is("deleted_at", null)
+    .select("id, conversation_id, sender_id, body, created_at, edited_at, deleted_at")
+    .single();
+  if (error) throw error;
+  return updated;
+}
+
+export async function deleteChatMessage(actor: ChatActor, conversationId: string, messageId: string) {
+  const message = await assertOwnChatMessage(actor, conversationId, messageId);
+  if (message.deleted_at) return message;
+  const { data: attachments, error: attachmentLookupError } = await supabaseAdmin
+    .from("chat_attachments")
+    .select("storage_path")
+    .eq("message_id", messageId);
+  if (attachmentLookupError) throw attachmentLookupError;
+  const { data: deleted, error } = await supabaseAdmin
+    .from("chat_messages")
+    .update({ body: DELETED_CHAT_MESSAGE_BODY, edited_at: null, deleted_at: new Date().toISOString(), deleted_by: actor.profileId })
+    .eq("id", messageId)
+    .eq("conversation_id", conversationId)
+    .eq("sender_id", actor.profileId)
+    .is("deleted_at", null)
+    .select("id, conversation_id, sender_id, body, created_at, edited_at, deleted_at")
+    .single();
+  if (error) throw error;
+  if (attachments?.length) {
+    await supabaseAdmin.from("chat_attachments").delete().eq("message_id", messageId);
+    await supabaseAdmin.storage.from("message-attachments").remove(attachments.map((attachment) => String(attachment.storage_path))).catch(() => undefined);
+  }
+  return deleted;
 }
 
 export async function uploadChatFiles(actor: ChatActor, files: File[]) {

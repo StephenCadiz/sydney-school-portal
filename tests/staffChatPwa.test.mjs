@@ -9,6 +9,7 @@ const teacherLayout = read("app/components/layout/TeacherLayout.tsx");
 const bottomNav = read("app/components/pwa/TeacherPwaBottomNav.tsx");
 const migration = read("supabase/migrations/20261009120000_create_staff_chat.sql");
 const reactionsMigration = read("supabase/migrations/20261020100000_add_staff_chat_reactions.sql");
+const messageActionsMigration = read("supabase/migrations/20261023120000_add_staff_chat_message_actions.sql");
 const styles = read("app/globals.css");
 const cache = read("lib/staffChatCache.ts");
 const messagesRoute = read("app/api/chat/conversations/[id]/messages/route.ts");
@@ -16,6 +17,7 @@ const recipientsRoute = read("app/api/chat/recipients/route.ts");
 const conversationsRoute = read("app/api/chat/conversations/route.ts");
 const desktopNotice = read("app/components/chat/DesktopStaffChatNotice.tsx");
 const reactionRoute = read("app/api/chat/conversations/[id]/messages/[messageId]/reaction/route.ts");
+const messageActionsRoute = read("app/api/chat/conversations/[id]/messages/[messageId]/route.ts");
 const unreadCountRoute = read("app/api/chat/unread-count/route.ts");
 const adminLayout = read("app/components/layout/AdminLayout.tsx");
 const portalHeader = read("app/components/layout/PortalHeader.tsx");
@@ -303,12 +305,50 @@ test("chat toggles reactions by left-clicking received messages only", () => {
   assert.match(chatView, /handleMessageClick\(event, message\)/);
   assert.match(chatView, /message\.sender_id === accountId/);
   assert.match(chatView, /message\.sender_id === currentAccountId\(\)/);
-  assert.doesNotMatch(chatView, /onContextMenu=/);
   assert.match(chatView, /method: reacted \? "DELETE" : "POST"/);
-  assert.match(chatView, /if \(message\.sender_id === currentAccountId\(\)\) return/);
+  assert.match(chatView, /if \(message\.sender_id === currentAccountId\(\)/);
   assert.match(chatView, /closest\("button, a, input, textarea"\)/);
   assert.match(styles, /staff-chat-reactions\.is-visible \{ display: flex; \}/);
   assert.match(styles, /top: calc\(100% \+ 6px\)/);
   assert.match(styles, /:has\(\.staff-chat-reactions\)/);
   assert.match(styles, /staff-chat-message\.can-react/);
+});
+
+test("sent chat messages support PWA long-press and desktop right-click actions", () => {
+  assert.match(chatView, /startMessageLongPress/);
+  assert.match(chatView, /onContextMenu=\{\(event\) => handleMessageContextMenu\(event, message\)\}/);
+  assert.match(chatView, /Edit message/);
+  assert.match(chatView, /Delete message/);
+  assert.match(chatView, /Copy message/);
+  assert.match(chatView, /Message edited\./);
+  assert.match(chatView, /Message deleted for everyone\./);
+  assert.match(chatView, /navigator\.clipboard\.writeText/);
+  assert.match(chatView, /Save/);
+  assert.match(chatView, /Cancel/);
+  assert.match(messageActionsRoute, /export async function PATCH/);
+  assert.match(messageActionsRoute, /export async function DELETE/);
+  assert.match(chatServer, /editChatMessage/);
+  assert.match(chatServer, /deleteChatMessage/);
+  assert.match(chatServer, /You can only manage your own messages/);
+  assert.match(messageActionsMigration, /edited_at/);
+  assert.match(messageActionsMigration, /deleted_at/);
+  assert.match(messageActionsMigration, /deleted_by/);
+  assert.match(styles, /staff-chat-message-actions-layer/);
+  assert.match(styles, /staff-chat-message-editor/);
+});
+
+test("message editor closes cleanly and keeps both action buttons readable", () => {
+  assert.match(chatView, /function closeMessageEditor\(\)/);
+  assert.match(chatView, /closeMessageEditor\(\);/);
+  assert.match(styles, /staff-chat-message-editor button\.is-secondary \{ background: #eaf4ff; border-color: #d9edff; color: #173b6b; \}/);
+  assert.match(styles, /staff-chat-message-editor button:disabled \{ cursor: not-allowed; opacity: 1; \}/);
+});
+
+test("chat history and idempotent sends remain compatible while message-actions migration is pending", () => {
+  assert.match(chatServer, /isChatMessageActionsSchemaUnavailable/);
+  assert.match(chatServer, /loadMessages\("id, conversation_id, sender_id, body, created_at, edited_at, deleted_at"\)/);
+  assert.match(chatServer, /loadMessages\("id, conversation_id, sender_id, body, created_at"\)/);
+  assert.match(chatServer, /select\("id, conversation_id, sender_id, body, created_at"\)/);
+  assert.match(messageActionsRoute, /Message actions are not available until the chat update is applied\./);
+  assert.match(messageActionsRoute, /status = schemaUnavailable \? 503/);
 });
