@@ -100,6 +100,14 @@ test("PWA chat opens at the newest message and follows new incoming messages", (
   assert.match(chatView, /previousTop \+ \(element\.scrollHeight - previousHeight\)/);
 });
 
+test("desktop chat opens at the newest message", () => {
+  assert.match(chatView, /desktopScrollToBottomRef/);
+  assert.match(chatView, /if \(installedPwa \|\| !desktopScrollToBottomRef\.current\) return/);
+  assert.match(chatView, /document\.querySelector<HTMLDivElement>\("\.staff-chat-messages"\)/);
+  assert.match(chatView, /desktopScrollToBottomRef\.current = false/);
+  assert.match(chatView, /desktopScrollToBottomRef\.current = true/);
+});
+
 test("desktop chat separates sent and received messages visually", () => {
   assert.match(chatView, /message\.sender_id === accountId/);
   assert.match(chatView, /staff-chat-message\$\{own \? " is-own" : ""\}/);

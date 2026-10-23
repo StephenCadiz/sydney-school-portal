@@ -73,6 +73,7 @@ export default function StaffChatView() {
   const messagesRef = useRef<ChatMessage[]>([]);
   const pwaMessagesRef = useRef<HTMLDivElement | null>(null);
   const pwaScrollToBottomRef = useRef(false);
+  const desktopScrollToBottomRef = useRef(false);
   const messageLoadTokenRef = useRef(0);
   const installedPwaRef = useRef(false);
   const conversationSnapshotRef = useRef(new Map<string, { unreadCount: number; lastMessageAt: string }>());
@@ -97,6 +98,14 @@ export default function StaffChatView() {
     element.scrollTop = element.scrollHeight;
     pwaScrollToBottomRef.current = false;
   }, [installedPwa, pwaThreadOpen, selectedId, messages.length, messages[messages.length - 1]?.id]);
+
+  useLayoutEffect(() => {
+    if (installedPwa || !desktopScrollToBottomRef.current) return;
+    const element = document.querySelector<HTMLDivElement>(".staff-chat-messages");
+    if (!element) return;
+    element.scrollTop = element.scrollHeight;
+    desktopScrollToBottomRef.current = false;
+  }, [installedPwa, selectedId, messages.length, messages[messages.length - 1]?.id]);
 
   useEffect(() => { const update = () => { const nextInstalledPwa = window.matchMedia("(display-mode: standalone)").matches || Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone); installedPwaRef.current = nextInstalledPwa; setInstalledPwa(nextInstalledPwa); if (nextInstalledPwa) setDesktopNotice(null); }; update(); window.addEventListener("resize", update); return () => window.removeEventListener("resize", update); }, []);
   useEffect(() => { setOffline(!navigator.onLine); const online = () => setOffline(false); const offlineEvent = () => setOffline(true); window.addEventListener("online", online); window.addEventListener("offline", offlineEvent); return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offlineEvent); }; }, []);
@@ -206,6 +215,7 @@ export default function StaffChatView() {
     const previousLastId = messagesRef.current[messagesRef.current.length - 1]?.id;
     if (!preserveExisting) {
       pwaScrollToBottomRef.current = true;
+      desktopScrollToBottomRef.current = true;
       messagesRef.current = [];
       setMessages([]);
     }
@@ -214,7 +224,10 @@ export default function StaffChatView() {
     const cached = currentAccount ? ((await getCachedMessages(currentAccount, conversationId)) as ChatMessage[]) : [];
     if (requestToken !== messageLoadTokenRef.current) return;
     // An empty cache is a valid state: show the composer and empty state immediately.
-    if (!preserveExisting || cached[cached.length - 1]?.id !== previousLastId) pwaScrollToBottomRef.current = true;
+    if (!preserveExisting || cached[cached.length - 1]?.id !== previousLastId) {
+      pwaScrollToBottomRef.current = true;
+      desktopScrollToBottomRef.current = true;
+    }
     messagesRef.current = cached;
     setMessages(cached);
     if (!navigator.onLine) return;
@@ -224,7 +237,10 @@ export default function StaffChatView() {
       const response = await fetch(`/api/chat/conversations/${conversationId}/messages${query}`, { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.error || "Unable to load chat history.");
       const incoming = (payload.messages || []) as ChatMessage[]; const merged = Array.from(new Map([...cached, ...incoming].map((message) => [message.id, message])).values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       if (requestToken !== messageLoadTokenRef.current) return;
-      if (merged.length > cached.length || merged[merged.length - 1]?.id !== previousLastId) pwaScrollToBottomRef.current = true;
+      if (merged.length > cached.length || merged[merged.length - 1]?.id !== previousLastId) {
+        pwaScrollToBottomRef.current = true;
+        desktopScrollToBottomRef.current = true;
+      }
       messagesRef.current = merged;
       setMessages(merged); if (currentAccount) void saveCachedMessages(currentAccount, conversationId, merged);
       await fetch(`/api/chat/conversations/${conversationId}/read`, { method: "POST", headers }); setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, unread_count: 0 } : conversation)); window.dispatchEvent(new Event("staff-chat-unread-changed"));
