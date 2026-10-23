@@ -295,6 +295,8 @@ test("staff chat supports one thumbs-up per member and names group reactors", ()
   assert.match(chatView, /Remove thumbs up/);
   assert.match(styles, /staff-chat-reaction-toggle\.is-active/);
   assert.match(styles, /staff-chat-reaction-names/);
+  assert.match(styles, /staff-chat-reaction-names \{ color: #1f4f8f;/);
+  assert.match(styles, /staff-chat-message\.is-own[\s\S]*staff-chat-pwa-message\.is-own[\s\S]*color: #1f4f8f/);
 });
 
 test("chat toggles reactions by left-clicking received messages only", () => {

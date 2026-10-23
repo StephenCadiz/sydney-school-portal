@@ -19451,10 +19451,10 @@ img {
 .staff-chat-reaction-toggle:hover { border-color: #2f7db8; transform: translateY(-1px); }
 .staff-chat-reaction-toggle.is-active { background: #d9f3ff; border-color: #2f9ed1; box-shadow: 0 0 0 2px rgba(47,158,209,.12); }
 .staff-chat-reaction-toggle:disabled { cursor: not-allowed; opacity: .55; }
-.staff-chat-reactions b { color: #315b82; font-size: .75rem; }
-.staff-chat-reaction-names { color: #69809b; font-size: .72rem; max-width: min(320px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.staff-chat-message.is-own .staff-chat-reactions b, .staff-chat-message.is-own .staff-chat-reaction-names { color: #d9edff; }
-.staff-chat-pwa-message.is-own .staff-chat-reactions b, .staff-chat-pwa-message.is-own .staff-chat-reaction-names { color: #2f6f9e; }
+.staff-chat-reactions b { color: #1f4f8f; font-size: .75rem; }
+.staff-chat-reaction-names { color: #1f4f8f; font-size: .72rem; max-width: min(320px, 100%); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.staff-chat-message.is-own .staff-chat-reactions b, .staff-chat-message.is-own .staff-chat-reaction-names,
+.staff-chat-pwa-message.is-own .staff-chat-reactions b, .staff-chat-pwa-message.is-own .staff-chat-reaction-names { color: #1f4f8f; }
 .staff-chat-message:has(.staff-chat-reactions), .staff-chat-pwa-message:has(.staff-chat-reactions) { margin-bottom: 38px; }
 .staff-chat-message.is-own .staff-chat-reactions, .staff-chat-pwa-message.is-own .staff-chat-reactions { left: auto; right: 0; }
 .staff-chat-pwa-message .staff-chat-reaction-names { max-width: 170px; }
