@@ -1171,9 +1171,11 @@ export default function AdminLayout({
               aria-label={unreadChatCount > 0 ? `Chat, ${unreadChatCount} unread message${unreadChatCount === 1 ? "" : "s"}` : "Chat, no unread messages"}
             >
               <AdminNavIcon name="messageCircle" size={24} />
-              <span className="admin-dashboard-message-count" aria-hidden="true">
-                {unreadChatCount > 99 ? "99+" : unreadChatCount}
-              </span>
+              {unreadChatCount > 0 && (
+                <span className="admin-dashboard-message-count" aria-hidden="true">
+                  {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                </span>
+              )}
             </Link>
             <TeacherLiveClock showLabel={false} />
           </div>

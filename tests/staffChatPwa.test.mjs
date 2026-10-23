@@ -191,6 +191,15 @@ test("Teacher and Admin dashboard headers expose separate Staff Chat unread indi
   assert.match(styles, /\.admin-dashboard-chat-control/);
 });
 
+test("dashboard chat indicators use red unread badges and a reduced-motion-safe pulse", () => {
+  assert.match(portalHeader, /unreadChatCount > 0 && <span/);
+  assert.match(adminLayout, /unreadChatCount > 0 && \([\s\S]*admin-dashboard-message-count/);
+  assert.match(styles, /\.teacher-portal-chat-control\.has-unread[\s\S]*animation: ss-chat-unread-pulse/);
+  assert.match(styles, /\.admin-dashboard-chat-control\.has-unread[\s\S]*background: #fff1f2/);
+  assert.match(styles, /@keyframes ss-chat-unread-pulse/);
+  assert.match(styles, /prefers-reduced-motion: reduce[\s\S]*admin-pwa-chat-control\.has-unread/);
+});
+
 test("dashboard chat indicators refresh without marking conversations read", () => {
   assert.match(teacherLayout, /setInterval\(refresh, 30_000\)/);
   assert.match(adminLayout, /setInterval\(refresh, 30_000\)/);

@@ -161,7 +161,7 @@ export default function PortalHeader({
           aria-label={unreadChatLabel}
         >
           <MessageCircle aria-hidden="true" size={20} />
-          <span aria-hidden="true">{visibleUnreadChatCount}</span>
+          {unreadChatCount > 0 && <span aria-hidden="true">{visibleUnreadChatCount}</span>}
         </Link>
         <TeacherLiveClock showLabel={false} />
         <button

@@ -85,6 +85,14 @@ test("Admin PWA opens the existing Staff Chat and preserves participant authoriz
   assert.match(shell, /staff-chat-unread-changed/);
 });
 
+test("Admin PWA dashboard header exposes the animated red Staff Chat indicator", () => {
+  assert.match(shell, /admin-pwa-chat-control/);
+  assert.match(shell, /unreadCount > 0/);
+  assert.match(shell, /MessageCircle/);
+  assert.match(styles, /\.admin-pwa-chat-control\.has-unread[\s\S]*animation: ss-chat-unread-pulse/);
+  assert.match(styles, /\.admin-pwa-chat-control\.has-unread[\s\S]*color: #b42318/);
+});
+
 test("Admin PWA bottom navigation supports iOS safe areas and mobile focus", () => {
   assert.match(styles, /\.admin-pwa-bottom-nav/);
   assert.match(styles, /env\(safe-area-inset-bottom\)/);

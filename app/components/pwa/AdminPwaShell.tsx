@@ -85,9 +85,25 @@ export default function AdminPwaShell({
           priority
           className="admin-pwa-logo"
         />
-        <div className="admin-pwa-identity" aria-live="polite">
-          <span className="admin-pwa-eyebrow">ADMIN PORTAL</span>
-          <strong>{loading ? "Loading your workspace…" : displayName}</strong>
+        <div className="admin-pwa-header-right">
+          <div className="admin-pwa-identity" aria-live="polite">
+            <span className="admin-pwa-eyebrow">ADMIN PORTAL</span>
+            <strong>{loading ? "Loading your workspace…" : displayName}</strong>
+          </div>
+          <Link
+            href="/admin/chat"
+            className={`admin-pwa-chat-control${unreadCount > 0 ? " has-unread" : ""}`}
+            aria-label={unreadCount > 0 ? `Chat, ${unreadCount} unread message${unreadCount === 1 ? "" : "s"}` : "Chat, no unread messages"}
+          >
+            <span className="admin-pwa-nav-icon-wrap">
+              <MessageCircle size={22} aria-hidden="true" />
+              {unreadCount > 0 && (
+                <span className="admin-pwa-unread-badge" aria-hidden="true">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </span>
+          </Link>
         </div>
       </header>}
 

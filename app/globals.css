@@ -7544,9 +7544,20 @@ img {
 }
 
 .admin-dashboard-chat-control.has-unread {
-  background: #e6f7ff;
-  border-color: #8bd5ef;
-  color: #006e98;
+  animation: ss-chat-unread-pulse 2.2s ease-in-out infinite;
+  background: #fff1f2;
+  border-color: #fda4af;
+  color: #b42318;
+}
+
+.admin-dashboard-chat-control.has-unread .admin-dashboard-message-count {
+  background: #dc2626;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 11px;
+  min-width: 20px;
+  padding: 4px 6px;
+  text-align: center;
 }
 
 .admin-dashboard-chat-control:hover {
@@ -7554,6 +7565,11 @@ img {
   border-color: #b9d4e7;
   box-shadow: 0 5px 12px rgba(31, 60, 136, 0.1);
   transform: translateY(-1px);
+}
+
+.admin-dashboard-chat-control.has-unread:hover {
+  background: #ffe4e8;
+  border-color: #fda4af;
 }
 
 .admin-dashboard-chat-control:focus-visible {
@@ -24469,9 +24485,30 @@ img {
   padding: max(14px, env(safe-area-inset-top)) 18px 14px;
 }
 .admin-pwa-logo { height: auto; max-width: min(48vw, 190px); width: auto; }
+.admin-pwa-header-right { align-items: center; display: flex; gap: 10px; min-width: 0; }
 .admin-pwa-identity { display: grid; gap: 3px; min-width: 0; text-align: right; }
 .admin-pwa-identity strong { color: #173b6b; font-size: .96rem; overflow-wrap: anywhere; }
 .admin-pwa-eyebrow { color: #2f7db8; font-size: .68rem; font-weight: 850; letter-spacing: .13em; }
+.admin-pwa-chat-control {
+  align-items: center;
+  background: #f3f8fc;
+  border: 1px solid #d5e4ef;
+  border-radius: 12px;
+  color: #1f5f9f;
+  display: inline-flex;
+  flex: 0 0 44px;
+  height: 44px;
+  justify-content: center;
+  text-decoration: none;
+  width: 44px;
+}
+.admin-pwa-chat-control.has-unread {
+  animation: ss-chat-unread-pulse 2.2s ease-in-out infinite;
+  background: #fff1f2;
+  border-color: #fda4af;
+  color: #b42318;
+}
+.admin-pwa-chat-control:focus-visible { outline: 3px solid rgba(47,125,184,.38); outline-offset: 3px; }
 .admin-pwa-main { flex: 1; margin: 0 auto; max-width: 760px; padding: 24px 16px 28px; width: 100%; }
 .admin-pwa-landing, .admin-pwa-status {
   background: rgba(255,255,255,.78);
@@ -24776,6 +24813,8 @@ img {
   .admin-pwa-header { gap: 8px; padding-left: 12px; padding-right: 12px; }
   .admin-pwa-logo { max-width: 43vw; }
   .admin-pwa-identity strong { font-size: .86rem; }
+  .admin-pwa-header-right { gap: 6px; }
+  .admin-pwa-chat-control { flex-basis: 40px; height: 40px; width: 40px; }
   .admin-pwa-main { padding-left: 12px; padding-right: 12px; }
 }
 .staff-chat-page { margin: 0 auto; max-width: 1480px; min-width: 0; }
@@ -30047,9 +30086,22 @@ img {
 }
 
 .teacher-portal-chat-control.has-unread {
-  background: #e6f7ff;
-  border-color: #8bd5ef;
-  color: #006e98;
+  animation: ss-chat-unread-pulse 2.2s ease-in-out infinite;
+  background: #fff1f2;
+  border-color: #fda4af;
+  color: #b42318;
+}
+
+.teacher-portal-chat-control.has-unread > span {
+  background: #dc2626;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  min-width: 20px;
+  padding: 4px 6px;
+  text-align: center;
 }
 
 .teacher-portal-chat-control:hover {
@@ -30059,9 +30111,31 @@ img {
   transform: translateY(-1px);
 }
 
+.teacher-portal-chat-control.has-unread:hover {
+  background: #ffe4e8;
+  border-color: #fda4af;
+}
+
 .teacher-portal-chat-control:focus-visible {
   outline: 3px solid rgba(47, 125, 184, 0.38);
   outline-offset: 3px;
+}
+
+@keyframes ss-chat-unread-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-dashboard-chat-control.has-unread,
+  .teacher-portal-chat-control.has-unread,
+  .admin-pwa-chat-control.has-unread {
+    animation: none;
+  }
 }
 
 .teacher-portal-message-control:focus-visible {
