@@ -88,6 +88,16 @@ test("installed PWA chat uses a WhatsApp-style contact/thread surface without ch
   assert.match(styles, /env\(safe-area-inset-bottom\)/);
 });
 
+test("PWA chat opens at the newest message and follows new incoming messages", () => {
+  assert.match(chatView, /pwaMessagesRef/);
+  assert.match(chatView, /pwaScrollToBottomRef/);
+  assert.match(chatView, /element\.scrollTop = element\.scrollHeight/);
+  assert.match(chatView, /ref=\{pwaMessagesRef\}/);
+  assert.match(chatView, /preserveExisting: true/);
+  assert.match(chatView, /setInterval\(\(\) => \{[\s\S]*loadMessages\(selectedId, \{ preserveExisting: true \}\)/);
+  assert.match(chatView, /previousTop \+ \(element\.scrollHeight - previousHeight\)/);
+});
+
 test("desktop chat separates sent and received messages visually", () => {
   assert.match(chatView, /message\.sender_id === accountId/);
   assert.match(chatView, /staff-chat-message\$\{own \? " is-own" : ""\}/);
