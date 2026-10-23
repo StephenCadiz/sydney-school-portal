@@ -108,6 +108,13 @@ test("desktop chat opens at the newest message", () => {
   assert.match(chatView, /desktopScrollToBottomRef\.current = true/);
 });
 
+test("desktop chat keeps a fixed shell with independently scrolling panes", () => {
+  assert.match(styles, /@media \(min-width: 761px\) \{[\s\S]*\.staff-chat-shell \{ height: min\(720px, calc\(100dvh - 340px\)\); min-height: 480px; \}/);
+  assert.match(styles, /\.staff-chat-conversations \{ min-height: 0; overflow-y: auto; overscroll-behavior: contain; \}/);
+  assert.match(styles, /\.staff-chat-thread \{ min-height: 0; overflow: hidden; \}/);
+  assert.match(styles, /\.staff-chat-messages \{ min-height: 0; overscroll-behavior: contain; \}/);
+});
+
 test("desktop chat separates sent and received messages visually", () => {
   assert.match(chatView, /message\.sender_id === accountId/);
   assert.match(chatView, /staff-chat-message\$\{own \? " is-own" : ""\}/);
