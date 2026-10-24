@@ -22,17 +22,6 @@ function getGeneratedTitle(category: string) {
   return `${category || "Other"} Follow-Up`;
 }
 
-function normalizeStudentIdentity(document: any) {
-  const studentType = document.student_type || "cambridge";
-  const isYoungLearner = studentType === "young_learner";
-
-  return {
-    student_type: studentType,
-    student_id: isYoungLearner ? null : document.student_id,
-    young_learner_id: isYoungLearner ? document.young_learner_id : null,
-  };
-}
-
 async function safelySuggestFridayTutorial(followUp: any) {
   if (followUp?.category !== "Academic") {
     return;
@@ -105,104 +94,6 @@ export async function createFollowUpEntry(documentId: string, entryData: any) {
   }
 
   return data;
-}
-
-export async function getExistingFollowUpDocumentForStudentCategory(
-  identity: any,
-  category: string
-) {
-  let query = supabase
-    .from("follow_up_documents")
-    .select("*")
-    .eq("student_type", identity.student_type)
-    .eq("category", category)
-    .limit(1);
-
-  query =
-    identity.student_type === "young_learner"
-      ? query.eq("young_learner_id", identity.young_learner_id)
-      : query.eq("student_id", identity.student_id);
-
-  const { data, error } = await query.maybeSingle();
-
-  if (error) {
-    throw new Error(formatSupabaseError("existing document lookup", error));
-  }
-
-  return data;
-}
-
-async function createOrUpdateDocumentAndEntry(document: any) {
-  const identity = normalizeStudentIdentity(document);
-  const category = document.category || "Other";
-  const title = getGeneratedTitle(category);
-  const documentPayload = {
-    ...identity,
-    class_id: document.class_id,
-    teacher_id: document.teacher_id,
-    title,
-    category,
-    status: document.status || "Open",
-    recommend_friday_tutorial: category === "Academic",
-    admin_seen: false,
-    updated_at: new Date().toISOString(),
-  };
-
-  let followUpDocument = await getExistingFollowUpDocumentForStudentCategory(
-    identity,
-    category
-  );
-
-  if (followUpDocument) {
-    const { data, error } = await supabase
-      .from("follow_up_documents")
-      .update(documentPayload)
-      .eq("id", followUpDocument.id)
-      .select("*")
-      .single();
-
-    if (error) {
-      throw new Error(formatSupabaseError("document update", error));
-    }
-
-    followUpDocument = data;
-  } else {
-    const { data, error } = await supabase
-      .from("follow_up_documents")
-      .insert([documentPayload])
-      .select("*")
-      .single();
-
-    if (error) {
-      if (error.code === "23505") {
-        followUpDocument = await getExistingFollowUpDocumentForStudentCategory(
-          identity,
-          category
-        );
-      } else {
-        throw new Error(formatSupabaseError("document save", error));
-      }
-    } else {
-      followUpDocument = data;
-    }
-  }
-
-  if (!followUpDocument?.id) {
-    throw new Error("Follow-up save failed: unable to find or create document.");
-  }
-
-  await createFollowUpEntry(followUpDocument.id, {
-    teacher_id: document.teacher_id,
-    details: document.details,
-    action_plan: document.action_plan,
-  });
-
-  await safelySuggestFridayTutorial(followUpDocument);
-
-  return {
-    ...followUpDocument,
-    entries: await getFollowUpEntries(followUpDocument.id),
-  };
 }
 
 async function enrichFollowUpDocuments(documents: any[]) {
@@ -343,7 +234,38 @@ export async function getFollowUpsForClass(classId: string) {
 }
 
 export async function createFollowUpDocument(document: any) {
-  return createOrUpdateDocumentAndEntry(document);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error("Follow-up save failed: authentication is required.");
+  }
+
+  const response = await fetch("/api/teacher/follow-ups", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(document),
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to save the follow-up document.");
+  }
+
+  const followUp = payload?.followUp;
+  if (!followUp?.id) {
+    throw new Error("Follow-up save failed: the server returned no document.");
+  }
+
+  // Keep the existing Academic follow-up → Friday Tutorial suggestion. The
+  // document save is now server-authorized; this best-effort side effect can
+  // remain client-side and must never make the document save look failed.
+  await safelySuggestFridayTutorial(followUp);
+  return followUp;
 }
 
 export async function updateFollowUpDocument(id: string, updates: any) {
