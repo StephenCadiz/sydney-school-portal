@@ -159,6 +159,15 @@ test("PWA chat composer puts attachments first and grows the message field", () 
   assert.match(chatView, /element\.style\.overflowY = element\.scrollHeight > maxHeight \? "auto" : "hidden"/);
 });
 
+test("PWA chat previews selected attachments and allows attachment-only messages", () => {
+  assert.match(chatView, /attachmentPreviews/);
+  assert.match(chatView, /renderPwaAttachmentPreview/);
+  assert.match(chatView, /attachmentFiles\.length === 0/);
+  assert.match(chatView, /Remove \$\{file\.name\}/);
+  assert.match(chatServer, /if \(!trimmed && !attachments\.length\) throw new Error\("Enter a message before sending\."\)/);
+  assert.match(styles, /staff-chat-pwa-attachment-preview/);
+});
+
 test("PWA chat resets the header when returning to the contact list", () => {
   assert.match(chatView, /staff-chat-pwa-brand-school/);
   assert.match(chatView, /staff-chat-pwa-school-mark/);

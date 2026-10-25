@@ -466,7 +466,7 @@ export async function listChatMessages(actor: ChatActor, conversationId: string,
 export async function sendChatMessage(actor: ChatActor, conversationId: string, body: string, idempotencyKey: string, attachments: ChatAttachmentInput[] = []) {
   if (!(await assertParticipant(actor, conversationId))) throw new Error("You do not have access to this conversation.");
   const trimmed = body.trim();
-  if (!trimmed) throw new Error("Enter a message before sending.");
+  if (!trimmed && !attachments.length) throw new Error("Enter a message before sending.");
   if (!idempotencyKey || idempotencyKey.length > 120) throw new Error("A valid message request key is required.");
   if (attachments.length > MESSAGE_ATTACHMENT_MAX_COUNT) throw new Error("You can attach up to 10 files.");
   const existing = await supabaseAdmin.from("chat_messages").select("id, conversation_id, sender_id, body, created_at").eq("conversation_id", conversationId).eq("sender_id", actor.profileId).eq("idempotency_key", idempotencyKey).maybeSingle();
