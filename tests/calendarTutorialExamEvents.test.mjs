@@ -32,7 +32,8 @@ test("Friday Tutorial groups choose the nearest Madrid-local Friday and include 
   assert.match(groups, /session\.session_date.*< today/);
   assert.match(groups, /date === today/);
   assert.match(groups, /end <= nowMinutes/);
-  assert.match(groups, /items: sorted\.map/);
+  assert.match(groups, /const items = sorted\.flatMap\(getFridayTutorialCalendarItems\)/);
+  assert.match(groups, /items,/);
   assert.match(groups, /Kids 2–Junior 3 Tutorial/);
   assert.match(groups, /friday_tutorial_sessions/);
   assert.match(groups, /order\("session_date", \{ ascending: true \}\)/);
@@ -131,6 +132,16 @@ test("B1 duty calendar items use 17:00–18:00 while general duty remains 18:00�
   assert.match(groups, /start_time: duty\.b1_teacher_id \? "17:00" : "18:00"/);
   assert.match(read("lib/fridayTutorials.ts"), /general: \{ start_time: "18:00", end_time: "19:00" \}/);
   assert.match(read("lib/fridayTutorials.ts"), /b1: \{ start_time: "17:00", end_time: "18:00" \}/);
+});
+
+test("School Calendar splits B1 rotation entries into B1 and General time windows", () => {
+  assert.match(groups, /getFridayTutorialCalendarItems/);
+  assert.match(groups, /label: "B1 Tutorial"/);
+  assert.match(groups, /label: "General Tutorial — Junior 4–Teens 1"/);
+  assert.match(groups, /id: `\$\{row\.id\}-b1`/);
+  assert.match(groups, /id: `\$\{row\.id\}-general`/);
+  assert.match(read("lib/fridayTutorialRotation.ts"), /start_time: isB1Session \? "17:00" : "18:00"/);
+  assert.match(read("lib/fridayTutorialRotation.ts"), /end_time: isB1Session \? "18:00" : "19:00"/);
 });
 
 test("A named Cambridge activity takes precedence over generic Friday @ 6 duty text", () => {

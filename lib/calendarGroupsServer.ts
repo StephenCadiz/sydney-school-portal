@@ -8,6 +8,7 @@ import {
 } from "./calendarGroups";
 import {
   assignEffectiveFridayTutorialDutyDates,
+  isB1FridayTutorialSession,
   getFridayTutorialSessionTypeForDate,
   type FridayTutorialRotationClosure,
   type FridayTutorialRotationSettings,
@@ -60,6 +61,42 @@ function displayTutorialLabel(value: unknown) {
     .trim();
 }
 
+function getFridayTutorialCalendarItems(row: {
+  id: string;
+  tutorial_group?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+}) {
+  const label = displayTutorialLabel(row.tutorial_group);
+  if (!isB1FridayTutorialSession(row.tutorial_group)) {
+    return [
+      {
+        id: String(row.id),
+        label,
+        start_time: row.start_time || null,
+        end_time: row.end_time || null,
+      },
+    ];
+  }
+
+  const b1Window = getFridayTutorialTimeWindow(FRIDAY_AT_6_DUTY_TYPES.B1);
+  const generalWindow = getFridayTutorialTimeWindow(FRIDAY_AT_6_DUTY_TYPES.GENERAL);
+  return [
+    {
+      id: `${row.id}-b1`,
+      label: "B1 Tutorial",
+      start_time: b1Window.start_time,
+      end_time: b1Window.end_time,
+    },
+    {
+      id: `${row.id}-general`,
+      label: "General Tutorial — Junior 4–Teens 1",
+      start_time: generalWindow.start_time,
+      end_time: generalWindow.end_time,
+    },
+  ];
+}
+
 export function selectUpcomingFridayTutorialGroup(
   sessions: readonly {
     id: string;
@@ -89,22 +126,18 @@ export function selectUpcomingFridayTutorialGroup(
       (a, b) => String(a.start_time || "").localeCompare(String(b.start_time || "")) ||
         String(a.id).localeCompare(String(b.id))
     );
+    const items = sorted.flatMap(getFridayTutorialCalendarItems);
     return {
       id: `friday-tutorial-${date}`,
       kind: "friday_tutorial" as const,
       title: "Friday Tutorials",
       event_date: date,
       end_date: date,
-      start_time: sorted[0]?.start_time || null,
-      end_time: sorted.reduce<string | null>((latest, row) =>
-        !latest || String(row.end_time || "") > latest ? row.end_time || null : latest, null),
+      start_time: items[0]?.start_time || null,
+      end_time: items.reduce<string | null>((latest, item) =>
+        !latest || String(item.end_time || "") > latest ? item.end_time || null : latest, null),
       description: "Upcoming Friday tutorial and workshop sessions.",
-      items: sorted.map((row) => ({
-        id: String(row.id),
-        label: displayTutorialLabel(row.tutorial_group),
-        start_time: row.start_time || null,
-        end_time: row.end_time || null,
-      })),
+      items,
     };
   }
   return null;

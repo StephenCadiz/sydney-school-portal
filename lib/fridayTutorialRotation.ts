@@ -157,17 +157,18 @@ function rotationEntry(
     closures
   );
   const label = sessionType ? getTutorialGroupLabel(sessionType) : "No Friday Tutorial";
+  const isB1Session = isB1FridayTutorialSession(sessionType);
 
   return {
     session_date: sessionDate,
     tutorial_group: sessionType,
     tutorial_group_label: label,
-    start_time: "18:00",
-    end_time: "19:00",
+    start_time: isB1Session ? "17:00" : "18:00",
+    end_time: isB1Session ? "18:00" : "19:00",
     date: sessionDate,
     session_type: sessionType,
     session_label: label,
-    time: isB1FridayTutorialSession(sessionType)
+    time: isB1Session
       ? "B1 17:00-18:00 · General 18:00-19:00"
       : "18:00-19:00",
     school_closed: Boolean(closure),
