@@ -279,9 +279,14 @@ export default function StaffChatView() {
   async function sendMessage() { if (!selectedId || !composer.trim() || sending || offline) return; const headers = await authHeaders(); if (!headers) return; setSending(true); setError(""); try { const formData = new FormData(); formData.set("body", composer); formData.set("idempotencyKey", crypto.randomUUID()); attachmentFiles.forEach((file) => formData.append("files", file)); const response = await fetch(`/api/chat/conversations/${selectedId}/messages`, { method: "POST", headers: { Authorization: headers.Authorization }, body: formData }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.error || "Unable to send chat message."); setComposer(""); setAttachmentFiles([]); await loadMessages(selectedId); await loadConversations(); } catch (sendError: any) { setError(sendError?.message || "Unable to send chat message."); } finally { setSending(false); } }
   function currentAccountId() { return accountIdRef.current || accountId; }
   function clearLongPress() { if (longPressTimerRef.current !== null) { window.clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; } }
+  function clearMessageTextSelection() {
+    if (typeof window === "undefined") return;
+    window.getSelection?.()?.removeAllRanges();
+  }
   function openMessageActions(event: { preventDefault: () => void; clientX: number; clientY: number }, message: ChatMessage) {
     if (message.sender_id !== currentAccountId() || message.deleted_at) return;
     event.preventDefault();
+    clearMessageTextSelection();
     setMessageActionFeedback("");
     setMessageActions({ message, x: event.clientX, y: event.clientY });
   }
@@ -291,6 +296,7 @@ export default function StaffChatView() {
   function startMessageLongPress(event: { pointerType: string; preventDefault: () => void; clientX: number; clientY: number }, message: ChatMessage) {
     clearLongPress();
     if (!installedPwa || event.pointerType === "mouse" || message.sender_id !== currentAccountId() || message.deleted_at) return;
+    event.preventDefault();
     const point = { preventDefault: () => undefined, clientX: event.clientX, clientY: event.clientY };
     longPressTimerRef.current = window.setTimeout(() => {
       openMessageActions(point, message);

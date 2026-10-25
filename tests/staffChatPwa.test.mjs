@@ -331,6 +331,8 @@ test("chat toggles reactions by left-clicking received messages only", () => {
 
 test("sent chat messages support PWA long-press and desktop right-click actions", () => {
   assert.match(chatView, /startMessageLongPress/);
+  assert.match(chatView, /event\.preventDefault\(\);[\s\S]*const point/);
+  assert.match(chatView, /clearMessageTextSelection/);
   assert.match(chatView, /onContextMenu=\{\(event\) => handleMessageContextMenu\(event, message\)\}/);
   assert.match(chatView, /Edit message/);
   assert.match(chatView, /Delete message/);
@@ -349,6 +351,8 @@ test("sent chat messages support PWA long-press and desktop right-click actions"
   assert.match(messageActionsMigration, /deleted_at/);
   assert.match(messageActionsMigration, /deleted_by/);
   assert.match(styles, /staff-chat-message-actions-layer/);
+  assert.match(styles, /staff-chat-message-actions-layer \{ -webkit-touch-callout: none; -webkit-user-select: none/);
+  assert.match(styles, /staff-chat-pwa-message\.is-own \{ -webkit-touch-callout: none; -webkit-user-select: none/);
   assert.match(styles, /staff-chat-message-editor/);
 });
 
