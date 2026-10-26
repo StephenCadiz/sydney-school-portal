@@ -35,7 +35,8 @@ type AdminNavIconName =
   | "envelope"
   | "messageCircle"
   | "attendance"
-  | "megaphone";
+  | "megaphone"
+  | "presentation";
 
 export type AdminMonitoringSummary = {
   feedbackCount: number;
@@ -55,6 +56,7 @@ type AdminNavItem = {
   href: string;
   icon: AdminNavIconName;
   section?: string;
+  openInNewWindow?: boolean;
 };
 
 type AdminNavGroup = {
@@ -219,6 +221,15 @@ function AdminNavIcon({
         <svg {...commonProps}>
           <path d="m3 11 18-5v12L3 13v-2Z" />
           <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+        </svg>
+      );
+    case "presentation":
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="4" width="18" height="12" rx="2" />
+          <path d="M12 16v5" />
+          <path d="M8 21h8" />
+          <path d="M7 8h10" />
         </svg>
       );
     default:
@@ -601,6 +612,19 @@ export default function AdminLayout({
         { name: "Syllabuses", href: "/admin/syllabuses", icon: "book" },
       ],
     },
+    {
+      key: "display",
+      label: "Display",
+      icon: "presentation",
+      items: [
+        {
+          name: "Display",
+          href: "/admin/display",
+          icon: "presentation",
+          openInNewWindow: true,
+        },
+      ],
+    },
   ];
   const visibleMenuGroups = filterAdminNavGroups(adminId, menuGroups);
 
@@ -879,6 +903,17 @@ export default function AdminLayout({
     );
   };
 
+  const openDisplayWindow = useCallback((href: string) => {
+    const target = new URL(href, window.location.origin).toString();
+    const popup = window.open(
+      target,
+      "sydney-school-display",
+      "popup=yes,width=1360,height=900,resizable=yes,scrollbars=no"
+    );
+    if (popup) popup.focus();
+    return Boolean(popup);
+  }, []);
+
   if (!pwaDetectionComplete) {
     return <AdminPwaShell loading />;
   }
@@ -1019,28 +1054,34 @@ export default function AdminLayout({
           {adminId ? visibleMenuGroups.map((group) => {
             const isOpen = openNavGroup === group.key;
             const attentionCount = groupAttentionCount(group);
-            const isDashboard = group.key === "dashboard";
+            const isDirectGroup = group.key === "dashboard" || group.key === "display";
+            const directItem = group.items[0];
 
             return (
               <section
                 key={group.key}
-                className={`admin-nav-group${isOpen && !isDashboard ? " is-open" : ""}`}
+                className={`admin-nav-group${isOpen && !isDirectGroup ? " is-open" : ""}`}
               >
-                {isDashboard ? (
+                {isDirectGroup ? (
                   <Link
-                    href="/admin"
+                    href={directItem?.href || "/admin"}
                     ref={(element) => {
                       groupButtonRefs.current[group.key] = element;
                     }}
-                    className="admin-nav-group-toggle admin-nav-dashboard-link"
-                    aria-current={isActive("/admin") ? "page" : undefined}
-                    onClick={() => {
-                      suppressPathExpansionRef.current = pathname !== "/admin";
-                      if (pathname !== "/admin") {
+                    className={`admin-nav-group-toggle admin-nav-dashboard-link${group.key === "display" ? " admin-nav-display-link" : ""}`}
+                    aria-current={directItem?.href && isActive(directItem.href) ? "page" : undefined}
+                    aria-label={group.key === "display" ? "Open Display presentation in a new window" : undefined}
+                    onClick={(event) => {
+                      if (directItem?.openInNewWindow && openDisplayWindow(directItem.href)) {
+                        event.preventDefault();
+                      }
+                      const targetPath = directItem?.href || "/admin";
+                      suppressPathExpansionRef.current = pathname !== targetPath;
+                      if (pathname !== targetPath) {
                         try {
                           window.sessionStorage.setItem(
                             ADMIN_NAV_CLOSE_AFTER_NAVIGATION_KEY,
-                            "/admin"
+                            targetPath
                           );
                         } catch {
                           // Session storage may be unavailable in privacy-restricted browsers.
@@ -1052,9 +1093,9 @@ export default function AdminLayout({
                   >
                     <span className="admin-nav-group-label">
                       <span className="admin-nav-icon">
-                        <AdminNavIcon name={group.icon} />
+                        <AdminNavIcon name={directItem?.icon || group.icon} />
                       </span>
-                      <span className="admin-nav-group-label-text">{group.label}</span>
+                      <span className="admin-nav-group-label-text">{directItem?.name || group.label}</span>
                     </span>
                   </Link>
                 ) : (
