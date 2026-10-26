@@ -102,3 +102,34 @@ test("B1 weekly-register rows use the earlier B1 duty slot", () => {
   assert.match(fridayTutorials, /start_time: timeWindow\.start_time/);
   assert.match(fridayTutorials, /end_time: timeWindow\.end_time/);
 });
+
+test("Friday Tutorial weekly rows are grouped by level in the agreed order", () => {
+  const fridayTutorialPage = readFileSync(
+    new URL("../app/admin/friday-tutorials/page.tsx", import.meta.url),
+    "utf8"
+  );
+  const levelOrder = [
+    "KIDS 2",
+    "JUNIOR 1",
+    "JUNIOR 2",
+    "JUNIOR 3",
+    "JUNIOR 4",
+    "TEENS 1",
+    "B1",
+    "B2",
+    "C1",
+  ];
+  const orderStart = fridayTutorialPage.indexOf("const FRIDAY_TUTORIAL_LEVEL_ORDER");
+  const orderEnd = fridayTutorialPage.indexOf("] as const;", orderStart);
+  const orderBlock = fridayTutorialPage.slice(orderStart, orderEnd);
+  let previousIndex = -1;
+
+  for (const level of levelOrder) {
+    const index = orderBlock.indexOf(`\"${level}\"`);
+    assert.ok(index > previousIndex, `${level} should follow the previous level`);
+    previousIndex = index;
+  }
+
+  assert.match(fridayTutorialPage, /setRegisterRows\(sortFridayTutorialRegisterRows\(rows\)\)/);
+  assert.match(fridayTutorialPage, /student_name.*localeCompare/);
+});

@@ -134,6 +134,57 @@ function getBadgeStyle(status: string) {
   };
 }
 
+const FRIDAY_TUTORIAL_LEVEL_ORDER = [
+  "KIDS 2",
+  "JUNIOR 1",
+  "JUNIOR 2",
+  "JUNIOR 3",
+  "JUNIOR 4",
+  "TEENS 1",
+  "B1",
+  "B2",
+  "C1",
+] as const;
+
+function getFridayTutorialLevelRank(levelName: string | null | undefined) {
+  const normalized = String(levelName || "")
+    .trim()
+    .toUpperCase();
+  const index = FRIDAY_TUTORIAL_LEVEL_ORDER.findIndex(
+    (level) => normalized === level || normalized.startsWith(`${level} `)
+  );
+
+  return index === -1 ? FRIDAY_TUTORIAL_LEVEL_ORDER.length : index;
+}
+
+function sortFridayTutorialRegisterRows(rows: any[]) {
+  return [...rows].sort((first, second) => {
+    const levelRankDifference =
+      getFridayTutorialLevelRank(first.level_name) -
+      getFridayTutorialLevelRank(second.level_name);
+
+    if (levelRankDifference !== 0) {
+      return levelRankDifference;
+    }
+
+    const levelDifference = String(first.level_name || "").localeCompare(
+      String(second.level_name || ""),
+      "en",
+      { sensitivity: "base" }
+    );
+
+    if (levelDifference !== 0) {
+      return levelDifference;
+    }
+
+    return String(first.student_name || "").localeCompare(
+      String(second.student_name || ""),
+      "en",
+      { sensitivity: "base" }
+    );
+  });
+}
+
 function groupByTutorialGroup(students: any[]) {
   return students.reduce<Record<string, any[]>>((groups, student) => {
     const group = student.tutorial_group || "unknown";
@@ -269,7 +320,7 @@ export default function AdminFridayTutorialsPage() {
         sessionDate,
         tutorialGroup
       );
-      setRegisterRows(rows);
+      setRegisterRows(sortFridayTutorialRegisterRows(rows));
       setRegisterCommentDrafts(
         rows.reduce((drafts: Record<string, string>, item: any) => {
           drafts[item.session_student_id] = item.comment || "";
