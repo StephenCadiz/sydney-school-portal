@@ -8,6 +8,7 @@ import {
   deleteTeacherCalendarEvent,
   getTeacherCalendarEvents,
 } from "../../../lib/teacherCalendar";
+import { formatClockTime } from "../../../lib/timeDisplay";
 
 const inputStyle = {
   width: "100%",
@@ -39,10 +40,12 @@ function formatDate(date: string) {
 }
 
 function formatTime(startTime: string, endTime: string) {
-  if (!startTime && !endTime) return "-";
-  if (!endTime) return startTime;
+  const start = formatClockTime(startTime);
+  const end = formatClockTime(endTime);
+  if (!start && !end) return "-";
+  if (!end) return start;
 
-  return `${startTime} - ${endTime}`;
+  return `${start} - ${end}`;
 }
 
 export default function AdminTeacherCalendarPage() {

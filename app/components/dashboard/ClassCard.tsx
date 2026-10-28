@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { formatClockTime } from "../../../lib/timeDisplay";
 
 type Props = {
   item: any;
@@ -121,7 +122,7 @@ export default function ClassCard({ item }: Props) {
             <div>
               <strong>🕒 Time</strong>
               <br />
-              {item.start_time} – {item.end_time}
+              {formatClockTime(item.start_time, "-")} – {formatClockTime(item.end_time, "-")}
             </div>
 
             <div>

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { formatClockRange } from "./timeDisplay";
 import { suggestFridayTutorialFromFollowUp } from "./fridayTutorials";
 
 function formatSupabaseError(action: string, error: any) {
@@ -192,7 +193,7 @@ async function enrichFollowUpDocuments(documents: any[]) {
     );
     const timeSlot =
       classRow.start_time && classRow.end_time
-        ? `${classRow.start_time}-${classRow.end_time}`
+        ? formatClockRange(classRow.start_time, classRow.end_time, "-")
         : "-";
     const classroomName =
       classRow.course_type === "online"

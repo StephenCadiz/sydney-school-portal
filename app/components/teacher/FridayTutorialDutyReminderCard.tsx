@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatClockTime } from "../../../lib/timeDisplay";
 
 type DutyReminder = {
   duty_id: string;
@@ -76,7 +77,7 @@ export default function FridayTutorialDutyReminderCard({
           <h2 id="teacher-friday-duty-reminder-title">Friday Tutorial duty</h2>
           <p>
             {formatDate(reminder.session_date)} · {windows.map((window) =>
-              `${window.duty_type === "b1" ? "B1" : "General"} ${window.start_time}–${window.end_time}`
+              `${window.duty_type === "b1" ? "B1" : "General"} ${formatClockTime(window.start_time)}–${formatClockTime(window.end_time)}`
             ).join(" · ")}
           </p>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { supabase } from "../../../lib/supabase";
+import { formatClockTime } from "../../../lib/timeDisplay";
 
 function formatFriday(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -128,7 +129,7 @@ export default function FridayTutorialAttendanceCard() {
           <h2>Friday Tutorial Attendance</h2>
           <p>
             {formatFriday(attendance.session_date)} · {dutyWindows.map((window: any) =>
-              `${window.duty_type === "b1" ? "B1" : "General"} ${window.start_time}–${window.end_time}`
+              `${window.duty_type === "b1" ? "B1" : "General"} ${formatClockTime(window.start_time)}–${formatClockTime(window.end_time)}`
             ).join(" · ")}
           </p>
           {responsibilityLevels.length > 0 && (
@@ -150,7 +151,7 @@ export default function FridayTutorialAttendanceCard() {
         <p className="teacher-dashboard-attendance-state">
           {attendance.window_ended
             ? "This Friday Tutorial attendance window has ended."
-            : `Friday Tutorial attendance opens at ${dutyWindows[0]?.start_time || "18:00"}.`}
+            : `Friday Tutorial attendance opens at ${formatClockTime(dutyWindows[0]?.start_time, "18:00")}.`}
         </p>
       ) : attendance.students.length === 0 ? (
         <p className="teacher-dashboard-attendance-state">No students are on today&apos;s assigned Friday Tutorial list.</p>

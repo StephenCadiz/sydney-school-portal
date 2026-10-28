@@ -21,6 +21,7 @@ import {
   searchAllStudents,
 } from "../../../lib/studentInformation";
 import { compareClassesByGlobalOrder } from "../../../lib/classOrdering";
+import { formatClockRange } from "../../../lib/timeDisplay";
 
 const tabs = ["Student Search", "Class Search", "Level Analysis"];
 
@@ -1075,7 +1076,7 @@ function ClassSearchTab({
                 label="Days/time"
                 value={`${details.days || "-"} ${
                   details.start_time && details.end_time
-                    ? `${details.start_time}-${details.end_time}`
+                    ? formatClockRange(details.start_time, details.end_time, "-")
                     : ""
                 }`}
               />
@@ -1336,7 +1337,7 @@ function ClassBreakdownCard({ analysis }: { analysis: any }) {
                 <p style={{ color: "#667085", margin: "4px 0 0" }}>
                   {item.days || "-"}{" "}
                   {item.start_time && item.end_time
-                    ? `${item.start_time}-${item.end_time}`
+                    ? formatClockRange(item.start_time, item.end_time, "-")
                     : ""}
                 </p>
               </div>
@@ -1592,7 +1593,7 @@ function StudentOverview({ student }: { student: any }) {
               <p>
                 {student.class_days || "-"}{" "}
                 {student.start_time && student.end_time
-                  ? `${student.start_time}-${student.end_time}`
+                  ? formatClockRange(student.start_time, student.end_time, "-")
                   : ""}
               </p>
             </div>
@@ -1757,7 +1758,7 @@ function StudentDetailModal({
               studentName={student.full_name}
               studentLevel={student.level_name}
               studentClass={student.class_label}
-              studentSchedule={[student.class_days, student.start_time && student.end_time ? `${student.start_time}-${student.end_time}` : ""].filter(Boolean).join(" · ")}
+              studentSchedule={[student.class_days, formatClockRange(student.start_time, student.end_time, "-")].filter(Boolean).join(" · ")}
               studentTeacher={student.teacher_name}
               onChanged={onRefresh}
             />

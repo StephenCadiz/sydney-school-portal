@@ -13,6 +13,7 @@ import {
   getCambridgeReadingSkillLabel,
   normalizeHomeworkSkill,
 } from "../../../lib/homework";
+import { formatClockRange } from "../../../lib/timeDisplay";
 
 function studentTypeLabel(type: string) {
   return type === "young_learner" ? "Young Learner" : "Cambridge";
@@ -123,7 +124,7 @@ export default function AdminPwaStudentInformation() {
                 <span className="admin-pwa-eyebrow">READ-ONLY INFORMATION</span>
                 <h2 id="admin-pwa-student-panel-title">{selectedStudent.full_name || "Student"}</h2>
                 <p className="admin-pwa-student-context">
-                  {[selectedStudent.level_name, selectedStudent.teacher_name, [selectedStudent.class_days, selectedStudent.start_time && selectedStudent.end_time ? `${selectedStudent.start_time}-${selectedStudent.end_time}` : ""].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}
+                  {[selectedStudent.level_name, selectedStudent.teacher_name, [selectedStudent.class_days, formatClockRange(selectedStudent.start_time, selectedStudent.end_time, "-")].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}
                 </p>
               </div>
               <button type="button" className="admin-pwa-student-close" onClick={() => setSelectedStudent(null)} aria-label="Close student information"><X size={20} /></button>

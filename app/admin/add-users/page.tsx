@@ -20,6 +20,7 @@ import type {
   YoungLearnerBulkClassOption,
 } from "../../../lib/adminStudents";
 import { supabase } from "../../../lib/supabase";
+import { formatClockRange } from "../../../lib/timeDisplay";
 
 type ActiveTab = "teacher" | "cambridge" | "youngLearner" | "adminStaff";
 type CreationMode = "manual" | "invite";
@@ -143,11 +144,7 @@ function formatCourseType(courseType: string) {
 }
 
 function formatTimeRange(startTime: string, endTime: string) {
-  if (startTime && endTime) {
-    return `${startTime}-${endTime}`;
-  }
-
-  return "";
+  return startTime || endTime ? formatClockRange(startTime, endTime, "-") : "";
 }
 
 function formatYoungLearnerClassOption(

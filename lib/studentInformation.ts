@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { formatClockRange } from "./timeDisplay";
 import {
   getEmptyFridayTutorialProgressSummary,
   type FridayTutorialProgressSummary,
@@ -122,7 +123,7 @@ function getClassLabel(classRow: any, level: any, classroom: any) {
 
   const timeSlot =
     classRow.start_time && classRow.end_time
-      ? `${classRow.start_time}-${classRow.end_time}`
+      ? formatClockRange(classRow.start_time, classRow.end_time, "-")
       : "-";
 
   return `${level?.name || "Unknown Level"} - ${
@@ -306,7 +307,7 @@ function buildClassDetails(classRow: any, reference: any) {
   const teacherName = getTeacherName(teacher);
   const timeSlot =
     classRow?.start_time && classRow?.end_time
-      ? `${classRow.start_time}-${classRow.end_time}`
+      ? formatClockRange(classRow.start_time, classRow.end_time, "-")
       : "-";
 
   return {

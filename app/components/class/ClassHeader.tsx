@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { formatClockTime } from "../../../lib/timeDisplay";
 
 type Props = {
   classData: any;
@@ -217,7 +218,7 @@ export default function ClassHeader({
             label: "Time",
             value:
               classData.start_time && classData.end_time
-                ? `${classData.start_time} - ${classData.end_time}`
+                ? `${formatClockTime(classData.start_time)} - ${formatClockTime(classData.end_time)}`
                 : "-",
           },
           {

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { formatClockRange } from "./timeDisplay";
 import { compareClassesByGlobalOrder } from "./classOrdering";
 import { getCurrentAcademicYear } from "./academicYears";
 import {
@@ -110,7 +111,7 @@ function getClassroomDisplayName(classroom: any, assignedClassroom: any) {
 function getClassLabel(classroom: any, level: any, assignedClassroom: any) {
   const timeSlot =
     classroom?.start_time && classroom?.end_time
-      ? `${classroom.start_time}-${classroom.end_time}`
+      ? formatClockRange(classroom.start_time, classroom.end_time, "-")
       : "-";
 
   return classroom
@@ -137,7 +138,7 @@ function formatCourseTypeLabel(courseType: string | null | undefined) {
 function getCambridgeClassLabel(classroom: any, level: any, assignedClassroom: any) {
   const timeSlot =
     classroom?.start_time && classroom?.end_time
-      ? `${classroom.start_time}-${classroom.end_time}`
+      ? formatClockRange(classroom.start_time, classroom.end_time, "-")
       : "";
   const courseType = formatCourseTypeLabel(classroom?.course_type);
 

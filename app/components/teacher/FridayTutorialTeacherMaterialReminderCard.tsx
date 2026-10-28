@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { supabase } from "../../../lib/supabase";
+import { formatClockTime } from "../../../lib/timeDisplay";
 
 type Reminder = {
   id: string;
@@ -52,7 +53,7 @@ export default function FridayTutorialTeacherMaterialReminderCard({
             <div>
               <strong>{reminder.student_name}</strong>
               <p>
-                {reminder.level_name}{reminder.class_name ? ` · ${reminder.class_name}` : ""} · {formatDate(reminder.session_date)} · {reminder.start_time || "18:00"}–{reminder.end_time || "19:00"}
+                {reminder.level_name}{reminder.class_name ? ` · ${reminder.class_name}` : ""} · {formatDate(reminder.session_date)} · {formatClockTime(reminder.start_time, "18:00")}–{formatClockTime(reminder.end_time, "19:00")}
               </p>
               <p>Student is attending. Prepare activities for the student and send them to Admin as soon as possible.</p>
             </div>

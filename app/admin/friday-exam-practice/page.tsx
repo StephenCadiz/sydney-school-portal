@@ -30,6 +30,7 @@ import {
   isB1FridayTutorialSession,
 } from "../../../lib/fridayTutorials";
 import { supabase } from "../../../lib/supabase";
+import { formatClockTime } from "../../../lib/timeDisplay";
 
 const levelOptions = ["B1", "B2", "C1", "C2"];
 
@@ -824,13 +825,13 @@ export default function FridayAt6Page() {
                               <span style={{ display: "grid", gap: "1px" }}>
                                 <strong>B1 Tutorial</strong>
                                 <span style={{ whiteSpace: "nowrap" }}>
-                                  {getFridayTutorialTimeWindow(
+                                  {formatClockTime(getFridayTutorialTimeWindow(
                                     FRIDAY_AT_6_DUTY_TYPES.B1
-                                  ).start_time}
+                                  ).start_time)}
                                   –
-                                  {getFridayTutorialTimeWindow(
+                                  {formatClockTime(getFridayTutorialTimeWindow(
                                     FRIDAY_AT_6_DUTY_TYPES.B1
-                                  ).end_time}
+                                  ).end_time)}
                                 </span>
                               </span>
                             )}
