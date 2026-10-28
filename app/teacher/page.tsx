@@ -13,6 +13,7 @@ import FridayAt6DutyCard from "../components/teacher/FridayAt6DutyCard";
 import FridayTutorialDutyReminderCard from "../components/teacher/FridayTutorialDutyReminderCard";
 import FridayTutorialAttendanceCard from "../components/teacher/FridayTutorialAttendanceCard";
 import FridayTutorialTeacherMaterialReminderCard from "../components/teacher/FridayTutorialTeacherMaterialReminderCard";
+import TeacherFollowUpActionReminderCard from "../components/teacher/TeacherFollowUpActionReminderCard";
 import TeacherWorkingDayPanel from "../components/teacher/TeacherWorkingDayPanel";
 import { supabase } from "../../lib/supabase";
 import {
@@ -101,6 +102,7 @@ export default function TeacherPage() {
   const [fridayAt6Duty, setFridayAt6Duty] = useState<any | null>(null);
   const [fridayDutyReminder, setFridayDutyReminder] = useState<any | null>(null);
   const [teacherMaterialReminders, setTeacherMaterialReminders] = useState<any[]>([]);
+  const [followUpActionReminders, setFollowUpActionReminders] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadData() {
@@ -125,6 +127,25 @@ export default function TeacherPage() {
       }
 
       setTeacherId(session.user.id);
+
+      try {
+        const followUpResponse = await fetch("/api/teacher/follow-up-action-notices", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          cache: "no-store",
+        });
+        const followUpResult = await followUpResponse.json().catch(() => ({}));
+        if (!followUpResponse.ok) {
+          throw new Error(
+            followUpResult.error || "Unable to load follow-up notifications."
+          );
+        }
+        setFollowUpActionReminders(followUpResult.reminders || []);
+      } catch (error) {
+        console.error("Unable to load follow-up action notifications:", error);
+        setFollowUpActionReminders([]);
+      }
 
       try {
         const noticeResponse = await fetch("/api/teacher/friday-tutorial-notices", {
@@ -183,6 +204,7 @@ export default function TeacherPage() {
         >
           <TeacherAnnouncementBanner teacherId={teacherId} />
           <TeacherMessageNotifications teacherId={teacherId} />
+          <TeacherFollowUpActionReminderCard reminders={followUpActionReminders} />
           <FridayTutorialTeacherMaterialReminderCard reminders={teacherMaterialReminders} />
           <FridayTutorialDutyReminderCard reminder={fridayDutyReminder} />
           <FridayAt6DutyCard duty={fridayAt6Duty} />

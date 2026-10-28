@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import {
+  addAdminFollowUpAction,
   getAllFollowUpsForAdmin,
   markFollowUpAsSeen,
   updateFollowUpDocumentForAdmin,
@@ -121,6 +122,9 @@ export default function AdminFollowUpsPage() {
   const [addingFridayFollowUpId, setAddingFridayFollowUpId] = useState("");
   const [editingId, setEditingId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [actionFollowUpId, setActionFollowUpId] = useState("");
+  const [actionDetails, setActionDetails] = useState("");
+  const [actionSaving, setActionSaving] = useState(false);
   const [form, setForm] = useState({
     category: "Academic",
     status: "Open",
@@ -424,6 +428,46 @@ export default function AdminFollowUpsPage() {
     setError("");
   }
 
+  function startAction(item: any) {
+    setActionFollowUpId(item.id);
+    setActionDetails("");
+    setMessage("");
+    setError("");
+  }
+
+  function cancelAction() {
+    setActionFollowUpId("");
+    setActionDetails("");
+    setMessage("");
+    setError("");
+  }
+
+  async function handleSaveAction(event: React.FormEvent) {
+    event.preventDefault();
+    const details = actionDetails.trim();
+    if (!actionFollowUpId || !details) {
+      setError("Enter the action taken before saving.");
+      return;
+    }
+
+    setActionSaving(true);
+    setMessage("");
+    setError("");
+
+    try {
+      await addAdminFollowUpAction(actionFollowUpId, details);
+      setActionFollowUpId("");
+      setActionDetails("");
+      await loadFollowUps();
+      setMessage("Action taken added to the follow-up.");
+    } catch (actionError: any) {
+      console.error("Unable to save Admin action:", actionError);
+      setError(actionError?.message || "Unable to save the Admin action.");
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
   async function handleSaveEdit(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
@@ -637,8 +681,15 @@ export default function AdminFollowUpsPage() {
                     </div>
 
                     <div>
+                      <button
+                        onClick={() => startAction(item)}
+                        style={primaryButtonStyle}
+                      >
+                        Add Action Taken
+                      </button>
+
                       <button onClick={() => startEdit(item)} style={secondaryButtonStyle}>
-                        Edit
+                        <span style={{ marginLeft: "10px" }}>Edit</span>
                       </button>
 
                       {!item.admin_seen && (
@@ -691,6 +742,41 @@ export default function AdminFollowUpsPage() {
                     </span>
                   </p>
 
+                  {actionFollowUpId === item.id && (
+                    <form
+                      onSubmit={handleSaveAction}
+                      style={{
+                        background: "#f8fafd",
+                        border: "1px solid #d8e2fb",
+                        borderRadius: "10px",
+                        padding: "14px",
+                        marginBottom: "14px",
+                      }}
+                    >
+                      <label style={labelStyle} htmlFor={`follow-up-action-${item.id}`}>
+                        Action taken
+                      </label>
+                      <textarea
+                        id={`follow-up-action-${item.id}`}
+                        value={actionDetails}
+                        onChange={(event) => setActionDetails(event.target.value)}
+                        placeholder="Write the action taken..."
+                        rows={4}
+                        maxLength={10000}
+                        style={{ ...inputStyle, resize: "vertical" }}
+                        autoFocus
+                      />
+                      <div style={{ marginTop: "12px", display: "flex", gap: "10px" }}>
+                        <button type="submit" disabled={actionSaving} style={primaryButtonStyle}>
+                          {actionSaving ? "Saving..." : "Save Action"}
+                        </button>
+                        <button type="button" onClick={cancelAction} style={secondaryButtonStyle}>
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
                   {renderFridayTutorialStatus(item)}
 
                   <Timeline entries={item.entries || []} />
@@ -737,7 +823,7 @@ function Timeline({ entries }: { entries: any[] }) {
             {formatDate(entry.entry_date || entry.created_at)}
           </strong>
           <span style={{ color: "#667085", marginLeft: "8px", fontSize: "13px" }}>
-            {entry.teacher_name}
+            {entry.author_role === "admin" ? "Admin" : "Teacher"}: {entry.author_name || entry.teacher_name}
           </span>
           <p style={{ color: "#333", lineHeight: 1.55, margin: "10px 0 0" }}>
             {entry.details || "No details provided."}

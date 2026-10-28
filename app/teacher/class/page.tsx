@@ -94,6 +94,7 @@ type ShortcutRequest = {
   targetTab: string;
   studentId: string | null;
   studentType: ClassStudentControlStudent["student_type"] | null;
+  followUpId?: string | null;
   resultSection: "homework" | "mock" | null;
 };
 
@@ -631,6 +632,7 @@ if (classResult.data) {
       targetTab,
       studentId: student?.id || null,
       studentType: student?.student_type || null,
+      followUpId: null,
       resultSection,
     });
     setStudentPanel((current) => ({
@@ -651,7 +653,21 @@ if (classResult.data) {
   const messagesShortcut =
     shortcutRequest?.targetTab === "messages" ? shortcutRequest : null;
   const followUpShortcut =
-    shortcutRequest?.targetTab === "follow-up" ? shortcutRequest : null;
+    shortcutRequest?.targetTab === "follow-up"
+      ? shortcutRequest
+      : String(searchParams.get("tab") || "").trim() === "follow-up"
+      ? {
+          key: 0,
+          targetTab: "follow-up",
+          studentId: searchParams.get("student_id"),
+          studentType:
+            searchParams.get("student_type") === "young_learner"
+              ? "young_learner"
+              : "cambridge" as const,
+          followUpId: searchParams.get("follow_up_id"),
+          resultSection: null,
+        }
+      : null;
   const progressShortcut =
     shortcutRequest?.targetTab === "progress" ? shortcutRequest : null;
   const selectedPanelStudent = studentPanel.studentId
@@ -1165,7 +1181,11 @@ if (classResult.data) {
     students={followUpStudents}
     teacherId={teacherId}
     initialStudentId={followUpShortcut?.studentId || null}
-    initialStudentType={followUpShortcut?.studentType || null}
+    initialStudentType={
+      (followUpShortcut?.studentType as "cambridge" | "young_learner" | null) ||
+      null
+    }
+    initialFollowUpId={followUpShortcut?.followUpId || null}
     shortcutRequestKey={followUpShortcut?.key || 0}
   />
 )}

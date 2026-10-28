@@ -68,10 +68,13 @@ export async function getFollowUpEntries(documentId: string) {
     const teacher = (teachers || []).find(
       (profile) => profile.id === entry.teacher_id
     );
+    const authorName = getProfileName(teacher) || "Unknown staff member";
 
     return {
       ...entry,
-      teacher_name: getProfileName(teacher) || "Unknown teacher",
+      teacher_name: authorName,
+      author_name: authorName,
+      author_role: entry.author_role || "teacher",
     };
   });
 }
@@ -377,5 +380,54 @@ export async function markFollowUpAsSeen(id: string) {
 
   if (error) {
     throw new Error(formatSupabaseError("mark reviewed", error));
+  }
+}
+
+export async function addAdminFollowUpAction(id: string, details: string) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error("Admin action save failed: authentication is required.");
+  }
+
+  const response = await fetch(`/api/admin/follow-ups/${encodeURIComponent(id)}/actions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ details }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to save the Admin action.");
+  }
+
+  return payload?.entry || null;
+}
+
+export async function markFollowUpActionOpened(id: string) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) return;
+
+  const response = await fetch(
+    `/api/teacher/follow-up-action-notices/${encodeURIComponent(id)}/open`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    }
+  );
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(
+      payload?.error || "Unable to mark the follow-up notification as opened."
+    );
   }
 }

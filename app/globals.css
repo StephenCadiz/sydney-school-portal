@@ -10302,6 +10302,51 @@ img {
   font-weight: 800;
 }
 
+.teacher-dashboard-follow-up-action-list {
+  display: grid;
+  gap: 10px;
+}
+
+.teacher-dashboard-follow-up-action-row {
+  align-items: center;
+  background: #f8fafd;
+  border: 1px solid #d8e2fb;
+  border-radius: 10px;
+  color: #172b55;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 13px 15px;
+  text-decoration: none;
+}
+
+.teacher-dashboard-follow-up-action-row:hover,
+.teacher-dashboard-follow-up-action-row:focus-visible {
+  background: #edf3ff;
+  border-color: #9bb8ed;
+}
+
+.teacher-dashboard-follow-up-action-row strong,
+.teacher-dashboard-follow-up-action-row small {
+  display: block;
+}
+
+.teacher-dashboard-follow-up-action-row strong {
+  color: #172b55;
+}
+
+.teacher-dashboard-follow-up-action-row small {
+  color: #667085;
+  margin-top: 3px;
+}
+
+.teacher-dashboard-follow-up-action-row > span:last-child {
+  color: #1f559a;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .teacher-dashboard-section,
 .teacher-dashboard-tools {
   background: #ffffff;

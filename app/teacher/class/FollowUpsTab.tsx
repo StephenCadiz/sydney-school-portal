@@ -5,6 +5,7 @@ import {
   createFollowUpDocument,
   deleteFollowUpDocument,
   getFollowUpsForClass,
+  markFollowUpActionOpened,
 } from "../../../lib/followUps";
 import { supabase } from "../../../lib/supabase";
 import { formatFridayTutorialApprovedDate } from "../../../lib/fridayTutorials";
@@ -77,6 +78,7 @@ type Props = {
   teacherId: string;
   initialStudentId?: string | null;
   initialStudentType?: "cambridge" | "young_learner" | null;
+  initialFollowUpId?: string | null;
   shortcutRequestKey?: number;
 };
 
@@ -123,6 +125,7 @@ export default function FollowUpsTab({
   teacherId,
   initialStudentId = null,
   initialStudentType = null,
+  initialFollowUpId = null,
   shortcutRequestKey = 0,
 }: Props) {
   const [followUps, setFollowUps] = useState<any[]>([]);
@@ -141,6 +144,7 @@ export default function FollowUpsTab({
   const [fridayStatusLoading, setFridayStatusLoading] = useState(false);
   const [fridayStatusUnavailable, setFridayStatusUnavailable] = useState(false);
   const formSectionRef = useRef<HTMLElement | null>(null);
+  const openedActionFollowUpRef = useRef<string | null>(null);
 
   function getStudentKey(student: any) {
     return `${student.student_type || "cambridge"}:${student.id}`;
@@ -486,6 +490,46 @@ export default function FollowUpsTab({
       window.clearTimeout(scrollTimer);
     };
   }, [initialStudentId, initialStudentType, shortcutRequestKey, students]);
+
+  useEffect(() => {
+    if (!initialFollowUpId || !followUps.length) return;
+
+    const followUp = followUps.find(
+      (item) => String(item.id) === String(initialFollowUpId)
+    );
+    if (!followUp) return;
+
+    const studentType =
+      followUp.student_type ||
+      (followUp.young_learner_id ? "young_learner" : "cambridge");
+    const studentId =
+      studentType === "young_learner"
+        ? followUp.young_learner_id
+        : followUp.student_id;
+    const studentKey = `${studentType}:${studentId}`;
+    if (!students.some((student) => getStudentKey(student) === studentKey)) {
+      return;
+    }
+
+    setSelectedStudentKey(studentKey);
+    const scrollTimer = window.setTimeout(() => {
+      formSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+
+    if (openedActionFollowUpRef.current !== String(initialFollowUpId)) {
+      openedActionFollowUpRef.current = String(initialFollowUpId);
+      void markFollowUpActionOpened(String(initialFollowUpId)).catch((openError) => {
+        console.error("Unable to mark Admin follow-up action as opened:", openError);
+      });
+    }
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+    };
+  }, [initialFollowUpId, followUps, students, shortcutRequestKey]);
 
   return (
     <div style={{ display: "grid", gap: "22px" }}>
