@@ -32,3 +32,14 @@ test("known schedule cards use the shared clock formatter", () => {
     assert.match(read(file), /timeDisplay/ , `${file} should use the shared clock formatter`);
   }
 });
+
+test("class workspace normalizes serialized database times", () => {
+  const helper = read("lib/timeDisplay.ts");
+  assert.match(helper, /fractional seconds/);
+  assert.match(helper, /\(\?:Z\|\[\+\-\]/);
+
+  const header = read("app/components/class/ClassHeader.tsx");
+  assert.doesNotMatch(header, /function formatTime/);
+  assert.match(header, /formatClockTime\(classData\.start_time\)/);
+  assert.match(header, /formatClockTime\(classData\.end_time\)/);
+});

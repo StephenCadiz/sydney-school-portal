@@ -16,11 +16,6 @@ function isSupportLevelName(levelName: string | null | undefined) {
   return normalizeLevelName(levelName) === "SUPPORT CLASSES";
 }
 
-function formatTime(value: string | null | undefined) {
-  const parts = String(value || "").trim().split(":");
-  return parts.length >= 2 ? parts.slice(0, 2).join(":") : parts[0];
-}
-
 function formatDays(value: string | null | undefined) {
   return String(value || "")
     .trim()
@@ -61,8 +56,8 @@ export default function ClassHeader({
 
   if (classData.is_cambridge === true) {
     const days = formatDays(classData.days);
-    const startTime = formatTime(classData.start_time);
-    const endTime = formatTime(classData.end_time);
+    const startTime = formatClockTime(classData.start_time);
+    const endTime = formatClockTime(classData.end_time);
     const time = startTime && endTime ? `${startTime}–${endTime}` : "";
     const schedule = [days, time].filter(Boolean).join(" · ");
     const courseType = formatCourseType(classData.course_type);
