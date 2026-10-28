@@ -124,8 +124,12 @@ async function verifyClassAndStudent(
       return { response: jsonError("This student is not in the selected class.", 403) };
     }
 
+    // Profile roster rows expose the student's legacy `active` flag, which is
+    // nullable for valid Cambridge students. Use the date-effective enrolment
+    // view instead so a nullable profile flag cannot make a current enrolment
+    // look invalid (and so future/ended enrolments remain excluded).
     const { data: student, error: studentError } = await supabaseAdmin
-      .from("class_roster_profiles")
+      .from("current_class_enrolments")
       .select("student_id")
       .eq("student_id", studentId)
       .eq("class_id", classId)
