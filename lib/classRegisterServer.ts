@@ -702,7 +702,36 @@ async function loadCurrentRoster(
     .or(`ends_before.is.null,ends_before.gt.${lessonDate}`);
   if (error) throw error;
   // Periods, not today's active flag or current class pointer, govern history.
-  return data || [];
+  const roster = data || [];
+  const weekday = madridWeekdayForDate(lessonDate);
+  if (!weekday || roster.length === 0) return roster;
+
+  const { data: exclusions, error: exclusionsError } = await supabaseAdmin
+    .from("class_register_student_weekday_exclusions")
+    .select("student_type, profile_student_id, young_learner_id")
+    .eq("class_id", context.classId)
+    .eq("weekday", weekday)
+    .eq("active", true)
+    .lte("effective_from", lessonDate);
+  if (exclusionsError) throw exclusionsError;
+
+  if (!exclusions?.length) return roster;
+
+  const excludedKeys = new Set(
+    exclusions.map((row) =>
+      `${text(row.student_type)}|${text(row.profile_student_id || row.young_learner_id)}`
+    )
+  );
+
+  return roster.filter((student) => {
+    const studentType = text(student.student_type);
+    const studentId = text(
+      studentType === "profile"
+        ? student.profile_student_id
+        : student.young_learner_id
+    );
+    return !excludedKeys.has(`${studentType}|${studentId}`);
+  });
 }
 
 export async function openClassRegister(
