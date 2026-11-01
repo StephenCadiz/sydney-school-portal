@@ -74,4 +74,7 @@ test("all mailbox lists show a green Replied badge when the original has a reply
   assert.match(messages, /reply_to_message_id/);
   assert.match(messages, /hasReversedParticipants/);
   assert.match(messages, /candidateSubject/);
+  assert.match(messages, /Older message rows did not retain an explicit reply link/);
+  assert.match(studentPage, /const replySourceId = replyToMessageId/);
+  assert.match(teacherStudentMessages, /const replySourceId = selectedMessage.id/);
 });

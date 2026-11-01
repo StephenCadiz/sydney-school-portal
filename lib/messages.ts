@@ -114,9 +114,14 @@ export function decorateMessageThreadSummaries(messages: any[]) {
     const subject = normalizeSubject(message?.subject);
     const candidateSubject = normalizeSubject(candidate?.subject);
     if (!subject || subject !== candidateSubject) return false;
-    if (!/^\s*re:/i.test(String(candidate?.subject || ""))) return false;
+    if (!hasReversedParticipants(message, candidate)) return false;
 
-    return hasReversedParticipants(message, candidate);
+    // Older message rows did not retain an explicit reply link. Most legacy
+    // replies use a `Re:` subject, but some were sent with the original
+    // subject unchanged. Once the sender/recipient direction is reversed and
+    // the normalized subject matches, treat the later message as the reply so
+    // those rows still receive the visible Replied marker.
+    return true;
   };
 
   return (messages || []).map((message) => {

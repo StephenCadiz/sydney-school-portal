@@ -203,6 +203,7 @@ export default function StudentMessagesPage() {
 
     let uploadedAttachments: MessageAttachment[] = [];
     let sentMessage: { id?: string; created_at?: string } | null = null;
+    const replySourceId = replyToMessageId;
     try {
       if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
       uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
@@ -233,11 +234,28 @@ export default function StudentMessagesPage() {
     setStatusMessage("Message sent successfully.");
     setActiveTab("sent");
 
+    const markReplySourceReplied = () => {
+      if (!replySourceId) return;
+      setInboxMessages((current) =>
+        current.map((item) =>
+          item.id === replySourceId
+            ? {
+                ...item,
+                reply_count: Math.max(Number(item.reply_count || 0), 1),
+                last_reply_at: sentMessage?.created_at || new Date().toISOString(),
+                last_reply_name: item.last_reply_name || "You",
+              }
+            : item
+        )
+      );
+    };
+
     // A successful send must not be turned into an error just because a
     // background refresh is unavailable. The server has already accepted the
     // message; refresh is best effort and will retry on the next page load.
     try {
       await loadMessages();
+      markReplySourceReplied();
     } catch (refreshError) {
       console.error("Unable to refresh student messages after send:", refreshError);
       if (sentMessage?.id) {
@@ -255,6 +273,7 @@ export default function StudentMessagesPage() {
           ...current.filter((item) => item.id !== sentMessage?.id),
         ]);
       }
+      markReplySourceReplied();
     } finally {
       setSending(false);
     }
@@ -319,11 +338,6 @@ export default function StudentMessagesPage() {
             {Array.isArray(item.attachments) && item.attachments.length > 0 && (
               <span className="student-messages-attachment-count">
                 {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
-              </span>
-            )}
-            {item.reply_count > 0 && (
-              <span className="student-messages-reply-indicator">
-                Replied by {item.last_reply_name || "staff"} · {formatMessageDateTime(item.last_reply_at)}
               </span>
             )}
           </button>

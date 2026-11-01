@@ -158,6 +158,7 @@ export default function TeacherStudentMessagesInbox({
     setSending(true);
 
     let uploadedAttachments: MessageAttachment[] = [];
+    const replySourceId = selectedMessage.id;
     try {
       if (attachmentFiles.length) setStatusMessage("Uploading attachments...");
       uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
@@ -174,6 +175,18 @@ export default function TeacherStudentMessagesInbox({
       setAttachmentFiles([]);
       setStatusMessage("Reply sent successfully.");
       await loadMessages();
+      setInboxMessages((current) =>
+        current.map((item) =>
+          item.id === replySourceId
+            ? {
+                ...item,
+                reply_count: Math.max(Number(item.reply_count || 0), 1),
+                last_reply_at: new Date().toISOString(),
+                last_reply_name: item.last_reply_name || "You",
+              }
+            : item
+        )
+      );
       const thread = await getMessageThread(String(selectedMessage.id));
       setThreadMessages(thread.messages);
     } catch (error: any) {
