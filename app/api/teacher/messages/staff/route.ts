@@ -111,7 +111,13 @@ async function loadMailbox(teacherId: string) {
     .sort((first, second) =>
       new Date(second.created_at || 0).getTime() - new Date(first.created_at || 0).getTime()
     );
-  const messageProfiles = profiles;
+  const { data: currentTeacher, error: currentTeacherError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, first_name, last_name, role")
+    .eq("id", teacherId)
+    .maybeSingle();
+  if (currentTeacherError) throw currentTeacherError;
+  const messageProfiles = currentTeacher ? [...profiles, currentTeacher] : profiles;
 
   return {
     inbox: await enrich(inboxResult.data || [], messageProfiles),

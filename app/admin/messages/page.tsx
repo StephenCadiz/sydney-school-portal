@@ -10,7 +10,9 @@ import { useStaffMessageSoundPreference } from "../../hooks/useStaffMessageNotif
 import { Volume2, VolumeX } from "lucide-react";
 import { getTeachers } from "../../../lib/adminTeachers";
 import {
+  decorateMessageThreadSummaries,
   formatMessageDateTime,
+  getMessageThread,
   markSharedAdminMessageAsRead,
   markMessageAsRead,
   sendAdminMessageToAllTeachers,
@@ -155,6 +157,8 @@ export default function AdminMessagesPage() {
   const [sentMessages, setSentMessages] = useState<any[]>([]);
   const [rosaMailbox, setRosaMailbox] = useState<RosaMailbox | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
+  const [selectedMessageType, setSelectedMessageType] = useState<"inbox" | "sent">("inbox");
+  const [threadMessages, setThreadMessages] = useState<any[]>([]);
   const [recipientMode, setRecipientMode] = useState("all");
   const [teacherId, setTeacherId] = useState("");
   const [isRosaAdmin, setIsRosaAdmin] = useState(false);
@@ -249,11 +253,20 @@ export default function AdminMessagesPage() {
       return;
     }
 
-    setActiveMessages(queueData.active_messages || []);
-    setDealtMessages(queueData.dealt_messages || []);
+    const rawActiveMessages = queueData.active_messages || [];
+    const rawDealtMessages = queueData.dealt_messages || [];
+    const rawSentMessages = sentData.sent_messages || [];
+    const decorated = decorateMessageThreadSummaries([
+      ...rawActiveMessages,
+      ...rawDealtMessages,
+      ...rawSentMessages,
+    ]);
+    const byId = new Map(decorated.map((item) => [item.id, item]));
+    setActiveMessages(rawActiveMessages.map((item: any) => byId.get(item.id) || item));
+    setDealtMessages(rawDealtMessages.map((item: any) => byId.get(item.id) || item));
     setMessageCounts(queueData.counts || { active: 0, dealt: 0 });
     setDealtHasMore(Boolean(queueData.dealt_has_more));
-    setSentMessages(sentData.sent_messages || []);
+    setSentMessages(rawSentMessages.map((item: any) => byId.get(item.id) || item));
     setCanDeleteAdminMessages(
       Boolean(queueData.can_delete_admin_messages) &&
         Boolean(sentData.can_delete_admin_messages)
@@ -354,9 +367,15 @@ export default function AdminMessagesPage() {
 
   async function openInboxMessage(item: any) {
     setSelectedMessage(item);
+    setSelectedMessageType("inbox");
+    setThreadMessages([item]);
     setReplyMessage("");
     setStatusMessage("");
     setErrorMessage("");
+
+    void getMessageThread(String(item.id))
+      .then((thread) => setThreadMessages(thread.messages))
+      .catch((error) => console.error("Unable to load Admin message history:", error));
 
     if (!item.read_at && adminId) {
       try {
@@ -381,6 +400,18 @@ export default function AdminMessagesPage() {
         console.error("Unable to mark admin message as read:", error);
       }
     }
+  }
+
+  function openSentMessage(item: any) {
+    setSelectedMessage(item);
+    setSelectedMessageType("sent");
+    setThreadMessages([item]);
+    setReplyMessage("");
+    setStatusMessage("");
+    setErrorMessage("");
+    void getMessageThread(String(item.id))
+      .then((thread) => setThreadMessages(thread.messages))
+      .catch((error) => console.error("Unable to load Admin message history:", error));
   }
 
   async function handleSend() {
@@ -807,7 +838,7 @@ export default function AdminMessagesPage() {
                   }}
                 >
                   {tab === "New / Active"
-                    ? `New / Active (${messageCounts.active})`
+                    ? `Inbox (${messageCounts.active})`
                     : tab === "Dealt With"
                     ? `Dealt With (${messageCounts.dealt})`
                     : tab}
@@ -872,11 +903,12 @@ export default function AdminMessagesPage() {
           </div>
         )}
 
-        {!loading && isQueueTab && selectedMessage && (
+        {!loading && selectedMessage && (isQueueTab || activeTab === "Sent") && (
           <section style={{ ...cardStyle, padding: "22px" }}>
             <button
               onClick={() => {
                 setSelectedMessage(null);
+                setThreadMessages([]);
                 setReplyMessage("");
                 setStatusMessage("");
                 setErrorMessage("");
@@ -907,11 +939,15 @@ export default function AdminMessagesPage() {
                 marginBottom: "18px",
               }}
             >
-              <span>From: {selectedMessage.sender_name}</span>
-              <span>Role: {roleLabel(selectedMessage.sender_role)}</span>
+              <span>{selectedMessageType === "inbox" ? "From" : "To"}: {selectedMessageType === "inbox" ? selectedMessage.sender_name : selectedMessage.receiver_name}</span>
+              <span>Role: {roleLabel(selectedMessageType === "inbox" ? selectedMessage.sender_role : selectedMessage.receiver_role)}</span>
               <span>Date: {formatMessageDateTime(selectedMessage.created_at)}</span>
               <span>
-                Status: {selectedMessage.dealt_with_at ? "Dealt with" : "Needs attention"}
+                Status: {selectedMessageType === "sent"
+                  ? "Sent"
+                  : selectedMessage.dealt_with_at
+                  ? "Dealt with"
+                  : "Needs attention"}
               </span>
               {selectedMessage.dealt_with_at && (
                 <>
@@ -926,35 +962,27 @@ export default function AdminMessagesPage() {
               )}
             </div>
 
-            <p
-              style={{
-                color: "#334155",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-                marginBottom: "16px",
-              }}
-            >
-              {selectedMessage.message}
-            </p>
+            <div className="admin-message-thread" aria-label="Full message history">
+              {(threadMessages.length ? threadMessages : [selectedMessage]).map((threadMessage) => (
+                <article key={threadMessage.id} className="admin-message-thread-message">
+                  <div className="admin-message-thread-meta">
+                    <strong>{threadMessage.sender_name || "Unknown user"}</strong>
+                    <time dateTime={threadMessage.created_at || undefined}>{formatMessageDateTime(threadMessage.created_at)}</time>
+                  </div>
+                  <p style={{ color: "#334155", lineHeight: 1.6, whiteSpace: "pre-wrap", margin: "0 0 12px" }}>
+                    {threadMessage.message}
+                  </p>
+                  {threadMessage.attachment_link && (
+                    <a href={threadMessage.attachment_link} target="_blank" rel="noopener noreferrer" style={{ color: "#1f3c88", fontWeight: 700, display: "inline-block", marginBottom: "12px" }}>
+                      Open attachment
+                    </a>
+                  )}
+                  <MessageAttachments messageId={String(threadMessage.id)} attachments={threadMessage.attachments} />
+                </article>
+              ))}
+            </div>
 
-            {selectedMessage.attachment_link && (
-              <a
-                href={selectedMessage.attachment_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: "#1f3c88",
-                  fontWeight: 700,
-                  display: "inline-block",
-                  marginBottom: "20px",
-                }}
-              >
-                Open attachment
-              </a>
-            )}
-            <MessageAttachments messageId={String(selectedMessage.id)} attachments={selectedMessage.attachments} />
-
-            <div className="admin-message-resolution-action">
+            {selectedMessageType === "inbox" && <div className="admin-message-resolution-action">
               <button
                 type="button"
                 onClick={() =>
@@ -970,9 +998,9 @@ export default function AdminMessagesPage() {
                   ? "Move Back to Active"
                   : "Mark as Dealt With"}
               </button>
-            </div>
+            </div>}
 
-            {activeTab === "Dealt With" && canDeleteAdminMessages && (
+            {selectedMessageType === "inbox" && activeTab === "Dealt With" && canDeleteAdminMessages && (
               <div className="admin-message-delete-detail-action">
                 <button
                   type="button"
@@ -989,7 +1017,7 @@ export default function AdminMessagesPage() {
               </div>
             )}
 
-            <div
+            {selectedMessageType === "inbox" && <div
               style={{
                 borderTop: "1px solid #edf1f7",
                 paddingTop: "18px",
@@ -1064,7 +1092,7 @@ export default function AdminMessagesPage() {
               >
                 {sending ? "Sending..." : "Send Reply"}
               </button>
-            </div>
+            </div>}
           </section>
         )}
 
@@ -1116,6 +1144,9 @@ export default function AdminMessagesPage() {
                       date={item.created_at}
                       attachmentLink={item.attachment_link}
                       attachmentCount={Array.isArray(item.attachments) ? item.attachments.length : 0}
+                      replyCount={item.reply_count}
+                      lastReplyName={item.last_reply_name}
+                      lastReplyAt={item.last_reply_at}
                     />
                     {item.dealt_with_at && (
                       <div className="admin-message-dealt-metadata">
@@ -1181,7 +1212,15 @@ export default function AdminMessagesPage() {
                     gap: "14px",
                   }}
                 >
-                  <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+                  <div
+                    style={{ flex: "1 1 auto", minWidth: 0, cursor: "pointer" }}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openSentMessage(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") openSentMessage(item);
+                    }}
+                  >
                     <MessageRow
                       name={item.receiver_name}
                       meta={roleLabel(item.receiver_role)}
@@ -1190,6 +1229,9 @@ export default function AdminMessagesPage() {
                       date={item.created_at}
                       attachmentLink={item.attachment_link}
                       attachmentCount={Array.isArray(item.attachments) ? item.attachments.length : 0}
+                      replyCount={item.reply_count}
+                      lastReplyName={item.last_reply_name}
+                      lastReplyAt={item.last_reply_at}
                     />
                     <MessageAttachments
                       messageId={String(item.id)}
@@ -1200,9 +1242,10 @@ export default function AdminMessagesPage() {
                     <button
                       type="button"
                       className="admin-message-sent-delete-action"
-                      onClick={() =>
+                      onClick={(event) => {
+                        event.stopPropagation();
                         setPendingDeleteTarget({ id: item.id, section: "sent" })
-                      }
+                      }}
                       disabled={Boolean(deletingMessageId)}
                     >
                       Delete
@@ -1403,6 +1446,9 @@ function MessageRow({
   date,
   attachmentLink,
   attachmentCount = 0,
+  replyCount = 0,
+  lastReplyName,
+  lastReplyAt,
 }: {
   badge?: string;
   name?: string;
@@ -1412,6 +1458,9 @@ function MessageRow({
   date?: string | null;
   attachmentLink?: string | null;
   attachmentCount?: number;
+  replyCount?: number;
+  lastReplyName?: string | null;
+  lastReplyAt?: string | null;
 }) {
   return (
     <div
@@ -1482,6 +1531,11 @@ function MessageRow({
         {attachmentCount > 0 && (
           <span style={{ color: "#64748b", fontSize: "12px", marginTop: "6px" }}>
             {attachmentCount} attachment{attachmentCount === 1 ? "" : "s"}
+          </span>
+        )}
+        {replyCount > 0 && (
+          <span style={{ display: "block", color: "#1f3c88", fontSize: "12px", fontWeight: 700, marginTop: "6px" }}>
+            Replied by {lastReplyName || "staff"} · {formatMessageDateTime(lastReplyAt)}
           </span>
         )}
       </div>

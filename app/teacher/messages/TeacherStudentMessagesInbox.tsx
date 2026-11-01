@@ -10,7 +10,7 @@ import {
   type MessageAttachment,
 } from "../../../lib/messageAttachments";
 
-import { formatMessageDateTime } from "../../../lib/messages";
+import { formatMessageDateTime, getMessageThread } from "../../../lib/messages";
 import {
   getTeacherStudentMessages,
   hideTeacherStudentMessage,
@@ -44,9 +44,13 @@ function classDetails(message: TeacherStudentMessage) {
 export default function TeacherStudentMessagesInbox({
   onUnreadCountChange,
 }: TeacherStudentMessagesInboxProps) {
-  const [messages, setMessages] = useState<TeacherStudentMessage[]>([]);
+  const [inboxMessages, setInboxMessages] = useState<TeacherStudentMessage[]>([]);
+  const [sentMessages, setSentMessages] = useState<TeacherStudentMessage[]>([]);
+  const [activeFolder, setActiveFolder] = useState<"Inbox" | "Sent">("Inbox");
   const [selectedMessage, setSelectedMessage] =
     useState<TeacherStudentMessage | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<"Inbox" | "Sent">("Inbox");
+  const [threadMessages, setThreadMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -71,14 +75,17 @@ export default function TeacherStudentMessagesInbox({
 
     try {
       const payload = await getTeacherStudentMessages();
-      setMessages(payload.messages);
+      const nextInbox = payload.inbox || payload.messages || [];
+      const nextSent = payload.sent || [];
+      setInboxMessages(nextInbox);
+      setSentMessages(nextSent);
       onUnreadCountChange(payload.unread_count);
 
       setSelectedMessage((currentSelectedMessage) => {
         if (!currentSelectedMessage) return null;
 
         return (
-          payload.messages.find(
+          [...nextInbox, ...nextSent].find(
             (message) => message.id === currentSelectedMessage.id
           ) || null
         );
@@ -95,23 +102,29 @@ export default function TeacherStudentMessagesInbox({
     void loadMessages();
   }, [loadMessages]);
 
-  async function openMessage(item: TeacherStudentMessage) {
+  async function openMessage(item: TeacherStudentMessage, folder: "Inbox" | "Sent") {
     setSelectedMessage(item);
+    setSelectedFolder(folder);
+    setThreadMessages([item]);
     setReplyMessage("");
     setAttachmentLink("");
     setAttachmentFiles([]);
     setStatusMessage("");
     setErrorMessage("");
 
-    if (item.read_at) return;
+    void getMessageThread(String(item.id))
+      .then((thread) => setThreadMessages(thread.messages))
+      .catch((error) => console.error("Unable to load student message history:", error));
+
+    if (folder === "Sent" || item.read_at) return;
 
     try {
       const updatedMessage = await markTeacherStudentMessageAsRead(item.id);
-      const nextMessages = messages.map((message) =>
+      const nextMessages = inboxMessages.map((message) =>
         message.id === item.id ? updatedMessage : message
       );
 
-      setMessages(nextMessages);
+      setInboxMessages(nextMessages);
       setSelectedMessage(updatedMessage);
       updateUnreadCount(nextMessages);
       window.dispatchEvent(new Event(TEACHER_MESSAGES_CHANGED_EVENT));
@@ -142,6 +155,7 @@ export default function TeacherStudentMessagesInbox({
       uploadedAttachments = await uploadMessageAttachments(attachmentFiles);
       await replyToTeacherStudentMessage({
         studentId: selectedMessage.sender_id,
+        messageId: selectedMessage.id,
         subject: getReplySubject(selectedMessage.subject),
         message: replyMessage.trim(),
         attachmentLink: attachmentLink.trim() || null,
@@ -151,6 +165,9 @@ export default function TeacherStudentMessagesInbox({
       setAttachmentLink("");
       setAttachmentFiles([]);
       setStatusMessage("Reply sent successfully.");
+      await loadMessages();
+      const thread = await getMessageThread(String(selectedMessage.id));
+      setThreadMessages(thread.messages);
     } catch (error: any) {
       if (uploadedAttachments.length) await cleanupMessageAttachments(uploadedAttachments);
       console.error("Unable to send student reply:", error);
@@ -177,10 +194,10 @@ export default function TeacherStudentMessagesInbox({
 
     try {
       await hideTeacherStudentMessage(selectedMessage.id);
-      const nextMessages = messages.filter(
+      const nextMessages = inboxMessages.filter(
         (message) => message.id !== selectedMessage.id
       );
-      setMessages(nextMessages);
+      setInboxMessages(nextMessages);
       setSelectedMessage(null);
       updateUnreadCount(nextMessages);
       setStatusMessage("Message removed from your Inbox.");
@@ -202,6 +219,7 @@ export default function TeacherStudentMessagesInbox({
   }
 
   if (selectedMessage) {
+    const isInboxMessage = selectedFolder === "Inbox";
     return (
       <section className="teacher-student-messages teacher-student-messages-detail">
         <button
@@ -209,19 +227,20 @@ export default function TeacherStudentMessagesInbox({
           className="teacher-student-messages-back"
           onClick={() => {
             setSelectedMessage(null);
+            setThreadMessages([]);
             setReplyMessage("");
             setAttachmentLink("");
             setStatusMessage("");
             setErrorMessage("");
           }}
         >
-          ← Back to student messages
+          ← Back to student {isInboxMessage ? "Inbox" : "Sent"}
         </button>
 
         <div className="teacher-student-messages-detail-header">
           <div>
-            <p className="teacher-student-messages-eyebrow">From</p>
-            <h2>{selectedMessage.sender_name}</h2>
+            <p className="teacher-student-messages-eyebrow">{isInboxMessage ? "From" : "To"}</p>
+            <h2>{isInboxMessage ? selectedMessage.sender_name : selectedMessage.receiver_name}</h2>
             <p className="teacher-student-messages-class">
               {classDetails(selectedMessage)}
             </p>
@@ -234,21 +253,25 @@ export default function TeacherStudentMessagesInbox({
         <h3 className="teacher-student-messages-subject">
           {selectedMessage.subject || "No subject"}
         </h3>
-        <p className="teacher-student-messages-body">{selectedMessage.message}</p>
+        <div className="teacher-student-messages-thread" aria-label="Full student message history">
+          {(threadMessages.length ? threadMessages : [selectedMessage]).map((threadMessage) => (
+            <article className="teacher-student-messages-thread-message" key={threadMessage.id}>
+              <div className="teacher-student-messages-thread-meta">
+                <strong>{threadMessage.sender_name || "User"}</strong>
+                <time dateTime={threadMessage.created_at || undefined}>{formatMessageDateTime(threadMessage.created_at)}</time>
+              </div>
+              <p className="teacher-student-messages-body">{threadMessage.message}</p>
+              {threadMessage.attachment_link && (
+                <a className="teacher-student-messages-attachment" href={threadMessage.attachment_link} target="_blank" rel="noopener noreferrer">
+                  Open attachment
+                </a>
+              )}
+              <MessageAttachments messageId={String(threadMessage.id)} attachments={threadMessage.attachments} />
+            </article>
+          ))}
+        </div>
 
-        {selectedMessage.attachment_link && (
-          <a
-            className="teacher-student-messages-attachment"
-            href={selectedMessage.attachment_link}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open attachment
-          </a>
-        )}
-        <MessageAttachments messageId={String(selectedMessage.id)} attachments={selectedMessage.attachments} />
-
-        {selectedMessage.read_at && (
+        {isInboxMessage && selectedMessage.read_at && (
           <button
             type="button"
             className="teacher-student-messages-delete"
@@ -259,7 +282,7 @@ export default function TeacherStudentMessagesInbox({
           </button>
         )}
 
-        <div className="teacher-student-messages-reply">
+        {isInboxMessage && <div className="teacher-student-messages-reply">
           <h3>Reply</h3>
 
           {statusMessage && (
@@ -302,13 +325,39 @@ export default function TeacherStudentMessagesInbox({
           >
             {sending ? "Sending..." : "Send Reply"}
           </button>
-        </div>
+        </div>}
       </section>
     );
   }
 
+  const isSentFolder = activeFolder === "Sent";
+  const visibleMessages = isSentFolder ? sentMessages : inboxMessages;
+
   return (
     <section className="teacher-student-messages teacher-student-messages-list">
+      <nav className="teacher-student-messages-primary-nav" aria-label="Student message folders">
+        {(["Inbox", "Sent"] as const).map((folder) => (
+          <button
+            key={folder}
+            type="button"
+            className={activeFolder === folder ? "is-active" : ""}
+            onClick={() => {
+              setActiveFolder(folder);
+              setSelectedMessage(null);
+              setThreadMessages([]);
+              setStatusMessage("");
+              setErrorMessage("");
+            }}
+          >
+            {folder}
+            {folder === "Inbox" && inboxMessages.some((message) => !message.read_at) && (
+              <span className="teacher-student-messages-unread-count">
+                {inboxMessages.filter((message) => !message.read_at).length}
+              </span>
+            )}
+          </button>
+        ))}
+      </nav>
       {errorMessage && (
         <p className="teacher-student-messages-error" role="alert">
           {errorMessage}
@@ -320,33 +369,33 @@ export default function TeacherStudentMessagesInbox({
         </p>
       )}
 
-      {!errorMessage && messages.length === 0 && (
+      {!errorMessage && visibleMessages.length === 0 && (
         <div className="teacher-student-messages-empty">
           <span className="teacher-student-messages-empty-icon" aria-hidden="true">
             <Inbox size={25} strokeWidth={1.8} />
           </span>
-          <h2>Your student inbox is clear</h2>
-          <p>New student messages will appear here.</p>
+          <h2>{activeFolder === "Inbox" ? "Your student inbox is clear" : "No sent student messages"}</h2>
+          <p>{activeFolder === "Inbox" ? "New student messages will appear here." : "Replies you send to students will appear here."}</p>
         </div>
       )}
 
       {!errorMessage &&
-        messages.map((message) => (
+        visibleMessages.map((message) => (
           <div
             className={`teacher-student-messages-row${
-              !message.read_at ? " is-unread" : ""
+              !isSentFolder && !message.read_at ? " is-unread" : ""
             }`}
             key={message.id}
           >
             <button
               type="button"
               className="teacher-student-messages-row-open"
-              onClick={() => void openMessage(message)}
+              onClick={() => void openMessage(message, activeFolder)}
             >
               <div className="teacher-student-messages-row-content">
                 <div className="teacher-student-messages-row-meta">
-                  {!message.read_at && <span>New</span>}
-                  <strong>From: {message.sender_name}</strong>
+                  {!isSentFolder && !message.read_at && <span>New</span>}
+                  <strong>{isSentFolder ? "To" : "From"}: {isSentFolder ? message.receiver_name : message.sender_name}</strong>
                 </div>
                 <p className="teacher-student-messages-row-class">
                   {classDetails(message)}

@@ -6,7 +6,9 @@ import StudentMenu from "../StudentMenu";
 import MessageAttachmentPicker from "../../components/messages/MessageAttachmentPicker";
 import MessageAttachments from "../../components/messages/MessageAttachments";
 import {
+  decorateMessageThreadSummaries,
   formatMessageDateTime,
+  getMessageThread,
   getStudentMessages,
   markStudentMessageAsRead,
   sendStudentMessage,
@@ -56,6 +58,8 @@ export default function StudentMessagesPage() {
   const [openMessageType, setOpenMessageType] = useState<
     "inbox" | "sent"
   >("inbox");
+  const [threadMessages, setThreadMessages] = useState<any[]>([]);
+  const [replyToMessageId, setReplyToMessageId] = useState<string | null>(null);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attachmentLink, setAttachmentLink] = useState("");
@@ -67,8 +71,10 @@ export default function StudentMessagesPage() {
 
   async function loadMessages() {
     const { inbox, sent } = await getStudentMessages();
-    setInboxMessages(inbox);
-    setSentMessages(sent);
+    const decorated = decorateMessageThreadSummaries([...inbox, ...sent]);
+    const byId = new Map(decorated.map((item) => [item.id, item]));
+    setInboxMessages(inbox.map((item: any) => byId.get(item.id) || item));
+    setSentMessages(sent.map((item: any) => byId.get(item.id) || item));
   }
 
   useEffect(() => {
@@ -115,6 +121,10 @@ export default function StudentMessagesPage() {
   async function openInboxMessage(item: any) {
     setOpenMessage(item);
     setOpenMessageType("inbox");
+    setThreadMessages([item]);
+    void getMessageThread(String(item.id))
+      .then((thread) => setThreadMessages(thread.messages))
+      .catch((error) => console.error("Unable to load student message history:", error));
 
     if (!item.read_at && studentId) {
       try {
@@ -142,6 +152,10 @@ export default function StudentMessagesPage() {
   function openSentMessage(item: any) {
     setOpenMessage(item);
     setOpenMessageType("sent");
+    setThreadMessages([item]);
+    void getMessageThread(String(item.id))
+      .then((thread) => setThreadMessages(thread.messages))
+      .catch((error) => console.error("Unable to load student message history:", error));
   }
 
   function startReply(item: any) {
@@ -153,7 +167,9 @@ export default function StudentMessagesPage() {
     setMessage("");
     setAttachmentLink("");
     setAttachmentFiles([]);
+    setReplyToMessageId(item.id);
     setOpenMessage(null);
+    setThreadMessages([]);
     setStatusMessage("");
     setErrorMessage("");
     setActiveTab("new");
@@ -196,6 +212,7 @@ export default function StudentMessagesPage() {
         message: message.trim(),
         attachment_link: attachmentLink.trim() || null,
         attachments: uploadedAttachments,
+        reply_to_message_id: replyToMessageId,
       });
 
     } catch (error) {
@@ -212,6 +229,7 @@ export default function StudentMessagesPage() {
     setMessage("");
     setAttachmentLink("");
     setAttachmentFiles([]);
+    setReplyToMessageId(null);
     setStatusMessage("Message sent successfully.");
     setActiveTab("sent");
 
@@ -294,6 +312,11 @@ export default function StudentMessagesPage() {
                 {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
               </span>
             )}
+            {item.reply_count > 0 && (
+              <span className="student-messages-reply-indicator">
+                Replied by {item.last_reply_name || "staff"} · {formatMessageDateTime(item.last_reply_at)}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -352,7 +375,10 @@ export default function StudentMessagesPage() {
             <button
               type="button"
               className="student-messages-secondary-button"
-              onClick={() => setOpenMessage(null)}
+              onClick={() => {
+                setOpenMessage(null);
+                setThreadMessages([]);
+              }}
             >
               Back
             </button>
@@ -369,24 +395,24 @@ export default function StudentMessagesPage() {
               {formatMessageDateTime(openMessage.created_at)}
             </p>
 
-            <p className="student-messages-body">
-              {openMessage.message}
-            </p>
-
-            {openMessage.attachment_link && (
-              <a
-                href={openMessage.attachment_link}
-                target="_blank"
-                rel="noreferrer"
-                className="student-messages-attachment"
-              >
-                Open attachment
-              </a>
-            )}
-            <MessageAttachments
-              messageId={String(openMessage.id)}
-              attachments={openMessage.attachments}
-            />
+            <div className="student-messages-thread" aria-label="Full message history">
+              {(threadMessages.length ? threadMessages : [openMessage]).map((threadMessage) => (
+                <article className="student-messages-thread-message" key={threadMessage.id}>
+                  <p className="student-messages-meta">
+                    {threadMessage.sender_name || (openMessageType === "inbox" ? `From: ${teacherDisplayName()}` : "You")}
+                    <br />
+                    {formatMessageDateTime(threadMessage.created_at)}
+                  </p>
+                  <p className="student-messages-body">{threadMessage.message}</p>
+                  {threadMessage.attachment_link && (
+                    <a href={threadMessage.attachment_link} target="_blank" rel="noreferrer" className="student-messages-attachment">
+                      Open attachment
+                    </a>
+                  )}
+                  <MessageAttachments messageId={String(threadMessage.id)} attachments={threadMessage.attachments} />
+                </article>
+              ))}
+            </div>
 
             {openMessageType === "inbox" && (
               <div className="student-messages-actions">

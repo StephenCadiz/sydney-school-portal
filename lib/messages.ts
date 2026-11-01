@@ -23,6 +23,55 @@ export function formatMessageDateTime(value?: string | null) {
   return messageDateTimeFormatter.format(date);
 }
 
+export async function getMessageThread(messageId: string) {
+  if (!messageId) throw new Error("Unable to identify the message.");
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+  const response = await fetch(
+    `/api/messages/thread?messageId=${encodeURIComponent(messageId)}`,
+    {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+    }
+  );
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to load the message history.");
+  }
+  return {
+    conversation_id: payload?.conversation_id || messageId,
+    messages: Array.isArray(payload?.messages) ? payload.messages : [],
+  };
+}
+
+export function decorateMessageThreadSummaries(messages: any[]) {
+  const groups = new Map<string, any[]>();
+  for (const message of messages || []) {
+    const key = String(message?.conversation_id || message?.id || "");
+    if (!key) continue;
+    groups.set(key, [...(groups.get(key) || []), message]);
+  }
+
+  return (messages || []).map((message) => {
+    const key = String(message?.conversation_id || message?.id || "");
+    const replies = (groups.get(key) || [])
+      .filter((item) => item.id !== message.id)
+      .sort((first, second) => new Date(first.created_at || 0).getTime() - new Date(second.created_at || 0).getTime());
+    const latest = replies[replies.length - 1] || null;
+    return {
+      ...message,
+      reply_count: replies.length,
+      last_reply_at: latest?.created_at || null,
+      last_reply_name: latest?.sender_name || null,
+    };
+  });
+}
+
 function formatTimeRange(startTime?: string | null, endTime?: string | null) {
   const start = startTime ? startTime.slice(0, 5) : "";
   const end = endTime ? endTime.slice(0, 5) : "";
@@ -555,6 +604,7 @@ export async function sendStudentMessage(message: {
   message: string;
   attachment_link?: string | null;
   attachments?: MessageAttachment[];
+  reply_to_message_id?: string | null;
 }) {
   const {
     data: { session },

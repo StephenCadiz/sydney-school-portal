@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
   const { data: sourceMessage, error: sourceError } = await supabaseAdmin
     .from("messages")
-    .select("id, sender_id, receiver_id, recipient_group, recipient_deleted_at")
+    .select("*")
     .eq("id", messageId)
     .maybeSingle();
 
@@ -99,6 +99,9 @@ export async function POST(request: NextRequest) {
       sender_id: auth.teacherId,
       receiver_id: sourceMessage.sender_id,
       recipient_group: null,
+      ...(sourceMessage.conversation_id
+        ? { conversation_id: sourceMessage.conversation_id }
+        : {}),
       subject,
       message,
       ...(attachmentLink ? { attachment_link: attachmentLink } : {}),

@@ -59,16 +59,29 @@ export async function GET(request: NextRequest) {
           .filter((id): id is string => typeof id === "string" && Boolean(id))
       )
     );
-    const { data: receivers, error: receiversError } = receiverIds.length
+    const senderIds = Array.from(new Set((messages || []).map((message) => message.sender_id).filter(Boolean)));
+    const [{ data: receivers, error: receiversError }, { data: senders, error: sendersError }] = await Promise.all([
+      receiverIds.length
       ? await supabaseAdmin
           .from("profiles")
           .select("id, first_name, last_name, role")
           .in("id", receiverIds)
-      : { data: [], error: null };
+      : { data: [], error: null },
+      senderIds.length
+        ? await supabaseAdmin
+            .from("profiles")
+            .select("id, first_name, last_name, role")
+            .in("id", senderIds)
+        : { data: [], error: null },
+    ]);
     if (receiversError) throw receiversError;
+    if (sendersError) throw sendersError;
 
     const receiverById = new Map(
       (receivers || []).map((receiver) => [receiver.id, receiver])
+    );
+    const senderById = new Map(
+      (senders || []).map((sender) => [sender.id, sender])
     );
     const visibleMessages = (messages || []).filter(
       (message) =>
@@ -83,6 +96,8 @@ export async function GET(request: NextRequest) {
 
       return {
         ...message,
+        sender_name: profileName(senderById.get(message.sender_id), "Admin"),
+        sender_role: senderById.get(message.sender_id)?.role || "admin",
         receiver_name: isSharedAdminRecipient
           ? "Admin"
           : profileName(receiver, "Unknown user"),

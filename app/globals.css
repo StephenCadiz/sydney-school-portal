@@ -4196,6 +4196,38 @@ body {
   white-space: pre-wrap;
 }
 
+.teacher-student-messages-thread {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.teacher-student-messages-thread-message {
+  background: #f8fbff;
+  border: 1px solid #dbe7f5;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.teacher-student-messages-thread-message:nth-child(even) {
+  background: #eef6ff;
+}
+
+.teacher-student-messages-thread-meta {
+  align-items: baseline;
+  color: #1f3c88;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.teacher-student-messages-thread-meta time {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .teacher-student-messages-attachment {
   color: #1f3c88;
   display: inline-block;
@@ -8800,6 +8832,49 @@ img {
   .admin-dashboard-action-arrow {
     display: none;
   }
+}
+
+/* Email-style message conversations. */
+.teacher-messages-row-reply-indicator,
+.student-messages-reply-indicator {
+  display: block;
+  margin-top: 6px;
+  color: #1f3c88;
+  font-size: 12px;
+  font-weight: 700;
+}
+.teacher-messages-thread,
+.student-messages-thread,
+.admin-message-thread {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0;
+}
+.teacher-messages-thread-message,
+.student-messages-thread-message,
+.admin-message-thread-message {
+  padding: 14px 16px;
+  border: 1px solid #dbe7f5;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+.teacher-messages-thread-message:nth-child(even),
+.student-messages-thread-message:nth-child(even),
+.admin-message-thread-message:nth-child(even) {
+  background: #eef6ff;
+}
+.admin-message-thread-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: #1f3c88;
+}
+.admin-message-thread-meta time {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 /* Admin teacher management */

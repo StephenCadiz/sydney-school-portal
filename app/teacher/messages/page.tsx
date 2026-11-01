@@ -9,6 +9,8 @@ import { ChevronRight, Inbox, PenLine, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import {
   formatMessageDateTime,
+  decorateMessageThreadSummaries,
+  getMessageThread,
   getTeacherStaffInboxMessages,
   getTeacherStaffRecipients,
   getTeacherStaffSentMessages,
@@ -113,6 +115,11 @@ function MessageRow({
               {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}
             </span>
           )}
+          {item.reply_count > 0 && (
+            <span className="teacher-messages-row-reply-indicator">
+              Replied by {item.last_reply_name || "staff"} · {formatMessageDateTime(item.last_reply_at)}
+            </span>
+          )}
       </span>
       <span className="teacher-messages-row-trailing">
         <time dateTime={item.created_at || undefined}>
@@ -146,6 +153,7 @@ export default function TeacherMessagesPage() {
     teachers: [],
   });
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
+  const [threadMessages, setThreadMessages] = useState<any[]>([]);
   const [receiverId, setReceiverId] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -182,8 +190,10 @@ export default function TeacherMessagesPage() {
       return;
     }
 
-    setInboxMessages(inboxData);
-    setSentMessages(sentData);
+    const decorated = decorateMessageThreadSummaries([...inboxData, ...sentData]);
+    const byId = new Map(decorated.map((item) => [item.id, item]));
+    setInboxMessages(inboxData.map((item: any) => byId.get(item.id) || item));
+    setSentMessages(sentData.map((item: any) => byId.get(item.id) || item));
 
     const currentSelectedMessage = selectedMessageRef.current;
 
@@ -322,7 +332,14 @@ export default function TeacherMessagesPage() {
     setStatusMessage("");
     setErrorMessage("");
     setSelectedMessage(item);
+    setThreadMessages([item]);
     setReplyMessage("");
+    try {
+      const thread = await getMessageThread(String(item.id));
+      setThreadMessages(thread.messages);
+    } catch (error) {
+      console.error("Unable to load staff message history:", error);
+    }
 
     if (!item.read_at && teacherId) {
       try {
@@ -348,7 +365,9 @@ export default function TeacherMessagesPage() {
     setStatusMessage("");
     setErrorMessage("");
     setSelectedMessage(item);
+    setThreadMessages([item]);
     setReplyMessage("");
+    void getMessageThread(String(item.id)).then((thread) => setThreadMessages(thread.messages)).catch((error) => console.error("Unable to load staff message history:", error));
   }
 
   function resetComposer() {
@@ -652,6 +671,7 @@ export default function TeacherMessagesPage() {
                   <article className="teacher-messages-detail">
                     <button type="button" className="teacher-messages-back" onClick={() => {
                       setSelectedMessage(null);
+                      setThreadMessages([]);
                       setReplyMessage("");
                       setReplyAttachmentFiles([]);
                       setStatusMessage("");
@@ -661,13 +681,19 @@ export default function TeacherMessagesPage() {
                     </button>
                     <p className="teacher-messages-detail-eyebrow">{messageDirectionLabel(selectedMessage, "inbox")}</p>
                     <h2>{selectedMessage.subject || "No subject"}</h2>
-                    <div className="teacher-messages-detail-meta">
-                      <span>{selectedMessage.sender_name || "Staff member"}</span>
-                      <time dateTime={selectedMessage.created_at || undefined}>{formatMessageDateTime(selectedMessage.created_at)}</time>
+                    <div className="teacher-messages-thread" aria-label="Full message history">
+                      {(threadMessages.length ? threadMessages : [selectedMessage]).map((threadMessage) => (
+                        <article className="teacher-messages-thread-message" key={threadMessage.id}>
+                          <div className="teacher-messages-detail-meta">
+                            <span>{threadMessage.sender_name || "Staff member"}</span>
+                            <time dateTime={threadMessage.created_at || undefined}>{formatMessageDateTime(threadMessage.created_at)}</time>
+                          </div>
+                          <p className="teacher-messages-detail-body">{threadMessage.message}</p>
+                          {threadMessage.attachment_link && <a className="teacher-messages-attachment" href={threadMessage.attachment_link} target="_blank" rel="noopener noreferrer">Open attachment</a>}
+                          <MessageAttachments messageId={String(threadMessage.id)} attachments={threadMessage.attachments} />
+                        </article>
+                      ))}
                     </div>
-                    <p className="teacher-messages-detail-body">{selectedMessage.message}</p>
-                    {selectedMessage.attachment_link && <a className="teacher-messages-attachment" href={selectedMessage.attachment_link} target="_blank" rel="noopener noreferrer">Open attachment</a>}
-                    <MessageAttachments messageId={String(selectedMessage.id)} attachments={selectedMessage.attachments} />
                     {selectedMessage.read_at && (
                       <button type="button" className="teacher-messages-delete" onClick={() => handleDeleteFromInbox(selectedMessage)} disabled={deletingMessageId === selectedMessage.id}>
                         {deletingMessageId === selectedMessage.id ? "Removing..." : "Delete from Inbox"}
@@ -689,6 +715,7 @@ export default function TeacherMessagesPage() {
                   <article className="teacher-messages-detail">
                     <button type="button" className="teacher-messages-back" onClick={() => {
                       setSelectedMessage(null);
+                      setThreadMessages([]);
                       setStatusMessage("");
                       setErrorMessage("");
                     }}>
@@ -696,15 +723,21 @@ export default function TeacherMessagesPage() {
                     </button>
                     <p className="teacher-messages-detail-eyebrow">{messageDirectionLabel(selectedMessage, "sent")}</p>
                     <h2>{selectedMessage.subject || "No subject"}</h2>
-                    <div className="teacher-messages-detail-meta">
-                      <span>{selectedMessage.receiver_name || "Staff member"}</span>
-                      <time dateTime={selectedMessage.created_at || undefined}>{formatMessageDateTime(selectedMessage.created_at)}</time>
-                    </div>
                     {statusMessage && <p className="teacher-messages-notice is-success" role="status">{statusMessage}</p>}
                     {errorMessage && <p className="teacher-messages-notice is-error" role="alert">{errorMessage}</p>}
-                    <p className="teacher-messages-detail-body">{selectedMessage.message}</p>
-                    {selectedMessage.attachment_link && <a className="teacher-messages-attachment" href={selectedMessage.attachment_link} target="_blank" rel="noopener noreferrer">Open attachment</a>}
-                    <MessageAttachments messageId={String(selectedMessage.id)} attachments={selectedMessage.attachments} />
+                    <div className="teacher-messages-thread" aria-label="Full message history">
+                      {(threadMessages.length ? threadMessages : [selectedMessage]).map((threadMessage) => (
+                        <article className="teacher-messages-thread-message" key={threadMessage.id}>
+                          <div className="teacher-messages-detail-meta">
+                            <span>{threadMessage.sender_name || "Staff member"}</span>
+                            <time dateTime={threadMessage.created_at || undefined}>{formatMessageDateTime(threadMessage.created_at)}</time>
+                          </div>
+                          <p className="teacher-messages-detail-body">{threadMessage.message}</p>
+                          {threadMessage.attachment_link && <a className="teacher-messages-attachment" href={threadMessage.attachment_link} target="_blank" rel="noopener noreferrer">Open attachment</a>}
+                          <MessageAttachments messageId={String(threadMessage.id)} attachments={threadMessage.attachments} />
+                        </article>
+                      ))}
+                    </div>
                     <button type="button" className="teacher-messages-delete" onClick={() => handleDeleteFromSent(selectedMessage)} disabled={deletingMessageId === selectedMessage.id}>
                       {deletingMessageId === selectedMessage.id ? "Removing..." : "Delete from Sent"}
                     </button>

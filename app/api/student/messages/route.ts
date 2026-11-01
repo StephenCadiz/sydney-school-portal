@@ -28,7 +28,7 @@ function logFailure(stage: string, error: any) {
 
 function allowedKeys(record: Record<string, unknown>) {
   return Object.keys(record).every((key) =>
-    ["receiver_id", "subject", "message", "attachment_link", "attachments"].includes(key)
+    ["receiver_id", "subject", "message", "attachment_link", "attachments", "reply_to_message_id"].includes(key)
   );
 }
 
@@ -147,8 +147,27 @@ export async function GET(request: NextRequest) {
     if (inboxResult.error) throw inboxResult.error;
     if (sentResult.error) throw sentResult.error;
 
+    const messageRows = [...(inboxResult.data || []), ...(sentResult.data || [])];
+    const profileIds = Array.from(new Set(messageRows.flatMap((row) => [row.sender_id, row.receiver_id]).filter(Boolean)));
+    const { data: profiles, error: profilesError } = profileIds.length
+      ? await supabaseAdmin.from("profiles").select("id, first_name, last_name, role").in("id", profileIds)
+      : { data: [], error: null };
+    if (profilesError) throw profilesError;
+    const profilesById = new Map((profiles || []).map((profile) => [String(profile.id), profile]));
+    const enrich = (rows: any[]) => rows.map((row) => {
+      const sender = profilesById.get(String(row.sender_id || ""));
+      const receiver = profilesById.get(String(row.receiver_id || ""));
+      return {
+        ...row,
+        sender_name: `${sender?.first_name || ""} ${sender?.last_name || ""}`.trim() || "Unknown user",
+        sender_role: sender?.role || "",
+        receiver_name: `${receiver?.first_name || ""} ${receiver?.last_name || ""}`.trim() || "Unknown user",
+        receiver_role: receiver?.role || "",
+      };
+    });
+
     return NextResponse.json(
-      { inbox: inboxResult.data || [], sent: sentResult.data || [] },
+      { inbox: enrich(inboxResult.data || []), sent: enrich(sentResult.data || []) },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error: any) {
@@ -211,6 +230,7 @@ export async function POST(request: NextRequest) {
     }
 
     const receiverId = String(record.receiver_id || "").trim();
+    const replyToMessageId = String(record.reply_to_message_id || "").trim();
     const subject = String(record.subject || "").trim();
     const message = String(record.message || "").trim();
     if (!UUID.test(receiverId)) return errorResponse("Choose a valid teacher recipient.", 400);
@@ -242,6 +262,21 @@ export async function POST(request: NextRequest) {
       return errorResponse("The selected teacher is not available.", 403);
     }
 
+    let conversationId: string | null = null;
+    if (replyToMessageId) {
+      if (!UUID.test(replyToMessageId)) return errorResponse("The reply source is invalid.", 400);
+      const { data: sourceMessage, error: sourceError } = await supabaseAdmin
+        .from("messages")
+        .select("id, sender_id, receiver_id, recipient_deleted_at, conversation_id")
+        .eq("id", replyToMessageId)
+        .maybeSingle();
+      if (sourceError) throw sourceError;
+      if (!sourceMessage || sourceMessage.recipient_deleted_at || sourceMessage.receiver_id !== studentId || sourceMessage.sender_id !== receiverId) {
+        return errorResponse("The message being replied to was not found.", 404);
+      }
+      conversationId = sourceMessage.conversation_id || sourceMessage.id;
+    }
+
     const attachmentLink =
       record.attachment_link === undefined || record.attachment_link === null
         ? null
@@ -271,6 +306,7 @@ export async function POST(request: NextRequest) {
         sender_id: studentId,
         receiver_id: receiverId,
         recipient_group: null,
+        ...(conversationId ? { conversation_id: conversationId } : {}),
         subject,
         message,
         attachment_link: attachmentLink,
