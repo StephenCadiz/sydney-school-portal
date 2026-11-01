@@ -262,7 +262,17 @@ export async function POST(request: NextRequest) {
       ) {
         return jsonError("The message being replied to was not found.", 404);
       }
-      conversationId = sourceMessage.conversation_id || sourceMessage.id;
+      // The conversation migration is additive. Older production databases do
+      // not return `conversation_id` from `select("*")`, so do not include the
+      // missing column in the reply insert. When the column is present, use the
+      // source message as the thread root for legacy rows with a null value.
+      const hasConversationColumn = Object.prototype.hasOwnProperty.call(
+        sourceMessage,
+        "conversation_id"
+      );
+      conversationId = hasConversationColumn
+        ? sourceMessage.conversation_id || sourceMessage.id
+        : null;
     }
 
     const { data: reply, error: insertError } = await supabaseAdmin

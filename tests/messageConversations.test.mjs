@@ -26,7 +26,11 @@ test("email-style messages persist a conversation id and replies stay in the sam
   assert.match(teacherReply, /sourceMessage\.conversation_id/);
   assert.match(adminReply, /sourceMessage\.conversation_id/);
   assert.match(studentMessages, /reply_to_message_id/);
-  assert.match(studentMessages, /conversationId = sourceMessage\.conversation_id \|\| sourceMessage\.id/);
+  assert.match(studentMessages, /sourceMessage\.conversation_id\s*\|\|\s*sourceMessage\.id/);
+  assert.match(studentMessages, /hasConversationColumn/);
+  assert.match(studentMessages, /conversationId = hasConversationColumn/);
+  assert.match(teacherStudentMessagesApi, /hasConversationColumn/);
+  assert.match(teacherStudentMessagesApi, /conversationId = hasConversationColumn/);
 });
 
 test("thread history is authenticated and participant-scoped", () => {

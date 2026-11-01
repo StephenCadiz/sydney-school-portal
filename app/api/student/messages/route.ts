@@ -267,14 +267,24 @@ export async function POST(request: NextRequest) {
       if (!UUID.test(replyToMessageId)) return errorResponse("The reply source is invalid.", 400);
       const { data: sourceMessage, error: sourceError } = await supabaseAdmin
         .from("messages")
-        .select("id, sender_id, receiver_id, recipient_deleted_at, conversation_id")
+        // Keep replies compatible with databases that predate the optional
+        // conversation_id migration. `select("*")` omits the missing column,
+        // allowing the message to be sent while thread history falls back to
+        // the source message id.
+        .select("*")
         .eq("id", replyToMessageId)
         .maybeSingle();
       if (sourceError) throw sourceError;
       if (!sourceMessage || sourceMessage.recipient_deleted_at || sourceMessage.receiver_id !== studentId || sourceMessage.sender_id !== receiverId) {
         return errorResponse("The message being replied to was not found.", 404);
       }
-      conversationId = sourceMessage.conversation_id || sourceMessage.id;
+      const hasConversationColumn = Object.prototype.hasOwnProperty.call(
+        sourceMessage,
+        "conversation_id"
+      );
+      conversationId = hasConversationColumn
+        ? sourceMessage.conversation_id || sourceMessage.id
+        : null;
     }
 
     const attachmentLink =
