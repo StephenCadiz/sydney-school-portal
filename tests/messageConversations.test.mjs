@@ -63,3 +63,15 @@ test("all mailboxes show reply author/date indicators and full history", () => {
   assert.match(teacherStudentMessagesApi, /const MESSAGE_COLUMNS = "\*"/);
   assert.match(threadServer, /isConversationColumnMissing/);
 });
+
+test("all mailbox lists show a green Replied badge when the original has a reply", () => {
+  for (const page of [teacherPage, adminPage, studentPage, teacherStudentMessages]) {
+    assert.match(page, /message-replied-badge/);
+    assert.match(page, /aria-label="Replied"/);
+  }
+  assert.match(read("app/globals.css"), /\.message-replied-badge[\s\S]*background:\s*#dcfce7/);
+  assert.match(read("app/globals.css"), /\.message-replied-badge[\s\S]*color:\s*#166534/);
+  assert.match(messages, /reply_to_message_id/);
+  assert.match(messages, /hasReversedParticipants/);
+  assert.match(messages, /candidateSubject/);
+});

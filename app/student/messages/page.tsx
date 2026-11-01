@@ -307,6 +307,15 @@ export default function StudentMessagesPage() {
             <p className="student-messages-preview">
               {getPreview(item.message)}
             </p>
+            {item.reply_count > 0 && (
+              <span
+                className="message-replied-badge"
+                title={`Replied by ${item.last_reply_name || "staff"}${item.last_reply_at ? ` · ${formatMessageDateTime(item.last_reply_at)}` : ""}`}
+                aria-label="Replied"
+              >
+                Replied
+              </span>
+            )}
             {Array.isArray(item.attachments) && item.attachments.length > 0 && (
               <span className="student-messages-attachment-count">
                 {item.attachments.length} attachment{item.attachments.length === 1 ? "" : "s"}

@@ -10,7 +10,11 @@ import {
   type MessageAttachment,
 } from "../../../lib/messageAttachments";
 
-import { formatMessageDateTime, getMessageThread } from "../../../lib/messages";
+import {
+  decorateMessageThreadSummaries,
+  formatMessageDateTime,
+  getMessageThread,
+} from "../../../lib/messages";
 import {
   getTeacherStudentMessages,
   hideTeacherStudentMessage,
@@ -77,15 +81,19 @@ export default function TeacherStudentMessagesInbox({
       const payload = await getTeacherStudentMessages();
       const nextInbox = payload.inbox || payload.messages || [];
       const nextSent = payload.sent || [];
-      setInboxMessages(nextInbox);
-      setSentMessages(nextSent);
+      const decorated = decorateMessageThreadSummaries([...nextInbox, ...nextSent]);
+      const byId = new Map(decorated.map((message) => [message.id, message]));
+      const decoratedInbox = nextInbox.map((message) => byId.get(message.id) || message);
+      const decoratedSent = nextSent.map((message) => byId.get(message.id) || message);
+      setInboxMessages(decoratedInbox);
+      setSentMessages(decoratedSent);
       onUnreadCountChange(payload.unread_count);
 
       setSelectedMessage((currentSelectedMessage) => {
         if (!currentSelectedMessage) return null;
 
         return (
-          [...nextInbox, ...nextSent].find(
+          [...decoratedInbox, ...decoratedSent].find(
             (message) => message.id === currentSelectedMessage.id
           ) || null
         );
@@ -406,6 +414,15 @@ export default function TeacherStudentMessagesInbox({
                 <p className="teacher-student-messages-row-preview">
                   {previewText(message.message)}
                 </p>
+                {(message.reply_count ?? 0) > 0 && (
+                  <span
+                    className="message-replied-badge"
+                    title={`Replied by ${message.last_reply_name || "staff"}${message.last_reply_at ? ` · ${formatMessageDateTime(message.last_reply_at)}` : ""}`}
+                    aria-label="Replied"
+                  >
+                    Replied
+                  </span>
+                )}
                 {Array.isArray(message.attachments) && message.attachments.length > 0 && (
                   <span className="teacher-student-messages-row-attachments">
                     {message.attachments.length} attachment{message.attachments.length === 1 ? "" : "s"}

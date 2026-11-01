@@ -8835,13 +8835,19 @@ img {
 }
 
 /* Email-style message conversations. */
-.teacher-messages-row-reply-indicator,
-.student-messages-reply-indicator {
-  display: block;
-  margin-top: 6px;
-  color: #1f3c88;
-  font-size: 12px;
-  font-weight: 700;
+.message-replied-badge {
+  align-items: center;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  border-radius: 5px;
+  color: #166534;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  margin-top: 7px;
+  padding: 5px 8px;
+  width: fit-content;
 }
 .teacher-messages-thread,
 .student-messages-thread,

@@ -20,6 +20,9 @@ export type TeacherStudentMessage = {
   created_at: string | null;
   read_at: string | null;
   conversation_id?: string | null;
+  reply_count?: number;
+  last_reply_name?: string | null;
+  last_reply_at?: string | null;
   folder?: "inbox" | "sent";
 };
 

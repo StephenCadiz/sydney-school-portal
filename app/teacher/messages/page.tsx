@@ -116,8 +116,12 @@ function MessageRow({
             </span>
           )}
           {item.reply_count > 0 && (
-            <span className="teacher-messages-row-reply-indicator">
-              Replied by {item.last_reply_name || "staff"} · {formatMessageDateTime(item.last_reply_at)}
+            <span
+              className="message-replied-badge"
+              title={`Replied by ${item.last_reply_name || "staff"}${item.last_reply_at ? ` · ${formatMessageDateTime(item.last_reply_at)}` : ""}`}
+              aria-label="Replied"
+            >
+              Replied
             </span>
           )}
       </span>

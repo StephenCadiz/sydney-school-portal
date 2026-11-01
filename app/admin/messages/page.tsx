@@ -1534,8 +1534,12 @@ function MessageRow({
           </span>
         )}
         {replyCount > 0 && (
-          <span style={{ display: "block", color: "#1f3c88", fontSize: "12px", fontWeight: 700, marginTop: "6px" }}>
-            Replied by {lastReplyName || "staff"} · {formatMessageDateTime(lastReplyAt)}
+          <span
+            className="message-replied-badge"
+            title={`Replied by ${lastReplyName || "staff"}${lastReplyAt ? ` · ${formatMessageDateTime(lastReplyAt)}` : ""}`}
+            aria-label="Replied"
+          >
+            Replied
           </span>
         )}
       </div>

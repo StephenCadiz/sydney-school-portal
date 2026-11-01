@@ -50,17 +50,78 @@ export async function getMessageThread(messageId: string) {
 }
 
 export function decorateMessageThreadSummaries(messages: any[]) {
-  const groups = new Map<string, any[]>();
-  for (const message of messages || []) {
-    const key = String(message?.conversation_id || message?.id || "");
-    if (!key) continue;
-    groups.set(key, [...(groups.get(key) || []), message]);
-  }
+  const normalizeSubject = (value: unknown) =>
+    String(value || "")
+      .replace(/^(?:re:\s*)+/i, "")
+      .trim()
+      .toLocaleLowerCase();
+
+  const hasReversedParticipants = (message: any, candidate: any) => {
+    const messageSender = String(message?.sender_id || "");
+    const messageReceiver = String(message?.receiver_id || "");
+    const candidateSender = String(candidate?.sender_id || "");
+    const candidateReceiver = String(candidate?.receiver_id || "");
+
+    if (
+      messageSender &&
+      messageReceiver &&
+      candidateSender === messageReceiver &&
+      candidateReceiver === messageSender
+    ) {
+      return true;
+    }
+
+    // Shared Admin messages have no receiver_id on the original message.
+    if (
+      message?.recipient_group === "admin" &&
+      !messageReceiver &&
+      candidateReceiver === messageSender
+    ) {
+      return true;
+    }
+
+    // A teacher's reply to a teacher-directed Admin-identity message is still
+    // the reply to the original message even though the original is tagged
+    // with the shared Admin identity.
+    return (
+      candidate?.recipient_group === "admin" &&
+      !candidateReceiver &&
+      messageReceiver === candidateSender
+    );
+  };
+
+  const isReplyTo = (message: any, candidate: any) => {
+    if (!message || !candidate || message.id === candidate.id) return false;
+
+    if (String(candidate?.reply_to_message_id || "") === String(message.id)) {
+      return true;
+    }
+
+    const messageConversation = String(message?.conversation_id || "");
+    const candidateConversation = String(candidate?.conversation_id || "");
+    const conversationMatch =
+      messageConversation &&
+      candidateConversation &&
+      messageConversation === candidateConversation &&
+      (messageConversation !== String(message.id) ||
+        candidateConversation !== String(candidate.id));
+    if (conversationMatch) return true;
+
+    const messageTime = new Date(message?.created_at || 0).getTime();
+    const candidateTime = new Date(candidate?.created_at || 0).getTime();
+    if (candidateTime && messageTime && candidateTime <= messageTime) return false;
+
+    const subject = normalizeSubject(message?.subject);
+    const candidateSubject = normalizeSubject(candidate?.subject);
+    if (!subject || subject !== candidateSubject) return false;
+    if (!/^\s*re:/i.test(String(candidate?.subject || ""))) return false;
+
+    return hasReversedParticipants(message, candidate);
+  };
 
   return (messages || []).map((message) => {
-    const key = String(message?.conversation_id || message?.id || "");
-    const replies = (groups.get(key) || [])
-      .filter((item) => item.id !== message.id)
+    const replies = (messages || [])
+      .filter((item) => isReplyTo(message, item))
       .sort((first, second) => new Date(first.created_at || 0).getTime() - new Date(second.created_at || 0).getTime());
     const latest = replies[replies.length - 1] || null;
     return {
