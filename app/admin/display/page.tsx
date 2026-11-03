@@ -30,11 +30,13 @@ type CalendarGroup = {
 type DisplayData = {
   levels: DisplayLevel[];
   friday: CalendarGroup | null;
+  fridayExamPractice: CalendarGroup | null;
 };
 
 const PORTAL_URL = "www.sydneyschoolsanfernando.com";
 const PORTAL_LINK = "https://www.sydneyschoolsanfernando.com";
 const CAMBRIDGE_LEVELS = new Set(["b1", "b2", "c1", "c2"]);
+const DISPLAY_SLIDE_COUNT = 11;
 
 const fallbackLevels = GLOBAL_LEVEL_ORDER.filter(
   (level) => level !== "Support Classes"
@@ -63,6 +65,14 @@ function formatTimeRange(start?: string | null, end?: string | null) {
     return first;
   }
   return `${first}–${last}`;
+}
+
+function formatExamPracticeLabel(value: string) {
+  const withoutWorkshop = String(value || "").replace(/\s+Workshop$/i, "").trim();
+  if (!withoutWorkshop) return "Exam Practice";
+  return /\bpractice$/i.test(withoutWorkshop)
+    ? withoutWorkshop
+    : `${withoutWorkshop} Practice`;
 }
 
 function normalizeLevel(value: string) {
@@ -136,7 +146,11 @@ function PhoneOutline({ variant }: { variant: "portal" | "app" }) {
 function DisplayPage() {
   const [slideIndex, setSlideIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [data, setData] = useState<DisplayData>({ levels: fallbackLevels, friday: null });
+  const [data, setData] = useState<DisplayData>({
+    levels: fallbackLevels,
+    friday: null,
+    fridayExamPractice: null,
+  });
   const [dataState, setDataState] = useState<"loading" | "ready" | "unavailable">("loading");
 
   const loadDisplayData = useCallback(async () => {
@@ -173,7 +187,27 @@ function DisplayPage() {
         groups.find((group) => group.kind === "friday_at_6") ||
         null;
 
-      setData({ levels: levels.length ? levels : fallbackLevels, friday });
+      const fridayAtSix = groups.find((group) => group.kind === "friday_at_6") || null;
+      const examPracticeItems = (fridayAtSix?.items || [])
+        .filter((item) => /\bWorkshop$/i.test(String(item.label || "")))
+        .map((item) => ({
+          ...item,
+          label: formatExamPracticeLabel(item.label),
+        }));
+      const fridayExamPractice = fridayAtSix && examPracticeItems.length
+        ? {
+            ...fridayAtSix,
+            title: "Friday Exam Practice",
+            description: "This Friday's Cambridge exam-practice session.",
+            items: examPracticeItems,
+          }
+        : null;
+
+      setData({
+        levels: levels.length ? levels : fallbackLevels,
+        friday,
+        fridayExamPractice,
+      });
       setDataState("ready");
     } catch (error) {
       console.error("Unable to load Display presentation data:", error);
@@ -190,14 +224,14 @@ function DisplayPage() {
   const goToSlide = useCallback((next: number) => {
     setSlideIndex((current) => {
       const resolved = typeof next === "number" ? next : current;
-      return (resolved + 10) % 10;
+      return (resolved + DISPLAY_SLIDE_COUNT) % DISPLAY_SLIDE_COUNT;
     });
   }, []);
 
   useEffect(() => {
     if (isPaused) return;
     const intervalId = window.setInterval(() => {
-      setSlideIndex((current) => (current + 1) % 10);
+      setSlideIndex((current) => (current + 1) % DISPLAY_SLIDE_COUNT);
     }, 8000);
     return () => window.clearInterval(intervalId);
   }, [isPaused]);
@@ -206,11 +240,11 @@ function DisplayPage() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowRight" || event.key === " ") {
         event.preventDefault();
-        setSlideIndex((current) => (current + 1) % 10);
+        setSlideIndex((current) => (current + 1) % DISPLAY_SLIDE_COUNT);
       }
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        setSlideIndex((current) => (current + 9) % 10);
+        setSlideIndex((current) => (current + DISPLAY_SLIDE_COUNT - 1) % DISPLAY_SLIDE_COUNT);
       }
       if (event.key.toLowerCase() === "p") setIsPaused((current) => !current);
     };
@@ -348,6 +382,28 @@ function DisplayPage() {
             )}
 
             {slideIndex === 6 && (
+              <div className="display-content-slide display-content-slide--exam-practice">
+                <SlideKicker>Friday Exam Practice</SlideKicker>
+                {data.fridayExamPractice ? (
+                  <>
+                    <h2>Friday Exam Practice</h2>
+                    <p className="display-exam-practice-date">{formatDate(data.fridayExamPractice.event_date)}</p>
+                    <div className="display-exam-practice-items">
+                      {(data.fridayExamPractice.items || []).map((item) => (
+                        <div key={item.id} className="display-exam-practice-item">
+                          <strong>{item.label}</strong>
+                          <span>{formatTimeRange(item.start_time, item.end_time)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="display-empty-state">The next Friday Exam Practice session will appear here as soon as it is published.</div>
+                )}
+              </div>
+            )}
+
+            {slideIndex === 7 && (
               <div className="display-content-slide display-content-slide--split">
                 <div>
                   <SlideKicker>Friday Tutorial</SlideKicker>
@@ -362,7 +418,7 @@ function DisplayPage() {
               </div>
             )}
 
-            {slideIndex === 7 && (
+            {slideIndex === 8 && (
               <div className="display-content-slide display-content-slide--split display-content-slide--portal">
                 <div>
                   <SlideKicker>Student access</SlideKicker>
@@ -375,7 +431,7 @@ function DisplayPage() {
               </div>
             )}
 
-            {slideIndex === 8 && (
+            {slideIndex === 9 && (
               <div className="display-content-slide display-content-slide--split display-content-slide--app">
                 <div>
                   <SlideKicker>Student app and website</SlideKicker>
@@ -393,7 +449,7 @@ function DisplayPage() {
               </div>
             )}
 
-            {slideIndex === 9 && (
+            {slideIndex === 10 && (
               <div className="display-cover-slide display-cover-slide--closing">
                 <div className="display-closing-line" />
                 <BrandMark />
@@ -408,11 +464,11 @@ function DisplayPage() {
         <footer className="display-presentation-controls">
           <button type="button" onClick={() => setIsPaused((current) => !current)} aria-label={isPaused ? "Resume presentation" : "Pause presentation"}>{isPaused ? "▶" : "Ⅱ"}</button>
           <div className="display-progress-dots" aria-label="Presentation slides">
-            {Array.from({ length: 10 }, (_, index) => (
+            {Array.from({ length: DISPLAY_SLIDE_COUNT }, (_, index) => (
               <button key={index} type="button" className={index === slideIndex ? "is-active" : ""} aria-label={`Show slide ${index + 1}`} aria-current={index === slideIndex ? "step" : undefined} onClick={() => goToSlide(index)} />
             ))}
           </div>
-          <span>{String(slideIndex + 1).padStart(2, "0")} / 10</span>
+          <span>{String(slideIndex + 1).padStart(2, "0")} / {DISPLAY_SLIDE_COUNT}</span>
         </footer>
       </div>
     </main>
