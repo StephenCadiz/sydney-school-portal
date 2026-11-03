@@ -307,18 +307,17 @@ function DisplayPage() {
             {slideIndex === 2 && (
               <div className="display-content-slide">
                 <SlideKicker>Our learning pathways</SlideKicker>
-                <h2>One school, every stage of the journey.</h2>
-                <p className="display-lead">The current levels in the portal are organised into Cambridge and Young Learner pathways.</p>
-                <div className="display-pathway-grid">
+                <h2>Learning for every stage.</h2>
+                <div className="display-pathway-grid display-pathway-grid--compact">
                   <div className="display-pathway-card display-pathway-card--cambridge">
                     <span className="display-card-label">Cambridge</span>
-                    <strong>{cambridgeLevels.map((level) => level.name).join("  ·  ")}</strong>
-                    <p>Structured exam preparation with skills-based practice, homework and progress tracking.</p>
+                    <strong className="display-pathway-levels">{cambridgeLevels.map((level) => level.name).join("  ·  ")}</strong>
+                    <p className="display-pathway-note">Cambridge English exam preparation.</p>
                   </div>
                   <div className="display-pathway-card display-pathway-card--young">
                     <span className="display-card-label">Young Learners</span>
-                    <strong>{youngLearnerLevels.map((level) => level.name).join("  ·  ")}</strong>
-                    <p>Age-appropriate lessons that build communication, curiosity and confidence.</p>
+                    <strong className="display-pathway-levels">{youngLearnerLevels.map((level) => level.name).join("  ·  ")}</strong>
+                    <p className="display-pathway-note">Age-appropriate English.</p>
                   </div>
                 </div>
               </div>

@@ -31338,6 +31338,12 @@ html[data-pwa-viewport-locked] body {
 .display-card-label { color: var(--display-blue); font-size: 1rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
 .display-pathway-card strong { font-size: clamp(1.7rem, 2.6vw, 2.6rem); line-height: 1.2; }
 .display-pathway-card p { font-size: 1.18rem; }
+.display-slide--2 .display-content-slide h2 { font-size: clamp(3.2rem, 5vw, 5.8rem); }
+.display-pathway-grid--compact { max-width: 1500px; gap: clamp(18px, 3vw, 44px); }
+.display-pathway-grid--compact .display-pathway-card { align-content: center; min-height: 250px; gap: clamp(14px, 2vw, 24px); padding: clamp(24px, 4vw, 52px); }
+.display-pathway-grid--compact .display-card-label { font-size: clamp(1rem, 1.4vw, 1.45rem); }
+.display-pathway-grid--compact .display-pathway-levels { color: var(--display-navy); font-size: clamp(1.45rem, 2.25vw, 2.8rem); line-height: 1.22; }
+.display-pathway-grid--compact .display-pathway-note { color: #58708b; font-size: clamp(1.05rem, 1.55vw, 1.55rem); }
 .display-level-roadmap { display: grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); max-width: 1050px; gap: 12px; margin-top: 12px; }
 .display-level-step { display: grid; gap: 7px; padding: 22px 18px; border-top: 5px solid var(--display-blue); border-radius: 0 0 18px 18px; background: linear-gradient(180deg, #eef8fd, #ffffff); }
 .display-level-step span { color: #8ba4bc; font-size: 1rem; font-weight: 800; }
