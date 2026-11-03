@@ -305,18 +305,38 @@ function DisplayPage() {
             )}
 
             {slideIndex === 2 && (
-              <div className="display-content-slide">
+              <div className="display-content-slide display-content-slide--pathways">
                 <SlideKicker>Our learning pathways</SlideKicker>
                 <h2>Learning for every stage.</h2>
-                <div className="display-pathway-grid display-pathway-grid--compact">
+                <div className="display-pathway-grid display-pathway-grid--dynamic">
                   <div className="display-pathway-card display-pathway-card--cambridge">
-                    <span className="display-card-label">Cambridge</span>
-                    <strong className="display-pathway-levels">{cambridgeLevels.map((level) => level.name).join("  ·  ")}</strong>
+                    <div className="display-pathway-card-header">
+                      <span className="display-card-label">Cambridge</span>
+                      <span className="display-pathway-count">{cambridgeLevels.length} levels</span>
+                    </div>
+                    <div className="display-pathway-level-list" aria-label="Cambridge levels">
+                      {cambridgeLevels.map((level, index) => (
+                        <div className="display-pathway-level-row" key={level.name}>
+                          <span className="display-pathway-level-index">{String(index + 1).padStart(2, "0")}</span>
+                          <strong>{level.name}</strong>
+                        </div>
+                      ))}
+                    </div>
                     <p className="display-pathway-note">Cambridge English exam preparation.</p>
                   </div>
                   <div className="display-pathway-card display-pathway-card--young">
-                    <span className="display-card-label">Young Learners</span>
-                    <strong className="display-pathway-levels">{youngLearnerLevels.map((level) => level.name).join("  ·  ")}</strong>
+                    <div className="display-pathway-card-header">
+                      <span className="display-card-label">Young Learners</span>
+                      <span className="display-pathway-count">{youngLearnerLevels.length} levels</span>
+                    </div>
+                    <div className="display-pathway-level-list" aria-label="Young Learner levels">
+                      {youngLearnerLevels.map((level, index) => (
+                        <div className="display-pathway-level-row" key={level.name}>
+                          <span className="display-pathway-level-index">{String(index + 1).padStart(2, "0")}</span>
+                          <strong>{level.name}</strong>
+                        </div>
+                      ))}
+                    </div>
                     <p className="display-pathway-note">Age-appropriate English.</p>
                   </div>
                 </div>
