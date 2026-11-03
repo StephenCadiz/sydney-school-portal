@@ -258,7 +258,7 @@ function DisplayPage() {
                 <h2>Personal teaching. Practical progress.</h2>
                 <div className="display-two-column">
                   <div>
-                    <p className="display-lead">Sydney School is a Centro de Inglés for children, teenagers and adults who want English to become part of everyday life.</p>
+                    <p className="display-lead">Sydney School is an English Centre for children, teenagers and adults who want English to become part of everyday life.</p>
                     <p>Our teachers combine clear goals, regular feedback and a friendly classroom culture so learners know what they are working towards and why it matters.</p>
                   </div>
                   <div className="display-feature-stack">
