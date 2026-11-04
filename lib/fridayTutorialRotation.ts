@@ -145,17 +145,11 @@ export function getFridayTutorialSessionTypeForDate(
     : getNextFridayTutorialSessionType(firstSessionType);
 }
 
-function rotationEntry(
-  settings: FridayTutorialRotationSettings,
+function buildRotationEntry(
   sessionDate: string,
-  closures: readonly FridayTutorialRotationClosure[]
+  sessionType: FridayTutorialSessionType | null,
+  closure: FridayTutorialRotationClosure | null
 ): FridayTutorialRotationEntry {
-  const closure = findSchoolClosure(sessionDate, closures);
-  const sessionType = getFridayTutorialSessionTypeForDate(
-    settings,
-    sessionDate,
-    closures
-  );
   const label = sessionType ? getTutorialGroupLabel(sessionType) : "No Friday Tutorial";
   const isB1Session = isB1FridayTutorialSession(sessionType);
 
@@ -174,6 +168,18 @@ function rotationEntry(
     school_closed: Boolean(closure),
     closure,
   };
+}
+
+function rotationEntry(
+  settings: FridayTutorialRotationSettings,
+  sessionDate: string,
+  closures: readonly FridayTutorialRotationClosure[]
+): FridayTutorialRotationEntry {
+  return buildRotationEntry(
+    sessionDate,
+    getFridayTutorialSessionTypeForDate(settings, sessionDate, closures),
+    findSchoolClosure(sessionDate, closures)
+  );
 }
 
 export function calculateFridayTutorialCalendar(
@@ -235,6 +241,64 @@ export function calculateUpcomingFridayTutorials(
     }
   }
   return entries;
+}
+
+/**
+ * Returns every open Friday before the supplied date, newest first. Unlike
+ * the upcoming list this includes the historical rotation so administrators
+ * can reopen and edit any previous register.
+ */
+export function calculatePreviousFridayTutorials(
+  settings: FridayTutorialRotationSettings,
+  beforeDate: string,
+  closures: readonly FridayTutorialRotationClosure[]
+): OpenFridayTutorialRotationEntry[] {
+  const firstDate = String(settings?.first_friday_date || "");
+  const firstDateTime = getDateOnlyUtcTime(firstDate);
+  const beforeDateTime = getDateOnlyUtcTime(beforeDate);
+  const firstSessionType = getFirstSessionType(settings);
+
+  if (
+    firstDateTime === null ||
+    beforeDateTime === null ||
+    !firstSessionType ||
+    !isFridayDate(firstDate) ||
+    beforeDateTime <= firstDateTime
+  ) {
+    return [];
+  }
+
+  const entries: OpenFridayTutorialRotationEntry[] = [];
+  let openFridayCount = 0;
+
+  for (
+    let week = 0;
+    week < MAX_ROTATION_WEEKS;
+    week += 1
+  ) {
+    const sessionDate = addDaysToFridayTutorialDate(firstDate, week * 7);
+    const sessionDateTime = getDateOnlyUtcTime(sessionDate);
+    if (sessionDateTime === null || sessionDateTime >= beforeDateTime) break;
+
+    const closure = findSchoolClosure(sessionDate, closures);
+    if (closure) continue;
+
+    const sessionType =
+      openFridayCount % 2 === 0
+        ? firstSessionType
+        : getNextFridayTutorialSessionType(firstSessionType);
+    const entry = buildRotationEntry(sessionDate, sessionType, null);
+    entries.push({
+      ...entry,
+      tutorial_group: sessionType,
+      session_type: sessionType,
+      school_closed: false,
+      closure: null,
+    });
+    openFridayCount += 1;
+  }
+
+  return entries.reverse();
 }
 
 export type FridayTutorialExistingSession = {

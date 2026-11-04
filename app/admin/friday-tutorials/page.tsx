@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
-import { calculateFridayTutorialCalendar } from "../../../lib/fridayTutorialRotation";
+import {
+  calculateFridayTutorialCalendar,
+  calculatePreviousFridayTutorials,
+} from "../../../lib/fridayTutorialRotation";
 import {
   calculateUpcomingFridayTutorials,
   getFridayTutorialSessionRegister,
   getFridayTutorialRotationContext,
+  getFridayTutorialSessionHistory,
   getFridayTutorialStudents,
   getTutorialGroupLabel,
   isB1FridayTutorialSession,
@@ -96,6 +100,17 @@ function formatShortDate(date: string) {
     month: "long",
     year: "numeric",
   });
+}
+
+function getTodayDateMadrid() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function getStatusStyle(status: string) {
@@ -231,6 +246,7 @@ export default function AdminFridayTutorialsPage() {
   const [activeTab, setActiveTab] = useState("weekly");
   const [settings, setSettings] = useState<any>(null);
   const [rotationClosures, setRotationClosures] = useState<any[]>([]);
+  const [historicalSessions, setHistoricalSessions] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [selectedSessionKey, setSelectedSessionKey] = useState("");
@@ -259,12 +275,40 @@ export default function AdminFridayTutorialsPage() {
     () => calculateUpcomingFridayTutorials(settings, 10, rotationClosures),
     [rotationClosures, settings]
   );
+  const calculatedPreviousTutorials = useMemo(
+    () =>
+      calculatePreviousFridayTutorials(
+        settings,
+        getTodayDateMadrid(),
+        rotationClosures
+      ),
+    [rotationClosures, settings]
+  );
+  const previousTutorials = useMemo(() => {
+    const today = getTodayDateMadrid();
+    const byKey = new Map<string, any>();
+    [...calculatedPreviousTutorials, ...historicalSessions]
+      .filter((tutorial) => String(tutorial.session_date || "") < today)
+      .forEach((tutorial) => {
+        byKey.set(`${tutorial.session_date}|${tutorial.tutorial_group}`, tutorial);
+      });
+    return Array.from(byKey.values()).sort((first, second) =>
+      String(second.session_date).localeCompare(String(first.session_date))
+    );
+  }, [calculatedPreviousTutorials, historicalSessions]);
+  const availableTutorials = useMemo(() => {
+    const byKey = new Map<string, any>();
+    [...previousTutorials, ...upcomingTutorials].forEach((tutorial) => {
+      byKey.set(`${tutorial.session_date}|${tutorial.tutorial_group}`, tutorial);
+    });
+    return Array.from(byKey.values());
+  }, [previousTutorials, upcomingTutorials]);
   const rotationPreview = useMemo(
     () => calculateFridayTutorialCalendar(settings, 6, rotationClosures),
     [rotationClosures, settings]
   );
   const selectedTutorial =
-    upcomingTutorials.find(
+    availableTutorials.find(
       (tutorial) =>
         `${tutorial.session_date}|${tutorial.tutorial_group}` === selectedSessionKey
     ) || upcomingTutorials[0];
@@ -275,20 +319,34 @@ export default function AdminFridayTutorialsPage() {
     (student) => student.approval_status === "approved" && student.active !== false
   );
   const groupedActiveStudents = groupByTutorialGroup(activeStudents);
+  const selectedUpcomingSessionKey = upcomingTutorials.some(
+    (tutorial) =>
+      `${tutorial.session_date}|${tutorial.tutorial_group}` === selectedSessionKey
+  )
+    ? selectedSessionKey
+    : "";
+  const selectedPreviousSessionKey = previousTutorials.some(
+    (tutorial) =>
+      `${tutorial.session_date}|${tutorial.tutorial_group}` === selectedSessionKey
+  )
+    ? selectedSessionKey
+    : "";
 
   async function loadMasterData() {
     setLoading(true);
     setError("");
 
     try {
-      const [rotationData, studentData] = await Promise.all([
+      const [rotationData, studentData, historyData] = await Promise.all([
         getFridayTutorialRotationContext(),
         getFridayTutorialStudents(),
+        getFridayTutorialSessionHistory(),
       ]);
       const settingsData = rotationData.settings;
 
       setSettings(settingsData);
       setRotationClosures(rotationData.closures);
+      setHistoricalSessions(historyData);
       setStudents(studentData);
       setMasterCommentDrafts(
         studentData.reduce((drafts: Record<string, string>, item: any) => {
@@ -311,14 +369,19 @@ export default function AdminFridayTutorialsPage() {
     }
   }
 
-  async function loadRegister(sessionDate: string, tutorialGroup: string) {
+  async function loadRegister(
+    sessionDate: string,
+    tutorialGroup: string,
+    syncApprovedStudents = true
+  ) {
     setRegisterLoading(true);
     setError("");
 
     try {
       const rows = await getFridayTutorialSessionRegister(
         sessionDate,
-        tutorialGroup
+        tutorialGroup,
+        { syncApprovedStudents }
       );
       setRegisterRows(sortFridayTutorialRegisterRows(rows));
       setRegisterCommentDrafts(
@@ -351,37 +414,51 @@ export default function AdminFridayTutorialsPage() {
   }, []);
 
   useEffect(() => {
-    if (!settings || upcomingTutorials.length === 0) return;
+    if (!settings || availableTutorials.length === 0) return;
 
     const requestedExists = requestedSessionKey
-      ? upcomingTutorials.some(
+      ? availableTutorials.some(
           (tutorial) =>
             `${tutorial.session_date}|${tutorial.tutorial_group}` ===
             requestedSessionKey
         )
       : false;
     const firstSession = upcomingTutorials[0];
+    const fallbackSession = firstSession || availableTutorials[0];
     const nextKey = requestedExists
       ? requestedSessionKey
-      : `${firstSession.session_date}|${firstSession.tutorial_group}`;
+      : `${fallbackSession.session_date}|${fallbackSession.tutorial_group}`;
 
     setSelectedSessionKey((current) => {
       if (requestedExists) return nextKey;
 
-      return upcomingTutorials.some(
+      return availableTutorials.some(
         (tutorial) =>
           `${tutorial.session_date}|${tutorial.tutorial_group}` === current
       )
         ? current
         : nextKey;
     });
-  }, [requestedSessionKey, settings, upcomingTutorials]);
+  }, [availableTutorials, requestedSessionKey, settings, upcomingTutorials]);
 
   useEffect(() => {
     if (!selectedTutorial) return;
 
-    loadRegister(selectedTutorial.session_date, selectedTutorial.tutorial_group);
-  }, [selectedSessionKey, selectedTutorial?.session_date, selectedTutorial?.tutorial_group]);
+    const isHistorical = previousTutorials.some(
+      (tutorial) =>
+        `${tutorial.session_date}|${tutorial.tutorial_group}` === selectedSessionKey
+    );
+    loadRegister(
+      selectedTutorial.session_date,
+      selectedTutorial.tutorial_group,
+      !isHistorical
+    );
+  }, [
+    previousTutorials,
+    selectedSessionKey,
+    selectedTutorial?.session_date,
+    selectedTutorial?.tutorial_group,
+  ]);
 
   useEffect(() => {
     if (!studentPendingRemoval || removingStudent) return;
@@ -855,26 +932,51 @@ export default function AdminFridayTutorialsPage() {
                 </p>
               </div>
 
-              {settings && upcomingTutorials.length > 0 && (
-                <label className="friday-weekly-date-field">
-                  <span style={labelStyle}>Upcoming Friday date</span>
-                  <select
-                    value={selectedSessionKey}
-                    onChange={(event) => setSelectedSessionKey(event.target.value)}
-                    style={inputStyle}
-                  >
-                    {upcomingTutorials.map((tutorial) => {
-                      const key = `${tutorial.session_date}|${tutorial.tutorial_group}`;
+              {settings && availableTutorials.length > 0 && (
+                <div className="friday-weekly-date-fields">
+                  <label className="friday-weekly-date-field">
+                    <span style={labelStyle}>Upcoming Friday date</span>
+                    <select
+                      value={selectedUpcomingSessionKey}
+                      onChange={(event) => setSelectedSessionKey(event.target.value)}
+                      style={inputStyle}
+                    >
+                      <option value="">Choose an upcoming Friday</option>
+                      {upcomingTutorials.map((tutorial) => {
+                        const key = `${tutorial.session_date}|${tutorial.tutorial_group}`;
 
-                      return (
-                        <option key={key} value={key}>
-                          {formatShortDate(tutorial.session_date)} -{" "}
-                          {tutorial.tutorial_group_label}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
+                        return (
+                          <option key={key} value={key}>
+                            {formatShortDate(tutorial.session_date)} -{" "}
+                            {tutorial.tutorial_group_label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                  {previousTutorials.length > 0 && (
+                    <label className="friday-weekly-date-field">
+                      <span style={labelStyle}>Previous Friday date</span>
+                      <select
+                        value={selectedPreviousSessionKey}
+                        onChange={(event) => setSelectedSessionKey(event.target.value)}
+                        style={inputStyle}
+                      >
+                        <option value="">Choose a previous Friday</option>
+                        {previousTutorials.map((tutorial) => {
+                          const key = `${tutorial.session_date}|${tutorial.tutorial_group}`;
+
+                          return (
+                            <option key={key} value={key}>
+                              {formatShortDate(tutorial.session_date)} -{" "}
+                              {tutorial.tutorial_group_label}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+                  )}
+                </div>
               )}
             </div>
 

@@ -14102,6 +14102,14 @@ img {
   min-width: 280px;
 }
 
+.friday-weekly-date-fields {
+  display: grid;
+  flex: 0 1 760px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+}
+
 .friday-weekly-session-summary {
   background: var(--ss-blue-light);
   border: 1px solid var(--ss-border);
@@ -14414,6 +14422,11 @@ img {
   .friday-weekly-date-field {
     flex-basis: auto;
     min-width: 0;
+    width: 100%;
+  }
+
+  .friday-weekly-date-fields {
+    grid-template-columns: 1fr;
     width: 100%;
   }
 

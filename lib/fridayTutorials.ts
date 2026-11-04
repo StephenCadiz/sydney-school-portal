@@ -501,6 +501,20 @@ export async function getOrCreateFridayTutorialSession(
   sessionDate: string,
   tutorialGroup: string
 ) {
+  const { data: existingSession, error: existingError } = await supabase
+    .from("friday_tutorial_sessions")
+    .select("*")
+    .eq("session_date", sessionDate)
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error(formatSupabaseError("session lookup", existingError));
+  }
+
+  if (existingSession) {
+    return existingSession;
+  }
+
   const { settings, closures } = await getFridayTutorialRotationContext();
   const expectedGroup = getFridayTutorialSessionTypeForDate(
     settings || {},
@@ -516,19 +530,6 @@ export async function getOrCreateFridayTutorialSession(
     throw new Error(
       "The selected group no longer matches the current open-Friday rotation. Refresh and try again."
     );
-  }
-  const { data: existingSession, error: existingError } = await supabase
-    .from("friday_tutorial_sessions")
-    .select("*")
-    .eq("session_date", sessionDate)
-    .maybeSingle();
-
-  if (existingError) {
-    throw new Error(formatSupabaseError("session lookup", existingError));
-  }
-
-  if (existingSession) {
-    return existingSession;
   }
 
   const { data: newSession, error: insertError } = await supabase
@@ -816,16 +817,43 @@ export async function getFridayTutorialStudents() {
   });
 }
 
+export async function getFridayTutorialSessionHistory() {
+  const { data, error } = await supabase
+    .from("friday_tutorial_sessions")
+    .select("id, session_date, tutorial_group, start_time, end_time")
+    .order("session_date", { ascending: false });
+
+  if (error) {
+    throw new Error(formatSupabaseError("weekly register history load", error));
+  }
+
+  return (data || []).map((session) => ({
+    ...session,
+    tutorial_group_label: getTutorialGroupLabel(session.tutorial_group),
+    session_type: session.tutorial_group,
+    date: session.session_date,
+    time:
+      isB1FridayTutorialSession(session.tutorial_group)
+        ? "B1 17:00-18:00 · General 18:00-19:00"
+        : "18:00-19:00",
+    school_closed: false,
+    closure: null,
+  }));
+}
+
 export async function getFridayTutorialSessionRegister(
   sessionDate: string,
-  tutorialGroup: string
+  tutorialGroup: string,
+  options: { syncApprovedStudents?: boolean } = {}
 ) {
   const session = await getOrCreateFridayTutorialSession(
     sessionDate,
     tutorialGroup
   );
 
-  await syncApprovedStudentsToSession(session.id, tutorialGroup);
+  if (options.syncApprovedStudents !== false) {
+    await syncApprovedStudentsToSession(session.id, tutorialGroup);
+  }
 
   const { data: sessionRows, error: sessionRowsError } = await supabase
     .from("friday_tutorial_session_students")

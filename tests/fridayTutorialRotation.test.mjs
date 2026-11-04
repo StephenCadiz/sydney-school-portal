@@ -30,6 +30,7 @@ const {
   assignEffectiveFridayTutorialDutyDates,
   buildFridayTutorialReconciliationPlan,
   calculateFridayTutorialCalendar,
+  calculatePreviousFridayTutorials,
   calculateUpcomingFridayTutorials,
   getFridayTutorialSessionTypeForDate,
   isB1FridayTutorialSession,
@@ -134,6 +135,22 @@ test("calendar preview marks the closure and exposes its name", () => {
   assert.equal(entries[3].tutorial_group, null);
   assert.equal(entries[3].closure?.name, "Free Day");
   assert.equal(entries[4].tutorial_group, B);
+});
+
+test("previous Friday lists are returned newest first and skip closures", () => {
+  const entries = calculatePreviousFridayTutorials(settings, "2026-10-10", [
+    closure("2026-09-25"),
+  ]);
+  assert.deepEqual(
+    entries.map((entry) => [entry.session_date, entry.tutorial_group]),
+    [
+      ["2026-10-09", A],
+      ["2026-10-02", B],
+      ["2026-09-18", A],
+      ["2026-09-11", B],
+      ["2026-09-04", A],
+    ]
+  );
 });
 
 test("B1 duty follows the shifted Friday B", () => {
