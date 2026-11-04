@@ -20,6 +20,8 @@ type Notice = {
   href: string;
 };
 
+const DESKTOP_CHAT_NOTICE_REFRESH_MS = 60_000;
+
 function preview(value?: string) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   return text ? `${text.slice(0, 160)}${text.length > 160 ? "…" : ""}` : "New message";
@@ -67,7 +69,7 @@ export default function DesktopStaffChatNotice() {
     }
 
     void refresh();
-    const interval = window.setInterval(() => void refresh(), 30_000);
+    const interval = window.setInterval(() => void refresh(), DESKTOP_CHAT_NOTICE_REFRESH_MS);
     return () => { cancelled = true; window.clearInterval(interval); snapshotRef.current.clear(); readyRef.current = false; };
   }, [installedPwa, pathname]);
 

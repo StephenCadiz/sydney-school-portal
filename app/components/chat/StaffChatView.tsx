@@ -17,6 +17,8 @@ const DELETED_CHAT_MESSAGE_BODY = "This message was deleted.";
 
 const SCHOOL_CHAT_AVATAR = "/icons/icon-192.png";
 const EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID = "850da38b-97df-4c67-939b-0dd9c2e8036b";
+const CHAT_CONVERSATIONS_REFRESH_MS = 60_000;
+const CHAT_ACTIVE_THREAD_REFRESH_MS = 30_000;
 
 function visibleStaffConversations(conversations: Conversation[]) {
   return conversations.filter((conversation) => !(conversation.kind === "direct" && conversation.participants?.some((participant) => participant.id === EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID)));
@@ -249,7 +251,17 @@ export default function StaffChatView() {
       }
       messagesRef.current = merged;
       setMessages(merged); if (currentAccount) void saveCachedMessages(currentAccount, conversationId, merged);
-      await fetch(`/api/chat/conversations/${conversationId}/read`, { method: "POST", headers }); setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, unread_count: 0 } : conversation)); window.dispatchEvent(new Event("staff-chat-unread-changed"));
+
+      // Opening a conversation clears its unread state. During background
+      // refreshes, only write a read receipt when new incoming messages were
+      // actually received; otherwise every poll creates an unnecessary DB
+      // write and re-upsert of the same read rows.
+      const shouldMarkRead = !preserveExisting || incoming.some((message) => message.sender_id !== currentAccount);
+      if (shouldMarkRead) {
+        await fetch(`/api/chat/conversations/${conversationId}/read`, { method: "POST", headers });
+        setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, unread_count: 0 } : conversation));
+        window.dispatchEvent(new Event("staff-chat-unread-changed"));
+      }
     } catch (loadError: any) { if (requestToken === messageLoadTokenRef.current) setError(loadError?.message || "Unable to load chat history."); }
   }, []);
 
@@ -262,14 +274,14 @@ export default function StaffChatView() {
     const older = (payload.messages || []) as ChatMessage[]; const merged = Array.from(new Map([...older, ...messages].map((message) => [message.id, message])).values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()); pwaScrollToBottomRef.current = false; messagesRef.current = merged; setMessages(merged); window.requestAnimationFrame(() => { if (element) element.scrollTop = previousTop + (element.scrollHeight - previousHeight); }); const currentAccount = accountIdRef.current || storedAccountId(); if (currentAccount) void saveCachedMessages(currentAccount, selectedId, merged);
   }, [messages, selectedId]);
 
-  useEffect(() => { void loadConversations().catch((loadError: any) => setError(loadError?.message || "Unable to load chat.")); const interval = window.setInterval(() => void loadConversations().catch(() => undefined), 30_000); return () => window.clearInterval(interval); }, [loadConversations]);
+  useEffect(() => { void loadConversations().catch((loadError: any) => setError(loadError?.message || "Unable to load chat.")); const interval = window.setInterval(() => void loadConversations().catch(() => undefined), CHAT_CONVERSATIONS_REFRESH_MS); return () => window.clearInterval(interval); }, [loadConversations]);
   useEffect(() => { void loadContacts(); }, [loadContacts]);
   useEffect(() => { void loadMessages(selectedId); }, [loadMessages, selectedId]);
   useEffect(() => {
     if (!installedPwa || !pwaThreadOpen || !selectedId || offline) return;
     const interval = window.setInterval(() => {
       void loadMessages(selectedId, { preserveExisting: true });
-    }, 10_000);
+    }, CHAT_ACTIVE_THREAD_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [installedPwa, loadMessages, offline, pwaThreadOpen, selectedId]);
   useEffect(() => { if (recipientSearch.trim().length < 2) { setRecipients([]); return; } const timer = window.setTimeout(async () => { const headers = await authHeaders(); if (!headers) return; const response = await fetch(`/api/chat/recipients?q=${encodeURIComponent(recipientSearch)}`, { headers, cache: "no-store" }); const payload = await response.json().catch(() => ({})); if (response.ok) setRecipients(payload.recipients || []); }, 250); return () => window.clearTimeout(timer); }, [recipientSearch]);

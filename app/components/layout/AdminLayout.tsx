@@ -413,7 +413,7 @@ export default function AdminLayout({
     if (!adminId || installedPwa) return;
     const refresh = () => void loadUnreadChatCount();
     refresh();
-    const interval = window.setInterval(refresh, 30_000);
+    const interval = window.setInterval(refresh, 60_000);
     window.addEventListener("staff-chat-unread-changed", refresh);
     window.addEventListener("focus", refresh);
     return () => {
