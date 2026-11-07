@@ -10389,7 +10389,6 @@ img {
 }
 
 .teacher-dashboard-follow-up-action-row {
-  align-items: center;
   background: #f8fafd;
   border: 1px solid #d8e2fb;
   border-radius: 10px;
@@ -10398,13 +10397,23 @@ img {
   gap: 16px;
   justify-content: space-between;
   padding: 13px 15px;
-  text-decoration: none;
 }
 
 .teacher-dashboard-follow-up-action-row:hover,
 .teacher-dashboard-follow-up-action-row:focus-visible {
   background: #edf3ff;
   border-color: #9bb8ed;
+}
+
+.teacher-dashboard-follow-up-action-link {
+  align-items: center;
+  color: inherit;
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  justify-content: space-between;
+  min-width: 0;
+  text-decoration: none;
 }
 
 .teacher-dashboard-follow-up-action-row strong,
@@ -10421,11 +10430,46 @@ img {
   margin-top: 3px;
 }
 
-.teacher-dashboard-follow-up-action-row > span:last-child {
+.teacher-dashboard-follow-up-action-link > span:last-child {
   color: #1f559a;
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.teacher-dashboard-follow-up-action-read {
+  background: #ffffff;
+  border: 1px solid #9bb8ed;
+  border-radius: 8px;
+  color: #1f559a;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 11px;
+  white-space: nowrap;
+}
+
+.teacher-dashboard-follow-up-action-read:hover,
+.teacher-dashboard-follow-up-action-read:focus-visible {
+  background: #edf3ff;
+  border-color: #1f559a;
+}
+
+.teacher-dashboard-follow-up-action-read:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.teacher-dashboard-follow-up-action-error {
+  background: #fff1f1;
+  border: 1px solid #f1b9b9;
+  border-radius: 8px;
+  color: #b42318;
+  font-size: 13px;
+  margin: 0 0 10px;
+  padding: 9px 11px;
 }
 
 .teacher-dashboard-section,

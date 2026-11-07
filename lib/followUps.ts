@@ -408,7 +408,7 @@ export async function addAdminFollowUpAction(id: string, details: string) {
   return payload?.entry || null;
 }
 
-export async function markFollowUpActionOpened(id: string) {
+export async function markFollowUpActionRead(id: string) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -431,3 +431,7 @@ export async function markFollowUpActionOpened(id: string) {
     );
   }
 }
+
+// Keep the existing name for follow-up pages that mark the notice read when
+// the teacher opens the linked follow-up directly.
+export const markFollowUpActionOpened = markFollowUpActionRead;

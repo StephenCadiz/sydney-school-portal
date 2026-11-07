@@ -42,6 +42,16 @@ test("teacher notices are scoped to the responsible teacher and open state", () 
   assert.match(openRoute, /teacher_action_seen_at: document\.last_admin_action_at/);
 });
 
+test("teacher dashboard offers a read action without deleting follow-up history", () => {
+  assert.match(followUps, /export async function markFollowUpActionRead/);
+  assert.match(followUps, /follow-up-action-notices\/\$\{encodeURIComponent\(id\)\}\/open/);
+  assert.match(followUpsTab, /markFollowUpActionOpened/);
+  const reminderCard = read("app/components/teacher/TeacherFollowUpActionReminderCard.tsx");
+  assert.match(reminderCard, /Mark as read/);
+  assert.match(reminderCard, /markFollowUpActionRead/);
+  assert.match(reminderCard, /teacher-dashboard-follow-up-action-link/);
+});
+
 test("Admin UI adds actions and the teacher dashboard links directly to the follow-up", () => {
   assert.match(adminPage, /Add Action Taken/);
   assert.match(adminPage, /Save Action/);
