@@ -4,14 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { LayoutDashboard, MessageCircle, Settings, UserRound } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
-import { supabase } from "../../../lib/supabase";
 import AdminPwaDashboard from "./AdminPwaDashboard";
 import AdminPwaSettings from "./AdminPwaSettings";
 import AdminPwaStudentInformation from "./AdminPwaStudentInformation";
 import PwaViewportLock from "./PwaViewportLock";
 import PwaDataCacheBootstrap from "./PwaDataCacheBootstrap";
+import usePwaUnreadCounts from "./usePwaUnreadCounts";
 
 type AdminPwaShellProps = {
   children?: ReactNode;
@@ -26,44 +26,13 @@ export default function AdminPwaShell({
 }: AdminPwaShellProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (loading) return;
-    let active = true;
-
-    async function loadUnreadCount() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (!session?.access_token) return;
-        const response = await fetch("/api/chat/conversations", {
-          cache: "no-store",
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !Array.isArray(payload.conversations)) return;
-        const count = payload.conversations.reduce(
-          (total: number, conversation: { unread_count?: unknown }) =>
-            total + Math.max(0, Number(conversation.unread_count) || 0),
-          0
-        );
-        if (active) setUnreadCount(count);
-      } catch {
-        // The chat page remains the source of truth if the badge cannot load.
-      }
-    }
-
-    void loadUnreadCount();
-    const intervalId = window.setInterval(loadUnreadCount, 60000);
-    window.addEventListener("staff-chat-unread-changed", loadUnreadCount);
-    return () => {
-      active = false;
-      window.clearInterval(intervalId);
-      window.removeEventListener("staff-chat-unread-changed", loadUnreadCount);
-    };
-  }, [loading]);
+  const { counts } = usePwaUnreadCounts(!loading);
+  // Staff Chat continues to open at /api/chat/conversations; the shared badge
+  // request uses cache: "no-store" so private conversation data is never cached.
+  // The shared hook also listens for staff-chat-unread-changed updates.
+  const unreadCount = counts.chat;
+  const dashboardCount = counts.messages + counts.notifications;
+  const badge = (value: number) => value > 99 ? "99+" : value;
 
   const pwaView = searchParams.get("tab") || "dashboard";
   const isChat = pathname === "/admin/chat";
@@ -130,9 +99,12 @@ export default function AdminPwaShell({
           href="/admin"
           className={isDashboard ? "is-active" : ""}
           aria-current={isDashboard ? "page" : undefined}
-          aria-label="Dashboard"
+          aria-label={dashboardCount > 0 ? `Dashboard, ${dashboardCount} unread notifications` : "Dashboard"}
         >
-          <LayoutDashboard size={22} aria-hidden="true" />
+          <span className="pwa-nav-icon-wrap">
+            <LayoutDashboard size={22} aria-hidden="true" />
+            {dashboardCount > 0 && <span className="pwa-unread-badge" aria-hidden="true">{badge(dashboardCount)}</span>}
+          </span>
           <span>Dashboard</span>
         </Link>
         <Link

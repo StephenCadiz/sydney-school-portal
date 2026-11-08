@@ -188,9 +188,13 @@ export default function HomeworkPage() {
     if (legacyIds.length) {
       updates.push(markHomeworkAsViewed(readContext.studentId, legacyIds));
     }
-    void Promise.all(updates).catch((readError) => {
-      console.error("Unable to mark homework as viewed:", readError);
-    });
+    void Promise.all(updates)
+      .then(() => {
+        if (typeof window !== "undefined") window.dispatchEvent(new Event("pwa-unread-changed"));
+      })
+      .catch((readError) => {
+        console.error("Unable to mark homework as viewed:", readError);
+      });
   }, [error, homework, loading, readContext]);
 
   function resources(item: HomeworkItem, compact = false) {

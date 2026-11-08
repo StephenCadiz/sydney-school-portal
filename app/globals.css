@@ -24528,6 +24528,28 @@ img {
   outline: 3px solid #65a9da;
   outline-offset: -2px;
 }
+.pwa-nav-icon-wrap {
+  display: inline-flex;
+  position: relative;
+}
+.pwa-unread-badge {
+  align-items: center;
+  background: #d92d20;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 850;
+  justify-content: center;
+  line-height: 1;
+  min-height: 18px;
+  min-width: 18px;
+  padding: 2px 4px;
+  position: absolute;
+  right: -12px;
+  top: -8px;
+}
 .student-pwa-route-shell.is-installed-pwa .student-main-content {
   padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
 }

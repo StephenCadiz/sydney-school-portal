@@ -78,6 +78,7 @@ export default function StudentAnnouncementBanner({
       await markAnnouncementAsRead(currentAnnouncement.id, userId);
       setAnnouncements((current) => current.slice(1));
       setExpanded(false);
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("pwa-unread-changed"));
     } catch (error) {
       console.error("Unable to mark announcement as read:", error);
     } finally {

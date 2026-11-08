@@ -5,6 +5,7 @@ import { BookOpen, FolderOpen, Home, Settings, TrendingUp } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
+import usePwaUnreadCounts from "./usePwaUnreadCounts";
 
 const items = [
   { href: "/student", label: "Dashboard", icon: Home },
@@ -16,6 +17,7 @@ const items = [
 
 export default function StudentPwaBottomNav() {
   const pathname = usePathname();
+  const { counts } = usePwaUnreadCounts();
   const [mounted, setMounted] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
@@ -55,6 +57,8 @@ export default function StudentPwaBottomNav() {
 
   if (!mounted || keyboardOpen) return null;
 
+  const badge = (value: number) => value > 99 ? "99+" : value;
+
   return createPortal(
     <nav className="student-pwa-bottom-nav is-standalone" aria-label="Student PWA navigation">
       {items.map(({ href, label, icon: Icon }) => {
@@ -68,8 +72,22 @@ export default function StudentPwaBottomNav() {
             href={href}
             className={active ? "is-active" : ""}
             aria-current={active ? "page" : undefined}
+            aria-label={
+              href === "/student" && counts.messages + counts.notifications > 0
+                ? `${label}, ${counts.messages + counts.notifications} unread notifications`
+                : href === "/student/homework" && counts.homework > 0
+                  ? `${label}, ${counts.homework} unread`
+                  : label
+            }
           >
-            <Icon size={20} aria-hidden="true" />
+            <span className="pwa-nav-icon-wrap">
+              <Icon size={20} aria-hidden="true" />
+              {((href === "/student" && counts.messages + counts.notifications > 0) || (href === "/student/homework" && counts.homework > 0)) && (
+                <span className="pwa-unread-badge" aria-hidden="true">
+                  {badge(href === "/student" ? counts.messages + counts.notifications : counts.homework)}
+                </span>
+              )}
+            </span>
             <span>{label}</span>
           </Link>
         );

@@ -45,6 +45,13 @@ function getPreview(message: string) {
     : message;
 }
 
+function notifyUnreadMessagesChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("student-unread-messages-changed"));
+    window.dispatchEvent(new Event("pwa-unread-changed"));
+  }
+}
+
 export default function StudentMessagesPage() {
   const [studentId, setStudentId] = useState("");
   const [teacher, setTeacher] = useState<any>(null);
@@ -143,6 +150,7 @@ export default function StudentMessagesPage() {
           ...item,
           read_at: new Date().toISOString(),
         });
+        notifyUnreadMessagesChanged();
       } catch (error) {
         console.error("Unable to mark message as read:", error);
       }
@@ -233,6 +241,7 @@ export default function StudentMessagesPage() {
     setReplyToMessageId(null);
     setStatusMessage("Message sent successfully.");
     setActiveTab("sent");
+    notifyUnreadMessagesChanged();
 
     const markReplySourceReplied = () => {
       if (!replySourceId) return;
