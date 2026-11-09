@@ -8,14 +8,10 @@ import {
   logTeacherStudentMessageFailure,
   type StudentClassInfo,
 } from "../../../../lib/teacherStudentMessagesServer";
+import { queryMessages } from "../../../../lib/messageQuery";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-// Keep the mailbox readable while an older linked database is waiting for the
-// conversation migration. The response falls back to the message id until the
-// conversation_id column is available.
-const MESSAGE_COLUMNS = "*";
-
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -55,14 +51,14 @@ async function loadAuthorisedStudentMessage(
   teacherId: string,
   messageId: string
 ) {
-  const { data: message, error } = await supabaseAdmin
+  const { data: message, error } = await queryMessages((columns) => supabaseAdmin
     .from("messages")
-    .select(MESSAGE_COLUMNS)
+    .select(columns)
     .eq("id", messageId)
     .eq("receiver_id", teacherId)
     .is("recipient_group", null)
     .is("recipient_deleted_at", null)
-    .maybeSingle();
+    .maybeSingle());
   if (error) throw error;
   if (!message) return { message: null, student: null, response: jsonError("Message not found.", 404) };
 
@@ -91,22 +87,22 @@ export async function GET(request: NextRequest) {
 
   try {
     const [inboxResult, sentResult, teacherResult] = await Promise.all([
-      supabaseAdmin
+      queryMessages((columns) => supabaseAdmin
         .from("messages")
-        .select(MESSAGE_COLUMNS)
+        .select(columns)
         .eq("receiver_id", auth.teacherId)
         .is("recipient_group", null)
         .is("recipient_deleted_at", null)
         .order("created_at", { ascending: false })
-        .limit(500),
-      supabaseAdmin
+        .limit(500)),
+      queryMessages((columns) => supabaseAdmin
         .from("messages")
-        .select(MESSAGE_COLUMNS)
+        .select(columns)
         .eq("sender_id", auth.teacherId)
         .is("recipient_group", null)
         .is("sender_deleted_at", null)
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(500)),
       supabaseAdmin
         .from("profiles")
         .select("id, first_name, last_name")
@@ -119,29 +115,29 @@ export async function GET(request: NextRequest) {
 
     const inboxStudentInfoById = await loadTeacherAuthorisedStudentClassInfo(
       auth.teacherId,
-      (inboxResult.data || []).map((message) => String(message.sender_id || ""))
+      (inboxResult.data || []).map((message: any) => String(message.sender_id || ""))
     );
     const sentStudentInfoById = await loadTeacherAuthorisedStudentClassInfo(
       auth.teacherId,
-      (sentResult.data || []).map((message) => String(message.receiver_id || ""))
+      (sentResult.data || []).map((message: any) => String(message.receiver_id || ""))
     );
     const teacherName = `${teacherResult.data?.first_name || ""} ${teacherResult.data?.last_name || ""}`.trim() || "Teacher";
     const safeInbox = (inboxResult.data || [])
-      .map((message) => {
+      .map((message: any) => {
         const student = inboxStudentInfoById.get(String(message.sender_id));
         return student
           ? safeMessage(message, student, { folder: "inbox", teacherId: auth.teacherId, teacherName })
           : null;
       })
-      .filter((message): message is NonNullable<typeof message> => message !== null);
+      .filter((message: any): message is NonNullable<typeof message> => message !== null);
     const safeSent = (sentResult.data || [])
-      .map((message) => {
+      .map((message: any) => {
         const student = sentStudentInfoById.get(String(message.receiver_id));
         return student
           ? safeMessage(message, student, { folder: "sent", teacherId: auth.teacherId, teacherName })
           : null;
       })
-      .filter((message): message is NonNullable<typeof message> => message !== null);
+      .filter((message: any): message is NonNullable<typeof message> => message !== null);
 
     return NextResponse.json(
       {
@@ -149,7 +145,7 @@ export async function GET(request: NextRequest) {
         sent: safeSent,
         // Keep this alias for older unread-count refresh callers.
         messages: safeInbox,
-        unread_count: safeInbox.filter((message) => !message.read_at).length,
+        unread_count: safeInbox.filter((message: any) => !message.read_at).length,
       },
       { headers: { "Cache-Control": "no-store" } }
     );
@@ -184,14 +180,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ message: safeMessage(loaded.message, loaded.student, { folder: "inbox", teacherId: auth.teacherId, teacherName: "Teacher" }) });
     }
 
-    const { data: updated, error: updateError } = await supabaseAdmin
+    const { data: updated, error: updateError } = await queryMessages((columns) => supabaseAdmin
       .from("messages")
       .update({ read_at: new Date().toISOString() })
       .eq("id", messageId)
       .eq("receiver_id", auth.teacherId)
       .is("read_at", null)
-      .select(MESSAGE_COLUMNS)
-      .maybeSingle();
+      .select(columns)
+      .maybeSingle());
     if (updateError) throw updateError;
     if (!updated) return jsonError("Message not found.", 404);
 
@@ -248,11 +244,11 @@ export async function POST(request: NextRequest) {
     let conversationId: string | null = null;
     if (replyToMessageId) {
       if (!UUID.test(replyToMessageId)) return jsonError("The reply source is invalid.", 400);
-      const { data: sourceMessage, error: sourceError } = await supabaseAdmin
+      const { data: sourceMessage, error: sourceError } = await queryMessages((columns) => supabaseAdmin
         .from("messages")
-        .select("*")
+        .select(columns)
         .eq("id", replyToMessageId)
-        .maybeSingle();
+        .maybeSingle());
       if (sourceError) throw sourceError;
       if (
         !sourceMessage ||
@@ -262,10 +258,9 @@ export async function POST(request: NextRequest) {
       ) {
         return jsonError("The message being replied to was not found.", 404);
       }
-      // The conversation migration is additive. Older production databases do
-      // not return `conversation_id` from `select("*")`, so do not include the
-      // missing column in the reply insert. When the column is present, use the
-      // source message as the thread root for legacy rows with a null value.
+      // Use the source conversation as the thread root. Legacy rows may still
+      // have a null value, in which case the source message id remains the
+      // safe fallback.
       const hasConversationColumn = Object.prototype.hasOwnProperty.call(
         sourceMessage,
         "conversation_id"

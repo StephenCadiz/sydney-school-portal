@@ -14,6 +14,10 @@ const DATABASE_VERSION = 1;
 const STORE_NAME = "responses";
 const MAX_ENTRY_BYTES = 2_500_000;
 const MAX_STALE_MS = 15 * 60 * 1000;
+// A cached response is still returned immediately, but do not revalidate the
+// same key on every component render.  The previous behaviour made the cache
+// a latency optimisation without reducing Supabase reads on busy PWA screens.
+const REVALIDATE_AFTER_MS = 60 * 1000;
 const SUPABASE_ORIGIN = (() => {
   try {
     return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "";
@@ -231,7 +235,15 @@ export function installPwaDataCache(accountId: string) {
     const cached = db ? await readRecord(db, key) : null;
 
     if (cached && Date.now() - cached.updatedAt <= MAX_STALE_MS) {
-      void refreshResponse(accountId, key, url, input, init, originalFetch).catch(() => undefined);
+      // Do not spend a database read while the installed app is hidden. The
+      // next focus/visibility event will refresh the data when it is useful.
+      const shouldRevalidate =
+        Date.now() - cached.updatedAt >= REVALIDATE_AFTER_MS &&
+        typeof document !== "undefined" &&
+        document.visibilityState !== "hidden";
+      if (shouldRevalidate) {
+        void refreshResponse(accountId, key, url, input, init, originalFetch).catch(() => undefined);
+      }
       return responseFromRecord(cached);
     }
 

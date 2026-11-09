@@ -185,7 +185,7 @@ export default function TeacherLayout({
   }, [pathname]);
 
   useEffect(() => {
-    if (!teacherId) return;
+    if (!teacherId || installedPwa) return;
     let active = true;
     const loadMonitoringCount = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -198,17 +198,19 @@ export default function TeacherLayout({
       if (active && response.ok) setStudentMonitoringCount(Math.max(0, Number(payload.count) || 0));
     };
     void loadMonitoringCount();
-    const interval = window.setInterval(() => void loadMonitoringCount(), 60_000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") void loadMonitoringCount();
+    }, 60_000);
     window.addEventListener("teacher-student-monitoring-updated", loadMonitoringCount);
     return () => {
       active = false;
       window.clearInterval(interval);
       window.removeEventListener("teacher-student-monitoring-updated", loadMonitoringCount);
     };
-  }, [teacherId]);
+  }, [installedPwa, teacherId]);
 
   const loadUnreadCount = useCallback(async () => {
-    if (!teacherId) return;
+    if (!teacherId || installedPwa) return;
 
     try {
       const { total_unread: count } = await getTeacherUnreadMessageCount();
@@ -223,7 +225,7 @@ export default function TeacherLayout({
         console.error("Unable to load teacher message count:", error);
       }
     }
-  }, [teacherId]);
+  }, [installedPwa, teacherId]);
 
   const loadUnreadChatCount = useCallback(async () => {
     if (!teacherId) return;
@@ -236,10 +238,12 @@ export default function TeacherLayout({
   }, [teacherId]);
 
   useEffect(() => {
-    if (!teacherId) return;
+    if (!teacherId || installedPwa) return;
     const refresh = () => void loadUnreadChatCount();
     refresh();
-    const interval = window.setInterval(refresh, 60_000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") refresh();
+    }, 180_000);
     window.addEventListener("staff-chat-unread-changed", refresh);
     window.addEventListener("focus", refresh);
     return () => {
@@ -247,12 +251,12 @@ export default function TeacherLayout({
       window.removeEventListener("staff-chat-unread-changed", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [loadUnreadChatCount, teacherId]);
+  }, [installedPwa, loadUnreadChatCount, teacherId]);
 
   useMessageRealtimeRefresh({
     onRefresh: loadUnreadCount,
-    enabled: Boolean(teacherId),
-    intervalMs: 60000,
+    enabled: Boolean(teacherId) && !installedPwa,
+    intervalMs: 180000,
     customEventName: TEACHER_MESSAGES_CHANGED_EVENT,
     channelName: "teacher-layout-messages",
   });
@@ -260,7 +264,7 @@ export default function TeacherLayout({
   useStaffMessageNotifications({
     userId: teacherId,
     role: "teacher",
-    enabled: Boolean(teacherId),
+    enabled: Boolean(teacherId) && !installedPwa,
     refreshEventName: TEACHER_MESSAGES_CHANGED_EVENT,
   });
 

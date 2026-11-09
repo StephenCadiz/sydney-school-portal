@@ -17,8 +17,8 @@ const DELETED_CHAT_MESSAGE_BODY = "This message was deleted.";
 
 const SCHOOL_CHAT_AVATAR = "/icons/icon-192.png";
 const EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID = "850da38b-97df-4c67-939b-0dd9c2e8036b";
-const CHAT_CONVERSATIONS_REFRESH_MS = 60_000;
-const CHAT_ACTIVE_THREAD_REFRESH_MS = 30_000;
+const CHAT_CONVERSATIONS_REFRESH_MS = 180_000;
+const CHAT_ACTIVE_THREAD_REFRESH_MS = 60_000;
 
 function visibleStaffConversations(conversations: Conversation[]) {
   return conversations.filter((conversation) => !(conversation.kind === "direct" && conversation.participants?.some((participant) => participant.id === EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID)));
@@ -274,13 +274,13 @@ export default function StaffChatView() {
     const older = (payload.messages || []) as ChatMessage[]; const merged = Array.from(new Map([...older, ...messages].map((message) => [message.id, message])).values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()); pwaScrollToBottomRef.current = false; messagesRef.current = merged; setMessages(merged); window.requestAnimationFrame(() => { if (element) element.scrollTop = previousTop + (element.scrollHeight - previousHeight); }); const currentAccount = accountIdRef.current || storedAccountId(); if (currentAccount) void saveCachedMessages(currentAccount, selectedId, merged);
   }, [messages, selectedId]);
 
-  useEffect(() => { void loadConversations().catch((loadError: any) => setError(loadError?.message || "Unable to load chat.")); const interval = window.setInterval(() => void loadConversations().catch(() => undefined), CHAT_CONVERSATIONS_REFRESH_MS); return () => window.clearInterval(interval); }, [loadConversations]);
+  useEffect(() => { void loadConversations().catch((loadError: any) => setError(loadError?.message || "Unable to load chat.")); const interval = window.setInterval(() => { if (document.visibilityState !== "hidden") void loadConversations().catch(() => undefined); }, CHAT_CONVERSATIONS_REFRESH_MS); return () => window.clearInterval(interval); }, [loadConversations]);
   useEffect(() => { void loadContacts(); }, [loadContacts]);
   useEffect(() => { void loadMessages(selectedId); }, [loadMessages, selectedId]);
   useEffect(() => {
     if (!installedPwa || !pwaThreadOpen || !selectedId || offline) return;
     const interval = window.setInterval(() => {
-      void loadMessages(selectedId, { preserveExisting: true });
+      if (document.visibilityState !== "hidden") void loadMessages(selectedId, { preserveExisting: true });
     }, CHAT_ACTIVE_THREAD_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [installedPwa, loadMessages, offline, pwaThreadOpen, selectedId]);

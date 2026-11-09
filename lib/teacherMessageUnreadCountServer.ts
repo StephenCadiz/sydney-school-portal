@@ -12,9 +12,9 @@ export async function getTeacherUnreadStaffMessageCount(teacherId: string) {
   const staffIds = (staffProfiles || []).map((profile) => String(profile.id));
   if (!staffIds.length) return 0;
 
-  const { data: messages, error: messagesError } = await supabaseAdmin
+  const { count, error: messagesError } = await supabaseAdmin
     .from("messages")
-    .select("id")
+    .select("id", { count: "exact", head: true })
     .eq("receiver_id", teacherId)
     .in("sender_id", staffIds)
     .is("recipient_group", null)
@@ -22,7 +22,7 @@ export async function getTeacherUnreadStaffMessageCount(teacherId: string) {
     .is("recipient_deleted_at", null);
   if (messagesError) throw messagesError;
 
-  return (messages || []).length;
+  return count || 0;
 }
 
 export async function getTeacherCombinedUnreadMessageCount(teacherId: string) {

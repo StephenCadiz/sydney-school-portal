@@ -1,6 +1,12 @@
 import { supabase } from "./supabase";
 import type { MessageAttachment } from "./messageAttachmentConfig";
 
+// Mailbox reads should not transfer future metadata columns or attachment
+// payloads that are unrelated to the current message view. Keep this list
+// aligned with the server-side mailbox projection.
+const MESSAGE_COLUMNS =
+  "id, sender_id, receiver_id, recipient_group, subject, message, attachment_link, attachments, conversation_id, reply_to_message_id, created_at, read_at, recipient_deleted_at, sender_deleted_at, admin_deleted_at, dealt_with_at, dealt_with_by";
+
 const messageDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/Madrid",
   day: "2-digit",
@@ -199,7 +205,10 @@ async function enrichTeacherMessages(messages: any[]) {
 
   const { data: classes, error: classesError } =
     classIds.length > 0
-      ? await supabase.from("classes").select("*").in("id", classIds)
+      ? await supabase
+          .from("classes")
+          .select("id, level_id, classroom_id, days, start_time, end_time")
+          .in("id", classIds)
       : { data: [], error: null };
 
   if (classesError) throw classesError;
@@ -371,7 +380,7 @@ export async function getMessages(
 ) {
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .or(
       `and(sender_id.eq.${senderId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${senderId})`
     )
@@ -453,7 +462,7 @@ export async function getUnreadTeacherStaffMessages(teacherId: string) {
 
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .eq("receiver_id", teacherId)
     .in("sender_id", staffIds)
     .is("read_at", null)
@@ -763,7 +772,7 @@ export async function markStudentMessageAsRead(messageId: string) {
 export async function getAdminInboxMessages(adminId: string) {
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .or(`receiver_id.eq.${adminId},recipient_group.eq.admin`)
     .is("admin_deleted_at", null)
     .order("created_at", { ascending: false });
@@ -807,7 +816,7 @@ export async function getAdminUnreadTeacherMessageCount(adminId: string) {
 export async function getAdminSentMessages(adminId: string) {
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .eq("sender_id", adminId)
     .is("admin_deleted_at", null)
     .order("created_at", { ascending: false });
@@ -1011,7 +1020,7 @@ export async function getInboxMessages(
 ) {
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .eq("receiver_id", userId)
     .eq("sender_id", otherUserId)
     .order("created_at", { ascending: false });
@@ -1027,7 +1036,7 @@ export async function getSentMessages(
 ) {
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .eq("sender_id", userId)
     .eq("receiver_id", otherUserId)
     .order("created_at", { ascending: false });
@@ -1073,7 +1082,7 @@ export async function getTeacherSentMessagesForClass(
 
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .eq("sender_id", teacherId)
     .in("receiver_id", studentIds)
     .order("created_at", { ascending: false });
@@ -1086,7 +1095,7 @@ export async function getTeacherSentMessagesForClass(
 export async function getTeacherInboxMessages(teacherId: string) {
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .eq("receiver_id", teacherId)
     .order("created_at", { ascending: false });
 
@@ -1098,7 +1107,7 @@ export async function getTeacherInboxMessages(teacherId: string) {
 export async function getUnreadTeacherMessages(teacherId: string) {
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .eq("receiver_id", teacherId)
     .is("read_at", null)
     .order("created_at", { ascending: false });
@@ -1114,7 +1123,7 @@ export async function getUnreadMessagesForStudent(
 ) {
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select(MESSAGE_COLUMNS)
     .eq("receiver_id", studentId)
     .eq("sender_id", teacherId)
     .is("read_at", null)

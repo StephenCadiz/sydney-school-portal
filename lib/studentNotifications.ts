@@ -80,7 +80,7 @@ export async function getUnreadMessagesForStudent(
 ) {
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select("id")
     .eq("receiver_id", studentId)
     .eq("sender_id", teacherId)
     .is("read_at", null)

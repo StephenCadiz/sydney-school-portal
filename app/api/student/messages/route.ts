@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { resolveProfileIdForAuthUser } from "../../../../lib/cambridgeStudentAccessServer";
+import { queryMessages } from "../../../../lib/messageQuery";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { sendPortalPush } from "../../../../lib/pushNotificationsServer";
 
@@ -131,18 +132,20 @@ export async function GET(request: NextRequest) {
     }
 
     const [inboxResult, sentResult] = await Promise.all([
-      supabaseAdmin
+      queryMessages((columns) => supabaseAdmin
         .from("messages")
-        .select("*")
+        .select(columns)
         .eq("receiver_id", studentId)
         .in("sender_id", teacherIds)
-        .order("created_at", { ascending: false }),
-      supabaseAdmin
+        .order("created_at", { ascending: false })
+        .limit(500)),
+      queryMessages((columns) => supabaseAdmin
         .from("messages")
-        .select("*")
+        .select(columns)
         .eq("sender_id", studentId)
         .in("receiver_id", teacherIds)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(500)),
     ]);
     if (inboxResult.error) throw inboxResult.error;
     if (sentResult.error) throw sentResult.error;
@@ -265,15 +268,11 @@ export async function POST(request: NextRequest) {
     let conversationId: string | null = null;
     if (replyToMessageId) {
       if (!UUID.test(replyToMessageId)) return errorResponse("The reply source is invalid.", 400);
-      const { data: sourceMessage, error: sourceError } = await supabaseAdmin
+      const { data: sourceMessage, error: sourceError } = await queryMessages((columns) => supabaseAdmin
         .from("messages")
-        // Keep replies compatible with databases that predate the optional
-        // conversation_id migration. `select("*")` omits the missing column,
-        // allowing the message to be sent while thread history falls back to
-        // the source message id.
-        .select("*")
+        .select(columns)
         .eq("id", replyToMessageId)
-        .maybeSingle();
+        .maybeSingle());
       if (sourceError) throw sourceError;
       if (!sourceMessage || sourceMessage.recipient_deleted_at || sourceMessage.receiver_id !== studentId || sourceMessage.sender_id !== receiverId) {
         return errorResponse("The message being replied to was not found.", 404);

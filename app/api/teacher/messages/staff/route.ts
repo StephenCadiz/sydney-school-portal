@@ -5,6 +5,7 @@ import {
   type MessageAttachment,
 } from "../../../../../lib/messageAttachmentConfig";
 import { authenticateTeacherMessageRequest } from "../../../../../lib/teacherStudentMessagesServer";
+import { queryMessages } from "../../../../../lib/messageQuery";
 import { sendPortalPush } from "../../../../../lib/pushNotificationsServer";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 
@@ -82,25 +83,30 @@ async function loadMailbox(teacherId: string) {
   const staffIds = profiles.map((profile) => String(profile.id));
 
   const [inboxResult, directSentResult, groupSentResult] = await Promise.all([
-    supabaseAdmin
+    queryMessages((columns) => supabaseAdmin
       .from("messages")
-      .select("*")
+      .select(columns)
       .eq("receiver_id", teacherId)
       .in("sender_id", staffIds.length ? staffIds : ["00000000-0000-0000-0000-000000000000"])
       .is("recipient_deleted_at", null)
-      .order("created_at", { ascending: false }),
-    supabaseAdmin
+      .order("created_at", { ascending: false })
+      .limit(500)),
+    queryMessages((columns) => supabaseAdmin
       .from("messages")
-      .select("*")
+      .select(columns)
       .eq("sender_id", teacherId)
       .in("receiver_id", staffIds.length ? staffIds : ["00000000-0000-0000-0000-000000000000"])
-      .is("sender_deleted_at", null),
-    supabaseAdmin
+      .is("sender_deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(500)),
+    queryMessages((columns) => supabaseAdmin
       .from("messages")
-      .select("*")
+      .select(columns)
       .eq("sender_id", teacherId)
       .eq("recipient_group", "admin")
-      .is("sender_deleted_at", null),
+      .is("sender_deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(500)),
   ]);
 
   if (inboxResult.error) throw inboxResult.error;

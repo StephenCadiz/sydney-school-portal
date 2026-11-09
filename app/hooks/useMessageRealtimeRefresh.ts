@@ -87,7 +87,9 @@ export function useMessageRealtimeRefresh({
     void runRefresh();
 
     const intervalId = window.setInterval(() => {
-      void runRefresh();
+      // Realtime events and focus still refresh promptly. The fallback timer
+      // should not keep a hidden tab querying Supabase indefinitely.
+      if (document.visibilityState !== "hidden") void runRefresh();
     }, intervalMs);
 
     const handleFocus = () => {

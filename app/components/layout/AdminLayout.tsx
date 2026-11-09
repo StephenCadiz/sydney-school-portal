@@ -413,7 +413,9 @@ export default function AdminLayout({
     if (!adminId || installedPwa) return;
     const refresh = () => void loadUnreadChatCount();
     refresh();
-    const interval = window.setInterval(refresh, 60_000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") refresh();
+    }, 180_000);
     window.addEventListener("staff-chat-unread-changed", refresh);
     window.addEventListener("focus", refresh);
     return () => {
@@ -519,7 +521,7 @@ export default function AdminLayout({
   useMessageRealtimeRefresh({
     onRefresh: loadOutstandingMessageCount,
     enabled: Boolean(adminId) && !installedPwa,
-    intervalMs: 60000,
+    intervalMs: 180000,
     customEventName: "admin-unread-messages-changed",
     channelName: "admin-layout-messages",
   });

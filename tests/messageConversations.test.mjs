@@ -17,6 +17,7 @@ const adminPage = read("app/admin/messages/page.tsx");
 const studentPage = read("app/student/messages/page.tsx");
 const teacherStudentMessages = read("app/teacher/messages/TeacherStudentMessagesInbox.tsx");
 const teacherStudentMessagesApi = read("app/api/teacher/student-messages/route.ts");
+const messageQuery = read("lib/messageQuery.ts");
 
 test("email-style messages persist a conversation id and replies stay in the same thread", () => {
   assert.match(migration, /add column if not exists conversation_id uuid/i);
@@ -60,7 +61,10 @@ test("all mailboxes show reply author/date indicators and full history", () => {
   assert.match(teacherStudentMessagesApi, /inbox: safeInbox/);
   assert.match(teacherStudentMessagesApi, /sent: safeSent/);
   assert.match(teacherStudentMessagesApi, /reply_to_message_id/);
-  assert.match(teacherStudentMessagesApi, /const MESSAGE_COLUMNS = "\*"/);
+  assert.match(teacherStudentMessagesApi, /queryMessages\(\(columns\)/);
+  assert.match(messageQuery, /export const MESSAGE_COLUMNS =/);
+  assert.match(messageQuery, /conversation_id/);
+  assert.match(messageQuery, /LEGACY_MESSAGE_COLUMNS/);
   assert.match(threadServer, /isConversationColumnMissing/);
 });
 

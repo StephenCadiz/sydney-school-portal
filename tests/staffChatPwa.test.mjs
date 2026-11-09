@@ -227,8 +227,8 @@ test("dashboard chat indicators use red unread badges and a reduced-motion-safe 
 });
 
 test("dashboard chat indicators refresh without marking conversations read", () => {
-  assert.match(teacherLayout, /setInterval\(refresh, 60_000\)/);
-  assert.match(adminLayout, /setInterval\(refresh, 60_000\)/);
+  assert.match(teacherLayout, /setInterval\([\s\S]*180_000/);
+  assert.match(adminLayout, /setInterval\([\s\S]*180_000/);
   assert.match(chatView, /fetch\(`\/api\/chat\/conversations\/\$\{conversationId\}\/read`/);
   assert.match(chatView, /const shouldMarkRead = !preserveExisting \|\| incoming\.some/);
   assert.match(chatView, /window\.dispatchEvent\(new Event\("staff-chat-unread-changed"\)\)/);

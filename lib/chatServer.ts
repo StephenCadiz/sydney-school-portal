@@ -302,16 +302,36 @@ export async function listChatConversations(actor: ChatActor) {
   if (profileError) throw profileError;
   const avatarById = await addStaffAvatars(profiles || []);
   const enrichedProfiles = (profiles || []).map((profile) => withAvatar(profile, avatarById));
-  const { data: messages, error: messageError } = await supabaseAdmin
-    .from("chat_messages")
-    .select("id, conversation_id, sender_id, body, created_at")
-    .in("conversation_id", ids)
-    .order("created_at", { ascending: false });
-  if (messageError) throw messageError;
+  // Only the latest preview is needed for the conversation list. Loading the
+  // complete history here made every refresh grow with the lifetime of chat.
+  const latestResults = await Promise.all(ids.map(async (conversationId) => {
+    const result = await supabaseAdmin
+      .from("chat_messages")
+      .select("id, conversation_id, sender_id, body, created_at")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (result.error) throw result.error;
+    return result.data?.[0] || null;
+  }));
+  const messages = latestResults.filter(Boolean) as any[];
+  const membershipByConversation = new Map((memberships || []).map((membership) => [String(membership.conversation_id), membership]));
+  const unreadCountResults = await Promise.all(ids.map(async (conversationId) => {
+    const membership = membershipByConversation.get(conversationId);
+    let query = supabaseAdmin
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversationId)
+      .neq("sender_id", actor.profileId);
+    if (membership?.last_read_at) query = query.gt("created_at", membership.last_read_at);
+    const result = await query;
+    if (result.error) throw result.error;
+    return [conversationId, result.count || 0] as const;
+  }));
+  const unreadCountByConversation = new Map(unreadCountResults);
   const profileById = new Map(enrichedProfiles.map((profile) => [String(profile.id), profile]));
   const memberByConversation = new Map<string, string[]>();
   for (const participant of participants || []) memberByConversation.set(String(participant.conversation_id), [...(memberByConversation.get(String(participant.conversation_id)) || []), String(participant.profile_id)]);
-  const membershipByConversation = new Map((memberships || []).map((membership) => [String(membership.conversation_id), membership]));
   const latestByConversation = new Map<string, any>();
   for (const message of messages || []) if (!latestByConversation.has(String(message.conversation_id))) latestByConversation.set(String(message.conversation_id), message);
   return (conversations || []).filter((conversation) => {
@@ -321,8 +341,7 @@ export async function listChatConversations(actor: ChatActor) {
     const memberIds = memberByConversation.get(String(conversation.id)) || [];
     const names = memberIds.filter((id) => id !== actor.profileId).map((id) => profileName(profileById.get(id))).filter(Boolean);
     const latest = latestByConversation.get(String(conversation.id));
-    const lastReadAt = membershipByConversation.get(String(conversation.id))?.last_read_at;
-    const unreadCount = (messages || []).filter((message) => String(message.conversation_id) === String(conversation.id) && message.sender_id !== actor.profileId && (!lastReadAt || new Date(message.created_at).getTime() > new Date(lastReadAt).getTime())).length;
+    const unreadCount = unreadCountByConversation.get(String(conversation.id)) || 0;
     const participantRows = memberIds.map((id) => ({ id, name: profileName(profileById.get(id)), role: profileById.get(id)?.role || "", avatar_url: profileById.get(id)?.avatar_url || SCHOOL_CHAT_AVATAR, identity_key: staffIdentityKey(profileById.get(id)) }));
     const conversationAvatar = memberIds.some((id) => profileById.get(id)?.role === "admin")
       ? SCHOOL_CHAT_AVATAR
@@ -360,18 +379,18 @@ export async function getChatUnreadCount(actor: ChatActor) {
   const visibleMemberships = membershipRows.filter((membership) => !hiddenConversationIds.has(String(membership.conversation_id)));
   if (!visibleMemberships.length) return 0;
 
-  const visibleIds = visibleMemberships.map((membership) => String(membership.conversation_id));
-  const { data: messages, error: messageError } = await supabaseAdmin
-    .from("chat_messages")
-    .select("conversation_id, sender_id, created_at")
-    .in("conversation_id", visibleIds)
-    .neq("sender_id", actor.profileId);
-  if (messageError) throw messageError;
-  const lastReadByConversation = new Map(visibleMemberships.map((membership) => [
-    String(membership.conversation_id),
-    membership.last_read_at ? new Date(membership.last_read_at).getTime() : 0,
-  ]));
-  return (messages || []).filter((message) => new Date(message.created_at).getTime() > (lastReadByConversation.get(String(message.conversation_id)) || 0)).length;
+  const unreadCounts = await Promise.all(visibleMemberships.map(async (membership) => {
+    let query = supabaseAdmin
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", String(membership.conversation_id))
+      .neq("sender_id", actor.profileId);
+    if (membership.last_read_at) query = query.gt("created_at", membership.last_read_at);
+    const result = await query;
+    if (result.error) throw result.error;
+    return result.count || 0;
+  }));
+  return unreadCounts.reduce((total, count) => total + count, 0);
 }
 
 export async function createChatConversation(actor: ChatActor, input: { kind: "direct" | "group"; name?: string; participantIds: string[] }) {
