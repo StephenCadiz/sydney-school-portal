@@ -8601,6 +8601,158 @@ img {
   transform: translateY(-1px);
 }
 
+/* Academy Overview and Quick Actions share one compact glass workspace on the
+   dashboard.  Keeping both tools together makes the right rail useful without
+   pushing the calendar or the main dashboard content down the page. */
+.admin-dashboard-overview-actions {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(126, 205, 244, 0.24), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(237, 247, 253, 0.72));
+  border-color: rgba(255, 255, 255, 0.86);
+  box-shadow:
+    0 18px 44px rgba(31, 60, 136, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(47, 125, 184, 0.08);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  backdrop-filter: blur(18px) saturate(135%);
+  overflow: hidden;
+}
+
+.admin-dashboard-compact-overview,
+.admin-dashboard-quick-actions-section {
+  min-width: 0;
+}
+
+.admin-dashboard-compact-overview {
+  border-bottom: 1px solid rgba(47, 125, 184, 0.14);
+  padding-bottom: 20px;
+}
+
+.admin-dashboard-quick-actions-section {
+  padding-top: 20px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-card-header {
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-card-header p {
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+.admin-dashboard-glass-label {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(47, 125, 184, 0.16);
+  border-radius: 999px;
+  color: var(--ss-blue);
+  font-size: 0.63rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  padding: 6px 8px;
+  text-transform: uppercase;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-kpi-grid {
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-kpi-card {
+  background: rgba(255, 255, 255, 0.58);
+  border-color: rgba(47, 125, 184, 0.14);
+  border-radius: 13px;
+  gap: 9px;
+  min-height: 104px;
+  padding: 12px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-kpi-card.is-active {
+  background: rgba(225, 241, 251, 0.9);
+  border-color: rgba(47, 125, 184, 0.4);
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-kpi-card:hover {
+  box-shadow: 0 10px 24px rgba(31, 60, 136, 0.1);
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-kpi-icon,
+.admin-dashboard-overview-actions .admin-dashboard-action-icon {
+  border-radius: 10px;
+  height: 34px;
+  width: 34px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-kpi-body {
+  gap: 4px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-kpi-label {
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-kpi-value {
+  font-size: 1.55rem;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-kpi-action {
+  font-size: 0.7rem;
+  min-height: 29px;
+  padding-top: 8px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-breakdown {
+  background: rgba(255, 255, 255, 0.52);
+  border-color: rgba(47, 125, 184, 0.15);
+  margin-top: 10px;
+  padding: 11px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-breakdown-list {
+  gap: 6px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-breakdown-row {
+  font-size: 0.78rem;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-count-note {
+  font-size: 0.7rem;
+  margin-top: 10px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-action-grid {
+  gap: 9px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-action-card {
+  background: rgba(255, 255, 255, 0.56);
+  border-color: rgba(47, 125, 184, 0.14);
+  border-radius: 12px;
+  gap: 9px;
+  min-height: 88px;
+  padding: 11px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-action-copy {
+  gap: 3px;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-action-copy strong {
+  font-size: 0.82rem;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-action-copy span {
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.admin-dashboard-overview-actions .admin-dashboard-action-arrow {
+  margin-top: 8px;
+}
+
 .admin-dashboard-action-copy {
   display: grid;
   gap: 5px;

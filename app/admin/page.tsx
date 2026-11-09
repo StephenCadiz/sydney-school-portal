@@ -782,73 +782,6 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        <section className="admin-dashboard-section">
-          <div className="admin-dashboard-section-heading">
-            <h2>Academy Overview</h2>
-            <p>Current portal records.</p>
-          </div>
-
-          {overviewError && (
-            <p className="admin-dashboard-error">
-              Unable to load all overview counts.
-            </p>
-          )}
-
-          <div className="admin-dashboard-kpi-grid">
-            {restrictedAdmin === false && (
-              <>
-                <StatItem
-                  label="Classes"
-                  value={overview.classes}
-                  icon="classes"
-                />
-                <StatItem
-                  label="Teachers"
-                  value={overview.teachers}
-                  icon="teachers"
-                />
-              </>
-            )}
-            <StatItem
-              label="Cambridge Students"
-              value={overview.cambridgeStudents}
-              icon="cambridge"
-              active={activeStudentBreakdown === "cambridge"}
-              onClick={() =>
-                setActiveStudentBreakdown((current) =>
-                  current === "cambridge" ? "" : "cambridge"
-                )
-              }
-            />
-            <StatItem
-              label="Young Learners"
-              value={overview.youngLearners}
-              icon="youngLearners"
-              active={activeStudentBreakdown === "youngLearners"}
-              onClick={() =>
-                setActiveStudentBreakdown((current) =>
-                  current === "youngLearners" ? "" : "youngLearners"
-                )
-              }
-            />
-          </div>
-
-          {activeStudentBreakdown && (
-            <BreakdownList
-              type={activeStudentBreakdown}
-              cambridgeByLevel={overview.cambridgeByLevel}
-              youngLearnersByLevel={overview.youngLearnersByLevel}
-              cambridgeTotal={overview.cambridgeStudents}
-              youngLearnersTotal={overview.youngLearners}
-            />
-          )}
-
-          <p className="admin-dashboard-count-note">
-            Counts are based on enrolled Cambridge students and active Young
-            Learners.
-          </p>
-        </section>
-
         <section className="admin-dashboard-school-calendar" aria-labelledby="dashboard-school-calendar-title">
           <div className="admin-dashboard-school-calendar-icon" aria-hidden="true">
             <DashboardIcon name="calendar" size={22} />
@@ -953,36 +886,93 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          {restrictedAdmin === false && <aside className="admin-dashboard-card admin-dashboard-quick-actions">
-            <div className="admin-dashboard-card-header">
-              <div>
-                <h2>Quick Actions</h2>
-                <p>Common admin tasks.</p>
+          <aside className="admin-dashboard-card admin-dashboard-quick-actions admin-dashboard-overview-actions">
+            <section className="admin-dashboard-compact-overview" aria-label="Academy Overview">
+              <div className="admin-dashboard-card-header">
+                <div>
+                  <h2>Academy Overview</h2>
+                  <p>Current portal records.</p>
+                </div>
+                <span className="admin-dashboard-glass-label">Live</span>
               </div>
-            </div>
 
-            <div className="admin-dashboard-action-grid">
-              {quickActions.map((action) => (
-                <Link
-                  key={action.href}
-                  href={action.href}
-                  className="admin-dashboard-action-card"
-                  aria-label={`${action.label}: ${action.description}`}
-                >
-                  <span className="admin-dashboard-action-icon">
-                    <DashboardIcon name={action.icon} />
-                  </span>
-                  <span className="admin-dashboard-action-copy">
-                    <strong>{action.label}</strong>
-                    <span>{action.description}</span>
-                  </span>
-                  <span className="admin-dashboard-action-arrow">
-                    <DashboardIcon name="chevron" size={17} />
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </aside>}
+              {overviewError && (
+                <p className="admin-dashboard-error">
+                  Unable to load all overview counts.
+                </p>
+              )}
+
+              <div className="admin-dashboard-kpi-grid">
+                {restrictedAdmin === false && (
+                  <>
+                    <StatItem label="Classes" value={overview.classes} icon="classes" />
+                    <StatItem label="Teachers" value={overview.teachers} icon="teachers" />
+                  </>
+                )}
+                <StatItem
+                  label="Cambridge Students"
+                  value={overview.cambridgeStudents}
+                  icon="cambridge"
+                  active={activeStudentBreakdown === "cambridge"}
+                  onClick={() => setActiveStudentBreakdown((current) => current === "cambridge" ? "" : "cambridge")}
+                />
+                <StatItem
+                  label="Young Learners"
+                  value={overview.youngLearners}
+                  icon="youngLearners"
+                  active={activeStudentBreakdown === "youngLearners"}
+                  onClick={() => setActiveStudentBreakdown((current) => current === "youngLearners" ? "" : "youngLearners")}
+                />
+              </div>
+
+              {activeStudentBreakdown && (
+                <BreakdownList
+                  type={activeStudentBreakdown}
+                  cambridgeByLevel={overview.cambridgeByLevel}
+                  youngLearnersByLevel={overview.youngLearnersByLevel}
+                  cambridgeTotal={overview.cambridgeStudents}
+                  youngLearnersTotal={overview.youngLearners}
+                />
+              )}
+
+              <p className="admin-dashboard-count-note">
+                Counts are based on enrolled Cambridge students and active Young Learners.
+              </p>
+            </section>
+
+            {restrictedAdmin === false && (
+              <section className="admin-dashboard-quick-actions-section" aria-label="Quick Actions">
+                <div className="admin-dashboard-card-header">
+                  <div>
+                    <h2>Quick Actions</h2>
+                    <p>Common admin tasks.</p>
+                  </div>
+                </div>
+
+                <div className="admin-dashboard-action-grid">
+                  {quickActions.map((action) => (
+                    <Link
+                      key={action.href}
+                      href={action.href}
+                      className="admin-dashboard-action-card"
+                      aria-label={`${action.label}: ${action.description}`}
+                    >
+                      <span className="admin-dashboard-action-icon">
+                        <DashboardIcon name={action.icon} />
+                      </span>
+                      <span className="admin-dashboard-action-copy">
+                        <strong>{action.label}</strong>
+                        <span>{action.description}</span>
+                      </span>
+                      <span className="admin-dashboard-action-arrow">
+                        <DashboardIcon name="chevron" size={17} />
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </aside>
         </section>
           </div>
         );
