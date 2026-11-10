@@ -28,6 +28,14 @@ export function isChatMessageActionsSchemaUnavailable(error: unknown) {
     || /could not find the .*?(edited_at|deleted_at|deleted_by).*column/i.test(message);
 }
 
+function isChatReadOptimizationRpcUnavailable(error: unknown) {
+  const code = String((error as any)?.code || "");
+  const message = String((error as any)?.message || "");
+  return ["42883", "PGRST202", "PGRST204", "PGRST205"].includes(code)
+    || /function .*chat_(latest_messages|unread_counts).* does not exist/i.test(message)
+    || /could not find the function .*chat_(latest_messages|unread_counts)/i.test(message);
+}
+
 const SCHOOL_CHAT_AVATAR = "/icons/icon-192.png";
 // Stephen Ferreira has a separate Teacher profile for Staff Chat. His Admin
 // profile remains available to the email-style Messages system only.
@@ -304,30 +312,63 @@ export async function listChatConversations(actor: ChatActor) {
   const enrichedProfiles = (profiles || []).map((profile) => withAvatar(profile, avatarById));
   // Only the latest preview is needed for the conversation list. Loading the
   // complete history here made every refresh grow with the lifetime of chat.
-  const latestResults = await Promise.all(ids.map(async (conversationId) => {
-    const result = await supabaseAdmin
-      .from("chat_messages")
-      .select("id, conversation_id, sender_id, body, created_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (result.error) throw result.error;
-    return result.data?.[0] || null;
-  }));
-  const messages = latestResults.filter(Boolean) as any[];
+  const latestRpc = await supabaseAdmin.rpc("chat_latest_messages", {
+    p_conversation_ids: ids,
+  });
+  let messages: any[];
+  if (!latestRpc.error) {
+    messages = Array.isArray(latestRpc.data) ? latestRpc.data : [];
+  } else if (isChatReadOptimizationRpcUnavailable(latestRpc.error)) {
+    // Keep a short rollout fallback for a server that starts before the
+    // additive optimization migration has reached its database.
+    const latestResults = await Promise.all(ids.map(async (conversationId) => {
+      const result = await supabaseAdmin
+        .from("chat_messages")
+        .select("id, conversation_id, sender_id, body, created_at")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (result.error) throw result.error;
+      return result.data?.[0] || null;
+    }));
+    messages = latestResults.filter(Boolean) as any[];
+  } else {
+    throw latestRpc.error;
+  }
   const membershipByConversation = new Map((memberships || []).map((membership) => [String(membership.conversation_id), membership]));
-  const unreadCountResults = await Promise.all(ids.map(async (conversationId) => {
-    const membership = membershipByConversation.get(conversationId);
-    let query = supabaseAdmin
-      .from("chat_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("conversation_id", conversationId)
-      .neq("sender_id", actor.profileId);
-    if (membership?.last_read_at) query = query.gt("created_at", membership.last_read_at);
-    const result = await query;
-    if (result.error) throw result.error;
-    return [conversationId, result.count || 0] as const;
-  }));
+  const unreadRpc = await supabaseAdmin.rpc("chat_unread_counts", {
+    p_profile_id: actor.profileId,
+    p_hidden_profile_id: EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID,
+  });
+  let unreadCountResults: Array<readonly [string, number]>;
+  if (!unreadRpc.error) {
+    const unreadByConversation = new Map(
+      (Array.isArray(unreadRpc.data) ? unreadRpc.data : []).map((row: any) => [
+        String(row.conversation_id),
+        Math.max(0, Number(row.unread_count) || 0),
+      ])
+    );
+    unreadCountResults = ids.map((conversationId) => [
+      conversationId,
+      unreadByConversation.get(conversationId) || 0,
+    ] as const);
+  } else if (isChatReadOptimizationRpcUnavailable(unreadRpc.error)) {
+    const fallbackCounts = await Promise.all(ids.map(async (conversationId) => {
+      const membership = membershipByConversation.get(conversationId);
+      let query = supabaseAdmin
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("conversation_id", conversationId)
+        .neq("sender_id", actor.profileId);
+      if (membership?.last_read_at) query = query.gt("created_at", membership.last_read_at);
+      const result = await query;
+      if (result.error) throw result.error;
+      return [conversationId, result.count || 0] as const;
+    }));
+    unreadCountResults = fallbackCounts;
+  } else {
+    throw unreadRpc.error;
+  }
   const unreadCountByConversation = new Map(unreadCountResults);
   const profileById = new Map(enrichedProfiles.map((profile) => [String(profile.id), profile]));
   const memberByConversation = new Map<string, string[]>();
@@ -352,6 +393,19 @@ export async function listChatConversations(actor: ChatActor) {
 
 /** Return the unread Staff Chat total without loading conversation previews. */
 export async function getChatUnreadCount(actor: ChatActor) {
+  const unreadRpc = await supabaseAdmin.rpc("chat_unread_counts", {
+    p_profile_id: actor.profileId,
+    p_hidden_profile_id: EMAIL_ONLY_ADMIN_STAFF_PROFILE_ID,
+  });
+  if (!unreadRpc.error) {
+    return (Array.isArray(unreadRpc.data) ? unreadRpc.data : []).reduce(
+      (total: number, row: any) => total + Math.max(0, Number(row.unread_count) || 0),
+      0
+    );
+  }
+  if (!isChatReadOptimizationRpcUnavailable(unreadRpc.error)) throw unreadRpc.error;
+
+  // Compatibility path for a brief migration rollout window.
   const { data: memberships, error: membershipError } = await supabaseAdmin
     .from("chat_participants")
     .select("conversation_id, last_read_at")

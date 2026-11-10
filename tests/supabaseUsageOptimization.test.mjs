@@ -5,6 +5,7 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 const migration = read("supabase/migrations/20261109120000_optimize_portal_read_indexes.sql");
+const chatReadMigration = read("supabase/migrations/20261110100000_reduce_chat_request_fanout.sql");
 const chatServer = read("lib/chatServer.ts");
 const cache = read("lib/pwaDataCache.ts");
 const messages = read("lib/messages.ts");
@@ -29,9 +30,13 @@ test("read-path indexes cover mailbox, unread, chat, and announcement lookups", 
 });
 
 test("chat list and unread counts do not load unbounded message history", () => {
+  assert.match(chatServer, /rpc\("chat_latest_messages"/);
+  assert.match(chatServer, /rpc\("chat_unread_counts"/);
   assert.match(chatServer, /select\("id, conversation_id, sender_id, body, created_at"\)[\s\S]*\.limit\(1\)/);
   assert.match(chatServer, /select\("id", \{ count: "exact", head: true \}\)/);
   assert.doesNotMatch(chatServer, /\.in\("conversation_id", ids\)[\s\S]*\.order\("created_at", \{ ascending: false \}\);/);
+  assert.match(chatReadMigration, /chat_latest_messages/);
+  assert.match(chatReadMigration, /chat_unread_counts/);
 });
 
 test("mailbox and dashboard unread reads use narrow projections", () => {
