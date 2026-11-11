@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
+import { useMessageRefreshEvents } from "../../hooks/useMessageRealtimeRefresh";
 import {
   formatMessageDateTime,
   getUnreadTeacherStaffMessages,
@@ -72,12 +72,11 @@ export default function TeacherMessageNotifications({
     }
   }, [teacherId]);
 
-  useMessageRealtimeRefresh({
+  useMessageRefreshEvents({
     onRefresh: loadUnreadMessages,
     enabled: Boolean(teacherId),
-    intervalMs: 60000,
+    intervalMs: 180000,
     customEventName: TEACHER_MESSAGES_CHANGED_EVENT,
-    channelName: "teacher-dashboard-messages",
   });
 
   if (loading || messages.length === 0) {

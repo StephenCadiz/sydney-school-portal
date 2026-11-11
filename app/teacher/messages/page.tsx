@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import TeacherLayout from "../../components/layout/TeacherLayout";
-import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
+import { useMessageRefreshEvents } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageSoundPreference } from "../../hooks/useStaffMessageNotifications";
 import { ChevronRight, Inbox, PenLine, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
@@ -324,12 +324,11 @@ export default function TeacherMessagesPage() {
     await Promise.all([loadMessages(teacherId), loadStudentUnreadCount()]);
   }, [teacherId, loadMessages, loadStudentUnreadCount]);
 
-  useMessageRealtimeRefresh({
+  useMessageRefreshEvents({
     onRefresh: refreshTeacherMessages,
     enabled: Boolean(teacherId),
-    intervalMs: 60000,
+    intervalMs: 180000,
     customEventName: TEACHER_MESSAGES_CHANGED_EVENT,
-    channelName: "teacher-messages-page",
   });
 
   async function openInboxMessage(item: any) {

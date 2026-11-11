@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
+import { useMessageRefreshEvents } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
 import { getAdminOutstandingMessageCount } from "../../../lib/messages";
 import { getStaffChatUnreadCount } from "../../../lib/staffChatUnreadCount";
@@ -518,12 +518,11 @@ export default function AdminLayout({
     };
   }, [adminId, installedPwa, loadMonitoringSummary]);
 
-  useMessageRealtimeRefresh({
+  useMessageRefreshEvents({
     onRefresh: loadOutstandingMessageCount,
     enabled: Boolean(adminId) && !installedPwa,
     intervalMs: 180000,
     customEventName: "admin-unread-messages-changed",
-    channelName: "admin-layout-messages",
   });
 
   useStaffMessageNotifications({

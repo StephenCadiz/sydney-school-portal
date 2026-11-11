@@ -13,6 +13,13 @@ type UseMessageRealtimeRefreshOptions = {
   channelName?: string;
 };
 
+type UseMessageRefreshEventsOptions = {
+  onRefresh: () => void | Promise<void>;
+  enabled?: boolean;
+  intervalMs?: number;
+  customEventName?: string;
+};
+
 let hookInstanceCounter = 0;
 
 export function useMessageRealtimeRefresh({
@@ -146,4 +153,68 @@ export function useMessageRealtimeRefresh({
       void supabase.removeChannel(channel);
     };
   }, [enabled, intervalMs, debounceMs, customEventName, channelName]);
+}
+
+/**
+ * Refresh message data from the shared staff-message event bus without
+ * opening another Supabase Realtime channel. The layout owns the single
+ * INSERT subscription used for notification sounds; pages and dashboard
+ * cards only need to react to that event and refresh their own data.
+ */
+export function useMessageRefreshEvents({
+  onRefresh,
+  enabled = true,
+  intervalMs = 180000,
+  customEventName,
+}: UseMessageRefreshEventsOptions) {
+  const onRefreshRef = useRef(onRefresh);
+
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    let cancelled = false;
+    let refreshInFlight = false;
+
+    async function runRefresh() {
+      if (cancelled || refreshInFlight) return;
+      refreshInFlight = true;
+      try {
+        await onRefreshRef.current();
+      } catch {
+        // Individual message surfaces keep their existing error state/logging.
+      } finally {
+        refreshInFlight = false;
+      }
+    }
+
+    const handleRefresh = () => {
+      void runRefresh();
+    };
+
+    void runRefresh();
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") {
+        void runRefresh();
+      }
+    }, intervalMs);
+
+    window.addEventListener("focus", handleRefresh);
+    if (customEventName) {
+      window.addEventListener(customEventName, handleRefresh);
+    }
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleRefresh);
+      if (customEventName) {
+        window.removeEventListener(customEventName, handleRefresh);
+      }
+    };
+  }, [enabled, intervalMs, customEventName]);
 }

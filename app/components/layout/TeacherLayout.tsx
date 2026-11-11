@@ -11,7 +11,7 @@ import {
 } from "react";
 import TeacherSidebar from "./TeacherSidebar";
 import PortalHeader from "./PortalHeader";
-import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
+import { useMessageRefreshEvents } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageNotifications } from "../../hooks/useStaffMessageNotifications";
 import { getTeacherUnreadMessageCount } from "../../../lib/teacherMessageUnreadCount";
 import { getStaffChatUnreadCount } from "../../../lib/staffChatUnreadCount";
@@ -253,12 +253,11 @@ export default function TeacherLayout({
     };
   }, [installedPwa, loadUnreadChatCount, teacherId]);
 
-  useMessageRealtimeRefresh({
+  useMessageRefreshEvents({
     onRefresh: loadUnreadCount,
     enabled: Boolean(teacherId) && !installedPwa,
     intervalMs: 180000,
     customEventName: TEACHER_MESSAGES_CHANGED_EVENT,
-    channelName: "teacher-layout-messages",
   });
 
   useStaffMessageNotifications({

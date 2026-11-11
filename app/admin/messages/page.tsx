@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import AdminLayout from "../../components/layout/AdminLayout";
 import MessageAttachmentPicker from "../../components/messages/MessageAttachmentPicker";
 import MessageAttachments from "../../components/messages/MessageAttachments";
-import { useMessageRealtimeRefresh } from "../../hooks/useMessageRealtimeRefresh";
+import { useMessageRefreshEvents } from "../../hooks/useMessageRealtimeRefresh";
 import { useStaffMessageSoundPreference } from "../../hooks/useStaffMessageNotifications";
 import { Volume2, VolumeX } from "lucide-react";
 import { getTeachers } from "../../../lib/adminTeachers";
@@ -357,12 +357,11 @@ export default function AdminMessagesPage() {
     await loadMessages(adminId);
   }, [adminId, loadMessages]);
 
-  useMessageRealtimeRefresh({
+  useMessageRefreshEvents({
     onRefresh: refreshAdminMessages,
     enabled: Boolean(adminId),
-    intervalMs: 60000,
+    intervalMs: 180000,
     customEventName: "admin-unread-messages-changed",
-    channelName: "admin-messages-page",
   });
 
   async function openInboxMessage(item: any) {
