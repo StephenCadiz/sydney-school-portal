@@ -100,6 +100,18 @@ export async function PATCH(
         { status: 409 }
       );
     }
+    const { error: deliveryModeError } = await supabaseAdmin
+      .from("classes")
+      .update({ delivery_mode: validation.value.delivery_mode })
+      .eq("id", classId);
+    if (deliveryModeError) {
+      console.error("Admin class delivery mode update failed:", {
+        actorId: admin.userId,
+        classId,
+        code: deliveryModeError.code,
+      });
+      throw deliveryModeError;
+    }
     const { data: classroom, error: classroomError } = await supabaseAdmin
       .from("classes")
       .select("*")

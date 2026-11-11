@@ -16,6 +16,10 @@ import {
 } from "../../../lib/teacherCalendar";
 import type { TeacherCalendarEvent } from "../../../lib/teacherCalendar";
 import styles from "./TeacherCalendar.module.css";
+import {
+  classHasOnlineOption,
+  normalizeClassDeliveryMode,
+} from "../../../lib/classDelivery";
 
 const weekDays = [
   "Monday",
@@ -203,7 +207,7 @@ function parseClassDays(days: string | null | undefined) {
 }
 
 function isOnlineClass(classData: CalendarClass) {
-  return String(classData.course_type ?? "").trim().toLowerCase() === "online";
+  return classHasOnlineOption(classData);
 }
 
 function formatCourseType(courseType: string | null | undefined) {
@@ -224,7 +228,11 @@ function getClassLevelName(classData: CalendarClass) {
 }
 
 function getClassroomName(classData: CalendarClass) {
-  if (isOnlineClass(classData)) return "Online";
+  if (isOnlineClass(classData)) {
+    return normalizeClassDeliveryMode(classData.delivery_mode) === "hybrid"
+      ? `${classData.classrooms?.name || "Classroom"} + Online`
+      : "Online";
+  }
 
   return classData.classrooms?.name || "Classroom not assigned";
 }
@@ -809,7 +817,7 @@ export default function TeacherCalendarPage() {
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            Join Google Meet
+            Join Online Class
           </a>
         )}
       </div>

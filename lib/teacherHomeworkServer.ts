@@ -34,6 +34,7 @@ export type TeacherHomeworkContext = {
   levelId: number;
   level: string;
   courseType: string;
+  deliveryMode?: string;
   supported: boolean;
 };
 
@@ -74,7 +75,7 @@ export async function authorizeTeacherHomeworkClass(
 
   const { data: classroom, error: classError } = await supabaseAdmin
     .from("classes")
-    .select("id, teacher_id, level_id, course_type, days, is_cambridge")
+    .select("id, teacher_id, level_id, course_type, days, is_cambridge, delivery_mode")
     .eq("id", classId)
     .maybeSingle();
   if (classError) {
@@ -112,6 +113,7 @@ export async function authorizeTeacherHomeworkClass(
     levelId: Number(classroom.level_id),
     level,
     courseType,
+    deliveryMode: String(classroom.delivery_mode || "in_person").trim().toLowerCase(),
     supported:
       classroom.is_cambridge === true &&
       ELIGIBLE_LEVELS.has(level) &&

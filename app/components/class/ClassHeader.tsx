@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { formatClockTime } from "../../../lib/timeDisplay";
+import { classIsOnlineOnly } from "../../../lib/classDelivery";
 
 type Props = {
   classData: any;
@@ -36,8 +37,7 @@ export default function ClassHeader({
   if (!classData) return null;
 
   const classroom = classData.classrooms;
-  const isOnlineClass =
-    String(classData.course_type || "").toLowerCase() === "online";
+  const isOnlineClass = classIsOnlineOnly(classData);
   const themeColour = isOnlineClass
     ? "#1f3c88"
     : classroom?.theme_colour || "#1f3c88";

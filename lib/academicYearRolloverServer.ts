@@ -20,7 +20,7 @@ import { madridEnrolmentDate } from "./classEnrolment";
 const ROLLOVER_SELECT =
   "id, source_academic_year_id, target_academic_year_id, status, created_by, updated_by, applied_by, applied_at, created_at, updated_at";
 const CLASS_SELECT =
-  "id, class_name, level_id, teacher_id, classroom_id, course_type, days, start_time, end_time, meet_link, is_cambridge, start_date, end_date, academic_year_id";
+  "id, class_name, level_id, teacher_id, classroom_id, course_type, days, start_time, end_time, meet_link, delivery_mode, is_cambridge, start_date, end_date, academic_year_id";
 const MAX_DECISIONS_PER_SAVE = 500;
 const MAX_CLASSES_PER_COPY = 100;
 
@@ -35,6 +35,7 @@ type DatabaseClass = {
   start_time: string | null;
   end_time: string | null;
   meet_link: string | null;
+  delivery_mode: string | null;
   is_cambridge: boolean | null;
   start_date: string | null;
   end_date: string | null;
@@ -166,7 +167,14 @@ function enrichClasses(
 
   return classes
     .map((classroom) => {
-      const isOnline = text(classroom.course_type).toLowerCase() === "online";
+      const deliveryMode =
+        text(classroom.course_type).toLowerCase() === "online"
+          ? "online"
+          : text(classroom.delivery_mode) || "in_person";
+      const normalizedDeliveryMode = (deliveryMode === "online" || deliveryMode === "hybrid"
+        ? deliveryMode
+        : "in_person") as RolloverClass["delivery_mode"];
+      const isOnline = normalizedDeliveryMode === "online";
       return {
         id: String(classroom.id),
         class_name:
@@ -192,6 +200,7 @@ function enrichClasses(
         start_time: text(classroom.start_time),
         end_time: text(classroom.end_time),
         meet_link: classroom.meet_link ? text(classroom.meet_link) : null,
+        delivery_mode: normalizedDeliveryMode,
         is_cambridge: classroom.is_cambridge === true,
         academic_year_id: String(classroom.academic_year_id || ""),
         copied_target_class_id:
@@ -695,7 +704,11 @@ export async function copyAcademicYearRolloverClasses(input: {
         "A selected source class is not eligible for this rollover."
       );
     }
-    const isOnline = text(source.course_type).toLowerCase() === "online";
+    const deliveryMode =
+      text(source.course_type).toLowerCase() === "online"
+        ? "online"
+        : text(source.delivery_mode) || "in_person";
+    const isOnline = deliveryMode === "online";
     const classroomId = isOnline
       ? null
       : text(requested.classroom_id) || text(source.classroom_id);
@@ -711,6 +724,7 @@ export async function copyAcademicYearRolloverClasses(input: {
         start_time: source.start_time,
         end_time: source.end_time,
         meet_link: isOnline ? source.meet_link : null,
+        delivery_mode: deliveryMode,
         is_cambridge: source.is_cambridge === true,
         start_date: null,
         end_date: null,

@@ -18,6 +18,7 @@ import StudentAnnouncementBanner from "../components/student/StudentAnnouncement
 import StudentFridayTutorialReminder from "../components/student/StudentFridayTutorialReminder";
 import { NO_CURRENT_ACADEMIC_YEAR_CLASS_MESSAGE } from "../../lib/academicYearRules";
 import { getStudentFacingTeacherName } from "../../lib/studentTeacherDisplay";
+import { classHasOnlineOption, classIsOnlineOnly } from "../../lib/classDelivery";
 import { normalizeHomeworkSkill } from "../../lib/homework";
 import {
   getEligibleProgressHomeworkResults,
@@ -255,6 +256,7 @@ export default function StudentDashboard() {
   const [classroomName, setClassroomName] = useState("-");
   const [classroomLogo, setClassroomLogo] = useState("/Emu Logo.png");
   const [meetLink, setMeetLink] = useState("");
+  const [onlineClassAvailable, setOnlineClassAvailable] = useState(false);
   const [currentHomework, setCurrentHomework] = useState<any[]>([]);
   const [dashboardProgress, setDashboardProgress] = useState<DashboardProgress | null>(null);
   const [dashboardProgressLoading, setDashboardProgressLoading] = useState(true);
@@ -297,9 +299,8 @@ export default function StudentDashboard() {
 
         const classroom = courseInfo.classroom;
         const classroomDetails = courseInfo.classroomDetails;
-        const isOnlineClass =
-          String(courseInfo.courseType ?? "").trim().toLowerCase() ===
-          "online";
+        const isOnlineClass = classIsOnlineOnly(classroom);
+        const hasOnlineClassOption = classHasOnlineOption(classroom);
         const timeSlot =
           classroom.start_time && classroom.end_time
             ? `${formatClockTime(classroom.start_time)}–${formatClockTime(classroom.end_time)}`
@@ -317,6 +318,7 @@ export default function StudentDashboard() {
             ? "/On-Line Logo.png"
             : classroomDetails?.logo || "/Emu Logo.png"
         );
+        setOnlineClassAvailable(hasOnlineClassOption);
         setClassSchedule(
           [classroom.days, timeSlot].filter(Boolean).join(" - ") ||
             "-"
@@ -391,8 +393,7 @@ export default function StudentDashboard() {
     loadDashboard();
   }, []);
 
-  const isOnlineCourse =
-    String(courseType ?? "").trim().toLowerCase() === "online";
+  const isOnlineCourse = onlineClassAvailable;
   const hasCurrentHomework = currentHomework.length > 0;
   const dashboardStudentName = installedPwa
     ? String(studentName).trim().split(/\s+/)[0] || studentName
@@ -686,14 +687,18 @@ export default function StudentDashboard() {
                   </p>
                 </div>
 
-                {meetLink && (
+                {meetLink ? (
                   <a
                     href={meetLink}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Join →
+                    Join Online Class →
                   </a>
+                ) : (
+                  <button type="button" disabled title="Admin has not added the Google Meet link yet.">
+                    Join Online Class →
+                  </button>
                 )}
               </div>
             )}

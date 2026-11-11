@@ -5,6 +5,7 @@ import {
   TeacherHomeworkError,
 } from "../../../../../../lib/teacherHomeworkServer";
 import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
+import { classHasOnlineOption } from "../../../../../../lib/classDelivery";
 
 function fail(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -37,20 +38,16 @@ export async function GET(
     const { id } = await routeContext.params;
     const context = await authorizeTeacherHomeworkClass(request, id);
 
-    if (context.courseType !== "online") {
-      return fail("Google Meet is not available for this class.", 404);
-    }
-
     const { data: classroom, error: classError } = await supabaseAdmin
       .from("classes")
-      .select("course_type, meet_link")
+      .select("course_type, meet_link, is_cambridge, delivery_mode")
       .eq("id", context.classId)
       .maybeSingle();
     if (classError) {
       return fail("Unable to load Google Meet information.", 500);
     }
     if (!classroom) return fail("Class was not found.", 404);
-    if (String(classroom.course_type || "").trim().toLowerCase() !== "online") {
+    if (!classHasOnlineOption(classroom)) {
       return fail("Google Meet is not available for this class.", 404);
     }
 
@@ -58,6 +55,8 @@ export async function GET(
       class: {
         id: context.classId,
         course_type: context.courseType,
+        is_cambridge: classroom.is_cambridge === true,
+        delivery_mode: classroom.delivery_mode || "in_person",
         meet_link: safeGoogleMeetUrl(classroom.meet_link),
       },
     });

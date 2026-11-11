@@ -38,6 +38,7 @@ import { deleteTeacherClassAnnouncement } from "../../../lib/announcements";
 import { isClassProgressEligible } from "../../../lib/classProgressEligibility";
 import { isCoursePlanningEligible } from "../../../lib/coursePlanningEligibility";
 import { classCanReceiveSyllabus } from "../../../lib/syllabusValidation";
+import { classHasOnlineOption } from "../../../lib/classDelivery";
 
 const tabs = [
   { id: "students", label: "Students" },
@@ -83,7 +84,7 @@ const youngLearnerClassTabs = [
   { id: "class-points", label: "Class Points" },
 ];
 
-const googleMeetTab = { id: "google-meet", label: "Google Meet" };
+const googleMeetTab = { id: "google-meet", label: "Join Online Class" };
 const classProgressTab = { id: "class-progress", label: "Class Progress" };
 const classRegisterTab = { id: "class-register", label: "Class Register" };
 const coursePlanningTab = { id: "course-planning", label: "Course Planning" };
@@ -397,7 +398,7 @@ if (classResult.data) {
         error: "",
         supported:
           payload?.class?.id === requestedClassId &&
-          payload?.class?.course_type === "online",
+          classHasOnlineOption(payload?.class),
         meetLink:
           typeof payload?.class?.meet_link === "string"
             ? payload.class.meet_link

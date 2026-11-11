@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { sortClassesByGlobalOrder } from "./classOrdering";
+import { normalizeClassDeliveryMode } from "./classDelivery";
 
 function logSupabaseError(context: string, error: any) {
   console.error(`${context} Supabase error:`, {
@@ -15,17 +16,26 @@ function isOnlineCourse(courseType: string | null | undefined) {
 }
 
 function prepareClassData(classData: any) {
-  if (isOnlineCourse(classData.course_type)) {
+  const deliveryMode =
+    isOnlineCourse(classData.course_type)
+      ? "online"
+      : classData.is_cambridge === true
+      ? normalizeClassDeliveryMode(classData.delivery_mode)
+      : "in_person";
+
+  if (deliveryMode !== "in_person") {
     return {
       ...classData,
-      classroom_id: null,
+      classroom_id: deliveryMode === "online" ? null : classData.classroom_id,
       meet_link: String(classData.meet_link || "").trim(),
+      delivery_mode: deliveryMode,
     };
   }
 
   return {
     ...classData,
     meet_link: null,
+    delivery_mode: "in_person",
   };
 }
 

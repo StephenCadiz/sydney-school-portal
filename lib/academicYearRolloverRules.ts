@@ -43,6 +43,7 @@ export type RolloverClass = {
   start_time: string;
   end_time: string;
   meet_link: string | null;
+  delivery_mode: "in_person" | "online" | "hybrid";
   is_cambridge: boolean;
   academic_year_id: string;
   copied_target_class_id?: string | null;

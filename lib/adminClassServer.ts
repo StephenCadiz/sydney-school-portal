@@ -9,6 +9,7 @@ import {
 import { validateCoursePlanningDateRange } from "./coursePlanningDates";
 import { validateClassDateOverrides } from "./classDateRange";
 import { classUsesAcademicYear } from "./academicYearRules";
+import { normalizeClassDeliveryMode, type ClassDeliveryMode } from "./classDelivery";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -59,6 +60,7 @@ export type AdminClassPayload = {
   start_time: string;
   end_time: string;
   meet_link: string | null;
+  delivery_mode: ClassDeliveryMode;
   is_cambridge: boolean;
   start_date: string | null;
   end_date: string | null;
@@ -89,6 +91,7 @@ export function validateAdminClassPayload(
     "start_time",
     "end_time",
     "meet_link",
+    "delivery_mode",
     "is_cambridge",
     "start_date",
     "end_date",
@@ -107,6 +110,7 @@ export function validateAdminClassPayload(
   const startTime = validTime(body.start_time);
   const endTime = validTime(body.end_time);
   const meetLink = text(body.meet_link);
+  const requestedDeliveryMode = normalizeClassDeliveryMode(body.delivery_mode);
   const academicYearId = text(body.academic_year_id);
 
   if (!Number.isInteger(levelId) || levelId <= 0 || !levelRow) {
@@ -130,7 +134,13 @@ export function validateAdminClassPayload(
   const forcedCambridge = COURSE_PLANNING_CAMBRIDGE_LEVELS.has(levelName);
   const isCambridge = isSupport ? false : forcedCambridge || body.is_cambridge === true;
   const normalizedCourseType = isSupport || !isCambridge ? "regular" : courseType;
-  const isOnline = normalizedCourseType === "online";
+  const deliveryMode: ClassDeliveryMode =
+    normalizedCourseType === "online"
+      ? "online"
+      : isCambridge
+      ? requestedDeliveryMode
+      : "in_person";
+  const hasOnlineOption = deliveryMode !== "in_person";
   const usesAcademicYear = classUsesAcademicYear(normalizedCourseType);
 
   if (
@@ -142,11 +152,12 @@ export function validateAdminClassPayload(
     return { value: null, error: "Choose a valid academic year." };
   }
 
-  if (isOnline) {
+  if (hasOnlineOption) {
     if (!validMeetUrl(meetLink)) {
       return { value: null, error: "Enter a valid Google Meet link." };
     }
-  } else if (!isValidClassId(classroomId)) {
+  }
+  if (deliveryMode !== "online" && !isValidClassId(classroomId)) {
     return { value: null, error: "Choose a classroom for an in-person class." };
   }
 
@@ -181,12 +192,13 @@ export function validateAdminClassPayload(
       class_name: text(body.class_name) || String(levelRow.name || "").trim(),
       level_id: levelId,
       teacher_id: teacherId,
-      classroom_id: isOnline ? null : classroomId,
+      classroom_id: deliveryMode === "online" ? null : classroomId,
       course_type: normalizedCourseType as AdminClassPayload["course_type"],
       days,
       start_time: startTime,
       end_time: endTime,
-      meet_link: isOnline ? meetLink : null,
+      meet_link: hasOnlineOption ? meetLink : null,
+      delivery_mode: deliveryMode,
       is_cambridge: isCambridge,
       start_date: normalizedStartDate,
       end_date: normalizedEndDate,

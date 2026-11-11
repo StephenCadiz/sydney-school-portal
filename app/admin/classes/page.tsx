@@ -31,6 +31,7 @@ import {
 } from "../../../lib/classDateRange";
 import { compareClassesByGlobalOrder, getGlobalLevelRank } from "../../../lib/classOrdering";
 import { supabase } from "../../../lib/supabase";
+import { normalizeClassDeliveryMode } from "../../../lib/classDelivery";
 
 type ClassView = "all" | "level" | "schedule" | "teacher";
 type ClassPurgeContext = {
@@ -145,6 +146,14 @@ function normalizeCourseType(courseType: string | null | undefined) {
 
 function isOnlineCourse(courseType: string | null | undefined) {
   return normalizeCourseType(courseType) === "online";
+}
+
+function classHasOnlineOption(item: any) {
+  return (
+    isOnlineCourse(item?.course_type) ||
+    (item?.is_cambridge === true &&
+      normalizeClassDeliveryMode(item?.delivery_mode) !== "in_person")
+  );
 }
 
 function isValidGoogleMeetLink(value: string) {
@@ -820,6 +829,7 @@ export default function AdminClassesPage() {
     start_time: "",
     end_time: "",
     meet_link: "",
+    delivery_mode: "in_person",
     is_cambridge: true,
     start_date: "",
     end_date: "",
@@ -966,6 +976,17 @@ export default function AdminClassesPage() {
           : field === "classroom_id"
           ? value
           : current.classroom_id,
+      delivery_mode:
+        field === "course_type" && isOnlineCourse(value)
+          ? "online"
+          : field === "course_type" && current.delivery_mode === "online"
+          ? "in_person"
+          : field === "level_id" &&
+            (!selectedCambridgeLevel || selectedSupportLevel)
+          ? "in_person"
+          : field === "delivery_mode"
+          ? normalizeClassDeliveryMode(value)
+          : current.delivery_mode,
     }));
   }
 
@@ -1016,6 +1037,7 @@ export default function AdminClassesPage() {
       start_time: "",
       end_time: "",
       meet_link: "",
+      delivery_mode: "in_person",
       is_cambridge: true,
       start_date: "",
       end_date: "",
@@ -1039,8 +1061,10 @@ export default function AdminClassesPage() {
   }
 
   function getClassroomName(item: any) {
-    if (isOnlineCourse(item.course_type)) {
-      return "Online";
+    if (classHasOnlineOption(item)) {
+      return normalizeClassDeliveryMode(item.delivery_mode) === "hybrid"
+        ? `Hybrid · ${classrooms.find((classroom) => classroom.id === item.classroom_id)?.name || "Classroom"}`
+        : "Online";
     }
 
     const classroom = classrooms.find(
@@ -1066,6 +1090,9 @@ export default function AdminClassesPage() {
       start_time: normalizeTimeForForm(item.start_time),
       end_time: normalizeTimeForForm(item.end_time),
       meet_link: item.meet_link || "",
+      delivery_mode: isOnlineCourse(item.course_type)
+        ? "online"
+        : normalizeClassDeliveryMode(item.delivery_mode),
       start_date: item.start_date || "",
       end_date: item.end_date || "",
       academic_year_id: item.academic_year_id || "",
@@ -1320,18 +1347,11 @@ export default function AdminClassesPage() {
     setSaving(true);
     setMessage("");
 
-    const isOnlineClass = isOnlineCourse(form.course_type);
     const trimmedMeetLink = form.meet_link.trim();
     const selectedDays = parseClassDays(form.days);
     const savedDays = serializeClassDays(selectedDays);
     const startMinutes = getTimeMinutes(form.start_time);
     const endMinutes = getTimeMinutes(form.end_time);
-
-    if (!isOnlineClass && !form.classroom_id) {
-      setMessage("Please select a classroom for in-person classes.");
-      setSaving(false);
-      return;
-    }
 
     if (selectedDays.length === 0) {
       setMessage("Select at least one class day.");
@@ -1357,17 +1377,28 @@ export default function AdminClassesPage() {
       return;
     }
 
-    if (isOnlineClass && !isValidGoogleMeetLink(trimmedMeetLink)) {
-      setMessage("Please enter a valid Google Meet link.");
-      setSaving(false);
-      return;
-    }
-
     const selectedLevel = getLevelById(form.level_id);
     const isForcedCambridge = isCambridgeLevelName(selectedLevel?.name);
     const isForcedSupport = isSupportLevel(selectedLevel);
     const savedCourseType = isForcedSupport ? "regular" : form.course_type;
-    const savedIsOnlineClass = isOnlineCourse(savedCourseType);
+    const savedDeliveryMode = isOnlineCourse(savedCourseType)
+      ? "online"
+      : isForcedCambridge && !isForcedSupport
+      ? normalizeClassDeliveryMode(form.delivery_mode)
+      : "in_person";
+    const savedHasOnlineOption = savedDeliveryMode !== "in_person";
+
+    if (savedDeliveryMode !== "online" && !form.classroom_id) {
+      setMessage("Please select a classroom for in-person classes.");
+      setSaving(false);
+      return;
+    }
+
+    if (savedHasOnlineOption && !isValidGoogleMeetLink(trimmedMeetLink)) {
+      setMessage("Please enter a valid Google Meet link.");
+      setSaving(false);
+      return;
+    }
     const requiresCourseDates =
       !isForcedSupport &&
       (isForcedCambridge || form.is_cambridge) &&
@@ -1412,12 +1443,13 @@ export default function AdminClassesPage() {
       class_name: selectedLevel?.name || "",
       level_id: form.level_id,
       teacher_id: form.teacher_id,
-      classroom_id: savedIsOnlineClass ? null : form.classroom_id,
+      classroom_id: savedDeliveryMode === "online" ? null : form.classroom_id,
       course_type: savedCourseType,
       days: savedDays,
       start_time: normalizeTimeForForm(form.start_time),
       end_time: normalizeTimeForForm(form.end_time),
-      meet_link: savedIsOnlineClass ? trimmedMeetLink : null,
+      meet_link: savedHasOnlineOption ? trimmedMeetLink : null,
+      delivery_mode: savedDeliveryMode,
       is_cambridge: isForcedSupport
         ? false
         : isForcedCambridge
@@ -1505,7 +1537,12 @@ export default function AdminClassesPage() {
       const days = getClassDaysDisplay(item.days);
       const canonicalDays = canonicalizeClassDays(item.days);
       const timeLabel = formatTimeRange(item.start_time, item.end_time);
-      const isOnline = isOnlineCourse(item.course_type);
+      const deliveryMode = isOnlineCourse(item.course_type)
+        ? "online"
+        : item.is_cambridge === true
+        ? normalizeClassDeliveryMode(item.delivery_mode)
+        : "in_person";
+      const isOnline = deliveryMode !== "in_person";
       const usesAcademicYear = classUsesAcademicYear(courseType);
       const academicYear = academicYears.find(
         (year) => String(year.id) === String(item.academic_year_id || "")
@@ -1586,6 +1623,7 @@ export default function AdminClassesPage() {
         classroomName,
         operationalGroup,
         isOnline,
+        deliveryMode,
         usesAcademicYear,
         academicYearId: String(item.academic_year_id || ""),
         academicYearLabel: academicYear?.label || "",
@@ -2482,6 +2520,12 @@ export default function AdminClassesPage() {
   const selectedFormLevel = getLevelById(form.level_id);
   const selectedFormIsCambridge = isCambridgeLevelId(form.level_id);
   const selectedFormIsSupport = isSupportLevel(selectedFormLevel);
+  const selectedFormDeliveryMode = isOnlineCourse(form.course_type)
+    ? "online"
+    : selectedFormIsCambridge && !selectedFormIsSupport
+    ? normalizeClassDeliveryMode(form.delivery_mode)
+    : "in_person";
+  const selectedFormHasOnlineOption = selectedFormDeliveryMode !== "in_person";
   const selectedFormNeedsCourseDates =
     !selectedFormIsSupport &&
     (selectedFormIsCambridge || form.is_cambridge) &&
@@ -2590,15 +2634,53 @@ export default function AdminClassesPage() {
               )}
             </div>
 
-            {isOnlineCourse(form.course_type) ? (
+            {selectedFormHasOnlineOption ? (
               <div>
+                {selectedFormIsCambridge && !isOnlineCourse(form.course_type) && (
+                  <>
+                    <label style={labelStyle}>Class delivery</label>
+                    <select
+                      style={inputStyle}
+                      value={selectedFormDeliveryMode}
+                      onChange={(event) =>
+                        updateForm("delivery_mode", event.target.value)
+                      }
+                    >
+                      <option value="online">Online</option>
+                      <option value="hybrid">Hybrid (classroom + online)</option>
+                    </select>
+                    <p className="admin-classes-form-help">
+                      Students and the assigned teacher will see a Join Online Class button.
+                    </p>
+                  </>
+                )}
                 <label style={labelStyle}>Classroom</label>
-                <div className="admin-classes-online-form-note">
-                  Online Class
-                </div>
-                <p className="admin-classes-form-help">
-                  Online classes do not use a physical classroom.
-                </p>
+                {selectedFormDeliveryMode === "online" ? (
+                  <div className="admin-classes-online-form-note">
+                    Online Class
+                  </div>
+                ) : (
+                  <select
+                    required
+                    style={inputStyle}
+                    value={form.classroom_id}
+                    onChange={(event) =>
+                      updateForm("classroom_id", event.target.value)
+                    }
+                  >
+                    <option value="">Select classroom</option>
+                    {classrooms.map((classroom) => (
+                      <option key={classroom.id} value={classroom.id}>
+                        {classroom.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {selectedFormDeliveryMode === "online" && (
+                  <p className="admin-classes-form-help">
+                    Online classes do not use a physical classroom.
+                  </p>
+                )}
 
                 <label style={{ ...labelStyle, marginTop: "14px" }}>
                   Google Meet link
@@ -2616,6 +2698,25 @@ export default function AdminClassesPage() {
               </div>
             ) : (
               <div>
+                {selectedFormIsCambridge && !selectedFormIsSupport && (
+                  <>
+                    <label style={labelStyle}>Class delivery</label>
+                    <select
+                      style={inputStyle}
+                      value={selectedFormDeliveryMode}
+                      onChange={(event) =>
+                        updateForm("delivery_mode", event.target.value)
+                      }
+                    >
+                      <option value="in_person">In-person</option>
+                      <option value="online">Online</option>
+                      <option value="hybrid">Hybrid (classroom + online)</option>
+                    </select>
+                    <p className="admin-classes-form-help">
+                      Online and hybrid classes show a Join Online Class button.
+                    </p>
+                  </>
+                )}
                 <label style={labelStyle}>Classroom</label>
                 <select
                   required

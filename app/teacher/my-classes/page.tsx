@@ -17,6 +17,10 @@ import {
   getEffectiveClassDateRange,
   isDateWithinEffectiveClassRange,
 } from "../../../lib/classDateRange";
+import {
+  classHasOnlineOption,
+  normalizeClassDeliveryMode,
+} from "../../../lib/classDelivery";
 
 type View = "today" | "all";
 type Timing = "past" | "now" | "upcoming";
@@ -150,13 +154,16 @@ function getClassTitle(item: ClassRow) {
 }
 
 function getClassroomName(item: ClassRow) {
-  return isOnlineClass(item)
-    ? "Online"
-    : item.classrooms?.name || "Classroom not assigned";
+  if (isOnlineClass(item)) {
+    return normalizeClassDeliveryMode(item.delivery_mode) === "hybrid"
+      ? `${item.classrooms?.name || "Classroom"} + Online`
+      : "Online";
+  }
+  return item.classrooms?.name || "Classroom not assigned";
 }
 
 function isOnlineClass(item: ClassRow) {
-  return String(item.course_type || "").trim().toLowerCase() === "online";
+  return classHasOnlineOption(item);
 }
 
 function getClassroomIdentity(items: ClassRow[]): ClassroomIdentity {

@@ -53,28 +53,28 @@ export default function GoogleMeetTab({
 
   return (
     <section
-      aria-labelledby="google-meet-heading"
+      aria-labelledby="online-class-heading"
       style={{ display: "grid", gap: "18px", minWidth: 0 }}
     >
       <header style={{ display: "grid", gap: "6px" }}>
         <h3
-          id="google-meet-heading"
+          id="online-class-heading"
           style={{
             color: "var(--ss-blue-dark, #1f3c88)",
             fontSize: "22px",
             margin: 0,
           }}
         >
-          Google Meet
+          Join Online Class
         </h3>
         <p style={{ color: "#667085", lineHeight: 1.5, margin: 0 }}>
-          Open the online classroom for this class.
+          Open the online classroom for this Cambridge class.
         </p>
       </header>
 
       {state.loading ? (
         <p style={{ color: "#667085", margin: 0 }}>
-          Loading Google Meet information...
+          Loading online class information...
         </p>
       ) : state.error ? (
         <div role="alert" style={{ display: "grid", gap: "12px" }}>
@@ -111,6 +111,20 @@ export default function GoogleMeetTab({
             Admin.
           </p>
           <small>Meeting links are managed by Admin.</small>
+          <button
+            type="button"
+            disabled
+            style={{
+              ...actionStyle,
+              background: "#e4e7ec",
+              border: "1px solid #d0d5dd",
+              color: "#667085",
+              cursor: "not-allowed",
+              width: "fit-content",
+            }}
+          >
+            Join Online Class
+          </button>
         </div>
       ) : (
         <>
@@ -125,7 +139,7 @@ export default function GoogleMeetTab({
                 color: "#ffffff",
               }}
             >
-              Join Google Meet
+              Join Online Class
             </a>
             <button
               type="button"
