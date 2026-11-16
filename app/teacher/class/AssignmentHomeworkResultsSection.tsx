@@ -257,7 +257,7 @@ export default function AssignmentHomeworkResultsSection({
                   </span>
                 </div>
                 <div>
-                  <strong>{result ? `${Math.round(Number(result.percentage))}%` : "Not graded"}</strong>
+                  {result && <strong>{Math.round(Number(result.percentage))}%</strong>}
                   {result?.comments && <span>{result.comments}</span>}
                 </div>
                 <div>
