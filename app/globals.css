@@ -31881,3 +31881,24 @@ html[data-pwa-viewport-locked] body {
 .display-slide--5 .display-friday-item strong { font-size: clamp(2.2rem, 3.6vw, 4.4rem); line-height: 1.08; }
 .display-slide--5 .display-friday-item span { font-size: clamp(2rem, 2.8vw, 3.1rem); }
 .display-slide--5 .display-friday-live-card small { font-size: clamp(1.2rem, 1.45vw, 1.55rem); }
+
+
+/* Individual level artwork for the learning pathway slides. */
+.display-slide--2 .display-pathway-grid--dynamic { align-items: stretch; }
+.display-slide--2 .display-pathway-grid--dynamic .display-pathway-level-list { display: none; }
+.display-slide--2 .display-pathway-grid--dynamic .display-pathway-card { grid-template-rows: auto 1fr auto; }
+.display-slide--2 .display-pathway-grid--dynamic .display-pathway-card::after { position: relative; right: auto; bottom: auto; width: 100%; height: auto; min-height: clamp(240px, 31vh, 340px); border-radius: 22px; background-repeat: no-repeat; background-position: left center, center center, right center; background-size: 31% auto, 31% auto, 31% auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,.5); content: ""; }
+.display-slide--2 .display-pathway-grid--dynamic .display-pathway-card--young::after { background-image: url("/display-levels/pre-kids.png"), url("/display-levels/kids.png"), url("/display-levels/juniors.png"); }
+.display-slide--2 .display-pathway-grid--dynamic .display-pathway-card--cambridge::after { background-position: 20% center, 80% center; background-size: 45% auto, 45% auto; background-image: url("/display-levels/cambridge.png"), url("/display-levels/cambridge-intensive.png"); }
+.display-slide--4 .display-content-slide { background: linear-gradient(135deg, #f8fcff 0%, #eaf5fb 54%, #f7fcf9 100%); }
+.display-slide--4 .display-young-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(100%, 1250px); gap: clamp(18px, 2.5vw, 40px); }
+.display-slide--4 .display-young-levels span { display: grid; place-items: end center; min-height: clamp(230px, 29vh, 330px); padding: 12px 14px; border: 1px solid rgba(47,125,184,.18); border-radius: 26px; color: transparent; background-color: rgba(255,255,255,.72); background-position: center 22%; background-repeat: no-repeat; background-size: min(82%, 260px) auto; box-shadow: 0 18px 34px rgba(23,59,107,.1); font-size: 0; }
+.display-slide--4 .display-young-levels span:nth-child(1) { background-image: url("/display-levels/pre-kids.png"); }
+.display-slide--4 .display-young-levels span:nth-child(2) { background-image: url("/display-levels/kids.png"); }
+.display-slide--4 .display-young-levels span:nth-child(3) { background-image: url("/display-levels/juniors.png"); }
+.display-slide--4 .display-young-levels span::after { color: var(--display-navy); font-size: clamp(1.2rem, 1.7vw, 1.85rem); font-weight: 850; line-height: 1; }
+.display-slide--4 .display-young-levels span:nth-child(1)::after { content: "Pre-Kids · ages 3–5"; }
+.display-slide--4 .display-young-levels span:nth-child(2)::after { content: "Kids · ages 6–7"; }
+.display-slide--4 .display-young-levels span:nth-child(3)::after { content: "Juniors · ages 8–12"; }
+.display-slide--4 .display-young-levels span:nth-child(n+4) { display: none; }
+.display-slide--4 .display-quote { max-width: 1250px; margin-top: clamp(6px, 1vh, 14px); }
