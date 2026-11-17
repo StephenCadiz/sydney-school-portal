@@ -11,6 +11,10 @@ import {
   getClassExamMaterialsForPrint,
 } from "../../../lib/classExams";
 import { supabase } from "../../../lib/supabase";
+import {
+  getAllOfficialTeacherResourcesForAdmin,
+  type TeacherResource,
+} from "../../../lib/teacherResources";
 
 type PrintCategory = "young-learners" | "friday-tutorials" | "mock-exams";
 
@@ -23,6 +27,26 @@ type FridayTutorialPrintItem = {
   has_exam_part: boolean;
   pdf_url: string | null;
 };
+
+const MOCK_EXAM_LEVELS = ["B1", "B2", "C1"] as const;
+
+function getMockExamLevel(resource: TeacherResource) {
+  const levelName = String(resource.level_name || "")
+    .trim()
+    .toUpperCase();
+
+  return MOCK_EXAM_LEVELS.find(
+    (level) => levelName === level || levelName.startsWith(`${level} `)
+  );
+}
+
+function isMockOneResource(resource: TeacherResource) {
+  return Boolean(
+    resource.external_url &&
+      /\bmock\s*1\b/i.test(String(resource.title || "")) &&
+      getMockExamLevel(resource)
+  );
+}
 
 function getCountsByLevelId(materials: any[]): Record<string, number> {
   return materials.reduce<Record<string, number>>((counts, item) => {
@@ -129,6 +153,9 @@ function PrintExamsContent() {
   const [fridayTutorials, setFridayTutorials] = useState<
     FridayTutorialPrintItem[]
   >([]);
+  const [officialResources, setOfficialResources] = useState<TeacherResource[]>(
+    []
+  );
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const category = searchParams.get("category") as PrintCategory | null;
@@ -196,6 +223,32 @@ function PrintExamsContent() {
     void loadFridayTutorials();
   }, [category]);
 
+  useEffect(() => {
+    if (category !== "mock-exams") return;
+
+    async function loadMockExams() {
+      setLoading(true);
+      setMessage("");
+
+      try {
+        const resources = await getAllOfficialTeacherResourcesForAdmin();
+        setOfficialResources(resources);
+      } catch (error) {
+        console.error("Unable to load official Mock Exam resources:", error);
+        setOfficialResources([]);
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load official Mock Exam links."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadMockExams();
+  }, [category]);
+
   const levelParam = searchParams.get("level") || "";
   const selectedLevel = useMemo(
     () => levels.find((level) => String(level.id) === levelParam) || null,
@@ -219,6 +272,16 @@ function PrintExamsContent() {
         {}
       ),
     [fridayTutorials]
+  );
+  const mockExamGroups = useMemo(
+    () =>
+      MOCK_EXAM_LEVELS.map((level) => ({
+        level,
+        resources: officialResources.filter(
+          (resource) => isMockOneResource(resource) && getMockExamLevel(resource) === level
+        ),
+      })),
+    [officialResources]
   );
 
   const invalidLevelMessage =
@@ -261,7 +324,7 @@ function PrintExamsContent() {
             <CategoryCard
               href={getCategoryHref("mock-exams")}
               title="Mock Exams"
-              description="Printable Mock Exam papers will be available here soon."
+              description="Open the official Mock 1 links for B1, B2 and C1."
               icon={<Clock3 size={22} />}
             />
           </div>
@@ -282,7 +345,8 @@ function PrintExamsContent() {
               Mock Exams
             </h1>
             <p style={{ color: "#4b5563", margin: 0 }}>
-              Printable Mock Exam papers are coming soon.
+              Open the Mock 1 links saved in Official Resources for each
+              Cambridge level.
             </p>
             <Link
               href="/admin/print-class-exams"
@@ -297,6 +361,125 @@ function PrintExamsContent() {
               Back to Exam Categories
             </Link>
           </header>
+
+          {message && (
+            <div
+              style={{
+                background: "var(--ss-blue-light)",
+                border: "1px solid var(--ss-border)",
+                borderRadius: "10px",
+                color: "var(--ss-blue-dark)",
+                marginBottom: "18px",
+                padding: "12px 14px",
+              }}
+            >
+              {message}
+            </div>
+          )}
+
+          {loading ? (
+            <p style={{ color: "#4b5563" }}>Loading Mock Exam links...</p>
+          ) : mockExamGroups.every((group) => group.resources.length === 0) ? (
+            <section
+              style={{
+                background: "#ffffff",
+                border: "1px solid var(--ss-border)",
+                borderRadius: "14px",
+                padding: "24px",
+              }}
+            >
+              <p style={{ color: "#4b5563", margin: 0 }}>
+                No Mock 1 links for B1, B2 or C1 are available in Official
+                Resources.
+              </p>
+            </section>
+          ) : (
+            <div style={{ display: "grid", gap: "18px" }}>
+              {mockExamGroups.map((group) => (
+                <section
+                  key={group.level}
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid var(--ss-border)",
+                    borderRadius: "14px",
+                    padding: "22px",
+                  }}
+                >
+                  <h2
+                    style={{
+                      color: "var(--ss-blue-dark)",
+                      fontSize: "19px",
+                      margin: "0 0 14px",
+                    }}
+                  >
+                    {group.level}
+                  </h2>
+                  {group.resources.length === 0 ? (
+                    <p style={{ color: "#6b7280", margin: 0 }}>
+                      No Mock 1 link has been added for this level yet.
+                    </p>
+                  ) : (
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      {group.resources.map((resource) => (
+                        <article
+                          key={resource.id}
+                          style={{
+                            alignItems: "center",
+                            border: "1px solid var(--ss-border)",
+                            borderRadius: "12px",
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "14px",
+                            justifyContent: "space-between",
+                            padding: "14px 16px",
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <h3
+                              style={{
+                                color: "#111827",
+                                fontSize: "16px",
+                                margin: "0 0 4px",
+                              }}
+                            >
+                              {resource.title}
+                            </h3>
+                            {resource.description && (
+                              <p
+                                style={{
+                                  color: "#6b7280",
+                                  fontSize: "14px",
+                                  margin: 0,
+                                }}
+                              >
+                                {resource.description}
+                              </p>
+                            )}
+                          </div>
+                          <a
+                            href={resource.external_url || undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              background: "var(--ss-blue)",
+                              borderRadius: "8px",
+                              color: "#ffffff",
+                              fontWeight: 700,
+                              padding: "9px 12px",
+                              textDecoration: "none",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Open Mock 1
+                          </a>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+          )}
         </div>
       </AdminLayout>
     );
