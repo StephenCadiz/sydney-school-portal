@@ -15929,6 +15929,7 @@ img {
 
 .admin-students-danger-button {
   background: #b91c1c;
+  
   border-color: #b91c1c;
   color: #ffffff;
 }
@@ -31858,3 +31859,25 @@ html[data-pwa-viewport-locked] body {
   .display-presentation-controls { gap: 10px; }
   .display-progress-dots { gap: 4px; }
 }
+
+
+
+/* Distance-readable typography for presentation slides 02 and 06. */
+.display-slide--1 .display-content-slide h2 { max-width: 1500px; font-size: clamp(4rem, 7.2vw, 8.2rem); }
+.display-slide--1 .display-two-column { max-width: 1500px; gap: clamp(30px, 5vw, 90px); }
+.display-slide--1 .display-content-slide .display-lead { max-width: 1200px; font-size: clamp(1.7rem, 2.65vw, 2.8rem); line-height: 1.3; }
+.display-slide--1 .display-content-slide p:not(.display-lead) { max-width: 1200px; font-size: clamp(1.35rem, 1.95vw, 2.1rem); line-height: 1.35; }
+.display-slide--1 .display-feature-stack { gap: clamp(14px, 1.8vh, 24px); }
+.display-slide--1 .display-feature-stack > div { padding: clamp(18px, 2vw, 30px) clamp(20px, 2.2vw, 34px); }
+.display-slide--1 .display-feature-stack strong { font-size: clamp(1.65rem, 2.2vw, 2.35rem); }
+.display-slide--1 .display-feature-stack span { font-size: clamp(1.2rem, 1.55vw, 1.65rem); line-height: 1.3; }
+.display-slide--5 .display-content-slide h2 { max-width: 1500px; font-size: clamp(4rem, 7.8vw, 8.8rem); }
+.display-slide--5 .display-friday-live-card { width: min(100%, 1500px); max-width: 1500px; gap: clamp(24px, 3vw, 40px); padding: clamp(30px, 4vw, 60px); border-radius: 30px; }
+.display-slide--5 .display-friday-date { gap: 24px; padding-bottom: clamp(18px, 2vw, 28px); }
+.display-slide--5 .display-friday-date span { font-size: clamp(2rem, 3vw, 3.2rem); }
+.display-slide--5 .display-friday-date strong { font-size: clamp(2.5rem, 4.2vw, 4.8rem); }
+.display-slide--5 .display-friday-items { gap: clamp(16px, 2vw, 30px); }
+.display-slide--5 .display-friday-item { gap: 12px; padding: clamp(24px, 3vw, 42px); border-radius: 20px; }
+.display-slide--5 .display-friday-item strong { font-size: clamp(2.2rem, 3.6vw, 4.4rem); line-height: 1.08; }
+.display-slide--5 .display-friday-item span { font-size: clamp(2rem, 2.8vw, 3.1rem); }
+.display-slide--5 .display-friday-live-card small { font-size: clamp(1.2rem, 1.45vw, 1.55rem); }
