@@ -31902,3 +31902,11 @@ html[data-pwa-viewport-locked] body {
 .display-slide--4 .display-young-levels span:nth-child(3)::after { content: "Juniors · ages 8–12"; }
 .display-slide--4 .display-young-levels span:nth-child(n+4) { display: none; }
 .display-slide--4 .display-quote { max-width: 1250px; margin-top: clamp(6px, 1vh, 14px); }
+
+
+/* Serve the level artwork from the public root. */
+.display-slide--2 .display-pathway-grid--dynamic .display-pathway-card--young::after { background-image: url("/pre-kids.png"), url("/kids.png"), url("/juniors.png"); }
+.display-slide--2 .display-pathway-grid--dynamic .display-pathway-card--cambridge::after { background-image: url("/cambridge.png"), url("/cambridge-intensive.png"); }
+.display-slide--4 .display-young-levels span:nth-child(1) { background-image: url("/pre-kids.png"); }
+.display-slide--4 .display-young-levels span:nth-child(2) { background-image: url("/kids.png"); }
+.display-slide--4 .display-young-levels span:nth-child(3) { background-image: url("/juniors.png"); }
